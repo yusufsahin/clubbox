@@ -33,16 +33,23 @@ const CHECKLIST = [
   { id: 'read-chat', label: 'Read room messages', test: (ctx) => ctx.path.includes('get_channel_messages') || (ctx.path.includes('channel_message') && ctx.method === 'GET') },
   { id: 'send-chat', label: 'Send a room message', test: (ctx) => ctx.path.includes('send_channel_message') },
   { id: 'reaction', label: 'Send a reaction', test: (ctx) => /reaction|emoji/.test(ctx.path) },
-  { id: 'create-public', label: 'Create a public room', test: (ctx) => ctx.creating && ctx.privacy === 'public' },
-  { id: 'create-social', label: 'Create a social room', test: (ctx) => ctx.creating && ctx.privacy === 'social' },
-  { id: 'create-closed', label: 'Create a closed room', test: (ctx) => ctx.creating && ctx.privacy === 'closed' },
+  { id: 'create-friends', label: 'Create a friends-only room', test: (ctx) => ctx.creating && ctx.privacy === 'friends' },
+  { id: 'create-fof', label: 'Create a friends-of-friends room', test: (ctx) => ctx.creating && ctx.privacy === 'friends-of-friends' },
+  { id: 'create-house', label: 'Create a House room', test: (ctx) => ctx.creating && ctx.privacy === 'house' },
+  { id: 'replays-on', label: 'Replays on at creation', test: (ctx) => ctx.creating && ctx.replay === true },
+  { id: 'replays-off', label: 'Replays off at creation', test: (ctx) => ctx.creating && ctx.replay === false },
+  { id: 'chat-off', label: 'Chat off', test: (ctx) => ctx.chatEnabled === false },
+  { id: 'mute-all', label: 'Mute all speakers', test: (ctx) => /mute_all|mute_speakers|mute_everyone/.test(ctx.path) },
+  { id: 'delete-chat', label: 'Delete a chat message', test: (ctx) => /delete_.*message|remove_channel_message|delete_channel_message/.test(ctx.path) },
+  { id: 'mention', label: '@mention in room chat', test: (ctx) => ctx.mention },
+  { id: 'hide-room', label: 'Hide a room from the hallway', test: (ctx) => /hide_channel|hide_room|dismiss_feed/.test(ctx.path) },
   { id: 'end', label: 'End the room', test: (ctx) => /end_channel|end_room|close_channel|delete_channel/.test(ctx.path) },
   { id: 'activity', label: 'Open activity or notifications', test: (ctx) => /notification|\/activity|get_activities|actionable/.test(ctx.path) },
   { id: 'events', label: 'Open the events tab', test: (ctx) => /get_events|\/events|scheduled_event/.test(ctx.path) },
-  { id: 'messages', label: 'Open messages', test: (ctx) => /get_chats|get_inbox|chat_list|\/conversations|\/messages/.test(ctx.path) },
-  { id: 'dm', label: 'Open a DM', test: (ctx) => /get_conversation|conversation_messages|direct_message|get_dm/.test(ctx.path) },
-  { id: 'send-text', label: 'Send a text', test: (ctx) => /send_message|send_chat|send_dm|create_message/.test(ctx.path) && !ctx.path.includes('channel_message') },
-  { id: 'house-chat', label: 'Open a house chat', test: (ctx) => /house_chat|club_chat|social_club_message|social_club_chat/.test(ctx.path) },
+  { id: 'house-rsvp', label: 'House event RSVP', test: (ctx) => /rsvp|event_rsvp/.test(ctx.path) },
+  { id: 'vm-direct', label: 'VM 1:1', test: (ctx) => ctx.vm === 'direct' },
+  { id: 'vm-group', label: 'VM group', test: (ctx) => ctx.vm === 'group' },
+  { id: 'house-chat', label: 'House chat', test: (ctx) => /house_chat|club_chat|social_club_message|social_club_chat/.test(ctx.path) },
 ];
 
 let recorderWindow = null;
@@ -208,6 +215,10 @@ function startApiRecorder(hooks) {
       hand: handOf(body),
       creating: pathName.includes('create_channel'),
       privacy,
+      replay: boolField(body, ['is_replay_enabled', 'replay_enabled', 'replays']),
+      chatEnabled: boolField(body, ['is_chat_enabled', 'chat_enabled']),
+      mention: mentionOf(body),
+      vm: vmKind(pathName, body),
     };
   }
 
@@ -435,13 +446,37 @@ function field(body, keys) {
   return undefined;
 }
 
+function boolField(body, keys) {
+  const value = field(body, keys);
+  if (typeof value === 'boolean') return value;
+  if (value === 1 || value === '1' || value === 'true') return true;
+  if (value === 0 || value === '0' || value === 'false') return false;
+  return null;
+}
+
 function privacyOf(body) {
-  const value = field(body, ['privacy', 'privacy_level', 'visibility', 'room_privacy']);
-  const text = String(value ?? '').toLowerCase();
-  if (text === 'public' || text === 'open') return 'public';
-  if (text.includes('social')) return 'social';
-  if (text.includes('private') || text.includes('closed')) return 'closed';
+  const value = field(body, ['privacy', 'privacy_level', 'visibility', 'room_privacy', 'audience']);
+  const nested = body && typeof body === 'object' && body.privacy_settings && typeof body.privacy_settings === 'object'
+    ? body.privacy_settings.type
+    : undefined;
+  const text = `${value ?? ''} ${nested ?? ''}`.toLowerCase();
+  if (/friends?_of_friends|friend_of_friend/.test(text)) return 'friends-of-friends';
+  if (text.includes('friend')) return 'friends';
+  if (text.includes('house') || text.includes('social_club')) return 'house';
+  if (text.includes('public') || text.includes('interest') || text === 'open') return 'public';
   return '';
+}
+
+function mentionOf(body) {
+  const message = field(body, ['message', 'text', 'body']);
+  return typeof message === 'string' && /@\w/.test(message);
+}
+
+function vmKind(pathName, body) {
+  if (!/voice_message|send_vm|audio_message|vm_/.test(pathName)) return '';
+  const ids = body && Array.isArray(body.user_ids) ? body.user_ids.length : 0;
+  const group = boolField(body, ['is_group', 'group']) === true || ids > 1;
+  return group ? 'group' : 'direct';
 }
 
 function handOf(body) {
