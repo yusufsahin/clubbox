@@ -1182,6 +1182,20 @@ span.topic-chip {
   display: none;
 }
 
+.rec-banner {
+  background: #be123c;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-align: center;
+  padding: 8px 16px;
+}
+
+.rec-banner[hidden] {
+  display: none;
+}
+
 .cockpit-left {
   display: flex;
   align-items: center;

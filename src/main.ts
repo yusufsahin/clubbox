@@ -936,6 +936,7 @@ class ClubboxApp {
       }, 1000);
       this.showToast(t('recordingStarted'), '🔴');
       document.getElementById('recording-badge')?.removeAttribute('hidden');
+      this.syncRecBanner();
     } else {
       recBtn?.classList.remove('record-active');
       if (this.recordTimerInterval) {
@@ -944,6 +945,7 @@ class ClubboxApp {
       }
       if (recTimerEl) recTimerEl.textContent = 'REC';
       document.getElementById('recording-badge')?.setAttribute('hidden', '');
+      this.syncRecBanner();
 
       if (blobUrl) {
         this.showToast(t('recordingReady'), '💾');
@@ -1021,12 +1023,28 @@ class ClubboxApp {
     }
   }
 
+  private recordingAllowed(): boolean {
+    const channel = this.currentChannel;
+    if (!channel) return false;
+    if (clubhouseClient.getConfig().allowLocalRecording !== true) return false;
+    return channel.is_replay_enabled === true;
+  }
+
+  private syncRecBanner(): void {
+    const banner = document.getElementById('rec-banner');
+    if (!banner) return;
+    banner.hidden = !audioEngine.getIsRecording();
+    banner.textContent = t('recBanner');
+  }
+
   private toggleRecording() {
     const starting = !audioEngine.getIsRecording();
-    if (starting && this.currentChannel && !clubhouseClient.getConfig().useSandbox) {
-      const agreed = window.confirm(t('recordingConfirm'));
-      if (!agreed) return;
+    if (starting && !this.recordingAllowed()) {
+      const allowed = clubhouseClient.getConfig().allowLocalRecording === true;
+      this.showToast(t(allowed ? 'recordingNeedsReplay' : 'recordingNeedsConsent'), '🔴');
+      return;
     }
+    if (starting && !window.confirm(t('recordingConfirm'))) return;
     audioEngine.toggleRecording();
   }
 
@@ -1315,6 +1333,7 @@ class ClubboxApp {
     this.renderView();
     if (this.currentTab === 'settings') void this.fillAudioDevices();
     this.renderCockpit();
+    this.syncRecBanner();
     if (this.isProfileDrawerOpen) this.renderProfileDrawer();
   }
 
@@ -1322,7 +1341,7 @@ class ClubboxApp {
     if (document.getElementById('shell-sidebar')) return;
     const app = document.getElementById('app');
     if (!app) return;
-    app.innerHTML = '<aside class="sidebar" id="shell-sidebar"></aside><main class="studio-main"><header class="top-bar" id="shell-topbar"></header><div class="content-area" id="view-root"></div><div id="cockpit-root"></div></main>';
+    app.innerHTML = '<aside class="sidebar" id="shell-sidebar"></aside><main class="studio-main"><header class="top-bar" id="shell-topbar"></header><div class="rec-banner" id="rec-banner" hidden></div><div class="content-area" id="view-root"></div><div id="cockpit-root"></div></main>';
     this.bindEvents();
   }
 
@@ -1734,6 +1753,12 @@ class ClubboxApp {
       chatOpen: this.chatOpen,
       canChat: this.currentChannel?.is_chat_enabled !== false,
       canClip: this.clipsAllowed(),
+      canRecord: this.recordingAllowed(),
+      recordHint: this.recordingAllowed() || audioEngine.getIsRecording()
+        ? t('recordTitle')
+        : clubhouseClient.getConfig().allowLocalRecording === true
+          ? t('recordingNeedsReplay')
+          : t('recordingNeedsConsent'),
       micVolume: audioEngine.getMicVolume(),
       monitorEnabled: audioEngine.getMonitorEnabled(),
     });

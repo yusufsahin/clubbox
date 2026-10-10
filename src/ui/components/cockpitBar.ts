@@ -18,6 +18,8 @@ export interface CockpitState {
   chatOpen: boolean;
   canChat: boolean;
   canClip: boolean;
+  canRecord: boolean;
+  recordHint: string;
   micVolume: number;
   monitorEnabled: boolean;
 }
@@ -78,7 +80,7 @@ export function cockpitBar(state: CockpitState): SafeHtml {
             <span>${t('clip')}</span>
           </button>
         ` : ''}
-        <button class="toggle-state-btn ${state.recording ? 'record-active' : ''}" id="record-btn" data-action="toggle-record" title="${t('recordTitle')}">
+        <button class="toggle-state-btn ${state.recording ? 'record-active' : ''}" id="record-btn" data-action="toggle-record" title="${state.recordHint}" ${state.canRecord || state.recording ? '' : 'disabled'}>
           <span>🔴</span>
           <span id="record-timer">${t('recLabel')}</span>
         </button>
