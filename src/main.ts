@@ -1893,6 +1893,9 @@ class ClubboxApp {
   private async confirmCreateRoom(): Promise<void> {
     const topic = (document.getElementById('new-room-topic') as HTMLInputElement | null)?.value.trim();
     const privacy = (document.getElementById('new-room-privacy') as HTMLSelectElement | null)?.value;
+    const audience = privacy === 'friends' || privacy === 'friends-of-friends' || privacy === 'house' ? privacy : 'public';
+    const replayEnabled = (document.getElementById('new-room-replays') as HTMLInputElement | null)?.checked !== false;
+    const chatEnabled = (document.getElementById('new-room-chat') as HTMLInputElement | null)?.checked !== false;
     const confirmBtn = document.querySelector('[data-action="confirm-create"]') as HTMLButtonElement | null;
     if (!topic) {
       this.showToast(t('enterTopic'), '⚠️');
@@ -1905,8 +1908,9 @@ class ClubboxApp {
     }
     try {
       const newChan = await clubhouseClient.createChannel(topic, {
-        isPrivate: privacy === 'private',
-        isSocial: privacy === 'social',
+        audience,
+        replayEnabled,
+        chatEnabled,
       });
       this.channelsList.unshift(newChan);
       this.closeCreateModal();

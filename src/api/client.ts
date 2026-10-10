@@ -152,6 +152,9 @@ interface SandboxInput {
   topic?: string;
   isPrivate: boolean;
   isSocial: boolean;
+  audience?: string;
+  replayEnabled: boolean;
+  chatEnabled: boolean;
 }
 
 function readRequestBody(body: RequestBody | undefined): SandboxInput {
@@ -163,6 +166,9 @@ function readRequestBody(body: RequestBody | undefined): SandboxInput {
     topic: typeof record.topic === 'string' ? record.topic : undefined,
     isPrivate: record.is_private === true,
     isSocial: record.is_social_mode === true,
+    audience: typeof record.audience === 'string' ? record.audience : undefined,
+    replayEnabled: record.is_replay_enabled !== false,
+    chatEnabled: record.is_chat_enabled !== false,
   };
 }
 
@@ -739,13 +745,22 @@ export class ClubhouseApiClient {
       }
 
       case 'create_channel': {
+        const audience = input.audience === 'friends' || input.audience === 'friends-of-friends' || input.audience === 'house'
+          ? input.audience
+          : 'public';
+        const privacyType = audience === 'friends-of-friends' ? 'friends_of_friends' : audience;
         const newChan: CHChannel = {
           channel_id: 'ch-' + Date.now(),
           channel: 'room-' + Date.now(),
           topic: input.topic || 'Untitled Community Stage',
           club_name: 'Creator Stage',
-          is_private: input.isPrivate,
-          is_social_mode: input.isSocial,
+          is_private: false,
+          is_social_mode: false,
+          privacy_settings: { type: privacyType, display_text: audience, tooltip_text: audience },
+          privacy_tooltip: audience,
+          is_replay_enabled: input.replayEnabled,
+          is_chat_enabled: input.chatEnabled,
+          is_clips_enabled: false,
           num_speakers: 1,
           num_all: 1,
           users: [
@@ -964,18 +979,29 @@ export class ClubhouseApiClient {
 
   public async createChannel(
     topic: string,
-    options: { isPrivate?: boolean; isSocial?: boolean } = {}
+    options: {
+      audience?: 'public' | 'friends' | 'friends-of-friends' | 'house';
+      replayEnabled?: boolean;
+      chatEnabled?: boolean;
+    } = {}
   ): Promise<CHChannelDetail> {
-    return this.request('create_channel', {
+    const audience = options.audience ?? 'public';
+    const replayEnabled = options.replayEnabled !== false;
+    const chatEnabled = options.chatEnabled !== false;
+    const body = {
       topic,
-      is_private: !!options.isPrivate,
-      is_social_mode: !!options.isSocial,
-      is_public_room: !options.isPrivate && !options.isSocial,
-      is_chat_enabled: true,
-      is_replay_enabled: false,
-      user_ids: [],
-      topic_ids: [],
-    });
+      is_chat_enabled: chatEnabled,
+      is_replay_enabled: replayEnabled,
+      is_public_room: audience === 'public',
+      is_private: false,
+      is_social_mode: false,
+      user_ids: [] as number[],
+      topic_ids: [] as number[],
+    };
+    if (this.config.useSandbox) {
+      return this.handleSandboxRequest('create_channel', { ...body, audience });
+    }
+    return this.request('create_channel', body);
   }
 
   public async activePing(channelId: string): Promise<ApiAck> {

@@ -71,6 +71,7 @@ export function stageColumn(state: StageState): SafeHtml {
               </div>
               <span style="font-size:12px; color:var(--text-dim);">${state.audioDisconnected ? t('audioDisconnected') : t('roomAudio')}</span>
             </div>
+            ${state.moderator ? html`<p class="list-note">${t('moderatorToolsUnverified')}</p>` : ''}
 
             <div class="speakers-grid">
               ${speakers.map((speaker) => html`

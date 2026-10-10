@@ -25,10 +25,27 @@ export function mountCreateModal(titles: string[]): HTMLElement {
       <div class="form-group">
         <label class="form-label">${t('roomPrivacy')}</label>
         <select class="form-input" id="new-room-privacy">
-          <option value="public">🌐 ${t('privacyPublic')}</option>
-          <option value="social">👥 ${t('privacySocial')}</option>
-          <option value="private">🔒 ${t('privacyPrivate')}</option>
+          <option value="public">${t('privacyPublic')}</option>
+          <option value="friends">${t('privacyFriends')}</option>
+          <option value="friends-of-friends">${t('privacyFof')}</option>
+          <option value="house">${t('privacyHouse')}</option>
         </select>
+        <p class="list-note">${t('createAudienceNote')}</p>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">
+          <input type="checkbox" id="new-room-replays" checked />
+          ${t('replaysAtCreate')}
+        </label>
+        <p class="list-note">${t('replaysAtCreateHelp')}</p>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">
+          <input type="checkbox" id="new-room-chat" checked />
+          ${t('chatAtCreate')}
+        </label>
       </div>
 
       <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:24px;">
