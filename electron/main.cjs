@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, session, ipcMain, globalShortcut, shell } = require('electron');
+const { app, BrowserWindow, session, ipcMain, globalShortcut, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { pathToFileURL } = require('url');
@@ -456,61 +456,11 @@ app.on('will-quit', () => {
   globalShortcut.unregisterAll();
 });
 
-function setupAutoUpdate() {
-  // GitHub releases only. Dev and the portable exe stay on the version that was launched.
-  if (!app.isPackaged || process.env.PORTABLE_EXECUTABLE_DIR) return;
-  let autoUpdater;
-  try {
-    ({ autoUpdater } = require('electron-updater'));
-  } catch {
-    return;
-  }
-  autoUpdater.autoDownload = false;
-  autoUpdater.autoInstallOnAppQuit = true;
-  autoUpdater.on('error', () => {
-    // A missing release or a private repo should not interrupt the studio.
-  });
-  autoUpdater.on('update-available', (info) => {
-    const version = info && typeof info.version === 'string' ? info.version : '';
-    dialog
-      .showMessageBox({
-        type: 'info',
-        buttons: ['Download', 'Later'],
-        defaultId: 0,
-        cancelId: 1,
-        title: 'Clubbox update',
-        message: version ? `Version ${version} is available.` : 'An update is available.',
-      })
-      .then((result) => {
-        if (result.response === 0) autoUpdater.downloadUpdate().catch(() => {});
-      })
-      .catch(() => {});
-  });
-  autoUpdater.on('update-downloaded', (info) => {
-    const version = info && typeof info.version === 'string' ? info.version : '';
-    dialog
-      .showMessageBox({
-        type: 'info',
-        buttons: ['Restart', 'Later'],
-        defaultId: 0,
-        cancelId: 1,
-        title: 'Clubbox update',
-        message: version ? `Version ${version} is ready to install.` : 'The update is ready to install.',
-      })
-      .then((result) => {
-        if (result.response === 0) autoUpdater.quitAndInstall();
-      })
-      .catch(() => {});
-  });
-  autoUpdater.checkForUpdates().catch(() => {});
-}
-
 app.whenReady().then(() => {
   if (!hasSingleInstanceLock) return;
   const savedShortcuts = readShortcutFile();
   if (savedShortcuts) applyGlobalShortcuts(savedShortcuts);
   createWindow();
-  setupAutoUpdate();
   startRecorderIfAllowed(process.argv);
 
   app.on('activate', () => {

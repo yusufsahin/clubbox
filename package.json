@@ -63,14 +63,7 @@
     },
     "dmg": {
       "artifactName": "Clubbox-${version}.${ext}"
-    },
-    "publish": [
-      {
-        "provider": "github",
-        "owner": "yusufsahin",
-        "repo": "clubbox"
-      }
-    ]
+    }
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -85,7 +78,6 @@
     "vite": "^8.3.0"
   },
   "dependencies": {
-    "agora-rtc-sdk-ng": "^4.24.8",
-    "electron-updater": "^6.8.9"
+    "agora-rtc-sdk-ng": "^4.24.8"
   }
 }

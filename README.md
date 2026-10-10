@@ -3,6 +3,10 @@
 
 **Unofficial — not affiliated with Clubhouse or clubdeck.app.**
 
+## Status
+
+Personal, non-commercial, unofficial. Not affiliated with Clubhouse. Use at your own risk; it may violate the Clubhouse Community Guidelines (Scraping and Other Commercial Exploitation).
+
 Clubbox is an unofficial desktop studio for Clubhouse. Built with **Electron, Vite, TypeScript, and the Web Audio API**, it gives creators, hosts, musicians, and podcasters broadcast tools on the desktop.
 
 ---
@@ -25,9 +29,9 @@ Clubbox is an unofficial desktop studio for Clubhouse. Built with **Electron, Vi
 * **🔴 Stage Audio Recorder (Podcaster Mode):**
   * One-click stage recording using the `MediaRecorder` API (`R` hotkey).
   * Saves and downloads studio-grade Opus/WebM audio files ready for podcast distribution.
-* **🛡️ Dual API Runtime (Live + Sandbox):**
-  * **Live API Mode:** Connects to `https://www.clubhouseapi.com/api` with proper reverse-engineered headers.
-  * **Sandbox Mode:** Interactive simulated stages, speakers, and audience events for safe testing and demonstration without risk of Clubhouse rate limits or bans.
+* **🛡️ Live session + Sandbox:**
+  * **Live:** the desktop app uses a Clubhouse web session after you sign in on the official page.
+  * **Sandbox Mode:** Interactive simulated stages, speakers, and audience events for local testing.
 
 ---
 
