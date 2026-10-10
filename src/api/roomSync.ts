@@ -24,7 +24,7 @@ export class RoomSync implements RoomUpdateSource {
   private intervalMs: number;
   private flight = createSingleFlight();
 
-  constructor(intervalMs = 5000) {
+  constructor(intervalMs = 15000) {
     this.intervalMs = intervalMs;
   }
 

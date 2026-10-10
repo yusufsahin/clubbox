@@ -1,6 +1,8 @@
 import './style.css';
 import { ClubhouseApiError, clubhouseClient } from './api/client';
 import { beginJoin, commitJoin, emptyRoomSession, finishLeave, localClipAllowed, roleSyncDecision, roomAudience } from './api/guards';
+
+const CHAT_POLL_MS = 15_000;
 import { roomSync } from './api/roomSync';
 import { audioEngine } from './audio/audioEngine';
 import { readAudioPrefs, writeAudioPrefs, type AudioPrefs } from './audio/audioPrefs';
@@ -78,9 +80,7 @@ class ClubboxApp {
   private recordDurationSec: number = 0;
   private pingTimer: number | null = null;
   private chatTimer: number | null = null;
-  private exploreTimer: number | null = null;
   private activityTimer: number | null = null;
-  private meTimer: number | null = null;
   private roomTitleOptions: string[] = [];
   private notificationsEnabled: boolean | null = null;
   private soundEffectsEnabled: boolean | null = null;
@@ -144,7 +144,6 @@ class ClubboxApp {
       await clubhouseClient.adoptWebSession();
     }
     await this.refreshMe();
-    this.startMeRefresh();
 
     try {
       await this.reloadChannels();
@@ -192,9 +191,6 @@ class ClubboxApp {
 
     // Render even when the network failed so the shell is never blank.
     this.render();
-    if (this.currentTab === 'explore') {
-      this.startExploreRefresh();
-    }
 
   }
 
@@ -203,8 +199,6 @@ class ClubboxApp {
     this.authCleanupStarted = true;
     void this.releaseRoomLocally();
     this.stopActivityRefresh();
-    this.stopMeRefresh();
-    this.stopExploreRefresh();
     this.me = null;
     void clubhouseClient.updateConfig({ webSession: false });
     this.showToast(t('sessionExpired'), '🔑');
@@ -338,13 +332,8 @@ class ClubboxApp {
 
   private pausePolls(): void {
     this.pollsPaused = true;
-    this.stopMeRefresh();
     this.stopActivityRefresh();
-    this.stopExploreRefresh();
-    if (this.chatTimer !== null) {
-      window.clearInterval(this.chatTimer);
-      this.chatTimer = null;
-    }
+    this.stopChatPolling();
     roomSync.pause();
   }
 
@@ -352,7 +341,6 @@ class ClubboxApp {
     this.pollsPaused = false;
     if (this.me && this.currentTab !== 'login') {
       void this.refreshMe({ quiet: true });
-      this.startMeRefresh();
     }
     if (this.currentTab === 'activity') {
       void this.loadActivity();
@@ -360,16 +348,10 @@ class ClubboxApp {
     }
     if (this.currentTab === 'explore') {
       void this.refreshExplore();
-      this.startExploreRefresh();
     }
     if (!this.currentChannel) return;
     const channelId = this.channelApiId(this.currentChannel);
-    if (this.chatTimer === null) {
-      void this.refreshChat();
-      this.chatTimer = window.setInterval(() => {
-        void this.refreshChat();
-      }, 8000);
-    }
+    this.syncChatPolling();
     if (!roomSync.resume()) roomSync.start(channelId);
   }
 
@@ -392,25 +374,6 @@ class ClubboxApp {
     }
   }
 
-  private startMeRefresh(): void {
-    this.stopMeRefresh();
-    if (this.pollsPaused || !this.me) return;
-    this.meTimer = window.setInterval(() => {
-      if (!this.me || this.currentTab === 'login') {
-        this.stopMeRefresh();
-        return;
-      }
-      void this.refreshMe({ quiet: true });
-    }, 60000);
-  }
-
-  private stopMeRefresh(): void {
-    if (this.meTimer !== null) {
-      clearInterval(this.meTimer);
-      this.meTimer = null;
-    }
-  }
-
   private accountStamp(): string {
     return [
       this.unreadNotifications,
@@ -429,7 +392,6 @@ class ClubboxApp {
 
   private async finishSignIn(): Promise<void> {
     await this.refreshMe();
-    this.startMeRefresh();
     try {
       await this.reloadChannels();
     } catch (err) {
@@ -437,7 +399,6 @@ class ClubboxApp {
     }
     this.loginNotice = '';
     this.currentTab = 'explore';
-    this.startExploreRefresh();
     this.render();
     if (this.me) {
       this.showToast(t('signedInAs', { name: this.me.name }), '🔑');
@@ -517,6 +478,7 @@ class ClubboxApp {
   private startRoomPresence(channelId: string): void {
     this.stopRoomPresence();
     if (clubhouseClient.supports('active_ping')) {
+      // docs/api/web-api.md has no captured active_ping interval, so this stays at 30s.
       this.pingTimer = window.setInterval(() => {
         void clubhouseClient.activePing(channelId).catch((err) => {
           console.warn('[Clubbox] active_ping failed:', err);
@@ -524,10 +486,31 @@ class ClubboxApp {
       }, 30000);
     }
     if (this.pollsPaused) return;
+    this.syncChatPolling();
+    roomSync.start(channelId);
+  }
+
+  private stopChatPolling(): void {
+    if (this.chatTimer !== null) {
+      clearInterval(this.chatTimer);
+      this.chatTimer = null;
+    }
+  }
+
+  private syncChatPolling(): void {
+    const open = !!this.currentChannel
+      && !this.pollsPaused
+      && this.chatOpen
+      && this.currentChannel.is_chat_enabled !== false;
+    if (!open) {
+      this.stopChatPolling();
+      return;
+    }
+    if (this.chatTimer !== null) return;
+    void this.refreshChat();
     this.chatTimer = window.setInterval(() => {
       void this.refreshChat();
-    }, 8000);
-    roomSync.start(channelId);
+    }, CHAT_POLL_MS);
   }
 
   private stopRoomPresence(): void {
@@ -535,10 +518,7 @@ class ClubboxApp {
       clearInterval(this.pingTimer);
       this.pingTimer = null;
     }
-    if (this.chatTimer !== null) {
-      clearInterval(this.chatTimer);
-      this.chatTimer = null;
-    }
+    this.stopChatPolling();
     roomSync.stop();
   }
 
@@ -629,25 +609,6 @@ class ClubboxApp {
   private isMeModerator(): boolean {
     if (!this.currentChannel || !this.me) return false;
     return this.currentChannel.users.some((user) => user.user_id === this.me?.user_id && !!user.is_moderator);
-  }
-
-  private startExploreRefresh(): void {
-    this.stopExploreRefresh();
-    if (this.pollsPaused) return;
-    this.exploreTimer = window.setInterval(() => {
-      if (this.currentTab !== 'explore') {
-        this.stopExploreRefresh();
-        return;
-      }
-      void this.refreshExplore();
-    }, 60000);
-  }
-
-  private stopExploreRefresh(): void {
-    if (this.exploreTimer !== null) {
-      clearInterval(this.exploreTimer);
-      this.exploreTimer = null;
-    }
   }
 
   private async refreshExplore(): Promise<void> {
@@ -1922,10 +1883,9 @@ class ClubboxApp {
       if (tab === 'explore') {
         this.currentTab = 'explore';
         this.render();
-        this.startExploreRefresh();
+        void this.refreshExplore();
         this.stopActivityRefresh();
       } else {
-        this.stopExploreRefresh();
         this.currentTab = tab;
         if (tab === 'stage') this.unreadChat = 0;
         this.render();
@@ -1943,7 +1903,6 @@ class ClubboxApp {
     switch (action) {
       case 'sidebar-user':
         if (!this.me) {
-          this.stopExploreRefresh();
           this.currentTab = 'login';
           this.render();
         } else {
@@ -2041,10 +2000,9 @@ class ClubboxApp {
         break;
       case 'minimize-room':
         if (!this.currentChannel) return;
-        this.stopExploreRefresh();
         this.currentTab = 'explore';
         this.render();
-        this.startExploreRefresh();
+        void this.refreshExplore();
         break;
       case 'toggle-chat':
         if (!this.currentChannel) return;
@@ -2059,6 +2017,7 @@ class ClubboxApp {
           this.unreadChat = 0;
           this.chatOpen = true;
         }
+        this.syncChatPolling();
         this.render();
         break;
       case 'send-chat':
@@ -2141,7 +2100,6 @@ class ClubboxApp {
       }
       case 'open-login':
       case 'open-official-signin':
-        this.stopExploreRefresh();
         void this.openOfficialSignIn();
         break;
       case 'save-settings':
