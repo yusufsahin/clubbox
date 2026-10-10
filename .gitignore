@@ -1,4 +1,15 @@
-# Logs
+# Dependencies
+node_modules
+
+# Vite build (electron loads dist/index.html)
+dist
+dist-ssr
+.vite
+
+# TypeScript
+*.tsbuildinfo
+
+# Logs — includes electron_stdout.log and electron_stderr.log
 logs
 *.log
 npm-debug.log*
@@ -7,18 +18,24 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
+# Secrets and local env (auth token, Agora credentials)
+.env
+.env.*
+!.env.example
 *.local
 
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
 .idea
-.DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+
+# OS
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
