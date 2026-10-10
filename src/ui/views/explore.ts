@@ -24,7 +24,12 @@ function roomSpeakers(channel: CHChannel) {
   return speakers.length > 0 ? speakers : channel.users;
 }
 
-export function exploreView(channels: CHChannel[], topics: FeedTopic[], notices: string[]): SafeHtml {
+export function exploreView(
+  channels: CHChannel[],
+  topics: FeedTopic[],
+  notices: string[],
+  access: { canJoin: boolean; canCreate: boolean },
+): SafeHtml {
   return html`
     <div style="max-width:1100px; margin:0 auto;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
@@ -52,8 +57,9 @@ export function exploreView(channels: CHChannel[], topics: FeedTopic[], notices:
           const shown = speakers.slice(0, 6);
           const extra = speakers.length - shown.length;
           const talking = speakers.filter((user) => user.is_speaking).map((user) => user.name).filter(Boolean);
+          const channelId = ch.channel || ch.channel_id;
           return html`
-          <div class="room-card ${ch.visited ? 'is-visited' : ''}" data-action="join-room" data-channel-id="${ch.channel || ch.channel_id}">
+          <div class="room-card ${ch.visited ? 'is-visited' : ''}" ${access.canJoin ? html`data-action="join-room" data-channel-id="${channelId}"` : ''}>
             <div>
               <div class="room-card-header">
                 <span class="room-card-club">${housePhoto(ch)} ${ch.club_name || 'Clubhouse'}</span>
@@ -80,9 +86,13 @@ export function exploreView(channels: CHChannel[], topics: FeedTopic[], notices:
                 </div>
               </div>
               ${talking.length > 0 ? html`<div class="room-card-speaking">${t('speakingNow', { names: talking.join(', ') })}</div>` : ''}
-              <button class="btn btn-secondary" style="width:100%;" data-action="join-room" data-channel-id="${ch.channel || ch.channel_id}">
-                ${t('joinStage')}
-              </button>
+              ${access.canJoin ? html`
+                <button class="btn btn-secondary" style="width:100%;" data-action="join-room" data-channel-id="${channelId}">
+                  ${t('joinStage')}
+                </button>
+              ` : html`
+                <button class="btn btn-secondary" style="width:100%;" type="button" disabled title="${t('notVerifiedHint')}">${t('notVerifiedYet')}</button>
+              `}
               ${safeUrl(ch.url) ? html`<button class="btn btn-secondary room-share" type="button" data-action="copy-room-link" data-channel-id="${ch.channel || ch.channel_id}">${t('copyLink')}</button>` : ''}
             </div>
           </div>
@@ -90,7 +100,11 @@ export function exploreView(channels: CHChannel[], topics: FeedTopic[], notices:
         })}
       </div>
       `}
-      <button class="host-room-fab btn btn-primary" type="button" data-action="create-room">➕ ${t('startRoom')}</button>
+      ${access.canCreate ? html`
+        <button class="host-room-fab btn btn-primary" type="button" data-action="create-room">➕ ${t('startRoom')}</button>
+      ` : html`
+        <button class="host-room-fab btn btn-secondary" type="button" disabled title="${t('notVerifiedHint')}">${t('notVerifiedYet')}</button>
+      `}
     </div>
   `;
 }

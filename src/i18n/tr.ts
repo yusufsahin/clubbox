@@ -264,6 +264,8 @@ export const tr: Record<MessageKey, string> = {
   shortcutFailed: 'Bir kısayol kaydedilemedi',
   shortcutNeedsModifier: 'Alt, Shift veya Ctrl basılı tut, ya da bir işlev tuşu kullan',
   unverifiedAction: 'Bu işlem tanımlı ama bir kayıtla doğrulanmadı. Denemek için Ayarlar’dan geliştirici işlemlerini açın.',
+  notVerifiedYet: 'Henüz doğrulanmadı',
+  notVerifiedHint: 'Bu çağrı henüz bir kayıtta yok. docs/api/web-api.md dosyasına bakın.',
   unsupportedAction: 'Bu işlem için kayıtlı veya tanımlı bir istek yok.',
   allowUnverified: 'Geliştirici: doğrulanmamış oda işlemlerini aç',
   allowUnverifiedHelp: 'Katılma, ayrılma, el kaldırma, davet ve sohbet gönderme bir kayıt doğrulayana kadar kapalı kalır. Sandbox canlı kanıt değildir.',

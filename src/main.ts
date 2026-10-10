@@ -1467,10 +1467,17 @@ class ClubboxApp {
             <span class="count-badge">${audioEngine.soundEffects.length}</span>
           </div>
 
-          <div class="nav-item" data-action="create-room">
-            <span class="icon">➕</span>
-            <span>${t('startRoom')}</span>
-          </div>
+          ${clubhouseClient.supports('create_channel') ? html`
+            <div class="nav-item" data-action="create-room">
+              <span class="icon">➕</span>
+              <span>${t('startRoom')}</span>
+            </div>
+          ` : html`
+            <div class="nav-item" title="${t('notVerifiedHint')}">
+              <span class="icon">➕</span>
+              <span>${t('notVerifiedYet')}</span>
+            </div>
+          `}
 
           <div class="nav-item ${this.currentTab === 'settings' ? 'active' : ''}" data-action="nav" data-tab="settings">
             <span class="icon">⚙️</span>
@@ -1534,7 +1541,11 @@ class ClubboxApp {
               <button class="btn btn-secondary" data-action="share-room">🔗 ${t('link')}</button>
               <button class="btn btn-danger" data-action="leave-room">${t('leaveQuietly')}</button>
             ` : html`
-              <button class="btn btn-primary" data-action="create-room">➕ ${t('startRoom')}</button>
+              ${clubhouseClient.supports('create_channel') ? html`
+                <button class="btn btn-primary" data-action="create-room">➕ ${t('startRoom')}</button>
+              ` : html`
+                <button class="btn btn-secondary" type="button" disabled title="${t('notVerifiedHint')}">${t('notVerifiedYet')}</button>
+              `}
             `}
           </div>
     `);
@@ -1753,7 +1764,10 @@ class ClubboxApp {
   }
 
   private renderExploreView(): ReturnType<typeof html> {
-    return exploreView(this.channelsList, this.feedTopics, this.hallwayNotices());
+    return exploreView(this.channelsList, this.feedTopics, this.hallwayNotices(), {
+      canJoin: clubhouseClient.supports('join_channel'),
+      canCreate: clubhouseClient.supports('create_channel'),
+    });
   }
 
   private hallwayNotices(): string[] {
@@ -1761,6 +1775,7 @@ class ClubboxApp {
     if (this.needsAgeVerification) notices.push(t('ageCheck'));
     if (this.isOnboarding) notices.push(t('onboardingNote'));
     if (this.publicHallway === false) notices.push(t('hallwayHidden'));
+    if (!clubhouseClient.supports('join_channel')) notices.push(t('notVerifiedHint'));
     return notices;
   }
 

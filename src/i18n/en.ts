@@ -262,6 +262,8 @@ export const en = {
   shortcutFailed: 'One shortcut could not be registered',
   shortcutNeedsModifier: 'Hold Alt, Shift, or Ctrl, or use a function key',
   unverifiedAction: 'This action is configured but not verified by a capture yet. Turn on developer actions in Settings to try it.',
+  notVerifiedYet: 'Not verified yet',
+  notVerifiedHint: 'This call is not in a captured session yet. See docs/api/web-api.md.',
   unsupportedAction: 'This action has no captured or configured request.',
   allowUnverified: 'Developer: allow unverified room actions',
   allowUnverifiedHelp: 'Join, leave, hand raise, invites, and chat send stay off until a capture verifies them. Sandbox is not live proof.',
