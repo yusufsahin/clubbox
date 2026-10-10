@@ -1,10 +1,12 @@
-const { app, BrowserWindow, dialog, session, ipcMain, safeStorage, globalShortcut } = require('electron');
+const { app, BrowserWindow, dialog, session, ipcMain, safeStorage, globalShortcut, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { pathToFileURL } = require('url');
 const { startApiRecorder } = require('./apiRecorder.cjs');
 const { isAllowedEndpoint, isPlainPayload, pickHeaders } = require('./ipcGuard.cjs');
 
 const REQUEST_TIMEOUT_MS = 20000;
+const DEV_SERVER_ORIGIN = 'http://localhost:5173';
 
 const CH_WEB_APP_VERSION = '22.2.0';
 const RECAPTCHA_SITE_KEY_FALLBACK = '6Lf8IJcsAAAAAHr6Puq4KiD0A7jnz0ndgJUihuN2';
@@ -16,6 +18,36 @@ if (process.platform === 'win32') {
 
 let mainWindow = null;
 
+function appIndexUrl() {
+  return pathToFileURL(path.join(__dirname, '../dist/index.html'));
+}
+
+function isAppDocumentUrl(target) {
+  if (typeof target !== 'string' || !target) return false;
+  let url;
+  try {
+    url = new URL(target);
+  } catch {
+    return false;
+  }
+  if (!app.isPackaged && url.origin === DEV_SERVER_ORIGIN) return true;
+  const index = appIndexUrl();
+  return url.protocol === 'file:' && decodeURIComponent(url.pathname) === decodeURIComponent(index.pathname);
+}
+
+function isClubhouseHttps(target) {
+  let url;
+  try {
+    url = new URL(target);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== 'https:') return false;
+  if (url.username || url.password) return false;
+  const host = url.hostname.toLowerCase();
+  return host === 'clubhouse.com' || host.endsWith('.clubhouse.com');
+}
+
 function isTrustedSender(event) {
   if (!mainWindow || mainWindow.isDestroyed()) return false;
   const contents = mainWindow.webContents;
@@ -24,6 +56,7 @@ function isTrustedSender(event) {
   const frame = event.senderFrame;
   if (!frame) return false;
   if (contents.mainFrame && frame !== contents.mainFrame) return false;
+  if (!isAppDocumentUrl(frame.url)) return false;
   return true;
 }
 let tokenCaptureWindow = null;
@@ -76,17 +109,28 @@ function createWindow() {
     console.error('[Electron] Failed to load URL:', validatedURL, errorCode, errorDescription);
   });
 
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (!isAppDocumentUrl(url)) event.preventDefault();
+  });
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (isClubhouseHttps(url)) {
+      shell.openExternal(url).catch(() => {});
+    }
+    return { action: 'deny' };
+  });
+
   const distPath = path.join(__dirname, '../dist/index.html');
-  const devUrl = 'http://localhost:5173';
 
   if (fs.existsSync(distPath)) {
     console.log('[Electron] Loading dist file:', distPath);
     mainWindow.loadFile(distPath).catch(() => {
-      mainWindow.loadURL(devUrl);
+      if (!app.isPackaged) mainWindow.loadURL(DEV_SERVER_ORIGIN);
     });
+  } else if (!app.isPackaged) {
+    console.log('[Electron] Loading dev server:', DEV_SERVER_ORIGIN);
+    mainWindow.loadURL(DEV_SERVER_ORIGIN);
   } else {
-    console.log('[Electron] Loading dev server:', devUrl);
-    mainWindow.loadURL(devUrl);
+    console.error('[Electron] Packaged app is missing dist/index.html');
   }
 
   // Force window to appear on top and gain focus immediately
