@@ -52,8 +52,6 @@ export const tr: Record<MessageKey, string> = {
   liveMode: 'Canlı Clubhouse API kipi',
   liveModeHelp: '(https://www.clubhouseapi.com/api adresine bağlanır)',
   headersTitle: 'API ağ geçidi ve başlıklar',
-  baseUrl: 'Temel API adresi',
-  corsProxy: 'CORS vekili (tarayıcı istemcileri için isteğe bağlı)',
   appBuild: 'CH-AppBuild başlığı',
   appVersion: 'CH-AppVersion başlığı',
   authToken: 'Yetki jetonu (/complete_phone_number_auth)',

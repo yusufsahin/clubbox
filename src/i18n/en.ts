@@ -50,8 +50,6 @@ export const en = {
   liveMode: 'Live Clubhouse API Mode',
   liveModeHelp: '(Connects to https://www.clubhouseapi.com/api)',
   headersTitle: 'API Gateway & Reverse Engineering Headers',
-  baseUrl: 'Base API URL',
-  corsProxy: 'CORS Proxy (Optional for web browser clients)',
   appBuild: 'CH-AppBuild Header',
   appVersion: 'CH-AppVersion Header',
   authToken: 'Authorization Token (from /complete_phone_number_auth)',

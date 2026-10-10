@@ -2364,8 +2364,6 @@ class ClubboxApp {
   }
 
   private async saveSettings(): Promise<void> {
-    const baseUrl = (document.getElementById('cfg-base-url') as HTMLInputElement)?.value;
-    const corsProxy = (document.getElementById('cfg-cors-proxy') as HTMLInputElement)?.value;
     const appBuild = (document.getElementById('cfg-app-build') as HTMLInputElement)?.value;
     const appVersion = (document.getElementById('cfg-app-version') as HTMLInputElement)?.value;
     const authToken = (document.getElementById('cfg-auth-token') as HTMLInputElement)?.value.trim();
@@ -2380,8 +2378,6 @@ class ClubboxApp {
       await this.leaveRoom({ silent: true });
     }
     await clubhouseClient.updateConfig({
-      baseUrl,
-      corsProxy,
       appBuild,
       appVersion,
       ...(authToken ? { authToken } : {}),

@@ -106,16 +106,6 @@ export function settingsView(config: ClubhouseConfig, isElectron: boolean, short
       <div style="background:var(--bg-card); border:1px solid var(--border-subtle); border-radius:var(--radius-lg); padding:24px; margin-bottom:20px;">
         <h3 style="font-size:16px; font-weight:700; margin-bottom:16px;">${t('headersTitle')}</h3>
 
-        <div class="form-group">
-          <label class="form-label">${t('baseUrl')}</label>
-          <input class="form-input" id="cfg-base-url" value="${config.baseUrl}" />
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">${t('corsProxy')}</label>
-          <input class="form-input" id="cfg-cors-proxy" placeholder="e.g. https://cors-anywhere.herokuapp.com" value="${config.corsProxy}" />
-        </div>
-
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
           <div class="form-group">
             <label class="form-label">${t('appBuild')}</label>

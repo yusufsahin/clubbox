@@ -4,6 +4,36 @@ import { INITIAL_MOCK_CHANNELS, MOCK_ME, SANDBOX_CHAT_MESSAGES, sandboxUserIds }
 import type { CHAuthResponse, CHChannel, CHChannelDetail, CHChatMessage, CHConversation, CHUser, FeedTopic, MeSettings } from './types';
 
 const REQUEST_TIMEOUT_MS = 20000;
+const OFFICIAL_WEB_API = 'https://www.clubhouse.com/web_api';
+const OFFICIAL_MOBILE_API = 'https://www.clubhouseapi.com/api';
+
+function browserRequestUrl(endpoint: string): string {
+  const name = endpoint.replace(/^\//, '');
+  if (
+    name === 'start_phone_number_web_auth' ||
+    name === 'complete_phone_number_web_auth' ||
+    name === 'resend_phone_number_auth'
+  ) {
+    return `${OFFICIAL_WEB_API}/${name}`;
+  }
+  return `${OFFICIAL_MOBILE_API}/${name}`;
+}
+
+function headersForBrowser(headers: Record<string, string>, url: string): Record<string, string> {
+  const parsed = new URL(url);
+  const localhost = parsed.protocol === 'http:' && parsed.hostname === 'localhost';
+  if (localhost) {
+    const next = { ...headers };
+    delete next.Authorization;
+    return next;
+  }
+  const official = parsed.protocol === 'https:'
+    && (parsed.hostname === 'www.clubhouse.com' || parsed.hostname === 'www.clubhouseapi.com');
+  if (!official) {
+    throw new Error('Browser requests only go to Clubhouse or localhost');
+  }
+  return headers;
+}
 
 function withTimeout<T>(work: Promise<T>, endpoint: string): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -29,8 +59,6 @@ export class ClubhouseApiError extends Error {
 }
 
 export interface ClubhouseConfig {
-  baseUrl: string;
-  corsProxy: string;
   authToken: string | null;
   userId: number | null;
   deviceId: string;
@@ -46,8 +74,6 @@ export interface ClubhouseConfig {
 }
 
 const DEFAULT_CONFIG: ClubhouseConfig = {
-  baseUrl: 'https://www.clubhouseapi.com/api',
-  corsProxy: '', // If empty, direct fetch or sandbox
   authToken: null,
   userId: null,
   deviceId: 'clubbox-' + Math.random().toString(36).substring(2, 12),
@@ -107,7 +133,10 @@ function readSavedConfig(): Partial<ClubhouseConfig> {
   if (!raw) return {};
   try {
     const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === 'object' ? parsed : {};
+    if (!parsed || typeof parsed !== 'object') return {};
+    delete parsed.baseUrl;
+    delete parsed.corsProxy;
+    return parsed;
   } catch {
     return {};
   }
@@ -544,21 +573,10 @@ export class ClubhouseApiClient {
         return this.parseLiveResponse<T>(endpoint, result.status, result.body, result.ok);
       }
 
-      let url = `${this.config.baseUrl}/${endpoint.replace(/^\//, '')}`;
-      if (endpoint === 'start_phone_number_web_auth') {
-        url = 'https://www.clubhouse.com/web_api/start_phone_number_web_auth';
-      } else if (endpoint === 'complete_phone_number_web_auth') {
-        url = 'https://www.clubhouse.com/web_api/complete_phone_number_web_auth';
-      } else if (endpoint === 'resend_phone_number_auth') {
-        url = 'https://www.clubhouse.com/web_api/resend_phone_number_auth';
-      }
-      if (this.config.corsProxy) {
-        url = `${this.config.corsProxy.replace(/\/$/, '')}/${url}`;
-      }
-
+      const url = browserRequestUrl(endpoint);
       const response = await fetch(url, {
         method: 'POST',
-        headers,
+        headers: headersForBrowser(headers, url),
         body: body ? JSON.stringify(body) : undefined,
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
