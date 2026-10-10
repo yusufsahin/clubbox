@@ -11,6 +11,9 @@ const { createRedactor, outputHasLeak } = require('./redact.cjs');
 const PAGE_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
 const CHECKLIST = [
+  { id: 'smoke-open', group: 'Room smoke test', label: 'Open a public room from the web hallway', test: (ctx) => ctx.path.includes('join_channel') },
+  { id: 'smoke-listen', group: 'Room smoke test', label: 'Listen for 30 seconds', test: () => false },
+  { id: 'smoke-leave', group: 'Room smoke test', label: 'Leave the room', test: (ctx) => ctx.path.includes('leave_channel') },
   { id: 'home', label: 'Open home feed', test: (ctx) => ctx.path.includes('feed') },
   { id: 'topic', label: 'Switch topic chip', test: (ctx) => ctx.path.includes('feed') && ctx.topicChanged },
   { id: 'search-open', label: 'Open search', test: (ctx) => ctx.path.includes('search') },
