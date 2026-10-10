@@ -72,9 +72,13 @@ function startApiRecorder(hooks) {
   const finalized = new Set();
   const sockets = new Map();
   const done = new Set();
+  const hinted = new Set();
+  const notes = new Map();
   const seen = [];
   let lastTopic;
   let overlayQueued = false;
+  let selectedId = CHECKLIST[0] ? CHECKLIST[0].id : '';
+  let active = null;
 
   const win = new BrowserWindow({
     width: 1280,
@@ -92,6 +96,11 @@ function startApiRecorder(hooks) {
   hooks?.onWindow(win);
 
   function writeRecord(record) {
+    if (active) {
+      record.label = active.id;
+      const note = notes.get(active.id);
+      if (note) record.note = note;
+    }
     const safe = redactor.redact(record, { preserveKeys: ['agoraAppId'] });
     const line = JSON.stringify(safe);
     if (outputHasLeak(line)) {
@@ -116,20 +125,62 @@ function startApiRecorder(hooks) {
     }, 200);
   }
 
+  function handleOverlayCommand(payload) {
+    let message;
+    try {
+      message = JSON.parse(String(payload || ''));
+    } catch {
+      return;
+    }
+    if (!message || typeof message !== 'object') return;
+    if (message.type === 'select' && CHECKLIST.some((item) => item.id === message.id)) {
+      selectedId = message.id;
+    }
+    if (message.type === 'note' && active && typeof message.text === 'string') {
+      notes.set(active.id, message.text.slice(0, 240));
+      return;
+    }
+    if (message.type === 'start' && !active && selectedId) {
+      const item = CHECKLIST.find((entry) => entry.id === selectedId);
+      if (!item) return;
+      active = { id: item.id, label: item.label };
+      win.setTitle(`Clubbox API recorder — ${item.label}`);
+    }
+    if (message.type === 'done' && active) {
+      writeRecord({ type: 'action', event: 'done', label: active.id });
+      done.add(active.id);
+      active = null;
+      win.setTitle('Clubbox API recorder');
+    }
+    scheduleOverlay();
+  }
+
   async function pushOverlay() {
     if (win.isDestroyed()) return;
     const state = {
       fileName: path.basename(capturePath),
-      items: CHECKLIST.map((item) => ({ id: item.id, label: item.label, done: done.has(item.id) })),
+      activeId: active ? active.id : '',
+      selectedId,
+      note: active ? (notes.get(active.id) || '') : '',
+      items: CHECKLIST.map((item) => ({
+        id: item.id,
+        group: item.group || 'Checklist',
+        label: item.label,
+        done: done.has(item.id),
+        hint: hinted.has(item.id),
+      })),
       seen: seen.slice(-8),
     };
     const script = `(() => {
       const state = ${JSON.stringify(state)};
+      const send = (message) => {
+        if (typeof window.clubboxRecorder === 'function') window.clubboxRecorder(JSON.stringify(message));
+      };
       let panel = document.getElementById('clubbox-api-recorder');
       if (!panel) {
         panel = document.createElement('aside');
         panel.id = 'clubbox-api-recorder';
-        panel.style.cssText = 'position:fixed;top:12px;right:12px;z-index:2147483647;width:320px;max-height:70vh;overflow:auto;background:#12151c;color:#f4f6fb;font:12px/1.4 Segoe UI,sans-serif;border:1px solid #2a3142;border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.35);padding:12px;';
+        panel.style.cssText = 'position:fixed;top:12px;right:12px;z-index:2147483647;width:360px;max-height:80vh;overflow:auto;background:#12151c;color:#f4f6fb;font:12px/1.4 Segoe UI,sans-serif;border:1px solid #2a3142;border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.35);padding:12px;';
         document.documentElement.appendChild(panel);
       }
       panel.replaceChildren();
@@ -137,27 +188,48 @@ function startApiRecorder(hooks) {
       title.textContent = 'Clubbox API recorder';
       title.style.cssText = 'font-weight:700;font-size:13px;margin-bottom:4px;';
       const help = document.createElement('p');
-      help.textContent = 'Sign in on this page yourself. Clubbox does not ask for your number or code. Captures are redacted and stay on this computer.';
+      help.textContent = 'Pick the next action, press Start, do it on this page, then press Done. A green box is only a hint.';
       help.style.cssText = 'margin:0 0 8px;color:#b7c0d4;';
       const file = document.createElement('div');
       file.textContent = state.fileName;
       file.style.cssText = 'margin-bottom:8px;color:#8ea0c0;word-break:break-all;';
       panel.append(title, help, file);
-      const doneCount = state.items.filter((item) => item.done).length;
-      const summary = document.createElement('div');
-      summary.textContent = doneCount + ' / ' + state.items.length + ' checklist items seen';
-      summary.style.cssText = 'margin-bottom:8px;font-weight:650;';
-      panel.append(summary);
+      const banner = document.createElement('div');
+      const current = state.items.find((item) => item.id === state.activeId);
+      banner.textContent = current ? ('Recording: ' + current.label) : 'Not recording a labeled action';
+      banner.style.cssText = 'margin-bottom:8px;padding:8px;border-radius:8px;background:' + (current ? '#3b0764' : '#1c2230') + ';font-weight:700;';
+      panel.append(banner);
+      const action = document.createElement('button');
+      action.type = 'button';
+      action.textContent = state.activeId ? 'Done' : 'Start';
+      action.disabled = !state.activeId && !state.selectedId;
+      action.style.cssText = 'width:100%;margin-bottom:8px;padding:10px;border:0;border-radius:8px;background:#7c3aed;color:#fff;font-weight:700;cursor:pointer;';
+      action.addEventListener('click', () => send({ type: state.activeId ? 'done' : 'start' }));
+      panel.append(action);
+      if (state.activeId) {
+        const note = document.createElement('textarea');
+        note.value = state.note;
+        note.maxLength = 240;
+        note.placeholder = 'Note, for example: room was public, I was moderator';
+        note.style.cssText = 'width:100%;min-height:52px;margin-bottom:8px;box-sizing:border-box;background:#0c0e14;color:#f4f6fb;border:1px solid #2a3142;border-radius:8px;padding:6px;';
+        note.addEventListener('input', () => send({ type: 'note', text: note.value }));
+        panel.append(note);
+      }
+      let lastGroup = '';
       for (const item of state.items) {
-        const row = document.createElement('label');
-        row.style.cssText = 'display:flex;gap:8px;align-items:flex-start;margin:2px 0;color:' + (item.done ? '#34d399' : '#d5dbe8') + ';';
-        const box = document.createElement('input');
-        box.type = 'checkbox';
-        box.disabled = true;
-        box.checked = item.done;
-        const text = document.createElement('span');
-        text.textContent = item.label;
-        row.append(box, text);
+        if (item.group !== lastGroup) {
+          lastGroup = item.group;
+          const heading = document.createElement('div');
+          heading.textContent = item.group;
+          heading.style.cssText = 'margin:10px 0 4px;font-weight:700;color:#c4b5fd;';
+          panel.append(heading);
+        }
+        const row = document.createElement('button');
+        row.type = 'button';
+        const selected = item.id === state.selectedId;
+        row.style.cssText = 'display:block;width:100%;text-align:left;margin:2px 0;padding:4px 6px;border-radius:6px;border:1px solid ' + (selected ? '#7c3aed' : 'transparent') + ';background:transparent;color:' + (item.done ? '#34d399' : '#d5dbe8') + ';cursor:pointer;';
+        row.textContent = (item.done ? '✓ ' : '○ ') + item.label + (item.hint ? ' — looks like it matched' : '');
+        row.addEventListener('click', () => send({ type: 'select', id: item.id }));
         panel.append(row);
       }
       if (state.seen.length) {
@@ -184,14 +256,20 @@ function startApiRecorder(hooks) {
     const pathname = url.pathname;
     rememberPath(pathname);
     const ctx = requestContext(method, pathname, url, body);
-    const actions = [];
+    const hints = [];
     for (const item of CHECKLIST) {
-      if (!item.test(ctx)) continue;
-      actions.push(item.label);
-      done.add(item.id);
+      let matched = false;
+      try {
+        matched = !!item.test(ctx);
+      } catch {
+        matched = false;
+      }
+      if (!matched) continue;
+      hints.push(item.label);
+      hinted.add(item.id);
     }
     scheduleOverlay();
-    return actions;
+    return hints;
   }
 
   function requestContext(method, pathname, url, body) {
@@ -264,6 +342,11 @@ function startApiRecorder(hooks) {
   }
 
   async function onDebug(method, params) {
+    if (method === 'Runtime.bindingCalled' && params?.name === 'clubboxRecorder') {
+      handleOverlayCommand(params.payload);
+      return;
+    }
+
     if (method === 'Network.requestWillBeSent') {
       const hit = classify(params?.request?.url || '');
       if (!hit) return;
@@ -367,7 +450,7 @@ function startApiRecorder(hooks) {
 
     const query = {};
     for (const [key, value] of entry.url.searchParams.entries()) query[key] = value;
-    const actions = entry.kind === 'web_api' ? noteHttp(entry.method, entry.url, entry.body) : [];
+    const hints = entry.kind === 'web_api' ? noteHttp(entry.method, entry.url, entry.body) : [];
     const record = {
       type: entry.kind === 'pubnub' ? 'pubnub' : 'http',
       method: entry.method,
@@ -377,7 +460,7 @@ function startApiRecorder(hooks) {
       status: entry.status ?? null,
       response,
       timingMs: entry.started != null && finishedAt != null ? Math.round((finishedAt - entry.started) * 1000) : null,
-      actions,
+      hints,
     };
     if (entry.url.pathname.toLowerCase().includes('join_channel') && response) {
       record.agora = agoraFields(response);
@@ -393,6 +476,13 @@ function startApiRecorder(hooks) {
       void win.loadURL(url);
     }
     return { action: 'deny' };
+  });
+
+  win.webContents.on('before-input-event', (event, input) => {
+    if (input.type !== 'keyDown' || !input.control || !input.shift) return;
+    if (String(input.key).toLowerCase() !== 'm') return;
+    event.preventDefault();
+    writeRecord({ type: 'marker', at: new Date().toISOString() });
   });
 
   win.webContents.on('did-finish-load', () => {
@@ -430,6 +520,7 @@ function startApiRecorder(hooks) {
       });
     });
     void win.webContents.debugger.sendCommand('Network.enable', { maxPostDataSize: 65536 });
+    void win.webContents.debugger.sendCommand('Runtime.addBinding', { name: 'clubboxRecorder' });
   } catch (err) {
     console.error('[Clubbox] Could not attach the API recorder', err instanceof Error ? err.message : 'error');
   }
