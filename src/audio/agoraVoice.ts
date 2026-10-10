@@ -1,10 +1,11 @@
-import AgoraRTC from 'agora-rtc-sdk-ng';
 import type {
   IAgoraRTCClient,
   ILocalAudioTrack,
   IRemoteAudioTrack,
   IAgoraRTCRemoteUser,
 } from 'agora-rtc-sdk-ng';
+
+type AgoraSdk = typeof import('agora-rtc-sdk-ng').default;
 import { audioEngine } from './audioEngine';
 import { clubhouseClient } from '../api/client';
 
@@ -21,16 +22,23 @@ export class AgoraVoiceEngine {
   private isSpeaker: boolean = false;
   private currentChannel: string | null = null;
   private onSpeakerVolumeCallbacks: ((speakers: { uid: string | number; level: number }[]) => void)[] = [];
+  private sdkPromise: Promise<AgoraSdk> | null = null;
 
   // Same default as ClubhouseConfig.agoraAppId. The join_channel field that
   // should replace it is documented in docs/api/web-api.md after a capture.
   public appId: string = '938de3e8055e42b281bb8c6f69c21f78';
 
-  constructor() {
-    AgoraRTC.setLogLevel(3); // Warning level
+  private loadSdk(): Promise<AgoraSdk> {
+    if (!this.sdkPromise) {
+      this.sdkPromise = import('agora-rtc-sdk-ng').then((mod) => {
+        mod.default.setLogLevel(3);
+        return mod.default;
+      });
+    }
+    return this.sdkPromise;
   }
 
-  private initClient(): IAgoraRTCClient {
+  private initClient(AgoraRTC: AgoraSdk): IAgoraRTCClient {
     if (!this.client) {
       this.client = AgoraRTC.createClient({ mode: 'live', codec: 'vp8' });
 
@@ -77,7 +85,8 @@ export class AgoraVoiceEngine {
     options: AgoraJoinOptions
   ): Promise<boolean> {
     try {
-      const client = this.initClient();
+      const AgoraRTC = await this.loadSdk();
+      const client = this.initClient(AgoraRTC);
 
       if (this.isJoined) {
         await this.leave();
@@ -142,6 +151,7 @@ export class AgoraVoiceEngine {
 
   private async publishBroadcast(isMusicMode: boolean): Promise<void> {
     if (!this.client) return;
+    const AgoraRTC = await this.loadSdk();
 
     await audioEngine.ensureMicrophone();
     const broadcastTrack = audioEngine.getBroadcastTrack();
