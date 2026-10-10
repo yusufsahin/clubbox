@@ -8,7 +8,6 @@ const REQUEST_TIMEOUT_MS = 20000;
 const DEV_SERVER_ORIGIN = 'http://localhost:5173';
 
 const CH_WEB_APP_VERSION = '22.2.0';
-const RECAPTCHA_SITE_KEY_FALLBACK = '6Lf8IJcsAAAAAHr6Puq4KiD0A7jnz0ndgJUihuN2';
 
 app.setName('Clubbox');
 if (process.platform === 'win32') {
@@ -248,6 +247,18 @@ ipcMain.handle('clubbox:shortcuts-set', (event, shortcuts) => {
   return { ok: true, failed: applyGlobalShortcuts(clean) };
 });
 
+ipcMain.handle('clubbox:open-signin', (event) => {
+  if (!isTrustedSender(event)) return { ok: false };
+  openOfficialSignIn();
+  return { ok: true };
+});
+
+ipcMain.handle('clubbox:close-signin', (event) => {
+  if (!isTrustedSender(event)) return { ok: false };
+  if (signInWindow && !signInWindow.isDestroyed()) signInWindow.close();
+  return { ok: true };
+});
+
 const WEB_AUTH_ENDPOINTS = {
   start_phone_number_web_auth: '/web_api/start_phone_number_web_auth',
   complete_phone_number_web_auth: '/web_api/complete_phone_number_web_auth',
@@ -259,96 +270,59 @@ const WEB_AUTH_ENDPOINTS = {
 // web sign-in shows that live updates are unavailable instead of failing silently.
 const WEB_SESSION_PATHS = require('./webApiRoutes.json');
 
-let authPage = null;
-let authPageReady = null;
+let signInWindow = null;
+let lastSignInNotice = '';
 
-function authPageWindow() {
-  if (authPage && !authPage.isDestroyed()) return authPage;
-  authPage = new BrowserWindow({
-    show: false,
+function maybeNotifyWebSession(target) {
+  if (!isClubhouseHttps(target) || !mainWindow || mainWindow.isDestroyed()) return;
+  let url;
+  try {
+    url = new URL(target);
+  } catch {
+    return;
+  }
+  const path = url.pathname.toLowerCase();
+  if (path === '/signin' || path.startsWith('/signin/') || path === '/login' || path.startsWith('/login/')) return;
+  if (lastSignInNotice === url.href) return;
+  lastSignInNotice = url.href;
+  mainWindow.webContents.send('clubbox:web-session-maybe');
+}
+
+function openOfficialSignIn() {
+  if (signInWindow && !signInWindow.isDestroyed()) {
+    signInWindow.show();
+    signInWindow.focus();
+    return;
+  }
+  lastSignInNotice = '';
+  signInWindow = new BrowserWindow({
+    show: true,
     width: 480,
-    height: 720,
+    height: 800,
+    title: 'Clubhouse',
+    autoHideMenuBar: true,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      backgroundThrottling: false,
+      sandbox: true,
     },
   });
-  authPage.webContents.setUserAgent(
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
-  );
-  authPage.on('closed', () => {
-    authPage = null;
-    authPageReady = null;
+  signInWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (isClubhouseHttps(url)) return { action: 'allow' };
+    return { action: 'deny' };
   });
-  authPageReady = authPage.loadURL('https://www.clubhouse.com/signin');
-  return authPage;
-}
-
-async function recaptchaSiteKey(win) {
-  try {
-    const fromPage = await win.webContents.executeJavaScript(`(() => {
-      const script = document.querySelector('script[src*="recaptcha"]');
-      if (!script || !script.src) return '';
-      try { return new URL(script.src).searchParams.get('render') || ''; }
-      catch { return ''; }
-    })()`, true);
-    if (typeof fromPage === 'string' && fromPage) return fromPage;
-  } catch {
-    // The sign-in page can still use the known site key.
-  }
-  return RECAPTCHA_SITE_KEY_FALLBACK;
-}
-
-async function postClubhouseWebAuth(endpoint, body) {
-  const win = authPageWindow();
-  await authPageReady;
-  const siteKey = await recaptchaSiteKey(win);
-  const script = `(async () => {
-    const endpoint = ${JSON.stringify(endpoint)};
-    const body = ${JSON.stringify(body || {})};
-    const deadline = Date.now() + 15000;
-    while (!(window.grecaptcha && window.grecaptcha.execute) && Date.now() < deadline) {
-      await new Promise((resolve) => setTimeout(resolve, 200));
-    }
-    if (!(window.grecaptcha && window.grecaptcha.execute)) {
-      return { ok: false, status: 0, body: 'Clubhouse verification did not load. Try again.' };
-    }
-    await new Promise((resolve) => window.grecaptcha.ready(resolve));
-    const token = await window.grecaptcha.execute(${JSON.stringify(siteKey)}, { action: 'auth' });
-    if (!body.web_rc_token) body.web_rc_token = token;
-    if (body.tokens && !body.tokens.web_rc_token) body.tokens.web_rc_token = token;
-    if (body.invite_code == null) delete body.invite_code;
-    const csrf = (document.cookie.match(/(?:^|; )csrftoken=([^;]*)/) || [])[1] || '';
-    const paths = ${JSON.stringify(WEB_AUTH_ENDPOINTS)};
-    const response = await fetch(paths[endpoint], {
-      method: 'POST',
-      credentials: 'include',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json; charset=utf-8',
-        'X-CSRFToken': decodeURIComponent(csrf),
-        'CH-Web-AppVersion': ${JSON.stringify(CH_WEB_APP_VERSION)},
-        'CH-Web-Version': ${JSON.stringify(CH_WEB_APP_VERSION)},
-      },
-      body: JSON.stringify(body),
-    });
-    return {
-      ok: response.ok,
-      status: response.status,
-      body: await response.text(),
-      csrfLength: decodeURIComponent(csrf).length,
-      tokenLength: token.length,
-    };
-  })()`;
-  const result = await win.webContents.executeJavaScript(script, true);
-  try {
-    const parsed = JSON.parse(result.body);
-    console.log('[auth]', endpoint, result.status, parsed.success, parsed.error_message || '', 'csrf', result.csrfLength, 'token', result.tokenLength);
-  } catch {
-    console.log('[auth]', endpoint, result?.status);
-  }
-  return result;
+  signInWindow.webContents.on('will-navigate', (event, url) => {
+    if (!isClubhouseHttps(url)) event.preventDefault();
+  });
+  const notice = (_event, url) => maybeNotifyWebSession(url);
+  signInWindow.webContents.on('did-navigate', notice);
+  signInWindow.webContents.on('did-redirect-navigation', notice);
+  signInWindow.webContents.on('did-navigate-in-page', notice);
+  signInWindow.on('closed', () => {
+    signInWindow = null;
+    lastSignInNotice = '';
+  });
+  void signInWindow.loadURL('https://www.clubhouse.com/signin');
 }
 
 function webSessionUrl(pathName, method, body) {
@@ -438,11 +412,13 @@ ipcMain.handle('ch:request', async (event, payload) => {
   delete headers['X-Clubbox-Web-Session'];
 
   if (WEB_AUTH_ENDPOINTS[endpoint]) {
-    try {
-      return await postClubhouseWebAuth(endpoint, payload?.body);
-    } catch (err) {
-      return { ok: false, status: 0, body: err instanceof Error ? err.message : 'Network error' };
-    }
+    return {
+      ok: false,
+      status: 0,
+      body: JSON.stringify({
+        error_message: 'Sign in on the official Clubhouse page. Clubbox does not submit the verification itself.',
+      }),
+    };
   }
 
   if (webSession) {

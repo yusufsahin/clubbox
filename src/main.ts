@@ -6,7 +6,7 @@ import { audioEngine } from './audio/audioEngine';
 import { readAudioPrefs, writeAudioPrefs, type AudioPrefs } from './audio/audioPrefs';
 import { eventToAccelerator, normalizeShortcuts, readShortcuts, writeShortcuts, type ShortcutAction, type ShortcutMap } from './shortcuts';
 import { agoraVoice } from './audio/agoraVoice';
-import type { CHAuthResponse, CHChannel, CHChannelDetail, CHChatMessage, CHConversation, CHUser, FeedTopic, MeSettings } from './api/types';
+import type { CHChannel, CHChannelDetail, CHChatMessage, CHConversation, CHUser, FeedTopic, MeSettings } from './api/types';
 import { setLanguage, t } from './i18n';
 import { avatarHtml, installAvatarFallback } from './ui/avatar';
 import { cockpitBar } from './ui/components/cockpitBar';
@@ -30,16 +30,9 @@ interface ElectronAPI {
   getGlobalShortcuts: () => Promise<ShortcutMap | null>;
   setGlobalShortcuts: (shortcuts: ShortcutMap) => Promise<{ ok: boolean; failed: string[] }>;
   onGlobalShortcut: (callback: (action: string) => void) => void;
-}
-
-function normalizePhone(input: string): string | null {
-  const compact = input.replace(/[\s().-]/g, '');
-  if (compact.startsWith('+')) {
-    return /^\+[1-9]\d{7,14}$/.test(compact) ? compact : null;
-  }
-  if (/^0\d{10}$/.test(compact)) return `+90${compact.slice(1)}`;
-  if (/^5\d{9}$/.test(compact)) return `+90${compact}`;
-  return null;
+  openOfficialSignIn?: () => Promise<{ ok: boolean }>;
+  closeOfficialSignIn?: () => Promise<{ ok: boolean }>;
+  onWebSessionMaybe?: (callback: () => void) => void;
 }
 
 function recordingFilename(topic: string | undefined, kind: 'recording' | 'clip' = 'recording'): string {
@@ -75,11 +68,9 @@ class ClubboxApp {
   private unreadNotifications = false;
   private unreadConversations = 0;
   private selectedProfile: CHUser | null = null;
-  private loginPhone = '';
-  private loginCode = '';
-  private loginStep: 'phone' | 'code' = 'phone';
   private loginBusy = false;
   private loginNotice = '';
+  private adoptInFlight = false;
   private isCreateModalOpen: boolean = false;
   private isSettingsModalOpen: boolean = false;
   private isProfileDrawerOpen: boolean = false;
@@ -144,6 +135,9 @@ class ClubboxApp {
     this.setupHotkeys();
     electronAPI()?.onGlobalShortcut((action) => {
       if (typeof action === 'string') this.handleGlobalShortcut(action);
+    });
+    electronAPI()?.onWebSessionMaybe?.(() => {
+      void this.tryAdoptOfficialSession();
     });
 
     if (electronAPI()?.isElectron) {
@@ -441,8 +435,6 @@ class ClubboxApp {
     } catch (err) {
       this.reportApiError(err);
     }
-    this.loginStep = 'phone';
-    this.loginCode = '';
     this.loginNotice = '';
     this.currentTab = 'explore';
     this.startExploreRefresh();
@@ -452,112 +444,31 @@ class ClubboxApp {
     }
   }
 
-  private async submitPhoneLogin(): Promise<void> {
-    const rawPhone = (document.getElementById('login-phone') as HTMLInputElement | null)?.value.trim() ?? '';
-    const phone = normalizePhone(rawPhone);
-    if (!phone) {
-      this.showToast(t('enterFullNumber'), '⚠️');
+  private async openOfficialSignIn(): Promise<void> {
+    const api = electronAPI();
+    this.currentTab = 'login';
+    if (!api?.openOfficialSignIn) {
+      this.loginNotice = t('signInHelperDesktop');
+      this.render();
       return;
     }
-    this.loginPhone = phone;
-    this.loginBusy = true;
+    this.loginNotice = t('officialSignInWaiting');
     this.render();
-    try {
-      const res = (await clubhouseClient.startPhoneNumberAuth(phone)) as CHAuthResponse;
-      if (res.is_blocked) {
-        this.loginNotice = res.error_message || t('numberBlocked');
-        this.showToast(this.loginNotice, '⚠️');
-        return;
-      }
-      if (res.is_waitlisted) {
-        this.loginNotice = res.error_message || t('onWaitlist');
-        this.showToast(this.loginNotice, '⏳');
-        return;
-      }
-      if (res.send_rc_token) {
-        this.loginNotice = t('tokenSignInUnsupported');
-        this.showToast(this.loginNotice, '🔒');
-        return;
-      }
-      if (res.error_message) {
-        this.loginNotice = res.error_message;
-        this.showToast(res.error_message, '⚠️');
-        return;
-      }
-      this.loginStep = 'code';
-      this.loginNotice = t('codeSentTo', { phone });
-    } catch (err) {
-      this.reportApiError(err);
-    } finally {
-      this.loginBusy = false;
-      this.render();
-    }
+    await api.openOfficialSignIn();
   }
 
-  private async submitLoginCode(): Promise<void> {
-    const code = (document.getElementById('login-code') as HTMLInputElement | null)?.value.trim() ?? '';
-    this.loginCode = code;
-    if (!code || !this.loginPhone) {
-      this.showToast(t('enterCode'), '⚠️');
-      return;
-    }
+  private async tryAdoptOfficialSession(): Promise<void> {
+    if (this.adoptInFlight || clubhouseClient.getConfig().webSession) return;
+    this.adoptInFlight = true;
     this.loginBusy = true;
-    this.render();
     try {
-      const res = await clubhouseClient.completePhoneNumberAuth(this.loginPhone, code);
-      if (res.is_waitlisted) {
-        this.loginNotice = res.error_message || t('onWaitlist');
-        this.showToast(this.loginNotice, '⏳');
-        return;
-      }
-      if (!res.success || res.error_message) {
-        this.loginNotice = res.error_message || t('couldNotVerify');
-        this.showToast(this.loginNotice, '⚠️');
-        return;
-      }
-      if (res.auth_token || res.access_token) {
-        this.loginNotice = t('tokenSignInUnsupported');
-        this.showToast(this.loginNotice, '🔒');
-        return;
-      }
-      if (!res.user_profile && !res.is_verified) {
-        this.loginNotice = t('noAuthToken');
-        this.showToast(this.loginNotice, '⚠️');
-        return;
-      }
-      await clubhouseClient.updateConfig({
-        webSession: true,
-        useSandbox: false,
-        ...(res.user_profile ? { userId: res.user_profile.user_id } : {}),
-      });
-      if (res.user_profile) this.me = res.user_profile;
+      const adopted = await clubhouseClient.adoptWebSession();
+      if (!adopted) return;
+      await electronAPI()?.closeOfficialSignIn?.();
       await this.finishSignIn();
-    } catch (err) {
-      this.reportApiError(err);
     } finally {
+      this.adoptInFlight = false;
       this.loginBusy = false;
-      this.render();
-    }
-  }
-
-  private async resendLoginCode(): Promise<void> {
-    if (!this.loginPhone) return;
-    this.loginBusy = true;
-    this.render();
-    try {
-      const res = await clubhouseClient.resendPhoneNumberAuth(this.loginPhone);
-      if (res.error_message) {
-        this.loginNotice = res.error_message;
-        this.showToast(res.error_message, '⚠️');
-        return;
-      }
-      this.loginNotice = t('codeSentAgain');
-      this.showToast(t('codeSentAgain'), '📨');
-    } catch (err) {
-      this.reportApiError(err);
-    } finally {
-      this.loginBusy = false;
-      this.render();
     }
   }
 
@@ -1741,9 +1652,7 @@ class ClubboxApp {
     return loginView({
       busy: this.loginBusy,
       notice: this.loginNotice,
-      step: this.loginStep,
-      phone: this.loginPhone,
-      code: this.loginCode,
+      desktop: !!electronAPI()?.isElectron,
     });
   }
 
@@ -1955,8 +1864,6 @@ class ClubboxApp {
     document.addEventListener('input', (event) => {
       const target = event.target as HTMLInputElement | null;
       if (!target) return;
-      if (target.id === 'login-phone') this.loginPhone = target.value;
-      if (target.id === 'login-code') this.loginCode = target.value;
       if (target.id === 'soundpad-vol-slider') {
         const val = parseFloat(target.value);
         audioEngine.setSoundpadVolume(val);
@@ -2232,24 +2139,10 @@ class ClubboxApp {
         void this.moderateSpeaker(uid, kind);
         break;
       }
-      case 'login-send':
-        void this.submitPhoneLogin();
-        break;
-      case 'login-verify':
-        void this.submitLoginCode();
-        break;
-      case 'login-resend':
-        void this.resendLoginCode();
-        break;
-      case 'login-back':
-        this.loginStep = 'phone';
-        this.loginNotice = '';
-        this.render();
-        break;
       case 'open-login':
+      case 'open-official-signin':
         this.stopExploreRefresh();
-        this.currentTab = 'login';
-        this.render();
+        void this.openOfficialSignIn();
         break;
       case 'save-settings':
         void this.saveSettings();

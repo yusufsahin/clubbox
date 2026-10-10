@@ -12,4 +12,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('clubbox:global-shortcut', listener);
     return () => ipcRenderer.removeListener('clubbox:global-shortcut', listener);
   },
+  openOfficialSignIn: () => ipcRenderer.invoke('clubbox:open-signin'),
+  closeOfficialSignIn: () => ipcRenderer.invoke('clubbox:close-signin'),
+  onWebSessionMaybe: (callback) => {
+    const listener = () => callback();
+    ipcRenderer.on('clubbox:web-session-maybe', listener);
+    return () => ipcRenderer.removeListener('clubbox:web-session-maybe', listener);
+  },
 });

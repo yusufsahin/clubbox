@@ -2,10 +2,11 @@ import type { MessageKey } from './en';
 
 export const tr: Record<MessageKey, string> = {
   signInTitle: 'Clubhouse girişi',
-  signInHelp: 'Gerçek numaranı yaz, örneğin +90 5xx xxx xx xx. Başındaki 0 Türkiye numarası sayılır. Kod, güncel Clubhouse girişinden istenir.',
+  signInHelp: 'Clubhouse kendi penceresinde açılır. Numaranı ve kodu orada kendin yazarsın. Clubbox bunları göndermez.',
   phoneNumber: 'Telefon numarası',
   sendCode: 'Kod gönder',
   openWebSignIn: 'Clubhouse girişini aç',
+  officialSignInWaiting: 'Clubhouse açık. Orada giriş yap, sonra buraya dön.',
   verificationCode: 'Doğrulama kodu',
   verify: 'Doğrula',
   resendCode: 'Kodu yeniden gönder',
@@ -43,7 +44,7 @@ export const tr: Record<MessageKey, string> = {
   settingsTitle: 'Clubhouse API ve stüdyo ayarları',
   settingsHelp: 'Uç noktaları, başlıkları ve kimlik doğrulamayı ayarla.',
   signInHelper: 'Giriş yardımcısı',
-  signInHelperHelp: 'Telefonla giriş Clubhouse web oturumunu kullanır. Uygulama jetonuyla giriş desteklenmez.',
+  signInHelperHelp: 'Canlı giriş resmi Clubhouse sayfasını açar. Numarayı ve kodu orada sen yazarsın. Uygulama jetonuyla giriş desteklenmez.',
   tokenSignInUnsupported: 'Uygulama jetonuyla giriş desteklenmiyor. Web girişi kullanın.',
   signInHelperDesktop: 'Giriş yardımcısı masaüstü uygulamada',
   phoneSignIn: 'Telefonla giriş',

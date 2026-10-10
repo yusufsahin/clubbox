@@ -27,7 +27,7 @@ export function settingsView(config: ClubhouseConfig, shortcuts: ShortcutMap, re
             </p>
           </div>
           <div style="display:flex; flex-direction:column; gap:8px; flex-shrink:0;">
-            <button class="btn btn-primary" data-action="open-login">${t('phoneSignIn')}</button>
+            <button class="btn btn-primary" data-action="open-official-signin">${t('openWebSignIn')}</button>
           </div>
         </div>
       </div>
