@@ -10,6 +10,8 @@ import type { CHChannelDetail } from './types';
 export interface RoomUpdateSource {
   start(channelId: string): void;
   stop(): void;
+  pause(): void;
+  resume(): boolean;
   onUpdate(cb: (detail: CHChannelDetail) => void): () => void;
 }
 
@@ -43,6 +45,23 @@ export class RoomSync implements RoomUpdateSource {
       this.timer = null;
     }
     this.channelId = null;
+  }
+
+  pause(): void {
+    if (this.timer !== null) {
+      clearInterval(this.timer);
+      this.timer = null;
+    }
+  }
+
+  resume(): boolean {
+    if (!this.channelId || this.timer !== null) return false;
+    const generation = this.generation;
+    void this.poll(generation);
+    this.timer = window.setInterval(() => {
+      void this.poll(generation);
+    }, this.intervalMs);
+    return true;
   }
 
   onUpdate(cb: (detail: CHChannelDetail) => void): () => void {

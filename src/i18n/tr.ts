@@ -263,6 +263,7 @@ export const tr: Record<MessageKey, string> = {
   permissionDenied: 'Bu işlem için iznin yok.',
   requestForbidden: 'İstek reddedildi. Oturum açık kaldı.',
   requestTimedOut: 'İstek zaman aşımına uğradı.',
+  rateLimited: 'Clubhouse yavaşlamamızı istedi. Bu işlem yeniden denemeden önce bekler.',
   secureStorageUnavailable: 'Güvenli depolama yok, bu yüzden token kaydedilmedi.',
   tokenStoredSecurely: 'Token güvenli depoda. Değiştirmek için yenisini yazın.',
   clearToken: 'Kayıtlı tokeni sil',

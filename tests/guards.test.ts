@@ -9,6 +9,7 @@ import {
   emptyRoomSession,
   finishLeave,
   localClipAllowed,
+  nextBackoffMs,
   roleSyncDecision,
   roomAudience,
 } from '../src/api/guards.ts';
@@ -29,6 +30,24 @@ test('HTTP 200 success false is a business error and 403 does not expire the ses
   const auth = classifyHttpFailure(401, 'Unauthorized');
   assert.equal(auth.kind, 'auth');
   assert.equal(auth.expireSession, true);
+});
+
+test('429 and high-usage responses back off instead of looking like a network error', () => {
+  const limited = classifyHttpFailure(429, 'slow down');
+  assert.equal(limited.kind, 'rate-limit');
+  assert.equal(limited.expireSession, false);
+
+  const usage = classifyHttpFailure(200, 'high usage error');
+  assert.equal(usage.kind, 'rate-limit');
+  assert.equal(classifyHttpFailure(200, 'Too many requests right now').kind, 'rate-limit');
+  assert.equal(classifyHttpFailure(200, 'rate limit reached').kind, 'rate-limit');
+  assert.equal(classifyHttpFailure(500, 'Room is full').kind, 'network');
+
+  assert.equal(nextBackoffMs(0), 60_000);
+  assert.equal(nextBackoffMs(60_000), 120_000);
+  assert.equal(nextBackoffMs(120_000), 240_000);
+  assert.equal(nextBackoffMs(16 * 60_000), 30 * 60_000);
+  assert.equal(nextBackoffMs(30 * 60_000), 30 * 60_000);
 });
 
 test('local clips follow the public-room audience, not the old private flag', () => {

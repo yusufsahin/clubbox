@@ -1,5 +1,5 @@
 import { canCall, evidenceOf, type Evidence, type Transport } from './capabilities';
-import { businessFailure, classifyHttpFailure, type ApiErrorKind } from './guards';
+import { businessFailure, classifyHttpFailure, nextBackoffMs, type ApiErrorKind } from './guards';
 import { INITIAL_MOCK_CHANNELS, MOCK_ME, SANDBOX_CHAT_MESSAGES, sandboxUserIds } from './sandboxData';
 import type { CHAuthResponse, CHChannel, CHChannelDetail, CHChatMessage, CHConversation, CHUser, FeedTopic, MeSettings } from './types';
 
@@ -362,6 +362,8 @@ export class ClubhouseApiClient {
   private suppressAuthExpired = false;
   private secureToken = false;
   private secureStorageFailed = false;
+  private backoffMs = new Map<string, number>();
+  private blockedUntil = new Map<string, number>();
 
   constructor(customConfig?: Partial<ClubhouseConfig>) {
     const parsedSaved = readSavedConfig();
@@ -493,9 +495,28 @@ export class ClubhouseApiClient {
     return headers;
   }
 
+  private rateLimitRemaining(endpoint: string): number {
+    const until = this.blockedUntil.get(endpoint) ?? 0;
+    return Math.max(0, until - Date.now());
+  }
+
+  private noteRateLimit(endpoint: string): void {
+    const next = nextBackoffMs(this.backoffMs.get(endpoint) ?? 0);
+    this.backoffMs.set(endpoint, next);
+    this.blockedUntil.set(endpoint, Date.now() + next);
+  }
+
+  private clearRateLimit(endpoint: string): void {
+    this.backoffMs.delete(endpoint);
+    this.blockedUntil.delete(endpoint);
+  }
+
   private async request<T>(endpoint: string, body?: RequestBody, forceLive = false): Promise<T> {
     if (this.config.useSandbox && !forceLive) {
       return this.handleSandboxRequest<T>(endpoint, body);
+    }
+    if (this.rateLimitRemaining(endpoint) > 0) {
+      throw new ClubhouseApiError(429, endpoint, 'Too many requests', 'rate-limit');
     }
 
     const headers = this.getHeaders();
@@ -563,6 +584,7 @@ export class ClubhouseApiClient {
         // The body is not JSON.
       }
       const failure = classifyHttpFailure(status, message);
+      if (failure.kind === 'rate-limit') this.noteRateLimit(endpoint);
       if (failure.expireSession && !this.suppressAuthExpired) {
         this.emitAuthExpired();
       }
@@ -585,8 +607,11 @@ export class ClubhouseApiClient {
     }
     const failed = businessFailure(data);
     if (failed) {
-      throw new ClubhouseApiError(status, endpoint, failed, 'business');
+      const failure = classifyHttpFailure(status, failed);
+      if (failure.kind === 'rate-limit') this.noteRateLimit(endpoint);
+      throw new ClubhouseApiError(status, endpoint, failed, failure.kind === 'rate-limit' ? 'rate-limit' : 'business');
     }
+    this.clearRateLimit(endpoint);
     if (endpoint === 'get_channels' && Array.isArray(data.items) && !Array.isArray(data.channels)) {
       data.channels = data.items
         .map((item) => feedChannel(item))

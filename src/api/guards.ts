@@ -1,4 +1,4 @@
-export type ApiErrorKind = 'auth' | 'permission' | 'unknown' | 'business' | 'timeout' | 'network';
+export type ApiErrorKind = 'auth' | 'permission' | 'unknown' | 'business' | 'timeout' | 'network' | 'rate-limit';
 
 export interface LiveFailure {
   kind: ApiErrorKind;
@@ -63,9 +63,25 @@ export function createSingleFlight() {
   };
 }
 
+const RATE_LIMIT_STEP_MS = 60 * 1000;
+const RATE_LIMIT_MAX_MS = 30 * 60 * 1000;
+
+export function isRateLimitMessage(message: string): boolean {
+  return /high usage|too many|rate limit/i.test(message);
+}
+
+/** 1 minute, then 2, 4, … capped at 30 minutes. */
+export function nextBackoffMs(previousMs: number): number {
+  const step = previousMs > 0 ? previousMs * 2 : RATE_LIMIT_STEP_MS;
+  return Math.min(step, RATE_LIMIT_MAX_MS);
+}
+
 export function classifyHttpFailure(status: number, message: string): LiveFailure {
   if (status === 401) {
     return { kind: 'auth', message, expireSession: true };
+  }
+  if (status === 429 || isRateLimitMessage(message)) {
+    return { kind: 'rate-limit', message: message || 'Too many requests', expireSession: false };
   }
   if (status === 403) {
     const permission = /permission|not allowed|forbidden/i.test(message);

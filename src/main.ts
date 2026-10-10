@@ -120,6 +120,9 @@ class ClubboxApp {
   private roomSession = emptyRoomSession();
   private joinInFlight = false;
   private authCleanupStarted = false;
+  private hiddenPauseTimer: number | null = null;
+  private pollsPaused = false;
+  private rateLimitNotices = new Set<string>();
   private musicModeChain: Promise<void> = Promise.resolve();
   private eventsBound = false;
 
@@ -137,6 +140,7 @@ class ClubboxApp {
     clubhouseClient.onAuthExpired(() => this.handleAuthExpired());
     roomSync.onUpdate((detail) => this.applyRoomUpdate(detail));
     window.addEventListener('beforeunload', () => this.handleBeforeUnload());
+    document.addEventListener('visibilitychange', () => this.onVisibilityChange());
     this.init();
   }
 
@@ -347,8 +351,66 @@ class ClubboxApp {
     if (this.currentTab === 'friends') this.render();
   }
 
+  private onVisibilityChange(): void {
+    if (document.visibilityState === 'hidden') {
+      this.schedulePollPause();
+      return;
+    }
+    if (this.hiddenPauseTimer !== null) {
+      window.clearTimeout(this.hiddenPauseTimer);
+      this.hiddenPauseTimer = null;
+    }
+    if (this.pollsPaused) this.resumePolls();
+  }
+
+  private schedulePollPause(): void {
+    if (this.hiddenPauseTimer !== null || this.pollsPaused) return;
+    this.hiddenPauseTimer = window.setTimeout(() => {
+      this.hiddenPauseTimer = null;
+      if (document.visibilityState === 'hidden') this.pausePolls();
+    }, 2 * 60 * 1000);
+  }
+
+  private pausePolls(): void {
+    this.pollsPaused = true;
+    this.stopMeRefresh();
+    this.stopActivityRefresh();
+    this.stopExploreRefresh();
+    if (this.chatTimer !== null) {
+      window.clearInterval(this.chatTimer);
+      this.chatTimer = null;
+    }
+    roomSync.pause();
+  }
+
+  private resumePolls(): void {
+    this.pollsPaused = false;
+    if (this.me && this.currentTab !== 'login') {
+      void this.refreshMe({ quiet: true });
+      this.startMeRefresh();
+    }
+    if (this.currentTab === 'activity') {
+      void this.loadActivity();
+      this.startActivityRefresh();
+    }
+    if (this.currentTab === 'explore') {
+      void this.refreshExplore();
+      this.startExploreRefresh();
+    }
+    if (!this.currentChannel) return;
+    const channelId = this.channelApiId(this.currentChannel);
+    if (this.chatTimer === null) {
+      void this.refreshChat();
+      this.chatTimer = window.setInterval(() => {
+        void this.refreshChat();
+      }, 8000);
+    }
+    if (!roomSync.resume()) roomSync.start(channelId);
+  }
+
   private startActivityRefresh(): void {
     this.stopActivityRefresh();
+    if (this.pollsPaused) return;
     this.activityTimer = window.setInterval(() => {
       if (this.currentTab !== 'activity') {
         this.stopActivityRefresh();
@@ -367,7 +429,7 @@ class ClubboxApp {
 
   private startMeRefresh(): void {
     this.stopMeRefresh();
-    if (!this.me) return;
+    if (this.pollsPaused || !this.me) return;
     this.meTimer = window.setInterval(() => {
       if (!this.me || this.currentTab === 'login') {
         this.stopMeRefresh();
@@ -565,6 +627,13 @@ class ClubboxApp {
         this.showToast(t('requestTimedOut'), '⏱️');
         return;
       }
+      if (err.kind === 'rate-limit') {
+        if (!this.rateLimitNotices.has(err.endpoint)) {
+          this.rateLimitNotices.add(err.endpoint);
+          this.showToast(t('rateLimited'), '⏳');
+        }
+        return;
+      }
     }
     const message = err instanceof Error ? err.message : t('somethingWrong');
     this.showToast(message, '⚠️');
@@ -594,6 +663,7 @@ class ClubboxApp {
         });
       }, 30000);
     }
+    if (this.pollsPaused) return;
     this.chatTimer = window.setInterval(() => {
       void this.refreshChat();
     }, 8000);
@@ -703,6 +773,7 @@ class ClubboxApp {
 
   private startExploreRefresh(): void {
     this.stopExploreRefresh();
+    if (this.pollsPaused) return;
     this.exploreTimer = window.setInterval(() => {
       if (this.currentTab !== 'explore') {
         this.stopExploreRefresh();

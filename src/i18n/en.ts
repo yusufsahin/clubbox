@@ -261,6 +261,7 @@ export const en = {
   permissionDenied: 'You do not have permission for that action.',
   requestForbidden: 'The request was refused. The session was kept.',
   requestTimedOut: 'The request timed out.',
+  rateLimited: 'Clubhouse asked us to slow down. This action waits before trying again.',
   secureStorageUnavailable: 'Secure storage is unavailable, so the token was not saved.',
   tokenStoredSecurely: 'A token is stored in secure storage. Type a new one to replace it.',
   clearToken: 'Clear stored token',
