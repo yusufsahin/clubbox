@@ -65,10 +65,20 @@ function recorderRequested(argv) {
   return process.env.CLUBBOX_API_RECORDER === '1' || args.includes('--api-recorder');
 }
 
+function recorderFlag(argv, name) {
+  const args = Array.isArray(argv) ? argv : process.argv;
+  const prefix = `--${name}=`;
+  const hit = args.find((arg) => typeof arg === 'string' && arg.startsWith(prefix));
+  return hit ? hit.slice(prefix.length) : '';
+}
+
 function startRecorderIfAllowed(argv) {
   if (!recorderRequested(argv)) return;
+  const roleArg = recorderFlag(argv, 'role');
+  const role = roleArg === 'host' || roleArg === 'listener' ? roleArg : 'solo';
+  const profile = recorderFlag(argv, 'profile') === 'b' ? 'b' : 'a';
   const { startApiRecorder } = require('./apiRecorder.cjs');
-  startApiRecorder({ onWindow: watchRecorderWindow });
+  startApiRecorder({ onWindow: watchRecorderWindow, role, profile });
 }
 
 function watchRecorderWindow(win) {

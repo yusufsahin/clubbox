@@ -55,6 +55,8 @@ const CHECKLIST = [
 let recorderWindow = null;
 
 function startApiRecorder(hooks) {
+  const role = hooks?.role === 'host' || hooks?.role === 'listener' ? hooks.role : 'solo';
+  const profile = hooks?.profile === 'b' ? 'b' : 'a';
   if (recorderWindow && !recorderWindow.isDestroyed()) {
     recorderWindow.show();
     recorderWindow.focus();
@@ -66,7 +68,7 @@ function startApiRecorder(hooks) {
   const dir = path.join(root, 'api-captures');
   fs.mkdirSync(dir, { recursive: true });
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const capturePath = path.join(dir, `${stamp}.jsonl`);
+  const capturePath = path.join(dir, `${stamp}-${role}${profile === 'b' ? '-b' : ''}.jsonl`);
   const stream = fs.createWriteStream(capturePath, { flags: 'a' });
   const pending = new Map();
   const finalized = new Set();
@@ -89,6 +91,7 @@ function startApiRecorder(hooks) {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      ...(profile === 'b' ? { partition: 'persist:clubbox-recorder-b' } : {}),
     },
   });
   recorderWindow = win;
@@ -96,6 +99,7 @@ function startApiRecorder(hooks) {
   hooks?.onWindow(win);
 
   function writeRecord(record) {
+    record.role = role;
     if (active) {
       record.label = active.id;
       const note = notes.get(active.id);

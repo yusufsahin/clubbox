@@ -7,7 +7,8 @@ const require = createRequire(import.meta.url);
 const electronPath = require('electron');
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-const child = spawn(electronPath, ['.', '--api-recorder'], {
+const extra = process.argv.slice(2).filter((arg) => arg.startsWith('--role=') || arg.startsWith('--profile='));
+const child = spawn(electronPath, ['.', '--api-recorder', ...extra], {
   cwd: root,
   stdio: 'inherit',
   env: { ...process.env, CLUBBOX_API_RECORDER: '1' },
