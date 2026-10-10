@@ -794,7 +794,8 @@ export class AudioEngine {
     if (this.clipReady || !this.ctx || !this.recordMix) return;
     const ctx = this.ctx;
     const mix = this.recordMix;
-    this.clipReady = ctx.audioWorklet.addModule('/clip-processor.js').then(() => {
+    const workletUrl = new URL('clip-processor.js', document.baseURI).href;
+    this.clipReady = ctx.audioWorklet.addModule(workletUrl).then(() => {
       const node = new AudioWorkletNode(ctx, 'clubbox-clip', {
         numberOfInputs: 1,
         numberOfOutputs: 1,
