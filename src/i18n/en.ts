@@ -250,6 +250,18 @@ export const en = {
   shortcutNone: 'Not set',
   shortcutFailed: 'One shortcut could not be registered',
   shortcutNeedsModifier: 'Hold Alt, Shift, or Ctrl, or use a function key',
+  unverifiedAction: 'This action is configured but not verified by a capture yet. Turn on developer actions in Settings to try it.',
+  unsupportedAction: 'This action has no captured or configured request.',
+  allowUnverified: 'Developer: allow unverified room actions',
+  allowUnverifiedHelp: 'Join, leave, hand raise, invites, and chat send stay off until a capture verifies them. Sandbox is not live proof.',
+  permissionDenied: 'You do not have permission for that action.',
+  requestForbidden: 'The request was refused. The session was kept.',
+  requestTimedOut: 'The request timed out.',
+  secureStorageUnavailable: 'Secure storage is unavailable, so the token was not saved.',
+  tokenStoredSecurely: 'A token is stored in secure storage. Type a new one to replace it.',
+  clearToken: 'Clear stored token',
+  audioTokenGap: 'Room audio did not connect. No token refresh was captured, so leave and join again after that request is recorded.',
+  agoraPromoteStopped: 'Switching to speaker stopped after repeated audio errors.',
 } as const;
 
 export type MessageKey = keyof typeof en;

@@ -1,4 +1,5 @@
 import { clubhouseClient } from './client';
+import { createSingleFlight } from './guards';
 import type { CHChannelDetail } from './types';
 
 /**
@@ -19,6 +20,7 @@ export class RoomSync implements RoomUpdateSource {
   private warnedUnsupported = false;
   private callbacks: ((detail: CHChannelDetail) => void)[] = [];
   private intervalMs: number;
+  private flight = createSingleFlight();
 
   constructor(intervalMs = 5000) {
     this.intervalMs = intervalMs;
@@ -51,24 +53,26 @@ export class RoomSync implements RoomUpdateSource {
   }
 
   private async poll(generation: number): Promise<void> {
-    const channelId = this.channelId;
-    if (!channelId || generation !== this.generation) return;
+    await this.flight.run(async () => {
+      const channelId = this.channelId;
+      if (!channelId || generation !== this.generation) return;
 
-    if (!clubhouseClient.supports('get_channel')) {
-      if (!this.warnedUnsupported) {
-        this.warnedUnsupported = true;
-        console.warn('[RoomSync] Live updates unavailable in web sign-in');
+      if (!clubhouseClient.supports('get_channel')) {
+        if (!this.warnedUnsupported) {
+          this.warnedUnsupported = true;
+          console.warn('[RoomSync] Live updates unavailable in web sign-in');
+        }
+        return;
       }
-      return;
-    }
 
-    try {
-      const detail = await clubhouseClient.getChannel(channelId);
-      if (generation !== this.generation) return;
-      this.callbacks.forEach((cb) => cb(detail));
-    } catch (err) {
-      console.warn('[RoomSync] poll failed:', err);
-    }
+      try {
+        const detail = await clubhouseClient.getChannel(channelId);
+        if (generation !== this.generation) return;
+        this.callbacks.forEach((cb) => cb(detail));
+      } catch (err) {
+        console.warn('[RoomSync] poll failed:', err);
+      }
+    });
   }
 }
 

@@ -1,48 +1,54 @@
-# Clubdeck — Cursor Task List
+# Clubbox — Cursor Task List
 
 Each task below is a self-contained prompt. Paste one task at a time into Cursor (Agent mode), in order. Tasks build on each other, so finish and verify one before starting the next.
 
-_Last reviewed: 2026-10-10._
+_Last reviewed: 2026-10-11. “Uygulandı” means the code is in the tree. “Canlı doğrulandı” means it was exercised against the official Clubhouse web session. This pass is implemented; the live room, hand, invite, and chat capture is still outstanding._
 
 ## Status
 
-| Phase | Status |
-| --- | --- |
-| 1. Audio architecture (mix bus → Agora, no self-monitor, remote audio in recording, host/audience roles) | ✅ Done |
-| 2. Live API correctness (no sandbox fallback, active_ping, RoomSync polling, hand-raise state) | ✅ Done |
-| 3. Identity & auth (`getMe`, phone + web-auth login, token capture with user id) | ✅ Done |
-| 4. Wire UI to API (moderation, raised hands, speaker invite, follow, profile, create room, small fixes) | ✅ Done |
-| 5. Security & code health | ⚠️ Partial — only the `ch:request` IPC is done. Remaining work is in **Phase 7** |
-| 6. Feature additions | ❌ Not started — moved to **Phase 9** |
-| 0. Rename to Clubbox + remove mock data from live mode | ✅ Appears done (clubbox name, sandboxData.ts, ui/avatar.ts, no Unsplash) — verify acceptance checks |
-| **0.3 API recorder + docs, 0.4 web-session regressions** | 🆕 Start here — no API documentation exists yet; live room updates are broken in web-session mode |
-| **7. Bugs found in the 2026-10-10 review** | 🆕 Partly in progress (webSecurity removed, permission handler, single-instance lock done; verify the rest) |
-| **8. Clubhouse feature parity** (rewritten from current-app screenshots) | 🆕 |
+Legend: **Uygulandı** = code is in the tree. **Canlı doğrulandı** = exercised against a real clubhouse.com session and present in docs/api. Nothing is "Canlı doğrulandı" yet except sign-in, home feed and `me`.
+
+| Order | Task | Status |
+| --- | --- | --- |
+| 1 | **0.7 Review fixes (2026-10-11 #2)** — navigation guard, packaged recorder, clip worklet path, auto-armed clip buffer, 429/visibility, CORS proxy token leak | 🆕 Do first (small, mostly security) |
+| 2 | **0.6 Community Guidelines risk** — hidden reCAPTCHA sign-in, polling, recording, distribution | 🆕 Owner decision needed before shipping |
+| 3 | **0.5 Capture gaps** — labeled sessions, two-party protocol, evidence sync, room smoke test | 🆕 No room captured yet; committed docs are stale |
+| — | 0.1–0.4 Rename, mock data, recorder, web-session regressions | Uygulandı |
+| — | 1–4 Audio, live API, identity, UI wiring | Uygulandı; live room parts not verified |
+| — | 5 / 7 Security and review bugs | Uygulandı; see 0.7 for what is still open |
+| — | 8 Clubhouse parity | Uygulandı for captured fields only; Help Center corrections in the Phase 8 intro still to apply (privacy model, Messages, Clips, moderator tools) |
+| — | 9 Studio features (devices, soundboard, global shortcuts, packaging) | Uygulandı (packaging + updater: see 0.6 step 5) |
 
 ## Project context (include with every task)
 
 ```
-Project: Clubbox (formerly "Clubdeck Next-Gen") — unofficial Clubhouse desktop studio. Not affiliated with Clubhouse or with the separate clubdeck.app product.
-Stack: Electron 44, Vite 8, TypeScript 6 (noUnusedLocals), vanilla DOM (no framework), agora-rtc-sdk-ng 4.x, Web Audio API.
+Project: Clubbox (formerly "Clubdeck Next-Gen") — unofficial Clubhouse desktop studio. Not affiliated with Clubhouse or with the separate clubdeck.app product. Personal, non-commercial use until the owner decides otherwise (see Task 0.6).
+Stack: Electron 44, Vite 8, TypeScript 6, vanilla DOM (no framework), agora-rtc-sdk-ng 4.x, Web Audio API, electron-builder. Tests: node --test (npm run test:redact). Lint: npm run lint.
 Key files:
-  - src/main.ts              — ClubdeckApp class (renamed ClubboxApp in Task 0.1) (~1770 lines): all UI rendering (innerHTML templates), event wiring, hotkeys, login flow
-  - src/api/client.ts        — ClubhouseApiClient: live requests (via window.electronAPI.request when in Electron), sandbox mock handler, ClubhouseApiError, onAuthExpired
-  - src/api/roomSync.ts      — RoomSync: polls get_channel every 5s; RoomUpdateSource interface (PubNub can replace it)
-  - src/api/types.ts         — CHUser, CHChannel, CHChannelDetail, CHAuthResponse, SoundEffectItem
-  - src/audio/audioEngine.ts — Web Audio graph: micGain -> analyser/broadcastDest/recorderDest, soundpadGain, monitorGain, per-uid remote nodes, MediaRecorder
-  - src/audio/agoraVoice.ts  — Agora 'live' client: join({isSpeaker,isMusicMode}), promoteToSpeaker, demoteToAudience, republish; publishes a clone of the broadcast track via createCustomAudioTrack
-  - electron/main.cjs        — window setup, token-capture window, IPC 'ch:request'. Three request paths:
-                               (a) WEB_AUTH_ENDPOINTS -> run in a hidden clubhouse.com page with grecaptcha
-                               (b) webSession=true -> WEB_SESSION_PATHS on https://www.clubhouse.com/web_api/* with csrftoken cookie
-                               (c) otherwise -> https://www.clubhouseapi.com/api/<endpoint> with app headers
-  - electron/preload.cjs     — exposes electronAPI { isElectron, request, openTokenCapture, onTokenCaptured }
+  - src/main.ts                 — ClubboxApp controller (~2300 lines): state, timers, event delegation (data-action), hotkeys, login flow
+  - src/ui/views/*.ts, src/ui/components/*.ts — render functions; src/ui/html.ts (html`` escaping, safeUrl), src/ui/avatar.ts
+  - src/i18n/{en,tr}.ts         — all user-facing strings
+  - src/api/client.ts           — ClubhouseApiClient: transports sandbox | web-session | mobile-token, parseLiveResponse, sandbox handler
+  - src/api/capabilities.ts     — canCall(endpoint, transport): evidence gating from electron/webApiRoutes.json
+  - src/api/guards.ts           — pure helpers (room session generations, failure classification) + tests/
+  - src/api/roomSync.ts         — polls get_channel (only where supported); RoomUpdateSource boundary for PubNub
+  - src/api/sandboxData.ts      — all mock data (sandbox only)
+  - src/audio/audioEngine.ts    — Web Audio graph, recorder, clip worklet (public/clip-processor.js), soundboard
+  - src/audio/agoraVoice.ts     — Agora live client, host/audience roles, custom broadcast track
+  - electron/main.cjs           — windows, IPC (isTrustedSender + ipcGuard.cjs allowlist), safeStorage token, global shortcuts, auto-update, request paths:
+                                  (a) web auth -> hidden clubhouse.com page with grecaptcha (to be removed in 0.6)
+                                  (b) web session -> https://www.clubhouse.com/web_api/* with csrftoken cookie
+                                  (c) mobile token -> https://www.clubhouseapi.com/api/* (canCall() currently blocks every endpoint here)
+  - electron/webApiRoutes.json  — single route table: path, method, evidence, mutation
+  - electron/apiRecorder.cjs, electron/redact.cjs, scripts/api-docs.mjs — capture + redaction + docs (docs/api/*.md)
 Rules:
-  - Keep vanilla TS + DOM; do not introduce React/Vue or a state library.
-  - Match existing code style (classes, singleton exports, callback subscriptions returning unsubscribe fns).
-  - Sandbox mode must keep working end-to-end after every change. Every new endpoint needs a sandbox case in handleSandboxRequest.
-  - Every new live endpoint must work in BOTH paths: add it to WEB_SESSION_PATHS in electron/main.cjs as well as the clubhouseapi.com path.
-  - Escape every API-controlled string before it goes into innerHTML.
-  - `npx tsc --noEmit` and `npm run build` must pass.
+  - Keep vanilla TS + DOM; no React/Vue/state library. Match existing style.
+  - Sandbox mode must keep working end-to-end. Every new endpoint needs a sandbox case.
+  - A route is "observed" only if a redacted capture proves it. Never mark evidence by hand; never invent endpoints.
+  - Escape every API-controlled string (html``); URLs through safeUrl().
+  - Never ask the user for phone numbers, SMS codes or tokens; never write them to files, logs or commits.
+  - Respect rate limits; no background polling while the window is hidden (see 0.6/0.7).
+  - npx tsc --noEmit, npm run lint, npm run test:redact and npm run build must pass. Commit after each task.
 ```
 
 ---
@@ -149,7 +155,7 @@ Do:
    - preview/unmute a room from the hallway, join a room, leave a room
    - raise hand, lower hand, (moderator) invite a listener, mute a speaker, make moderator, move to audience, accept a speaker invite, leave stage
    - room chat: read messages, send a message, send a reaction
-   - create a room (public, social, closed), end the room
+   - create a room (friends only, friends of friends, House room; replays on/off; chat on/off), end the room
    - open activity/notifications, events tab
    - open messages, open a DM, send a text, open a house chat
 5. Then reconcile code with docs:
@@ -181,6 +187,133 @@ Do (after Task 0.3 has produced docs/api/web-api.md):
 5. Add a code comment at the Agora app id constant pointing to the docs section that justifies it, or read it from the join response.
 
 Acceptance: in web-session mode, raising a hand from another account shows up in Clubbox within the update interval (or the "updates unavailable" note is visible); no button in the UI is a silent no-op.
+```
+
+---
+
+### Task 0.5 — Close the capture gaps: labeled sessions, two-party protocol, evidence sync
+
+```
+State on 2026-10-11 (from the local capture api-captures/2026-10-10T21-14-22-579Z.jsonl, 69 lines):
+- Observed (200): me, get_feed_v3, get_edge_stories, get_conversations, get_conversation, get_group_suggested_invites, get_create_channel_targets, get_profile, record_action_trails.
+- Observed with error: send_conversation_emoji_reaction (400 — request body is probably wrong).
+- NOT observed: join_channel, leave_channel, active_ping, any room action, room chat, PubNub, websockets, Agora. The capture never entered a room.
+- docs/api/web-api.md in the tree is STALE: running `npm run api:docs` on the same capture adds get_profile (observed), get_conversation, get_create_channel_targets, record_action_trails, send_conversation_emoji_reaction. webApiRoutes.json still marks get_profile as "configured-unverified".
+- capabilities.ts: canCall() returns false for EVERY endpoint on the 'mobile-token' transport, so a pasted/captured app token produces an app where nothing works. Either make that explicit in the UI ("token sign-in is not supported, use web sign-in") or remove the token path.
+- With allowUnverified=false (default), join_channel is blocked, so a normal user cannot join any live room yet. That is correct until a capture proves join, but the UI must say so on the room card instead of failing silently.
+
+Do:
+1. Evidence sync (no manual edits of "evidence"):
+   - scripts/api-docs.mjs also writes the "evidence" field in electron/webApiRoutes.json: "observed" only if a 2xx capture exists for that method+path, otherwise "configured-unverified". Add `npm run api:check` that fails if the routes file or docs are out of date with the captures (run it in `npm run lint`).
+   - Exclude telemetry from the route table and docs app section: record_action_trails (list it under "Telemetry, not used").
+   - Run `npm run api:docs` and commit the regenerated docs.
+2. Labeled actions in the recorder (replace path-regex guessing as the source of truth):
+   - Overlay gets a "Next action" list (the checklist) plus a big "Start" / "Done" button. Clicking Start on an item opens a labeled window; every request until Done is tagged with that action id and the role (see 3). The regex tests stay only as hints ("looks like it matched").
+   - Free-text note field per action (e.g. "room was public, I was moderator"). Notes go through the redactor.
+   - Hotkey Ctrl+Shift+M drops a timestamp marker.
+   - api-docs.mjs prints "Seen when: <labels>" from these tags and lists, per checklist item, which requests were captured.
+3. Roles and the two-party protocol:
+   - Recorder accepts `--role=host|listener` (npm run api:record -- --role=host) and stores it in every record. Capture file name includes the role.
+   - Optional second recorder profile: `--profile=b` uses session partition 'persist:clubbox-recorder-b' so a SECOND clubhouse.com account can be signed in on the same PC at the same time (two windows). Never share cookies between partitions. Only use an account that belongs to a consenting second person.
+   - Add docs/api/capture-protocol.md with the script below, so the user can follow it with a friend.
+4. Room entry first: before any two-party work, add a "Room smoke test" checklist group: open a public room from the web hallway → listen 30s → leave. If the web client cannot join rooms (e.g. it redirects to the app or shows "open in app"), record that as a finding in docs/api/web-api.md ("Web client cannot join live rooms") and mark all room endpoints "unsupported" for web-session, instead of "configured-unverified".
+5. Fix send_conversation_emoji_reaction: compare the 400 request body with what the web UI sends when the user reacts in a DM; document the correct body.
+6. UI honesty: room cards and room actions show "Not verified yet" (tooltip with the docs link) when canCall() is false because of missing evidence; token-mode shows a single banner that it is unsupported.
+
+capture-protocol.md content (write it in Turkish and English):
+  Session A — solo (1 person, web):
+    a. home, topic chip, search, profile, follow, unfollow, house page, activity, events, messages, DM, send text, DM reaction
+    b. room smoke test: join public room, listen 30s, read chat, send a chat message, send a reaction, leave
+    c. create a closed room alone, end it
+  Session B — you host, friend listens (friend may use the phone app; only your web side is recorded):
+    you: create a public room → friend joins and raises hand → you invite → friend accepts → you mute friend → you make friend moderator → you move friend to audience → you end the room
+  Session C — friend hosts, you listen (friend on phone app, you on web, recorder --role=listener):
+    friend creates room → you join → raise hand → lower → raise again → friend invites you → you accept → you leave stage → friend makes you moderator → you leave the room
+  Session D — PubNub/realtime: during B and C keep the recorder open the whole time; it must capture websocket/PubNub frames for hand raises, invites, speaker changes and chat. If none appear, record which polling request the web client uses instead.
+  After each session: npm run api:docs, review docs/api/*.md for leaks, commit docs only.
+
+Acceptance:
+- `npm run api:check` passes; webApiRoutes.json evidence equals what the captures prove.
+- After sessions A–D, docs/api/web-api.md has a "Seen when" label for every app endpoint, or the endpoint is marked unsupported with the reason.
+- No raw capture, HAR file, token, cookie, phone number or email is committed.
+```
+
+### Task 0.7 — Fixes from the 2026-10-11 code review (#2)
+
+```
+All checks pass today (tsc, lint, 9 tests, build), but these are real defects. Fix them in this order and add a test where noted.
+
+1. Main window navigation guard (security).
+   electron/main.cjs has no will-navigate / setWindowOpenHandler on mainWindow. isTrustedSender() trusts whatever page is loaded in mainWindow's main frame, so if anything ever navigates the main window to another site (an XSS, a future <a href>, a pinned link), that site gets window.electronAPI (request, setAuthToken, setGlobalShortcuts).
+   Do: mainWindow.webContents.on('will-navigate', e => e.preventDefault()) unless the URL is the app's own index; setWindowOpenHandler(() => ({ action: 'deny' })) and open https links with shell.openExternal only after an allowlist check (clubhouse.com). In isTrustedSender also check event.senderFrame.url starts with the app origin (file://…/dist/index.html, or http://localhost:5173 only when !app.isPackaged).
+   Dev-server fallback (loadURL(devUrl) when dist is missing or loadFile fails) must only run when !app.isPackaged — otherwise any local process on port 5173 would get full IPC access in the installed app.
+
+2. API recorder in the packaged app.
+   --api-recorder (argv and second-instance) and CLUBBOX_API_RECORDER work in the installed app. The recorder writes to path.join(__dirname, '..', 'api-captures'), which is inside app.asar (read-only) when packaged.
+   Do: enable the recorder only when !app.isPackaged. Exclude electron/apiRecorder.cjs, electron/redact.cjs and scripts/ from the packaged files list.
+
+3. Clip worklet path is broken in the packaged / file:// build.
+   src/audio/audioEngine.ts startClipBuffer() calls ctx.audioWorklet.addModule('/clip-processor.js'). With loadFile(dist/index.html) the absolute path resolves to the drive root (file:///C:/clip-processor.js), addModule fails, the .catch returns false, and every "Save clip" shows "clip empty".
+   Do: addModule(new URL('clip-processor.js', document.baseURI).href) (vite base is './'). Add a smoke check in the build: after npm run build, assert dist/clip-processor.js exists. Manually verify a clip saves in the packaged app.
+
+4. Clip buffer is armed automatically in every non-closed room (src/main.ts ~1209 audioEngine.armClip(!closedRoom)) with no indicator — it continuously buffers other people's voices.
+   Do: arm only when the user turns on "Allow local recording" (Task 0.6 step 4) AND the room data says replays are on AND clips are enabled by the host (Phase 8 intro). Show the REC/clip indicator whenever armed. The private/social check in saveClip() uses the outdated model — switch to the current audience model.
+
+5. Rate limits and hidden-window polling.
+   classifyHttpFailure() (src/api/guards.ts) maps 429 to 'network'; nothing backs off. meTimer polls every 60 s for as long as the user is signed in, even minimized; activity/explore/chat/room timers keep running while the window is hidden.
+   Do: add kind 'rate-limit' for 429 (and error_message matching /high usage|too many|rate limit/i on 200 success:false); per-endpoint exponential backoff (1, 2, 4 … max 30 min) in ClubhouseApiClient; pause all timers on document.visibilitychange hidden for > 2 min except active_ping while in a room; resume with one refresh. Unit-test the backoff and the 429 classification in tests/guards.test.ts.
+
+6. CORS proxy / base URL can leak credentials.
+   Settings lets the user set "CORS proxy" (placeholder suggests cors-anywhere.herokuapp.com) and "Base API URL". In the browser (npm run dev) path, client.ts sends the Authorization token to that host.
+   Do: remove both fields from the UI and config (Electron main already hardcodes the hosts). If browser dev mode needs a proxy, allow only http://localhost:* and never attach Authorization to it.
+
+7. Mobile-token transport is dead code.
+   canCall() returns false for every endpoint on 'mobile-token', yet the token-capture window, token field, safeStorage token and the clubhouseapi.com path (with a spoofed "clubhouse/android/<build>" User-Agent) are still wired.
+   Do: either remove the mobile-token transport entirely (token capture window, token settings field, clubbox:token-* IPC, path (c) in main.cjs, the User-Agent spoof) — recommended — or show one clear "token sign-in is not supported" banner. Do not keep half of it.
+
+8. Recorder checklist uses outdated concepts (Help Center 2026-10-11).
+   electron/apiRecorder.cjs CHECKLIST still has create-public/create-social/create-closed and async "Chats" items. Replace with: create a friends-only room, create a friends-of-friends room, create a House room; replays on/off at creation; chat off; mute all speakers; delete a chat message; VM 1:1, VM group, House chat; @mention in room chat; hide a room from the hallway; House event RSVP.
+
+9. Bundle size: the main chunk is > 500 kB because agora-rtc-sdk-ng is imported eagerly. Lazy-load it with dynamic import() in agoraVoice.ts on the first live join.
+
+10. Commit discipline: the work since f834f25 (18 modified + 6 new files) is still uncommitted. Commit before starting, then once per numbered item.
+
+Acceptance:
+- Navigating the main window to https://example.com (e.g. from DevTools: location.href = …) is blocked; window.open is denied.
+- The installed app ignores --api-recorder; app.asar contains no apiRecorder.cjs/redact.cjs.
+- A clip saves from the packaged app in a room where clips are allowed; nothing is buffered when local recording is off.
+- A mocked 429 stops further calls to that endpoint until the backoff expires; no timers fire after 2 minutes minimized (except active_ping in a room).
+- No CORS proxy / base URL fields remain; grep -n "cors-anywhere" src returns nothing.
+```
+
+### Task 0.6 — Reduce Community Guidelines risk (read before shipping anything)
+
+```
+Source: Clubhouse Community Guidelines (community.clubhouse.com), section "Scraping And Other Commercial Exploitation", read 2026-10-11. It says users may not:
+  - "access, search, collect, copy, download, extract, reproduce, monitor, or index any Content by automated means, including through bots, crawlers, spiders, scrapers, scripts, browser automation tools, data-mining tools, or similar technologies";
+  - "use any Content for commercial purposes, including to create, develop, market, license, sell, or provide any product, service …";
+  - "circumvent or attempt to circumvent any technical measure designed to prevent or limit automated access … including access controls, rate limits …".
+Also "Spam, Bots, and Platform Misuse": no artificial amplification (bot audiences).
+Terms of Service (updated 2026-09-25): violating the ToS or Guidelines terminates your authorization automatically.
+This is not legal advice; the owner decides the risk. The account at risk is the user's own Clubhouse account.
+
+Where Clubbox currently overlaps with those rules:
+  a. electron/main.cjs runs clubhouse.com sign-in in a HIDDEN window and calls grecaptcha.execute() programmatically (postClubhouseWebAuth). reCAPTCHA is an anti-automation measure.
+  b. Background polling by scripts: RoomSync every 5 s, room chat every 8 s, explore refresh every 60 s, active_ping every 30 s, plus activityTimer and meTimer in src/main.ts.
+  c. Local recording of room audio (other people's voices) and the planned clip buffer.
+  d. Packaging + electron-updater + GitHub releases = distributing a product built on Clubhouse content.
+  e. The API recorder (user-driven DevTools-style capture of the user's own session) — lowest risk, but keep it local and redacted.
+
+Do:
+1. Sign-in: remove the hidden-window grecaptcha flow. Sign-in happens only in a VISIBLE official clubhouse.com window where the user types the number and code themselves (the existing token-capture window). Clubbox never calls grecaptcha.execute itself.
+2. Polling: no background requests unless the user is actively in a room or looking at the view. Minimums: room state 15 s, chat 15 s while the chat panel is open, hallway only on open/refresh (no 60 s timer), active_ping at the interval the official web client uses (from captures). Stop everything when the window is hidden/minimized for more than 2 minutes (except active_ping while in a room). On HTTP 429 or a "high usage"/rate-limit error: stop that endpoint, back off exponentially (1, 2, 4 … max 30 min), show a notice. Never retry around a rate limit.
+3. No bulk collection: no caching of other users' profiles/feeds to disk; no export of user lists; no search/scan loops.
+4. Recording and clips: off by default behind a setting "Allow local recording" with a warning that it records other people. Only allowed in rooms where replays are ON (the official consent signal). Show a persistent red "REC" banner. Never upload.
+5. Distribution: until the owner decides otherwise, disable auto-update/publishing: remove the "publish" block from package.json build config and the electron-updater call, and keep releases local. Add a README section "Status: personal, non-commercial, unofficial. Not affiliated with Clubhouse. Use at your own risk; it may violate the Clubhouse Community Guidelines (Scraping and Other Commercial Exploitation)."
+6. Add a first-run dialog that states the same and requires an explicit "I understand" before live mode can be enabled (sandbox mode works without it).
+7. Owner action (not code): consider asking Clubhouse for written permission via the support contact form before any public release.
+
+Acceptance: `grep -n "grecaptcha.execute" electron` returns nothing; no timer fires while the window is hidden (except active_ping in a room); package.json has no publish config; first-run dialog blocks live mode until accepted.
 ```
 
 ---
@@ -316,6 +449,31 @@ Current Clubhouse app — observed surfaces (2026-10-10):
 - Reactions sheet: pick the target speaker, 16 free emoji reactions, premium reactions paid with coins (heart 5, love it 10, gift 10, drool 10, that's tea 25, you're cooking 25); premium reacts are region-locked ("not supported in your country yet").
 ```
 
+```
+Clubhouse Help Center facts (support.clubhouse.com, 116 articles, read 2026-10-11) — these override older assumptions in this file:
+- Platforms: help center documents only the iPhone and Android apps. Nothing documents live rooms on the web. Treat web room support as unknown until Task 0.5 step 4 proves it.
+- Room audiences: "friends only", "friends of friends", House rooms (visible to everyone if the House is open), plus interest-based/public rooms. The old public/social/closed model is outdated.
+- Create room options: audience/House, title, replays on/off (ON by default; can be turned off but never back on mid-room; no partial recordings kept), chat on/off.
+- Hand raise queue on every room, options "Everyone" or "Friends of speakers".
+- Moderator tools: hand raise queue settings, mute all speakers, turn chat off, delete individual chat messages.
+- Room chat: @mention notifies the person and links them into the room. Private chat with someone in the room: text mode or voice mode (voice mode mutes the room without leaving).
+- Invite: share button -> "invite people" pings friends; or @mention in room chat.
+- Hallway: rooms from friends, friends-of-friends and my Houses plus recommendations; rooms can be hidden (long press -> hide). Live rooms list also under search (globe icon).
+- Search: tabs top / people / rooms / houses; houses: join if public, request to join if not.
+- Friends = mutual add (not one-way follow). Limit 5,000. Adding is rate limited ("high usage error"). Removing a friend does not notify them.
+- Messages: async friend / friend-of-friend Chats are DISCONTINUED (read-only archive in settings). Messages now = VMs (private voice messages, 1:1 or group; members can be added, new members don't see history) + House chats (only admins/leaders post by default).
+- Activity: friend add-backs, room invites, House suggestions, event invites, friend requests; cannot be cleared.
+- Events: House events, RSVP, max 5 scheduled per House, edit/cancel by House admins.
+- Houses: create, pin (private to me), rename (members notified), privacy, blocking rules, unlimited rooms per House.
+- Replays: only the room creator can download full audio; saved replays list in settings; Replays live in House settings.
+- Clips: 5-55 seconds, selected from a live TRANSCRIPT of the last few minutes; need public room + replays on + host enabled clips; not in anon mode; currently iPhone-only, English, US rooms.
+- Closed captions: iOS live rooms; Android only for VMs.
+- Clubhouse Plus: anonymous listening, profile photo history, see who viewed my profile, up to 8 profile links, share activity on profile. Not available in Turkey (not in the country list).
+- Karma: profile karma (stable) + engagement karma (decays); min 100 karma for rewards. Rewards ("earnings"): Stripe payout, 18+, supported countries; premium reacts bought with coins are one input.
+- Social accounts (X/Instagram) can no longer be connected to profiles.
+- Name and username can change only every 14 days.
+```
+
 ### Task 8.1 — App shell: four sections like the current app
 
 ```
@@ -333,7 +491,7 @@ Only build empty shells + routing in this task; the next tasks fill them.
 1. Topic chips above the room list (for you + categories returned by the feed). Selecting a chip reloads the feed for that topic.
 2. Room card: house icon + name, title, up to 6 speaker avatars with "+N", "speaking now" line (who is talking), join button.
 3. Preview listening: an "unmute/listen" button on each card plays the room audio without joining as a visible listener (if the web client does this with an audience-only Agora join, replicate it; one preview at a time; stop on navigation).
-4. "Host a room" floating button opens the existing create-room modal; add "in a house" selection (pick one of my houses) next to privacy.
+4. "Host a room" floating button opens the existing create-room modal; replace the old public/social/closed privacy select with the current audience choices: friends only, friends of friends, a House (pick one of my houses), and public/interest-based if the API offers it. Add the replays toggle (default ON, with a note that it cannot be re-enabled once turned off) and the chat toggle.
 5. Keep the 60s auto-refresh and the Refresh button.
 ```
 
@@ -391,6 +549,7 @@ Only build empty shells + routing in this task; the next tasks fill them.
 ### Task 8.9 — Messages (houses chats, groups, DMs)
 
 ```
+NOTE (Help Center 2026-10-11): async friend / friend-of-friend Chats are discontinued. Build only VMs (1:1 and group voice messages, with text mode) and House chats. Show the old Chats archive read-only if the API returns it.
 Research first, then build read + send:
 1. Capture endpoints for: chat list, chat messages (text, images, voice messages with transcripts), send text, send voice message, mark read, presence of friends.
 2. Messages view: presence row (online / in a room — clicking a friend in a room offers "join"), all / DMs filter, search, list with last message and age, unread state.
@@ -413,11 +572,11 @@ Profile drawer / page for any user, and a richer one for me:
 ### Task 8.11 — Clips (create)
 
 ```
-Clubhouse clips are the last 30 seconds of a public room. Clubbox already has all room audio in the Web Audio graph.
-1. Keep a rolling 30s PCM ring buffer of the recorder mix (AudioWorklet).
-2. "✂ Clip" button + hotkey C saves a local file named with room topic and time.
-3. If the API supports uploading/sharing a clip, add "share to Clubhouse"; respect the room's clips flag and users' "hide my name and image from clips" setting (do not show their names/avatars in any clip preview card).
-4. Disable in private/social rooms.
+Official Clubhouse Clips are 5-55 s, picked from a live transcript, and only allowed when the room is public, replays are ON and the host enabled clips (iPhone/US/English only today). A local Clubbox clip must not be presented as a Clubhouse Clip.
+1. Only enable the local clip button when the room data says replays are on AND clips are enabled by the host. Otherwise hide it.
+2. Rolling buffer of the recorder mix up to 55 s (AudioWorklet); the user picks 5-55 s before saving. Save locally only, named with room title and time. Never auto-upload or auto-share.
+3. Show a visible "recording" notice while the buffer is armed, and respect users' "hide my name and image from clips" (no names/avatars in any clip preview).
+4. If the web API exposes official clip creation, prefer it over the local buffer.
 ```
 
 ### Task 8.12 — Account and privacy settings
@@ -434,7 +593,7 @@ Never log or persist phone/email outside the existing config. Do not implement d
 ### Task 8.13 — Moderator room settings
 
 ```
-Moderator-only "Room settings" menu: edit title, toggle hand raise, toggle chat, pin a link, end room, remove/block a user from the room. Same rules: capture endpoint, add to both paths + sandbox, show only when allowed.
+Moderator-only "Room settings" menu: edit title, hand raise queue (off / everyone / friends of speakers), mute all speakers, toggle chat, delete a single chat message, pin a link, end room, remove/block a user from the room. Same rules: capture endpoint, add to both paths + sandbox, show only when allowed.
 ```
 
 ---

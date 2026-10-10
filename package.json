@@ -14,7 +14,7 @@
     "desktop:preview": "electron .",
     "api:record": "node scripts/api-record.mjs",
     "api:docs": "node scripts/api-docs.mjs",
-    "test:redact": "node --test electron/redact.test.cjs",
+    "test:redact": "node --test electron/redact.test.cjs electron/apiRecorderFailure.test.cjs electron/ipcGuard.test.cjs && node --experimental-strip-types --test tests/capabilities.test.ts tests/guards.test.ts",
     "lint": "eslint .",
     "icons": "node scripts/make-icons.mjs",
     "dist": "npm run build && electron-builder"

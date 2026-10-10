@@ -103,7 +103,8 @@ export class AgoraVoiceEngine {
       );
       return true;
     } catch (err) {
-      console.warn('[AgoraRTC] Live Agora join failed (likely in sandbox/mock token):', err);
+      // No Agora token-refresh request has been captured. Do not invent one.
+      console.warn('[AgoraRTC] Live Agora join failed:', err);
       try {
         await this.leave();
       } catch {

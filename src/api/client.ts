@@ -1,16 +1,30 @@
-import webApiRoutes from '../../electron/webApiRoutes.json' with { type: 'json' };
+import { canCall, evidenceOf, type Evidence, type Transport } from './capabilities';
+import { businessFailure, classifyHttpFailure, type ApiErrorKind } from './guards';
 import { INITIAL_MOCK_CHANNELS, MOCK_ME, SANDBOX_CHAT_MESSAGES, sandboxUserIds } from './sandboxData';
 import type { CHAuthResponse, CHChannel, CHChannelDetail, CHChatMessage, CHConversation, CHUser, FeedTopic, MeSettings } from './types';
+
+const REQUEST_TIMEOUT_MS = 20000;
+
+function withTimeout<T>(work: Promise<T>, endpoint: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new ClubhouseApiError(0, endpoint, 'Request timed out', 'timeout'));
+    }, REQUEST_TIMEOUT_MS);
+    work.then(resolve, reject).finally(() => clearTimeout(timer));
+  });
+}
 
 export class ClubhouseApiError extends Error {
   status: number;
   endpoint: string;
+  kind: ApiErrorKind;
 
-  constructor(status: number, endpoint: string, message: string) {
+  constructor(status: number, endpoint: string, message: string, kind: ApiErrorKind = 'unknown') {
     super(message);
     this.name = 'ClubhouseApiError';
     this.status = status;
     this.endpoint = endpoint;
+    this.kind = kind;
   }
 }
 
@@ -26,6 +40,8 @@ export interface ClubhouseConfig {
   useSandbox: boolean;
   webSession: boolean;
   language: 'en' | 'tr';
+  allowUnverified: boolean;
+  hasSecureToken: boolean;
 }
 
 const DEFAULT_CONFIG: ClubhouseConfig = {
@@ -43,15 +59,14 @@ const DEFAULT_CONFIG: ClubhouseConfig = {
   useSandbox: true, // Default to sandbox so user can explore right away
   webSession: false,
   language: 'en',
+  allowUnverified: false,
+  hasSecureToken: false,
 };
 
 
 const CONFIG_KEY = 'clubbox_config';
 const LEGACY_CONFIG_KEY = 'clubdeck_config';
 const STALE_AGORA_APP_ID = '938d3d95b5764796b3204b67d233436e';
-
-// Same file electron/main.cjs loads. Unlisted actions are hidden in web-session mode.
-const WEB_SESSION_ENDPOINTS = new Set(Object.keys(webApiRoutes));
 
 function readStorage(key: string): string | null {
   try {
@@ -133,7 +148,7 @@ function writeConfig(config: ClubhouseConfig, hideToken = false): void {
 
 type DesktopBridge = {
   isElectron?: boolean;
-  getAuthToken?: () => Promise<string | null>;
+  tokenStatus?: () => Promise<{ present: boolean }>;
   setAuthToken?: (token: string | null) => Promise<boolean>;
 };
 
@@ -344,6 +359,7 @@ export class ClubhouseApiClient {
   private authExpiredCallbacks: (() => void)[] = [];
   private suppressAuthExpired = false;
   private secureToken = false;
+  private secureStorageFailed = false;
 
   constructor(customConfig?: Partial<ClubhouseConfig>) {
     const parsedSaved = readSavedConfig();
@@ -373,8 +389,23 @@ export class ClubhouseApiClient {
   }
 
   public supports(endpoint: string): boolean {
-    if (this.config.useSandbox || !this.config.webSession) return true;
-    return WEB_SESSION_ENDPOINTS.has(endpoint);
+    return canCall(endpoint, this.transport(), { allowUnverified: this.config.allowUnverified === true });
+  }
+
+  public evidence(endpoint: string): Evidence {
+    return evidenceOf(endpoint);
+  }
+
+  public takeSecureStorageFailure(): boolean {
+    const failed = this.secureStorageFailed;
+    this.secureStorageFailed = false;
+    return failed;
+  }
+
+  private transport(): Transport {
+    if (this.config.useSandbox) return 'sandbox';
+    if (this.config.webSession) return 'web-session';
+    return 'mobile-token';
   }
 
   public getConfig(): ClubhouseConfig {
@@ -383,35 +414,39 @@ export class ClubhouseApiClient {
 
   public async loadSecureToken(): Promise<void> {
     const bridge = desktopBridge();
-    if (!bridge?.getAuthToken || !bridge.setAuthToken) return;
+    if (!bridge?.tokenStatus || !bridge.setAuthToken) return;
     this.secureToken = true;
     const legacy = this.config.authToken;
-    let stored: string | null = null;
+    this.config.authToken = null;
+    let present: boolean;
     try {
-      stored = await bridge.getAuthToken();
+      present = (await bridge.tokenStatus()).present === true;
     } catch {
-      // Encryption can be unavailable until the desktop session is ready.
+      present = false;
     }
-    if (stored) {
-      this.config.authToken = stored;
-      writeConfig(this.config, true);
-      return;
-    }
-    if (legacy) {
+    if (!present && legacy) {
       const saved = await bridge.setAuthToken(legacy);
-      if (saved) writeConfig(this.config, true);
-      return;
+      present = saved === true;
+      if (!saved) this.secureStorageFailed = true;
     }
+    this.config.hasSecureToken = present;
+    this.config.authToken = null;
     writeConfig(this.config, true);
   }
 
-  public updateConfig(newConfig: Partial<ClubhouseConfig>): void {
+  public async updateConfig(newConfig: Partial<ClubhouseConfig>): Promise<void> {
     const tokenChanged = Object.prototype.hasOwnProperty.call(newConfig, 'authToken');
     this.config = { ...this.config, ...newConfig };
-    writeConfig(this.config, this.secureToken);
     if (tokenChanged && this.secureToken) {
-      void desktopBridge()?.setAuthToken?.(this.config.authToken);
+      const token = this.config.authToken;
+      this.config.authToken = null;
+      const saved = await desktopBridge()?.setAuthToken?.(token);
+      this.config.hasSecureToken = !!token && saved === true;
+      if (token && saved !== true) this.secureStorageFailed = true;
+      writeConfig(this.config, true);
+      return;
     }
+    writeConfig(this.config, this.secureToken);
   }
 
   public getCurrentUserId(): number | null {
@@ -446,7 +481,7 @@ export class ClubhouseApiClient {
     if (this.config.userId && !this.config.webSession) {
       headers['CH-UserID'] = this.config.userId.toString();
     }
-    if (this.config.authToken && !this.config.webSession) {
+    if (!this.secureToken && this.config.authToken && !this.config.webSession) {
       headers['Authorization'] = `Token ${this.config.authToken}`;
     }
     if (this.config.webSession) {
@@ -482,7 +517,7 @@ export class ClubhouseApiClient {
 
     try {
       if (desktopRequest) {
-        const result = await desktopRequest(endpoint, body ?? null, headers);
+        const result = await withTimeout(desktopRequest(endpoint, body ?? null, headers), endpoint);
         return this.parseLiveResponse<T>(endpoint, result.status, result.body, result.ok);
       }
 
@@ -502,13 +537,17 @@ export class ClubhouseApiClient {
         method: 'POST',
         headers,
         body: body ? JSON.stringify(body) : undefined,
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
       const text = await response.text();
       return this.parseLiveResponse<T>(endpoint, response.status, text, response.ok);
     } catch (err) {
       if (err instanceof ClubhouseApiError) throw err;
+      if (err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')) {
+        throw new ClubhouseApiError(0, endpoint, 'Request timed out', 'timeout');
+      }
       const message = err instanceof Error ? err.message : 'Network error';
-      throw new ClubhouseApiError(0, endpoint, message);
+      throw new ClubhouseApiError(0, endpoint, message, 'network');
     }
   }
 
@@ -521,20 +560,31 @@ export class ClubhouseApiClient {
       } catch {
         // The body is not JSON.
       }
-      if ((status === 401 || status === 403) && !this.suppressAuthExpired) {
+      const failure = classifyHttpFailure(status, message);
+      if (failure.expireSession && !this.suppressAuthExpired) {
         this.emitAuthExpired();
       }
-      throw new ClubhouseApiError(status, endpoint, message);
+      throw new ClubhouseApiError(status, endpoint, failure.message, failure.kind);
     }
 
-    const data = JSON.parse(text) as T & {
+    let data: T & {
       items?: unknown[];
       channels?: unknown[];
       messages?: unknown[];
       channel?: unknown;
       users?: unknown[];
       token?: unknown;
+      success?: unknown;
     };
+    try {
+      data = JSON.parse(text) as typeof data;
+    } catch {
+      throw new ClubhouseApiError(status, endpoint, 'Invalid response', 'unknown');
+    }
+    const failed = businessFailure(data);
+    if (failed) {
+      throw new ClubhouseApiError(status, endpoint, failed, 'business');
+    }
     if (endpoint === 'get_channels' && Array.isArray(data.items) && !Array.isArray(data.channels)) {
       data.channels = data.items
         .map((item) => feedChannel(item))
@@ -835,7 +885,7 @@ export class ClubhouseApiClient {
 
   public async adoptWebSession(): Promise<boolean> {
     const desktop = typeof window !== 'undefined' && !!(window as Window & { electronAPI?: { isElectron?: boolean } }).electronAPI?.isElectron;
-    if (!desktop || this.config.authToken) return false;
+    if (!desktop || this.config.authToken || this.config.hasSecureToken) return false;
     const previous = this.config.webSession;
     this.config.webSession = true;
     this.suppressAuthExpired = true;

@@ -2,6 +2,9 @@ const { app, BrowserWindow, dialog, session, ipcMain, safeStorage, globalShortcu
 const path = require('path');
 const fs = require('fs');
 const { startApiRecorder } = require('./apiRecorder.cjs');
+const { isAllowedEndpoint, isPlainPayload, pickHeaders } = require('./ipcGuard.cjs');
+
+const REQUEST_TIMEOUT_MS = 20000;
 
 const CH_WEB_APP_VERSION = '22.2.0';
 const RECAPTCHA_SITE_KEY_FALLBACK = '6Lf8IJcsAAAAAHr6Puq4KiD0A7jnz0ndgJUihuN2';
@@ -12,6 +15,17 @@ if (process.platform === 'win32') {
 }
 
 let mainWindow = null;
+
+function isTrustedSender(event) {
+  if (!mainWindow || mainWindow.isDestroyed()) return false;
+  const contents = mainWindow.webContents;
+  if (!contents || contents.isDestroyed()) return false;
+  if (event.sender !== contents) return false;
+  const frame = event.senderFrame;
+  if (!frame) return false;
+  if (contents.mainFrame && frame !== contents.mainFrame) return false;
+  return true;
+}
 let tokenCaptureWindow = null;
 let recorderWebContentsId = -1;
 
@@ -133,8 +147,9 @@ function openTokenCaptureWindow() {
     if (finished || !token) return;
     finished = true;
     detach();
+    const stored = writeAuthToken(token);
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('clubhouse-token-captured', { token, userId });
+      mainWindow.webContents.send('clubhouse-token-captured', { userId, present: stored === true });
     }
     if (!loginWindow.isDestroyed()) {
       loginWindow.close();
@@ -198,7 +213,8 @@ function openTokenCaptureWindow() {
   loginWindow.loadURL('https://www.clubhouse.com/signin');
 }
 
-ipcMain.on('open-token-capture', () => {
+ipcMain.on('open-token-capture', (event) => {
+  if (!isTrustedSender(event)) return;
   openTokenCaptureWindow();
 });
 
@@ -206,7 +222,7 @@ function authTokenFile() {
   return path.join(app.getPath('userData'), 'clubbox-auth.bin');
 }
 
-ipcMain.handle('clubbox:token-get', () => {
+function readAuthToken() {
   try {
     if (!safeStorage.isEncryptionAvailable()) return null;
     const file = authTokenFile();
@@ -216,6 +232,28 @@ ipcMain.handle('clubbox:token-get', () => {
   } catch {
     return null;
   }
+}
+
+function writeAuthToken(token) {
+  try {
+    const file = authTokenFile();
+    if (token == null || token === '') {
+      if (fs.existsSync(file)) fs.unlinkSync(file);
+      return true;
+    }
+    if (typeof token !== 'string' || token.length > 8192) return false;
+    if (!safeStorage.isEncryptionAvailable()) return false;
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, safeStorage.encryptString(token));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+ipcMain.handle('clubbox:token-get', (event) => {
+  if (!isTrustedSender(event)) return { present: false };
+  return { present: !!readAuthToken() };
 });
 
 const SHORTCUT_ACTIONS = ['mute', 'clip', 'pad1', 'pad2', 'pad3', 'pad4', 'pad5', 'pad6', 'pad7', 'pad8', 'pad9'];
@@ -299,9 +337,13 @@ function applyGlobalShortcuts(map) {
   return failed;
 }
 
-ipcMain.handle('clubbox:shortcuts-get', () => readShortcutFile());
+ipcMain.handle('clubbox:shortcuts-get', (event) => {
+  if (!isTrustedSender(event)) return null;
+  return readShortcutFile();
+});
 
-ipcMain.handle('clubbox:shortcuts-set', (_event, shortcuts) => {
+ipcMain.handle('clubbox:shortcuts-set', (event, shortcuts) => {
+  if (!isTrustedSender(event)) return { ok: false, failed: [] };
   const clean = sanitizeShortcuts(shortcuts);
   try {
     const file = shortcutsFile();
@@ -313,21 +355,9 @@ ipcMain.handle('clubbox:shortcuts-set', (_event, shortcuts) => {
   return { ok: true, failed: applyGlobalShortcuts(clean) };
 });
 
-ipcMain.handle('clubbox:token-set', (_event, token) => {
-  try {
-    const file = authTokenFile();
-    if (token == null || token === '') {
-      if (fs.existsSync(file)) fs.unlinkSync(file);
-      return true;
-    }
-    if (typeof token !== 'string' || token.length > 8192) return false;
-    if (!safeStorage.isEncryptionAvailable()) return false;
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(file, safeStorage.encryptString(token));
-    return true;
-  } catch {
-    return false;
-  }
+ipcMain.handle('clubbox:token-set', (event, token) => {
+  if (!isTrustedSender(event)) return false;
+  return writeAuthToken(token);
 });
 
 const WEB_AUTH_ENDPOINTS = {
@@ -485,6 +515,7 @@ async function postWithWebSession(endpoint, body) {
   const method = route.method || 'POST';
   const response = await session.defaultSession.fetch(webSessionUrl(route.path, method, body), {
     method,
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     headers: {
       Accept: 'application/json',
       'Content-Type': 'application/json; charset=utf-8',
@@ -502,17 +533,19 @@ async function postWithWebSession(endpoint, body) {
   return { ok: response.ok, status: response.status, body: text };
 }
 
-ipcMain.handle('ch:request', async (_event, payload) => {
+ipcMain.handle('ch:request', async (event, payload) => {
+  if (!isTrustedSender(event)) {
+    return { ok: false, status: 0, body: 'Unauthorized frame' };
+  }
   const endpoint = String(payload?.endpoint || '').replace(/^\//, '');
-  if (!/^[a-z0-9_]+$/i.test(endpoint)) {
-    return { ok: false, status: 0, body: 'Invalid endpoint' };
+  if (!/^[a-z0-9_]+$/i.test(endpoint) || !isAllowedEndpoint(endpoint)) {
+    return { ok: false, status: 0, body: 'Endpoint is not allowed' };
+  }
+  if (!isPlainPayload(payload?.body, 0)) {
+    return { ok: false, status: 0, body: 'Invalid payload' };
   }
 
-  const headers = {};
-  const incoming = payload?.headers && typeof payload.headers === 'object' ? payload.headers : {};
-  for (const [key, value] of Object.entries(incoming)) {
-    if (typeof value === 'string') headers[key] = value;
-  }
+  const headers = pickHeaders(payload?.headers);
   const webSession = headers['X-Clubbox-Web-Session'] === '1';
   delete headers['X-Clubbox-Web-Session'];
 
@@ -533,10 +566,13 @@ ipcMain.handle('ch:request', async (_event, payload) => {
   }
 
   try {
+    const storedToken = readAuthToken();
+    if (storedToken) headers.Authorization = `Token ${storedToken}`;
     const response = await fetch(`https://www.clubhouseapi.com/api/${endpoint}`, {
       method: 'POST',
       headers,
       body: payload?.body == null ? undefined : JSON.stringify(payload.body),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
     const body = await response.text();
     return { ok: response.ok, status: response.status, body };

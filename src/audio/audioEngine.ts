@@ -27,6 +27,7 @@ export class AudioEngine {
   private isMusicMode: boolean = false;
   private monitorEnabled: boolean = false;
   private isRecording: boolean = false;
+  private simulateMeterOnFailure = false;
   private soundpadVolume: number = 0.8;
   private micVolume: number = 1.0;
 
@@ -155,8 +156,14 @@ export class AudioEngine {
       console.log('[Clubbox] mic tracks', liveTracks);
       return true;
     } catch (err: unknown) {
-      console.warn('Microphone access not granted or unavailable, starting simulated VU meter:', err);
-      this.startSimulatedMeterLoop();
+      console.warn('Microphone access not granted or unavailable:', err);
+      if (this.simulateMeterOnFailure) {
+        this.startSimulatedMeterLoop();
+      } else {
+        if (this.animationFrameId) cancelAnimationFrame(this.animationFrameId);
+        this.animationFrameId = null;
+        this.onVolumeChangeCallbacks.forEach((cb) => cb(0));
+      }
       return false;
     }
   }
@@ -170,6 +177,17 @@ export class AudioEngine {
       this.micGain.gain.setTargetAtTime(this.isMuted ? 0 : this.micVolume, now, 0.015);
     }
     return this.isMuted;
+  }
+
+  public setSimulateMeterOnFailure(enabled: boolean): void {
+    this.simulateMeterOnFailure = enabled;
+  }
+
+  public stopMicrophone(): void {
+    this.releaseMicrophoneGraph();
+    if (this.animationFrameId) cancelAnimationFrame(this.animationFrameId);
+    this.animationFrameId = null;
+    this.onVolumeChangeCallbacks.forEach((cb) => cb(0));
   }
 
   public setMuted(muted: boolean): void {

@@ -83,6 +83,10 @@ export function settingsView(config: ClubhouseConfig, isElectron: boolean, short
             <span><strong>${t('liveMode')}</strong> ${t('liveModeHelp')}</span>
           </label>
         </div>
+        <label style="display:flex; align-items:flex-start; gap:8px; margin-top:16px; cursor:pointer;">
+          <input type="checkbox" id="cfg-allow-unverified" ${config.allowUnverified ? 'checked' : ''} />
+          <span><strong>${t('allowUnverified')}</strong><br />${t('allowUnverifiedHelp')}</span>
+        </label>
       </div>
 
       <div style="background:var(--bg-card); border:1px solid var(--border-subtle); border-radius:var(--radius-lg); padding:24px; margin-bottom:20px;">
@@ -122,9 +126,10 @@ export function settingsView(config: ClubhouseConfig, isElectron: boolean, short
         <div class="form-group">
           <label class="form-label">${t('authToken')}</label>
           <div style="display:flex; gap:8px;">
-            <input class="form-input" id="cfg-auth-token" type="password" autocomplete="off" placeholder="Token e.g. 5f9e8a7b..." value="${config.authToken || ''}" />
+            <input class="form-input" id="cfg-auth-token" type="password" autocomplete="off" placeholder="${isElectron && config.hasSecureToken ? t('tokenStoredSecurely') : 'Token e.g. 5f9e8a7b...'}" value="${isElectron ? '' : (config.authToken || '')}" />
             <button class="btn btn-secondary" type="button" data-action="toggle-token">${t('show')}</button>
           </div>
+          ${isElectron && config.hasSecureToken ? html`<button class="btn btn-secondary" type="button" data-action="clear-token">${t('clearToken')}</button>` : ''}
         </div>
 
         <div class="form-group">

@@ -62,6 +62,7 @@ function startApiRecorder(hooks) {
   const capturePath = path.join(dir, `${stamp}.jsonl`);
   const stream = fs.createWriteStream(capturePath, { flags: 'a' });
   const pending = new Map();
+  const finalized = new Set();
   const sockets = new Map();
   const done = new Set();
   const seen = [];
@@ -273,11 +274,17 @@ function startApiRecorder(hooks) {
     }
 
     if (method === 'Network.loadingFailed') {
+      if (!claimFinalize(finalized, params.requestId)) return;
+      const entry = pending.get(params.requestId);
       pending.delete(params.requestId);
+      if (!entry?.url) return;
+      const record = buildNetworkErrorRecord(entry, params);
+      if (!FAILURE_MARKS_CHECKLIST) writeRecord(record);
       return;
     }
 
     if (method === 'Network.loadingFinished') {
+      if (!claimFinalize(finalized, params.requestId)) return;
       const entry = pending.get(params.requestId);
       pending.delete(params.requestId);
       if (!entry) return;
@@ -472,4 +479,75 @@ function safeUrl(value) {
   }
 }
 
-module.exports = { startApiRecorder };
+const FAILURE_MARKS_CHECKLIST = false;
+
+function claimFinalize(finalized, requestId) {
+  const id = String(requestId ?? '');
+  if (!id || finalized.has(id)) return false;
+  finalized.add(id);
+  return true;
+}
+
+function safeErrorText(value) {
+  if (typeof value !== 'string') return '';
+  return value.replace(/https?:\/\/[^\s]+/gi, (url) => {
+    try {
+      const parsed = new URL(url);
+      return `${parsed.host}${parsed.pathname}`;
+    } catch {
+      return '<redacted>';
+    }
+  }).replace(/[?#][^\s]*/g, '').slice(0, 180);
+}
+
+function scenarioLabels(method, url) {
+  const pathName = url.pathname.toLowerCase();
+  const ctx = {
+    method: String(method || 'GET').toUpperCase(),
+    path: pathName,
+    topicChanged: false,
+    hasSearchTerm: false,
+    hand: null,
+    creating: pathName.includes('create_channel'),
+    privacy: '',
+  };
+  const labels = [];
+  for (const item of CHECKLIST) {
+    try {
+      if (item.test(ctx)) labels.push(item.label);
+    } catch {
+      // A checklist predicate must not break capture.
+    }
+  }
+  return labels;
+}
+
+function buildNetworkErrorRecord(entry, params) {
+  const url = entry.url;
+  const started = typeof entry.started === 'number' ? entry.started : null;
+  const finished = typeof params.timestamp === 'number' ? params.timestamp : null;
+  const record = {
+    type: 'network_error',
+    requestId: String(params.requestId || ''),
+    method: String(entry.method || 'GET'),
+    host: url.hostname,
+    path: url.pathname,
+    errorText: safeErrorText(params.errorText),
+    canceled: params.canceled === true,
+    scenarios: scenarioLabels(entry.method, url),
+  };
+  if (started != null && finished != null) {
+    record.timingMs = Math.max(0, Math.round((finished - started) * 1000));
+  }
+  if (typeof params.blockedReason === 'string' && params.blockedReason) {
+    record.blockedReason = params.blockedReason.slice(0, 120);
+  }
+  return record;
+}
+
+module.exports = {
+  startApiRecorder,
+  buildNetworkErrorRecord,
+  claimFinalize,
+  FAILURE_MARKS_CHECKLIST,
+};

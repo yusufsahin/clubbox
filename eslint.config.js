@@ -28,6 +28,7 @@ export default tseslint.config(
         URL: 'readonly',
         URLSearchParams: 'readonly',
         fetch: 'readonly',
+        AbortSignal: 'readonly',
       },
     },
   },
