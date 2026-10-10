@@ -133,7 +133,7 @@ Seen in a capture. The checklist did not label the click.
     "name": "user_220",
     "photo_url": null,
     "username": "user_208",
-    "share_url": "https://www.clubhouse.com/@user_208"
+    "share_url": "https://www.clubhouse.com/@user_208?utm_medium=general_invite&utm_campaign=nuBblL0zLJaRQmEljazl7A-2510714&chs=p7wCwqOZoJ%3AvdywmOKFY0jymA5rdTtX3uu_IUh-D1Oew1pYfSsoUxQ"
   },
   "following_ids": [],
   "blocked_ids": [],
@@ -284,7 +284,9 @@ App endpoint key: `me`. Configured method: POST.
 
 ## POST /web_api/get_feed_v3
 
-Seen when: Open home feed.
+Seen in a capture. The checklist did not label the click.
+
+Hint match (not proof): Open home feed.
 
 ### Request
 
@@ -356,7 +358,7 @@ Seen when: Open home feed.
           "tooltip_text": "this room is open to everyone"
         },
         "is_private": true,
-        "url": "https://www.clubhouse.com/room/MwVVJjWb",
+        "url": "https://www.clubhouse.com/room/MwVVJjWb?utm_medium=ch_room_pl&utm_campaign=nuBblL0zLJaRQmEljazl7A-2510714&chs=p7wCwqOZoJ%3AvdywmOKFY0jymA5rdTtX3uu_IUh-D1Oew1pYfSsoUxQ",
         "num_speakers": 11,
         "num_all": 80,
         "is_replay_enabled": false,
@@ -439,7 +441,7 @@ Seen when: Open home feed.
           "tooltip_text": "this room is open to everyone"
         },
         "is_private": true,
-        "url": "https://www.clubhouse.com/room/PYGjEB3G",
+        "url": "https://www.clubhouse.com/room/PYGjEB3G?utm_medium=ch_room_pm&utm_campaign=nuBblL0zLJaRQmEljazl7A-2510714&chs=p7wCwqOZoJ%3AvdywmOKFY0jymA5rdTtX3uu_IUh-D1Oew1pYfSsoUxQ",
         "num_speakers": 15,
         "num_all": 39,
         "is_replay_enabled": false,
@@ -509,9 +511,196 @@ Not observed in a capture yet. No request or response example is included, becau
 
 ## POST /web_api/get_profile
 
-App endpoint key: `get_profile`.
+Seen in a capture. The checklist did not label the click.
 
-Not observed in a capture yet. No request or response example is included, because none was recorded.
+Hint match (not proof): Open a profile.
+
+### Request
+
+- `user_id`: string
+
+```json
+{
+  "user_id": "<id>"
+}
+```
+
+### Response
+
+- `user_profile`: object
+  - `user_id`: string
+  - `name`: string
+  - `displayname`: null
+  - `photo_url`: string
+  - `username`: string
+  - `bio`: string
+  - `twitter`: null
+  - `instagram`: null
+  - `num_followers`: number
+  - `num_following`: number
+  - `num_cofollows`: number
+  - `time_created`: string
+  - `follows_me`: boolean
+  - `is_blocked_by_network`: boolean
+  - `mutual_follows_count`: number
+  - `mutual_follows`: array
+  - `mutual_cofollows_count`: number
+  - `mutual_cofollows`: array
+  - `upcoming_events`: array
+  - `notification_type`: number
+  - `invited_by_user_profile`: null
+  - `invited_by_club`: null
+  - `clubs_details_title`: string
+  - `clubs`: array
+  - `url`: string
+  - `can_receive_direct_payment`: boolean
+  - `direct_payment_fee_rate`: number
+  - `direct_payment_fee_fixed`: number
+  - `bio_links`: array
+  - `has_protected_profile`: boolean
+  - `conversation_request_mode`: string
+  - `club_details_on_profile`: boolean
+  - `is_guest_user`: boolean
+  - `is_public_figure`: null
+  - `recently_viewed_you`: boolean
+  - `recent_photo_urls`: array<string>
+  - `legacy_links`: array
+  - `max_links`: number
+  - `social_clubs`: array<object>
+    - `social_club_id`: string
+    - `name`: string
+    - `description`: null
+    - `slug`: string
+    - `photo_url`: string
+    - `num_members`: number
+    - `is_automatic_invites_enabled`: boolean
+    - `is_membership_open`: boolean
+    - `is_public_content`: boolean
+    - `creator_profile_id`: string
+    - `waitlist_enabled`: boolean
+    - `waitlist_question_enabled`: boolean
+    - `is_waitlist_answer_required`: boolean
+    - `waitlist_question`: string
+    - `permanent_conversation_id`: string
+    - `viewer_is_waitlisted`: boolean
+    - `url`: string
+    - `share_url`: string
+    - `is_membership_hidden`: boolean
+  - `social_clubs_count`: number
+  - `can_dm`: boolean
+  - `follow_status`: string
+  - `can_chat`: boolean
+  - `can_wave`: boolean
+  - `topics`: array
+- `chatting_with`: null
+- `success`: boolean
+
+```json
+{
+  "user_profile": {
+    "user_id": "<id>",
+    "name": "user_758",
+    "displayname": null,
+    "photo_url": "user_759",
+    "username": "user_210",
+    "bio": "🎭 \n\nhttps://youtu.be/mJxabMpu4QQ",
+    "twitter": null,
+    "instagram": null,
+    "num_followers": 1452,
+    "num_following": 845,
+    "num_cofollows": 786,
+    "time_created": "<redacted>T22:35:28.425245+00:00",
+    "follows_me": false,
+    "is_blocked_by_network": false,
+    "mutual_follows_count": 0,
+    "mutual_follows": [],
+    "mutual_cofollows_count": 0,
+    "mutual_cofollows": [],
+    "upcoming_events": [],
+    "notification_type": 2,
+    "invited_by_user_profile": null,
+    "invited_by_club": null,
+    "clubs_details_title": "user_209's clubs",
+    "clubs": [],
+    "url": "https://www.clubhouse.com/@user_210?utm_medium=ch_profile&utm_campaign=nuBblL0zLJaRQmEljazl7A-2510721&chs=p7wCwqOZoJ%3AvdywmOKFY0jymA5rdTtX3uu_IUh-D1Oew1pYfSsoUxQ",
+    "can_receive_direct_payment": false,
+    "direct_payment_fee_rate": 0.029,
+    "direct_payment_fee_fixed": 0.3,
+    "bio_links": [],
+    "has_protected_profile": false,
+    "conversation_request_mode": "ANYONE",
+    "club_details_on_profile": true,
+    "is_guest_user": false,
+    "is_public_figure": null,
+    "recently_viewed_you": false,
+    "recent_photo_urls": [
+      "https://d14u0p1qkech25.cloudfront.net/blurred_assets/blurred_photo_32.png",
+      "https://d14u0p1qkech25.cloudfront.net/blurred_assets/blurred_photo_50.png"
+    ],
+    "legacy_links": [],
+    "max_links": 8,
+    "social_clubs": [
+      {
+        "social_club_id": "<id>",
+        "name": "user_760",
+        "description": null,
+        "slug": "advent-calendar",
+        "photo_url": "user_761",
+        "num_members": 97,
+        "is_automatic_invites_enabled": true,
+        "is_membership_open": false,
+        "is_public_content": false,
+        "creator_profile_id": "<id>",
+        "waitlist_enabled": true,
+        "waitlist_question_enabled": false,
+        "is_waitlist_answer_required": false,
+        "waitlist_question": "Why do you want to join this house?",
+        "permanent_conversation_id": "097a56cb-2d8b-4603-89c9-bc611137aef7",
+        "viewer_is_waitlisted": false,
+        "url": "https://www.clubhouse.com/house/advent-calendar?chs=p7wCwqOZoJ%3AvdywmOKFY0jymA5rdTtX3uu_IUh-D1Oew1pYfSsoUxQ&utm_medium=ch_house_settings",
+        "share_url": "https://www.clubhouse.com/house/advent-calendar?chs=p7wCwqOZoJ%3AvdywmOKFY0jymA5rdTtX3uu_IUh-D1Oew1pYfSsoUxQ&utm_medium=ch_general_house",
+        "is_membership_hidden": false
+      },
+      {
+        "social_club_id": "<id>",
+        "name": "user_762",
+        "description": null,
+        "slug": "radyo-kabare",
+        "photo_url": "user_763",
+        "num_members": 1318,
+        "is_automatic_invites_enabled": true,
+        "is_membership_open": true,
+        "is_public_content": false,
+        "creator_profile_id": "<id>",
+        "waitlist_enabled": false,
+        "permanent_conversation_id": "c8f7fc73-51f6-4631-a8c8-d0e62183b128",
+        "viewer_is_waitlisted": false,
+        "url": "https://www.clubhouse.com/house/radyo-kabare?chs=p7wCwqOZoJ%3AvdywmOKFY0jymA5rdTtX3uu_IUh-D1Oew1pYfSsoUxQ&utm_medium=ch_house_settings",
+        "share_url": "https://www.clubhouse.com/house/radyo-kabare?chs=p7wCwqOZoJ%3AvdywmOKFY0jymA5rdTtX3uu_IUh-D1Oew1pYfSsoUxQ&utm_medium=ch_general_house",
+        "is_membership_hidden": false
+      },
+      {
+        "social_club_id": "<id>",
+        "name": "user_762",
+        "description": "Zorbalık kesinlikle yasak!",
+        "slug": "radyo-kabare-ilrstt11",
+        "photo_url": "user_764",
+        "num_members": 129,
+        "is_automatic_invites_enabled": true,
+        "is_membership_open": false,
+        "is_public_content": false,
+        "creator_profile_id": "<id>",
+        "waitlist_enabled": true,
+        "waitlist_question_enabled": false,
+        "is_waitlist_answer_required": false,
+        "waitlist_question": "Why do you want to join this house?",
+        "perma
+…
+```
+
+Status codes seen: 200.
+
+App endpoint key: `get_profile`. Configured method: POST.
 
 ## POST /web_api/follow
 
@@ -549,8 +738,6 @@ App endpoint key: `send_channel_message`.
 
 Not observed in a capture yet. No request or response example is included, because none was recorded.
 
-## Captured paths the app does not call yet
-
 ## GET /web_api/get_edge_stories
 
 Seen in a capture. The checklist did not label the click.
@@ -579,9 +766,13 @@ No body observed.
 
 Status codes seen: 200.
 
+App endpoint key: `get_edge_stories`. Configured method: GET.
+
 ## POST /web_api/get_conversations
 
-Seen when: Open a DM.
+Seen in a capture. The checklist did not label the click.
+
+Hint match (not proof): Open a DM.
 
 ### Request
 
@@ -754,7 +945,7 @@ Seen when: Open a DM.
         "has_new_segments": false,
         "has_listened": true
       },
-      "preview_segment_text": "<redacted>",
+      "preview_segment_text": "you: Babalarımızı kullanıyorsun iletişime geçmek için bunu da diyeceksin. Umrumda değil öyle bir ama",
       "preview_segment_type": "TEXT_TO_SPEECH",
       "is_archived": false
     },
@@ -777,7 +968,7 @@ Seen when: Open a DM.
         "name": "user_215",
         "is_membership_open": true,
         "photo_url": "user_216",
-        "share_url": "https://www.clubhouse.com/house/clubhousehq"
+        "share_url": "https://www.clubhouse.com/house/clubhousehq?chs=p7wCwqOZoJ%3AvdywmOKFY0jymA5rdTtX3uu_IUh-D1Oew1pYfSsoUxQ&utm_medium=ch_general_house_vm"
       },
       "segments_authors": [
         {
@@ -796,9 +987,13 @@ Seen when: Open a DM.
 
 Status codes seen: 200.
 
+App endpoint key: `get_conversations`. Configured method: POST.
+
 ## POST /web_api/get_group_suggested_invites
 
-Seen when: Invite a listener.
+Seen in a capture. The checklist did not label the click.
+
+Hint match (not proof): Invite a listener.
 
 ### Request
 
@@ -825,3 +1020,589 @@ Seen when: Invite a listener.
 ```
 
 Status codes seen: 200.
+
+App endpoint key: `get_group_suggested_invites`. Configured method: POST.
+
+## Captured paths the app does not call yet
+
+## POST /web_api/get_conversation
+
+Seen in a capture. The checklist did not label the click.
+
+Hint match (not proof): Open a DM.
+
+### Request
+
+- `conversation_id`: string
+
+```json
+{
+  "conversation_id": "5b99beb2-bf5b-48e5-9b1e-c2b7a97ea25c"
+}
+```
+
+### Response
+
+- `conversation_id`: string
+- `title`: string
+- `summary`: string
+- `time_created`: string
+- `time_content_updated`: string
+- `creator_user_profile`: object
+  - `user_id`: string
+  - `name`: string
+  - `username`: string
+  - `photo_url`: null
+  - `bio`: null
+  - `emoji`: string
+- `social_club`: null
+- `segments_authors`: array<object>
+  - `user_id`: string
+  - `name`: string
+  - `username`: string
+  - `photo_url`: null
+  - `bio`: null
+  - `emoji`: string
+- `segments_authors_count`: number
+- `share_url`: string
+- `last_segment_id`: string
+- `has_new_segments`: boolean
+- `is_subscribed`: boolean
+- `permissions`: object
+  - `can_reply`: boolean
+  - `can_change_title`: boolean
+  - `cant_reply_reason`: string
+  - `chat_post_block`: null
+  - `can_quote`: boolean
+  - `can_delete`: boolean
+  - `can_invite`: boolean
+  - `can_share`: boolean
+  - `can_allow_members_to_speak`: boolean
+  - `can_add_members`: boolean
+  - `can_remove_members`: boolean
+  - `can_leave`: boolean
+  - `can_view_outside_reactions`: boolean
+- `target_type`: string
+- `pending_participants`: array<object>
+  - `user_id`: string
+  - `name`: string
+  - `username`: string
+  - `photo_url`: string
+  - `bio`: string
+  - `emoji`: string
+  - `fallback_number_hash`: null
+  - `fallback_message`: null
+- `short_title`: string
+- `social_club_id`: null
+- `social_club_name`: null
+- `social_club_photo_url`: null
+- `is_permanent_social_club_conversation`: boolean
+- `privacy_settings`: object
+  - `type`: string
+  - `display_text`: string
+  - `tooltip_text`: string
+- `allow_members_to_speak`: null
+- `is_speaker_actions_enabled`: boolean
+- `preview_segment_text`: string
+- `preview_segment_type`: string
+- `is_archived`: boolean
+- `success`: boolean
+- `segments`: array<object>
+  - `segment_id`: string
+  - `creator_user_profile`: object
+    - `user_id`: string
+    - `name`: string
+    - `username`: string
+    - `photo_url`: null
+    - `bio`: null
+    - `emoji`: string
+  - `time_created`: string
+  - `has_listened`: boolean
+  - `segment_audio_url`: string
+  - `share_url`: string
+  - `duration`: number
+  - `permissions`: object
+    - `can_update_attachment`: boolean
+    - `can_delete`: boolean
+  - `reactions`: array
+  - `attached_url`: null
+  - `transcription`: array<object>
+    - `text`: string
+    - `start_ms`: number
+    - `end_ms`: number
+  - `photo_url`: null
+  - `full_size_photo_url`: null
+  - `shared_without_voice`: boolean
+  - `audio_status`: string
+  - `caption_status`: string
+  - `user_text`: string
+  - `client_reference_id`: string
+- `listeners`: array
+- `listeners_count`: number
+- `emoji_reaction_options`: array<string>
+- `pubnub_settings`: object
+  - `pubnub_token`: string
+  - `pubnub_origin`: string
+  - `utc_token_expiration_datetime`: string
+  - `is_live_replies_enabled`: boolean
+- `previous_cursor`: null
+- `next_cursor`: null
+- `is_first_visit`: null
+
+```json
+{
+  "conversation_id": "5b99beb2-bf5b-48e5-9b1e-c2b7a97ea25c",
+  "title": "user_209",
+  "summary": "There is not enough context. Maybe you should say something?",
+  "time_created": "<redacted>T23:30:43.497670Z",
+  "time_content_updated": "<redacted>T23:31:22.969605Z",
+  "creator_user_profile": {
+    "user_id": "<id>",
+    "name": "user_207",
+    "username": "user_208",
+    "photo_url": null,
+    "bio": null,
+    "emoji": ""
+  },
+  "social_club": null,
+  "segments_authors": [
+    {
+      "user_id": "<id>",
+      "name": "user_207",
+      "username": "user_208",
+      "photo_url": null,
+      "bio": null,
+      "emoji": ""
+    }
+  ],
+  "segments_authors_count": 1,
+  "share_url": "",
+  "last_segment_id": "<redacted>#<redacted>",
+  "has_new_segments": false,
+  "is_subscribed": true,
+  "permissions": {
+    "can_reply": false,
+    "can_change_title": true,
+    "cant_reply_reason": "only people invited can reply",
+    "chat_post_block": null,
+    "can_quote": true,
+    "can_delete": true,
+    "can_invite": false,
+    "can_share": false,
+    "can_allow_members_to_speak": false,
+    "can_add_members": false,
+    "can_remove_members": false,
+    "can_leave": false,
+    "can_view_outside_reactions": false
+  },
+  "target_type": "private",
+  "pending_participants": [
+    {
+      "user_id": "<id>",
+      "name": "user_209",
+      "username": "user_210",
+      "photo_url": "user_211",
+      "bio": "🎭 \n\nhttps://youtu.be/mJxabMpu4QQ",
+      "emoji": "",
+      "fallback_number_hash": null,
+      "fallback_message": null
+    }
+  ],
+  "short_title": "user_209",
+  "social_club_id": null,
+  "social_club_name": null,
+  "social_club_photo_url": null,
+  "is_permanent_social_club_conversation": false,
+  "privacy_settings": {
+    "type": "DM",
+    "display_text": "private",
+    "tooltip_text": "this conversation is private"
+  },
+  "allow_members_to_speak": null,
+  "is_speaker_actions_enabled": false,
+  "preview_segment_text": "you: Babalarımızı kullanıyorsun iletişime geçmek için bunu da diyeceksin. Umrumda değil öyle bir ama",
+  "preview_segment_type": "TEXT_TO_SPEECH",
+  "is_archived": false,
+  "success": true,
+  "segments": [
+    {
+      "segment_id": "<redacted>#<redacted>",
+      "creator_user_profile": {
+        "user_id": "<id>",
+        "name": "user_207",
+        "username": "user_208",
+        "photo_url": null,
+        "bio": null,
+        "emoji": ""
+      },
+      "time_created": "<redacted>T23:31:18.092325Z",
+      "has_listened": true,
+      "segment_audio_url": "user_512",
+      "share_url": "",
+      "duration": 5000,
+      "permissions": {
+        "can_update_attachment": true,
+        "can_delete": false
+      },
+      "reactions": [],
+      "attached_url": null,
+      "transcription": [
+        {
+          "text": "Aslında bunu yazmayacaktım. Öneride Rahmetli Ali Amca çıktı. Benim babamda Hak dünyada. Mekanları cennet olsun. Mezarına kadar gittik Ali Amcanın. Hem babamı hem Ali Amcayı utandırdık öteki tarafta.",
+          "start_ms": 0,
+          "end_ms": 5000
+        }
+      ],
+      "photo_url": null,
+      "full_size_photo_url": null,
+      "shared_without_voice": true,
+      "audio_status": "audio_generating",
+      "caption_status": "caption_ready",
+      "user_text": "Aslında bunu yazmayacaktım. Öneride Rahmetli Ali Amca çıktı. Benim babamda Hak dünyada. Mekanları cennet olsun. Mezarına kadar gittik Ali Amcanın. Hem babamı hem Ali Amcayı utandırdık öteki tarafta.",
+      "client_reference_id": "4ff38915-8f73-48ef-a0ea-f0f8d986eec7"
+    },
+    {
+      "segment_id": "<redacted>#<redacted>",
+      "creator_user_profile": {
+        "user_id": "<id>",
+        "name": "user_207",
+        "username": "user_208",
+        "photo_url": null,
+        "bio": null,
+        "emoji": ""
+      },
+      "time_created": "<redacted>T23:31:22.969605Z",
+      "has_listened": true,
+      "segment_audio_url": "user_512",
+      "share_url": "",
+      "duration": 5000,
+      "permissions": {
+        "can_update_attachment": true,
+        "can_delet
+…
+```
+
+Status codes seen: 200.
+
+## POST /web_api/get_create_channel_targets
+
+Seen in a capture. The checklist did not label the click.
+
+### Request
+
+- No request body observed.
+
+```json
+{}
+```
+
+### Response
+
+- `events`: array
+- `clubs`: array
+- `targets`: array
+- `language`: string
+- `language_native_name`: string
+- `channel_chat_default_on`: boolean
+- `web_listening_default_on`: boolean
+- `channel_capabilities`: object
+  - `public`: object
+    - `is_handraise_available`: boolean
+    - `is_topics_available`: boolean
+    - `is_pinned_links_available`: boolean
+    - `is_automatic_speaker_approval_available`: boolean
+    - `is_replay_available`: boolean
+    - `is_previewing_enabled`: boolean
+    - `chat_permission_default`: number
+    - `chat_permission_options`: array<object>
+      - `value`: number
+      - `label`: string
+      - `short_label`: string
+      - `sub_label`: string
+    - `handraise_queue_default`: number
+    - `handraise_queue_options`: array<object>
+      - `value`: number
+      - `label`: string
+      - `short_label`: string
+      - `sub_label`: string
+  - `social`: object
+    - `is_handraise_available`: boolean
+    - `is_topics_available`: boolean
+    - `is_pinned_links_available`: boolean
+    - `is_automatic_speaker_approval_available`: boolean
+    - `is_replay_available`: boolean
+    - `is_previewing_enabled`: boolean
+    - `chat_permission_default`: number
+    - `chat_permission_options`: array<object>
+      - `value`: number
+      - `label`: string
+      - `short_label`: string
+      - `sub_label`: string
+    - `handraise_queue_default`: number
+    - `handraise_queue_options`: array<object>
+      - `value`: number
+      - `label`: string
+      - `short_label`: string
+      - `sub_label`: string
+  - `friend_of_friend`: object
+    - `is_handraise_available`: boolean
+    - `is_topics_available`: boolean
+    - `is_pinned_links_available`: boolean
+    - `is_automatic_speaker_approval_available`: boolean
+    - `is_replay_available`: boolean
+    - `is_previewing_enabled`: boolean
+    - `chat_permission_default`: number
+    - `chat_permission_options`: array<object>
+      - `value`: number
+      - `label`: string
+      - `short_label`: string
+      - `sub_label`: string
+    - `handraise_queue_default`: number
+    - `handraise_queue_options`: array<object>
+      - `value`: number
+      - `label`: string
+      - `short_label`: string
+      - `sub_label`: string
+  - `friend`: object
+    - `is_handraise_available`: boolean
+    - `is_topics_available`: boolean
+    - `is_pinned_links_available`: boolean
+    - `is_automatic_speaker_approval_available`: boolean
+    - `is_replay_available`: boolean
+    - `is_previewing_enabled`: boolean
+    - `chat_permission_default`: number
+    - `chat_permission_options`: array<object>
+      - `value`: number
+      - `label`: string
+      - `short_label`: string
+      - `sub_label`: string
+    - `handraise_queue_default`: number
+    - `handraise_queue_options`: array<object>
+      - `value`: number
+      - `label`: string
+      - `short_label`: string
+      - `sub_label`: string
+  - `closed`: object
+    - `is_handraise_available`: boolean
+    - `is_topics_available`: boolean
+    - `is_pinned_links_available`: boolean
+    - `is_automatic_speaker_approval_available`: boolean
+    - `is_replay_available`: boolean
+    - `is_previewing_enabled`: boolean
+    - `chat_permission_default`: number
+    - `chat_permission_options`: array<object>
+      - `value`: number
+      - `label`: string
+      - `short_label`: string
+      - `sub_label`: string
+    - `handraise_queue_default`: number
+    - `handraise_queue_options`: array<object>
+      - `value`: number
+      - `label`: string
+      - `short_label`: string
+      - `sub_label`: string
+  - `club`: object
+    - `is_handraise_available`: boolean
+    - `is_topics_available`: boolean
+    - `is_pinned_links_available`: boolean
+    - `is_automatic_speaker_approval_available`: boolean
+    - `is_replay_available`: boolean
+    - `is_previewing_enabled`: boolean
+    - `chat_permission_default`: number
+    - `chat_permission_options`: array<object>
+      - `value`: number
+      - `label`: string
+      - `short_label`: string
+      - `sub_label`: string
+    - `handraise_queue_default`: number
+    - `handraise_queue_options`: array<object>
+      - `value`: number
+      - `label`: string
+      - `short_label`: string
+      - `sub_label`: string
+- `conversation_prompts`: array
+- `display_games`: boolean
+- `success`: boolean
+
+```json
+{
+  "events": [],
+  "clubs": [],
+  "targets": [],
+  "language": "en",
+  "language_native_name": "English",
+  "channel_chat_default_on": true,
+  "web_listening_default_on": true,
+  "channel_capabilities": {
+    "public": {
+      "is_handraise_available": true,
+      "is_topics_available": true,
+      "is_pinned_links_available": true,
+      "is_automatic_speaker_approval_available": false,
+      "is_replay_available": false,
+      "is_previewing_enabled": false,
+      "chat_permission_default": 1,
+      "chat_permission_options": [
+        {
+          "value": 1,
+          "label": "open chat",
+          "short_label": "open chat",
+          "sub_label": "anyone can chat"
+        },
+        {
+          "value": 2,
+          "label": "followers of the host",
+          "short_label": "followers of the host",
+          "sub_label": "anyone who follows the host can chat"
+        },
+        {
+          "value": 3,
+          "label": "trusted followers of the host",
+          "short_label": "trusted followers",
+          "sub_label": "friends, verified followers with enough karma or Clubhouse Plus subscriptions"
+        }
+      ],
+      "handraise_queue_default": 0,
+      "handraise_queue_options": [
+        {
+          "value": 0,
+          "label": "open stage",
+          "short_label": "open stage",
+          "sub_label": "anyone can speak"
+        },
+        {
+          "value": 2,
+          "label": "request to join",
+          "short_label": "request to join",
+          "sub_label": "anyone can request, mods approve"
+        },
+        {
+          "value": 1,
+          "label": "invite only",
+          "short_label": "invite only",
+          "sub_label": "only mods can invite to stage"
+        }
+      ]
+    },
+    "social": {
+      "is_handraise_available": false,
+      "is_topics_available": false,
+      "is_pinned_links_available": true,
+      "is_automatic_speaker_approval_available": true,
+      "is_replay_available": false,
+      "is_previewing_enabled": false,
+      "chat_permission_default": 1,
+      "chat_permission_options": [
+        {
+          "value": 1,
+          "label": "open chat",
+          "short_label": "open chat",
+          "sub_label": "anyone can chat"
+        },
+        {
+          "value": 2,
+          "label": "followers of the host",
+          "short_label": "followers of the host",
+          "sub_label": "anyone who follows the host can chat"
+        },
+        {
+          "value": 3,
+          "label": "trusted followers of the host",
+          "short_label": "trusted followers",
+          "sub_label": "friends, verified followers with enough karma or Clubhouse Plus subscriptions"
+        }
+      ],
+      "handraise_queue_default": 0,
+      "handraise_queue_options": [
+        {
+          "value": 0,
+          "label": "open stage",
+          "short_label": "open stage",
+          "sub_label": "anyone can speak"
+        },
+        {
+          "value": 2,
+          "label": "request to join",
+          "short_label": "request to join",
+          "sub_label": "anyone can request, mods approve"
+        },
+        {
+          "value": 1,
+          "label": "invite only",
+          "short_label": "invite only",
+          "sub_label": "only mods can invite to stage"
+        }
+      ]
+    },
+    "friend_of_friend": {
+      "is_handraise_available": false,
+      "is_topics_available": false,
+      "is_pinned_links_available": true,
+      "is_automatic_speaker_approval_available": true,
+      "is_replay_available": false,
+      "is_previewing_enabled": false,
+      "chat_permission_default": 1,
+      "chat_permission_options": [
+        {
+          "value": 1,
+          "label": "open chat",
+          "short_label": "open chat",
+          "sub_label": "anyone can chat"
+        },
+        {
+          "value": 2,
+          "label": "followers of the host",
+          "short_label": "followers of the host",
+          "sub_label": "anyone who follows the host can chat"
+        },
+        {
+          "value": 3,
+
+…
+```
+
+Status codes seen: 200.
+
+## POST /web_api/send_conversation_emoji_reaction
+
+Seen in a capture. The checklist did not label the click.
+
+Hint match (not proof): Send a reaction.
+
+No successful response was captured, so this request body is not treated as the correct one.
+
+### Request
+
+- `conversation_id`: string
+- `segment_id`: string
+- `emoji`: string
+
+```json
+{
+  "conversation_id": "3a1c3e0d-f1f7-44de-94d<redacted>e126",
+  "segment_id": "<redacted>#<redacted>",
+  "emoji": "🙏"
+}
+```
+
+### Response
+
+- `success`: boolean
+- `error_message`: string
+
+```json
+{
+  "success": false,
+  "error_message": "You cannot view this conversation"
+}
+```
+
+Status codes seen: 400.
+
+## Telemetry, not used
+
+- POST /web_api/record_action_trails — captured, not an app route.
+
+## Checklist coverage
+
+No labeled actions in the current captures. Regex hints are not treated as proof.

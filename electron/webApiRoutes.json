@@ -1,18 +1,98 @@
 {
-  "me": { "path": "/web_api/me", "method": "POST", "evidence": "observed", "mutation": false },
-  "get_channels": { "path": "/web_api/get_feed_v3", "method": "POST", "evidence": "observed", "mutation": false },
-  "join_channel": { "path": "/web_api/join_channel", "method": "POST", "evidence": "configured-unverified", "mutation": true },
-  "leave_channel": { "path": "/web_api/leave_channel", "method": "POST", "evidence": "configured-unverified", "mutation": true },
-  "active_ping": { "path": "/web_api/active_ping", "method": "POST", "evidence": "configured-unverified", "mutation": true },
-  "create_channel": { "path": "/web_api/create_channel", "method": "POST", "evidence": "configured-unverified", "mutation": true },
-  "get_profile": { "path": "/web_api/get_profile", "method": "POST", "evidence": "configured-unverified", "mutation": false },
-  "follow": { "path": "/web_api/follow", "method": "POST", "evidence": "configured-unverified", "mutation": true },
-  "search_users": { "path": "/web_api/search", "method": "POST", "evidence": "configured-unverified", "mutation": false },
-  "accept_speaker_invite": { "path": "/web_api/become_speaker", "method": "POST", "evidence": "configured-unverified", "mutation": true },
-  "audience_reply": { "path": "/web_api/audience_reply", "method": "POST", "evidence": "configured-unverified", "mutation": true },
-  "get_channel_messages": { "path": "/web_api/get_channel_messages", "method": "GET", "evidence": "configured-unverified", "mutation": false },
-  "send_channel_message": { "path": "/web_api/send_channel_message", "method": "POST", "evidence": "configured-unverified", "mutation": true },
-  "get_edge_stories": { "path": "/web_api/get_edge_stories", "method": "GET", "evidence": "observed", "mutation": false },
-  "get_conversations": { "path": "/web_api/get_conversations", "method": "POST", "evidence": "observed", "mutation": false },
-  "get_group_suggested_invites": { "path": "/web_api/get_group_suggested_invites", "method": "POST", "evidence": "observed", "mutation": false }
+  "me": {
+    "path": "/web_api/me",
+    "method": "POST",
+    "evidence": "observed",
+    "mutation": false
+  },
+  "get_channels": {
+    "path": "/web_api/get_feed_v3",
+    "method": "POST",
+    "evidence": "observed",
+    "mutation": false
+  },
+  "join_channel": {
+    "path": "/web_api/join_channel",
+    "method": "POST",
+    "evidence": "configured-unverified",
+    "mutation": true
+  },
+  "leave_channel": {
+    "path": "/web_api/leave_channel",
+    "method": "POST",
+    "evidence": "configured-unverified",
+    "mutation": true
+  },
+  "active_ping": {
+    "path": "/web_api/active_ping",
+    "method": "POST",
+    "evidence": "configured-unverified",
+    "mutation": true
+  },
+  "create_channel": {
+    "path": "/web_api/create_channel",
+    "method": "POST",
+    "evidence": "configured-unverified",
+    "mutation": true
+  },
+  "get_profile": {
+    "path": "/web_api/get_profile",
+    "method": "POST",
+    "evidence": "observed",
+    "mutation": false
+  },
+  "follow": {
+    "path": "/web_api/follow",
+    "method": "POST",
+    "evidence": "configured-unverified",
+    "mutation": true
+  },
+  "search_users": {
+    "path": "/web_api/search",
+    "method": "POST",
+    "evidence": "configured-unverified",
+    "mutation": false
+  },
+  "accept_speaker_invite": {
+    "path": "/web_api/become_speaker",
+    "method": "POST",
+    "evidence": "configured-unverified",
+    "mutation": true
+  },
+  "audience_reply": {
+    "path": "/web_api/audience_reply",
+    "method": "POST",
+    "evidence": "configured-unverified",
+    "mutation": true
+  },
+  "get_channel_messages": {
+    "path": "/web_api/get_channel_messages",
+    "method": "GET",
+    "evidence": "configured-unverified",
+    "mutation": false
+  },
+  "send_channel_message": {
+    "path": "/web_api/send_channel_message",
+    "method": "POST",
+    "evidence": "configured-unverified",
+    "mutation": true
+  },
+  "get_edge_stories": {
+    "path": "/web_api/get_edge_stories",
+    "method": "GET",
+    "evidence": "observed",
+    "mutation": false
+  },
+  "get_conversations": {
+    "path": "/web_api/get_conversations",
+    "method": "POST",
+    "evidence": "observed",
+    "mutation": false
+  },
+  "get_group_suggested_invites": {
+    "path": "/web_api/get_group_suggested_invites",
+    "method": "POST",
+    "evidence": "observed",
+    "mutation": false
+  }
 }

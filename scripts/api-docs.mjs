@@ -14,6 +14,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const captureDir = path.join(root, 'api-captures');
 const docsDir = path.join(root, 'docs', 'api');
 const routesPath = path.join(root, 'electron', 'webApiRoutes.json');
+const TELEMETRY_PATHS = new Set(['/web_api/record_action_trails']);
 
 function readCaptures() {
   if (!fs.existsSync(captureDir)) return [];
@@ -74,16 +75,37 @@ function groupHttp(records) {
   return groups;
 }
 
+function labelsOf(records) {
+  return [...new Set(records.map((record) => record.label).filter((label) => typeof label === 'string' && label))];
+}
+
+function hintsOf(records) {
+  return [...new Set(records.flatMap((record) => {
+    const hints = record.hints || record.actions || [];
+    return Array.isArray(hints) ? hints.filter((hint) => typeof hint === 'string') : [];
+  }))];
+}
+
 function sectionFor(method, routePath, records) {
   const sample = records.find((record) => record.status >= 200 && record.status < 300) || records[0];
   const statuses = [...new Set(records.map((record) => record.status).filter((status) => status != null))];
-  const actions = [...new Set(records.flatMap((record) => record.actions || []))];
+  const labels = labelsOf(records);
+  const hints = hintsOf(records);
+  const succeeded = records.some((record) => record.status >= 200 && record.status < 300);
   const agora = records.map((record) => record.agora).find((entry) => entry && (entry.appIdKey || entry.channelKey || entry.uidKey));
   const lines = [
     `## ${method} ${routePath}`,
     '',
-    actions.length ? `Seen when: ${actions.join('; ')}.` : 'Seen in a capture. The checklist did not label the click.',
+    labels.length ? `Seen when: ${labels.join('; ')}.` : 'Seen in a capture. The checklist did not label the click.',
     '',
+  ];
+  if (hints.length) {
+    lines.push(`Hint match (not proof): ${hints.join('; ')}.`, '');
+  }
+  if (!succeeded) {
+    lines.push('No successful response was captured, so this request body is not treated as the correct one.', '');
+  }
+  lines.push(
     '### Request',
     '',
     ...(schemaList(sample?.request).length ? schemaList(sample.request) : ['- No request body observed.']),
@@ -102,7 +124,7 @@ function sectionFor(method, routePath, records) {
     '',
     `Status codes seen: ${statuses.length ? statuses.join(', ') : 'none recorded'}.`,
     '',
-  ];
+  );
   if (agora) {
     lines.push('### Agora');
     lines.push('');
@@ -163,15 +185,63 @@ function buildWebApi(records, routes) {
   }
 
   const extra = [...groups.keys()].filter((key) => !used.has(key)).sort();
-  if (extra.length) {
+  const telemetry = extra.filter((key) => TELEMETRY_PATHS.has(key.split(/ (.+)/)[1]));
+  const unused = extra.filter((key) => !telemetry.includes(key));
+  if (unused.length) {
     parts.push('## Captured paths the app does not call yet', '');
-    for (const key of extra) {
+    for (const key of unused) {
       const [method, routePath] = key.split(/ (.+)/);
       parts.push(sectionFor(method, routePath, groups.get(key)));
     }
   }
+  parts.push('## Telemetry, not used', '');
+  if (!telemetry.length) {
+    parts.push('No telemetry calls were captured.', '');
+  } else {
+    for (const key of telemetry) {
+      parts.push(`- ${key} — captured, not an app route.`, '');
+    }
+  }
+  parts.push('## Checklist coverage', '', ...checklistCoverage(records), '');
 
   return `${parts.join('\n').trim()}\n`;
+}
+
+function checklistCoverage(records) {
+  const byLabel = new Map();
+  for (const record of records) {
+    if (record.type !== 'http' || typeof record.label !== 'string' || !record.label) continue;
+    if (!byLabel.has(record.label)) byLabel.set(record.label, new Set());
+    byLabel.get(record.label).add(`${record.method || 'GET'} ${record.path} (${record.status ?? 'no status'})`);
+  }
+  if (!byLabel.size) {
+    return ['No labeled actions in the current captures. Regex hints are not treated as proof.'];
+  }
+  const lines = [];
+  for (const [label, paths] of [...byLabel.entries()].sort()) {
+    lines.push(`- \`${label}\`: ${[...paths].sort().join('; ')}`);
+  }
+  return lines;
+}
+
+function evidenceRoutes(routes, records) {
+  const groups = groupHttp(records);
+  const next = {};
+  for (const [key, route] of Object.entries(routes)) {
+    if (TELEMETRY_PATHS.has(route.path)) continue;
+    const method = String(route.method || 'POST').toUpperCase();
+    const hits = groups.get(`${method} ${route.path}`) || [];
+    const observed = hits.some((record) => record.status >= 200 && record.status < 300);
+    const evidence = route.evidence === 'unsupported'
+      ? 'unsupported'
+      : (observed ? 'observed' : 'configured-unverified');
+    next[key] = { ...route, evidence };
+  }
+  return next;
+}
+
+function sameText(left, right) {
+  return left.replace(/\r\n/g, '\n') === right.replace(/\r\n/g, '\n');
 }
 
 function buildRealtime(records) {
@@ -245,8 +315,32 @@ function buildRealtime(records) {
   return `${lines.join('\n').trim()}\n`;
 }
 
-const routes = JSON.parse(fs.readFileSync(routesPath, 'utf8'));
+const savedRoutes = JSON.parse(fs.readFileSync(routesPath, 'utf8'));
 const records = readCaptures();
-writeChecked(path.join(docsDir, 'web-api.md'), buildWebApi(records, routes));
-writeChecked(path.join(docsDir, 'realtime.md'), buildRealtime(records));
-console.log(`[Clubbox] Wrote docs from ${records.length} capture lines`);
+const routes = evidenceRoutes(savedRoutes, records);
+const webApi = buildWebApi(records, routes);
+const realtime = buildRealtime(records);
+const routesText = `${JSON.stringify(routes, null, 2)}\n`;
+const webPath = path.join(docsDir, 'web-api.md');
+const realtimePath = path.join(docsDir, 'realtime.md');
+
+if (process.argv.includes('--check')) {
+  const stale = [];
+  if (!sameText(fs.readFileSync(routesPath, 'utf8'), routesText)) stale.push(routesPath);
+  if (!sameText(fs.readFileSync(webPath, 'utf8'), webApi)) stale.push(webPath);
+  if (!sameText(fs.readFileSync(realtimePath, 'utf8'), realtime)) stale.push(realtimePath);
+  if (stale.length) {
+    console.error(`[Clubbox] API docs are behind the captures. Run npm run api:docs.\n${stale.join('\n')}`);
+    process.exit(1);
+  }
+  console.log(`[Clubbox] API docs match ${records.length} capture lines`);
+} else {
+  if (outputHasLeak(routesText)) {
+    console.error('[Clubbox] Refusing to write route evidence: redaction check failed');
+    process.exit(1);
+  }
+  writeChecked(webPath, webApi);
+  writeChecked(realtimePath, realtime);
+  fs.writeFileSync(routesPath, routesText);
+  console.log(`[Clubbox] Wrote docs from ${records.length} capture lines`);
+}

@@ -12,6 +12,6 @@ No PubNub HTTP calls captured yet.
 
 ## Agora URLs
 
-No Agora URLs captured yet. The app id, channel, and uid keys are recorded on `join_channel` in `web-api.md` when that response includes them.
-
 No Agora token-refresh endpoint was captured. The app does not invent one. When live audio fails to connect, it says so and asks you to leave and join again after that request is recorded.
+
+No Agora URLs captured yet. The app id, channel, and uid keys are recorded on `join_channel` in `web-api.md` when that response includes them.
