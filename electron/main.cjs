@@ -2,7 +2,6 @@ const { app, BrowserWindow, dialog, session, ipcMain, safeStorage, globalShortcu
 const path = require('path');
 const fs = require('fs');
 const { pathToFileURL } = require('url');
-const { startApiRecorder } = require('./apiRecorder.cjs');
 const { isAllowedEndpoint, isPlainPayload, pickHeaders } = require('./ipcGuard.cjs');
 
 const REQUEST_TIMEOUT_MS = 20000;
@@ -61,6 +60,18 @@ function isTrustedSender(event) {
 }
 let tokenCaptureWindow = null;
 let recorderWebContentsId = -1;
+
+function recorderRequested(argv) {
+  if (app.isPackaged) return false;
+  const args = Array.isArray(argv) ? argv : process.argv;
+  return process.env.CLUBBOX_API_RECORDER === '1' || args.includes('--api-recorder');
+}
+
+function startRecorderIfAllowed(argv) {
+  if (!recorderRequested(argv)) return;
+  const { startApiRecorder } = require('./apiRecorder.cjs');
+  startApiRecorder({ onWindow: watchRecorderWindow });
+}
 
 function watchRecorderWindow(win) {
   recorderWebContentsId = win.webContents.id;
@@ -631,7 +642,7 @@ if (!hasSingleInstanceLock) {
 } else {
   app.on('second-instance', (_event, argv) => {
     if (argv.includes('--api-recorder')) {
-      startApiRecorder({ onWindow: watchRecorderWindow });
+      startRecorderIfAllowed(argv);
       return;
     }
     if (!mainWindow || mainWindow.isDestroyed()) return;
@@ -700,9 +711,7 @@ app.whenReady().then(() => {
   if (savedShortcuts) applyGlobalShortcuts(savedShortcuts);
   createWindow();
   setupAutoUpdate();
-  if (process.env.CLUBBOX_API_RECORDER === '1' || process.argv.includes('--api-recorder')) {
-    startApiRecorder({ onWindow: watchRecorderWindow });
-  }
+  startRecorderIfAllowed(process.argv);
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

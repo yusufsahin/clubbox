@@ -30,6 +30,9 @@
       "dist/**/*",
       "electron/**/*",
       "!electron/**/*.test.cjs",
+      "!electron/apiRecorder.cjs",
+      "!electron/redact.cjs",
+      "!scripts/**",
       "package.json"
     ],
     "asar": true,
