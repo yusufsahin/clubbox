@@ -9,7 +9,7 @@ function shortcutLabel(action: ShortcutAction): string {
   return t('shortcutPad', { n: action.slice(3) });
 }
 
-export function settingsView(config: ClubhouseConfig, isElectron: boolean, shortcuts: ShortcutMap, recording: ShortcutAction | null): SafeHtml {
+export function settingsView(config: ClubhouseConfig, shortcuts: ShortcutMap, recording: ShortcutAction | null): SafeHtml {
   return html`
     <div style="max-width:780px; margin:0 auto;">
       <h2 style="font-size:22px; font-weight:700; margin-bottom:4px;">${t('settingsTitle')}</h2>
@@ -27,10 +27,7 @@ export function settingsView(config: ClubhouseConfig, isElectron: boolean, short
             </p>
           </div>
           <div style="display:flex; flex-direction:column; gap:8px; flex-shrink:0;">
-            <button class="btn btn-primary" data-action="capture-token">
-              ${isElectron ? t('openWebSignIn') : t('signInHelperDesktop')}
-            </button>
-            <button class="btn btn-secondary" data-action="open-login">${t('phoneSignIn')}</button>
+            <button class="btn btn-primary" data-action="open-login">${t('phoneSignIn')}</button>
           </div>
         </div>
       </div>
@@ -115,15 +112,6 @@ export function settingsView(config: ClubhouseConfig, isElectron: boolean, short
             <label class="form-label">${t('appVersion')}</label>
             <input class="form-input" id="cfg-app-version" value="${config.appVersion}" />
           </div>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">${t('authToken')}</label>
-          <div style="display:flex; gap:8px;">
-            <input class="form-input" id="cfg-auth-token" type="password" autocomplete="off" placeholder="${isElectron && config.hasSecureToken ? t('tokenStoredSecurely') : 'Token e.g. 5f9e8a7b...'}" value="${isElectron ? '' : (config.authToken || '')}" />
-            <button class="btn btn-secondary" type="button" data-action="toggle-token">${t('show')}</button>
-          </div>
-          ${isElectron && config.hasSecureToken ? html`<button class="btn btn-secondary" type="button" data-action="clear-token">${t('clearToken')}</button>` : ''}
         </div>
 
         <div class="form-group">

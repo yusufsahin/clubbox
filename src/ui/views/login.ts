@@ -7,7 +7,6 @@ export interface LoginState {
   step: 'phone' | 'code';
   phone: string;
   code: string;
-  showWebSignIn: boolean;
 }
 
 export function loginView(state: LoginState): SafeHtml {
@@ -24,7 +23,6 @@ export function loginView(state: LoginState): SafeHtml {
         </div>
         <div style="display:flex; gap:12px; flex-wrap:wrap;">
           <button class="btn btn-primary" data-action="login-send" ${busy}>${t('sendCode')}</button>
-          ${state.showWebSignIn ? html`<button class="btn btn-secondary" data-action="login-web" ${busy}>${t('openWebSignIn')}</button>` : ''}
         </div>
       ` : html`
         <div class="form-group">

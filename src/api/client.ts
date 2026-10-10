@@ -5,18 +5,20 @@ import type { CHAuthResponse, CHChannel, CHChannelDetail, CHChatMessage, CHConve
 
 const REQUEST_TIMEOUT_MS = 20000;
 const OFFICIAL_WEB_API = 'https://www.clubhouse.com/web_api';
-const OFFICIAL_MOBILE_API = 'https://www.clubhouseapi.com/api';
+
+function isWebAuthEndpoint(endpoint: string): boolean {
+  const name = endpoint.replace(/^\//, '');
+  return name === 'start_phone_number_web_auth'
+    || name === 'complete_phone_number_web_auth'
+    || name === 'resend_phone_number_auth';
+}
 
 function browserRequestUrl(endpoint: string): string {
   const name = endpoint.replace(/^\//, '');
-  if (
-    name === 'start_phone_number_web_auth' ||
-    name === 'complete_phone_number_web_auth' ||
-    name === 'resend_phone_number_auth'
-  ) {
-    return `${OFFICIAL_WEB_API}/${name}`;
+  if (!isWebAuthEndpoint(name)) {
+    throw new Error('Token sign-in is not supported. Use web sign-in.');
   }
-  return `${OFFICIAL_MOBILE_API}/${name}`;
+  return `${OFFICIAL_WEB_API}/${name}`;
 }
 
 function headersForBrowser(headers: Record<string, string>, url: string): Record<string, string> {
@@ -27,8 +29,7 @@ function headersForBrowser(headers: Record<string, string>, url: string): Record
     delete next.Authorization;
     return next;
   }
-  const official = parsed.protocol === 'https:'
-    && (parsed.hostname === 'www.clubhouse.com' || parsed.hostname === 'www.clubhouseapi.com');
+  const official = parsed.protocol === 'https:' && parsed.hostname === 'www.clubhouse.com';
   if (!official) {
     throw new Error('Browser requests only go to Clubhouse or localhost');
   }
@@ -59,7 +60,6 @@ export class ClubhouseApiError extends Error {
 }
 
 export interface ClubhouseConfig {
-  authToken: string | null;
   userId: number | null;
   deviceId: string;
   appBuild: string;
@@ -69,12 +69,10 @@ export interface ClubhouseConfig {
   webSession: boolean;
   language: 'en' | 'tr';
   allowUnverified: boolean;
-  hasSecureToken: boolean;
   allowLocalRecording: boolean;
 }
 
 const DEFAULT_CONFIG: ClubhouseConfig = {
-  authToken: null,
   userId: null,
   deviceId: 'clubbox-' + Math.random().toString(36).substring(2, 12),
   appBuild: '1038754',
@@ -87,7 +85,6 @@ const DEFAULT_CONFIG: ClubhouseConfig = {
   webSession: false,
   language: 'en',
   allowUnverified: false,
-  hasSecureToken: false,
   allowLocalRecording: false,
 };
 
@@ -136,6 +133,8 @@ function readSavedConfig(): Partial<ClubhouseConfig> {
     if (!parsed || typeof parsed !== 'object') return {};
     delete parsed.baseUrl;
     delete parsed.corsProxy;
+    delete parsed.authToken;
+    delete parsed.hasSecureToken;
     return parsed;
   } catch {
     return {};
@@ -172,21 +171,8 @@ interface ApiAck {
   error_message?: string;
 }
 
-function writeConfig(config: ClubhouseConfig, hideToken = false): void {
-  const stored = hideToken ? { ...config, authToken: null } : config;
-  writeStorage(CONFIG_KEY, JSON.stringify(stored));
-}
-
-type DesktopBridge = {
-  isElectron?: boolean;
-  tokenStatus?: () => Promise<{ present: boolean }>;
-  setAuthToken?: (token: string | null) => Promise<boolean>;
-};
-
-function desktopBridge(): DesktopBridge | null {
-  if (typeof window === 'undefined') return null;
-  const api = (window as Window & { electronAPI?: DesktopBridge }).electronAPI;
-  return api?.isElectron ? api : null;
+function writeConfig(config: ClubhouseConfig): void {
+  writeStorage(CONFIG_KEY, JSON.stringify(config));
 }
 
 function numericId(value: unknown): number | undefined {
@@ -389,8 +375,6 @@ export class ClubhouseApiClient {
   private sandboxSpeakerInvites = new Set<string>();
   private authExpiredCallbacks: (() => void)[] = [];
   private suppressAuthExpired = false;
-  private secureToken = false;
-  private secureStorageFailed = false;
   private backoffMs = new Map<string, number>();
   private blockedUntil = new Map<string, number>();
 
@@ -429,57 +413,18 @@ export class ClubhouseApiClient {
     return evidenceOf(endpoint);
   }
 
-  public takeSecureStorageFailure(): boolean {
-    const failed = this.secureStorageFailed;
-    this.secureStorageFailed = false;
-    return failed;
-  }
-
   private transport(): Transport {
     if (this.config.useSandbox) return 'sandbox';
-    if (this.config.webSession) return 'web-session';
-    return 'mobile-token';
+    return 'web-session';
   }
 
   public getConfig(): ClubhouseConfig {
     return { ...this.config };
   }
 
-  public async loadSecureToken(): Promise<void> {
-    const bridge = desktopBridge();
-    if (!bridge?.tokenStatus || !bridge.setAuthToken) return;
-    this.secureToken = true;
-    const legacy = this.config.authToken;
-    this.config.authToken = null;
-    let present: boolean;
-    try {
-      present = (await bridge.tokenStatus()).present === true;
-    } catch {
-      present = false;
-    }
-    if (!present && legacy) {
-      const saved = await bridge.setAuthToken(legacy);
-      present = saved === true;
-      if (!saved) this.secureStorageFailed = true;
-    }
-    this.config.hasSecureToken = present;
-    this.config.authToken = null;
-    writeConfig(this.config, true);
-  }
-
   public async updateConfig(newConfig: Partial<ClubhouseConfig>): Promise<void> {
-    const tokenChanged = Object.prototype.hasOwnProperty.call(newConfig, 'authToken');
     this.config = { ...this.config, ...newConfig };
-    if (tokenChanged && this.secureToken) {
-      const token = this.config.authToken;
-      this.config.authToken = null;
-      const saved = await desktopBridge()?.setAuthToken?.(token);
-      this.config.hasSecureToken = !!token && saved === true;
-      if (token && saved !== true) this.secureStorageFailed = true;
-      writeConfig(this.config, true);
-      return;
-    }
-    writeConfig(this.config, this.secureToken);
+    writeConfig(this.config);
   }
 
   public getCurrentUserId(): number | null {
@@ -503,7 +448,6 @@ export class ClubhouseApiClient {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json; charset=utf-8',
       'Accept': 'application/json',
-      'User-Agent': `clubhouse/android/${this.config.appBuild}`,
       'CH-Languages': 'en-US',
       'CH-Locale': 'en_US',
       'CH-AppVersion': this.config.appVersion,
@@ -511,12 +455,6 @@ export class ClubhouseApiClient {
       'CH-DeviceId': this.config.deviceId,
     };
 
-    if (this.config.userId && !this.config.webSession) {
-      headers['CH-UserID'] = this.config.userId.toString();
-    }
-    if (!this.secureToken && this.config.authToken && !this.config.webSession) {
-      headers['Authorization'] = `Token ${this.config.authToken}`;
-    }
     if (this.config.webSession) {
       headers['X-Clubbox-Web-Session'] = '1';
     }
@@ -661,14 +599,11 @@ export class ClubhouseApiClient {
         return { success: true } as T;
 
       case 'complete_phone_number_auth': {
-        const token = 'mock_token_' + Math.random().toString(36).substring(2, 12);
-        this.updateConfig({ authToken: token, userId: MOCK_ME.user_id });
+        this.updateConfig({ userId: MOCK_ME.user_id, webSession: true });
         return {
           success: true,
-          auth_token: token,
-          access_token: token,
-          refresh_token: token + '_refresh',
           user_profile: MOCK_ME,
+          is_verified: true,
         } as T;
       }
 
@@ -930,7 +865,7 @@ export class ClubhouseApiClient {
 
   public async adoptWebSession(): Promise<boolean> {
     const desktop = typeof window !== 'undefined' && !!(window as Window & { electronAPI?: { isElectron?: boolean } }).electronAPI?.isElectron;
-    if (!desktop || this.config.authToken || this.config.hasSecureToken) return false;
+    if (!desktop || this.config.webSession) return false;
     const previous = this.config.webSession;
     this.config.webSession = true;
     this.suppressAuthExpired = true;
@@ -943,7 +878,6 @@ export class ClubhouseApiClient {
       this.updateConfig({
         webSession: true,
         useSandbox: false,
-        authToken: null,
         userId: res.user_profile.user_id,
       });
       return true;
@@ -960,7 +894,7 @@ export class ClubhouseApiClient {
     if (previous) {
       this.updateConfig({
         webSession: false,
-        ...(this.config.authToken ? {} : { useSandbox: true }),
+        useSandbox: true,
       });
     }
   }

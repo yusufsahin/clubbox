@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, session, ipcMain, safeStorage, globalShortcut, shell } = require('electron');
+const { app, BrowserWindow, dialog, session, ipcMain, globalShortcut, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { pathToFileURL } = require('url');
@@ -58,7 +58,6 @@ function isTrustedSender(event) {
   if (!isAppDocumentUrl(frame.url)) return false;
   return true;
 }
-let tokenCaptureWindow = null;
 let recorderWebContentsId = -1;
 
 function recorderRequested(argv) {
@@ -78,14 +77,6 @@ function watchRecorderWindow(win) {
   win.on('closed', () => {
     if (recorderWebContentsId === win.webContents.id) recorderWebContentsId = -1;
   });
-}
-
-function headerValue(headers, name) {
-  const target = name.toLowerCase();
-  for (const key of Object.keys(headers || {})) {
-    if (key.toLowerCase() === target) return headers[key];
-  }
-  return '';
 }
 
 function createWindow() {
@@ -157,159 +148,6 @@ function createWindow() {
     mainWindow = null;
   });
 }
-
-// In-app Clubhouse Web Login Helper to capture tokens automatically
-function openTokenCaptureWindow() {
-  if (tokenCaptureWindow && !tokenCaptureWindow.isDestroyed()) {
-    tokenCaptureWindow.focus();
-    return;
-  }
-
-  const loginWindow = new BrowserWindow({
-    width: 620,
-    height: 780,
-    title: 'Clubhouse Web Login (Auto-capture Token)',
-    parent: mainWindow || undefined,
-    modal: true,
-    show: true,
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-    },
-  });
-  tokenCaptureWindow = loginWindow;
-
-  const filter = { urls: ['https://*.clubhouseapi.com/*', 'https://*.clubhouse.com/*'] };
-  const captureSession = loginWindow.webContents.session;
-  let finished = false;
-  let token = '';
-  let userId = null;
-  let tokenWait = null;
-
-  const detach = () => {
-    if (tokenWait) {
-      clearTimeout(tokenWait);
-      tokenWait = null;
-    }
-    try {
-      captureSession.webRequest.onSendHeaders(filter, null);
-    } catch {
-      // Listener was already removed.
-    }
-  };
-
-  const finish = () => {
-    if (finished || !token) return;
-    finished = true;
-    detach();
-    const stored = writeAuthToken(token);
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('clubhouse-token-captured', { userId, present: stored === true });
-    }
-    if (!loginWindow.isDestroyed()) {
-      loginWindow.close();
-    }
-  };
-
-  const scheduleFinish = () => {
-    if (finished || !token) return;
-    if (userId != null) {
-      finish();
-      return;
-    }
-    if (tokenWait) clearTimeout(tokenWait);
-    tokenWait = setTimeout(finish, 1200);
-  };
-
-  captureSession.webRequest.onSendHeaders(filter, (details) => {
-    if (finished) return;
-    const authHeader = headerValue(details.requestHeaders, 'authorization');
-    const userHeader = headerValue(details.requestHeaders, 'ch-userid');
-    if (authHeader && /^Token\s+/i.test(authHeader)) {
-      token = authHeader.replace(/^Token\s+/i, '').trim();
-    }
-    if (userHeader && /^\d+$/.test(String(userHeader).trim())) {
-      userId = Number(String(userHeader).trim());
-    }
-    scheduleFinish();
-  });
-
-  loginWindow.on('closed', () => {
-    detach();
-    if (tokenCaptureWindow === loginWindow) {
-      tokenCaptureWindow = null;
-    }
-  });
-
-  try {
-    const dbg = loginWindow.webContents.debugger;
-    dbg.attach('1.3');
-    dbg.on('message', async (_event, method, params) => {
-      if (finished || method !== 'Network.responseReceived') return;
-      const url = String(params?.response?.url || '');
-      if (!url.includes('complete_phone_number')) return;
-      try {
-        const result = await dbg.sendCommand('Network.getResponseBody', { requestId: params.requestId });
-        const data = JSON.parse(result.body);
-        const captured = data?.auth_token || data?.access_token;
-        const capturedUser = data?.user_profile?.user_id;
-        if (typeof captured === 'string' && captured) token = captured;
-        if (typeof capturedUser === 'number') userId = capturedUser;
-        scheduleFinish();
-      } catch {
-        // The response body was not JSON, or the request had already finished.
-      }
-    });
-    void dbg.sendCommand('Network.enable');
-  } catch (err) {
-    console.error('[Electron] Could not watch the sign-in response:', err instanceof Error ? err.message : err);
-  }
-
-  loginWindow.loadURL('https://www.clubhouse.com/signin');
-}
-
-ipcMain.on('open-token-capture', (event) => {
-  if (!isTrustedSender(event)) return;
-  openTokenCaptureWindow();
-});
-
-function authTokenFile() {
-  return path.join(app.getPath('userData'), 'clubbox-auth.bin');
-}
-
-function readAuthToken() {
-  try {
-    if (!safeStorage.isEncryptionAvailable()) return null;
-    const file = authTokenFile();
-    if (!fs.existsSync(file)) return null;
-    const token = safeStorage.decryptString(fs.readFileSync(file));
-    return typeof token === 'string' && token ? token : null;
-  } catch {
-    return null;
-  }
-}
-
-function writeAuthToken(token) {
-  try {
-    const file = authTokenFile();
-    if (token == null || token === '') {
-      if (fs.existsSync(file)) fs.unlinkSync(file);
-      return true;
-    }
-    if (typeof token !== 'string' || token.length > 8192) return false;
-    if (!safeStorage.isEncryptionAvailable()) return false;
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(file, safeStorage.encryptString(token));
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-ipcMain.handle('clubbox:token-get', (event) => {
-  if (!isTrustedSender(event)) return { present: false };
-  return { present: !!readAuthToken() };
-});
 
 const SHORTCUT_ACTIONS = ['mute', 'clip', 'pad1', 'pad2', 'pad3', 'pad4', 'pad5', 'pad6', 'pad7', 'pad8', 'pad9'];
 const SHORTCUT_MODIFIERS = new Set(['Command', 'Cmd', 'Control', 'Ctrl', 'CommandOrControl', 'Alt', 'Option', 'AltGr', 'Shift', 'Super', 'Meta']);
@@ -408,11 +246,6 @@ ipcMain.handle('clubbox:shortcuts-set', (event, shortcuts) => {
     // Registration can still apply for this session.
   }
   return { ok: true, failed: applyGlobalShortcuts(clean) };
-});
-
-ipcMain.handle('clubbox:token-set', (event, token) => {
-  if (!isTrustedSender(event)) return false;
-  return writeAuthToken(token);
 });
 
 const WEB_AUTH_ENDPOINTS = {
@@ -620,20 +453,11 @@ ipcMain.handle('ch:request', async (event, payload) => {
     }
   }
 
-  try {
-    const storedToken = readAuthToken();
-    if (storedToken) headers.Authorization = `Token ${storedToken}`;
-    const response = await fetch(`https://www.clubhouseapi.com/api/${endpoint}`, {
-      method: 'POST',
-      headers,
-      body: payload?.body == null ? undefined : JSON.stringify(payload.body),
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    });
-    const body = await response.text();
-    return { ok: response.ok, status: response.status, body };
-  } catch (err) {
-    return { ok: false, status: 0, body: err instanceof Error ? err.message : 'Network error' };
-  }
+  return {
+    ok: false,
+    status: 0,
+    body: JSON.stringify({ error_message: 'Token sign-in is not supported. Use web sign-in.' }),
+  };
 });
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock();

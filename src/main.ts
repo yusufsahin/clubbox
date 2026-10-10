@@ -25,20 +25,11 @@ import { settingsView } from './ui/views/settings';
 import { soundboardView } from './ui/views/soundboard';
 import { chatList, emptyStageView, stageColumn, stageView } from './ui/views/stage';
 
-interface CapturedAuth {
-  userId: number | null;
-  present: boolean;
-}
-
 interface ElectronAPI {
   isElectron: boolean;
-  openTokenCapture: () => void;
-  tokenStatus: () => Promise<{ present: boolean }>;
-  setAuthToken: (token: string | null) => Promise<boolean>;
   getGlobalShortcuts: () => Promise<ShortcutMap | null>;
   setGlobalShortcuts: (shortcuts: ShortcutMap) => Promise<{ ok: boolean; failed: string[] }>;
   onGlobalShortcut: (callback: (action: string) => void) => void;
-  onTokenCaptured: (callback: (payload: CapturedAuth) => void) => void;
 }
 
 function normalizePhone(input: string): string | null {
@@ -156,7 +147,6 @@ class ClubboxApp {
     });
 
     if (electronAPI()?.isElectron) {
-      await clubhouseClient.loadSecureToken();
       await clubhouseClient.adoptWebSession();
     }
     await this.refreshMe();
@@ -191,30 +181,11 @@ class ClubboxApp {
       });
     });
 
-    electronAPI()?.onTokenCaptured((payload) => {
-      const userId = typeof payload.userId === 'number' && Number.isFinite(payload.userId) ? payload.userId : null;
-      if (!payload.present) {
-        this.showToast(t('secureStorageUnavailable'), '🔒');
-        return;
-      }
-      void clubhouseClient.updateConfig({
-        hasSecureToken: true,
-        ...(userId != null ? { userId } : {}),
-        useSandbox: false,
-        webSession: false,
-      });
-      void this.finishSignIn();
-    });
-
-    if (clubhouseClient.takeSecureStorageFailure()) {
-      this.showToast(t('secureStorageUnavailable'), '🔒');
-    }
     audioEngine.setSimulateMeterOnFailure(clubhouseClient.getConfig().useSandbox);
 
     if (this.currentTab === 'stage') {
       const config = clubhouseClient.getConfig();
-      const signedIn = config.webSession || config.hasSecureToken || (!config.useSandbox && !!config.authToken);
-      const needsLiveLogin = !!electronAPI()?.isElectron && !signedIn;
+      const needsLiveLogin = !!electronAPI()?.isElectron && !config.useSandbox && !config.webSession;
       this.currentTab = needsLiveLogin ? 'login' : 'explore';
     }
 
@@ -241,7 +212,7 @@ class ClubboxApp {
     this.stopMeRefresh();
     this.stopExploreRefresh();
     this.me = null;
-    void clubhouseClient.updateConfig({ authToken: null });
+    void clubhouseClient.updateConfig({ webSession: false });
     this.showToast(t('sessionExpired'), '🔑');
     this.currentTab = 'login';
     this.render();
@@ -504,9 +475,8 @@ class ClubboxApp {
         return;
       }
       if (res.send_rc_token) {
-        this.loginNotice = t('smsCheck', { phone });
-        this.showToast(t('signInWindowOpened'), '🌐');
-        electronAPI()?.openTokenCapture();
+        this.loginNotice = t('tokenSignInUnsupported');
+        this.showToast(this.loginNotice, '🔒');
         return;
       }
       if (res.error_message) {
@@ -545,44 +515,23 @@ class ClubboxApp {
         this.showToast(this.loginNotice, '⚠️');
         return;
       }
-      const token = res.auth_token || res.access_token;
-      if (!token) {
-        if (!res.user_profile && !res.is_verified) {
-          this.loginNotice = t('noAuthToken');
-          this.showToast(this.loginNotice, '⚠️');
-          return;
-        }
-        clubhouseClient.updateConfig({
-          authToken: null,
-          webSession: true,
-          useSandbox: false,
-          ...(res.user_profile ? { userId: res.user_profile.user_id } : {}),
-        });
-        await this.finishSignIn();
+      if (res.auth_token || res.access_token) {
+        this.loginNotice = t('tokenSignInUnsupported');
+        this.showToast(this.loginNotice, '🔒');
         return;
       }
-      if (!res.user_profile) {
-        await this.finishSignIn();
+      if (!res.user_profile && !res.is_verified) {
+        this.loginNotice = t('noAuthToken');
+        this.showToast(this.loginNotice, '⚠️');
         return;
       }
       await clubhouseClient.updateConfig({
-        authToken: token,
-        userId: res.user_profile.user_id,
+        webSession: true,
         useSandbox: false,
-        webSession: false,
+        ...(res.user_profile ? { userId: res.user_profile.user_id } : {}),
       });
-      if (clubhouseClient.takeSecureStorageFailure()) {
-        this.showToast(t('secureStorageUnavailable'), '🔒');
-        return;
-      }
-      this.me = res.user_profile;
-      await this.reloadChannels();
-      this.loginStep = 'phone';
-      this.loginCode = '';
-      this.loginNotice = '';
-      this.currentTab = 'explore';
-      this.startExploreRefresh();
-      this.showToast(t('signedInAs', { name: res.user_profile.name }), '🔑');
+      if (res.user_profile) this.me = res.user_profile;
+      await this.finishSignIn();
     } catch (err) {
       this.reportApiError(err);
     } finally {
@@ -1795,7 +1744,6 @@ class ClubboxApp {
       step: this.loginStep,
       phone: this.loginPhone,
       code: this.loginCode,
-      showWebSignIn: !!electronAPI()?.isElectron,
     });
   }
 
@@ -1896,7 +1844,7 @@ class ClubboxApp {
   }
 
   private renderSettingsView(): ReturnType<typeof html> {
-    return settingsView(clubhouseClient.getConfig(), !!electronAPI()?.isElectron, this.shortcuts, this.recordingShortcut);
+    return settingsView(clubhouseClient.getConfig(), this.shortcuts, this.recordingShortcut);
   }
 
   private renderCockpitBar(): ReturnType<typeof html> {
@@ -2298,38 +2246,13 @@ class ClubboxApp {
         this.loginNotice = '';
         this.render();
         break;
-      case 'login-web':
-        electronAPI()?.openTokenCapture();
-        this.showToast(t('enterPhoneInWindow'), '🌐');
-        break;
       case 'open-login':
         this.stopExploreRefresh();
         this.currentTab = 'login';
         this.render();
         break;
-      case 'capture-token':
-        if (electronAPI()?.openTokenCapture) {
-          electronAPI()?.openTokenCapture();
-          this.showToast(t('signInOpenSaved'), '🌐');
-        } else {
-          this.showToast(t('signInHelperApp'), 'ℹ️');
-        }
-        break;
-      case 'toggle-token': {
-        const input = document.getElementById('cfg-auth-token') as HTMLInputElement | null;
-        if (!input) return;
-        const showing = input.type === 'text';
-        input.type = showing ? 'password' : 'text';
-        el.textContent = showing ? t('show') : t('hide');
-        break;
-      }
       case 'save-settings':
         void this.saveSettings();
-        break;
-      case 'clear-token':
-        void clubhouseClient.updateConfig({ authToken: null });
-        this.showToast(t('settingsSaved'), '✅');
-        this.render();
         break;
       case 'close-profile':
         this.closeProfileDrawer();
@@ -2366,7 +2289,6 @@ class ClubboxApp {
   private async saveSettings(): Promise<void> {
     const appBuild = (document.getElementById('cfg-app-build') as HTMLInputElement)?.value;
     const appVersion = (document.getElementById('cfg-app-version') as HTMLInputElement)?.value;
-    const authToken = (document.getElementById('cfg-auth-token') as HTMLInputElement)?.value.trim();
     const agoraAppId = (document.getElementById('cfg-agora-app-id') as HTMLInputElement)?.value;
     const isSandbox = (document.getElementById('radio-sandbox') as HTMLInputElement)?.checked;
     const allowUnverified = (document.getElementById('cfg-allow-unverified') as HTMLInputElement | null)?.checked === true;
@@ -2380,17 +2302,12 @@ class ClubboxApp {
     await clubhouseClient.updateConfig({
       appBuild,
       appVersion,
-      ...(authToken ? { authToken } : {}),
       agoraAppId: agoraAppId || clubhouseClient.getConfig().agoraAppId,
       useSandbox: isSandbox,
       allowUnverified,
       allowLocalRecording,
       language,
     });
-    if (clubhouseClient.takeSecureStorageFailure()) {
-      this.showToast(t('secureStorageUnavailable'), '🔒');
-      return;
-    }
     audioEngine.setSimulateMeterOnFailure(isSandbox);
     this.syncClipArm();
     setLanguage(language);

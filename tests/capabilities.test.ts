@@ -18,7 +18,4 @@ test('configured routes stay separate from observed proof', () => {
   assert.equal(canCall('join_channel', 'web-session', { allowUnverified: true }), true);
   assert.equal(canCall('get_profile', 'web-session'), true);
   assert.equal(canCall('get_channel', 'web-session', { allowUnverified: true }), false);
-
-  assert.equal(canCall('me', 'mobile-token'), false);
-  assert.equal(canCall('join_channel', 'mobile-token', { allowUnverified: true }), false);
 });

@@ -1,7 +1,7 @@
 import webApiRoutes from '../../electron/webApiRoutes.json' with { type: 'json' };
 
 export type Evidence = 'observed' | 'configured-unverified' | 'unsupported';
-export type Transport = 'web-session' | 'mobile-token' | 'sandbox';
+export type Transport = 'web-session' | 'sandbox';
 
 type RouteRecord = {
   path: string;
@@ -45,7 +45,7 @@ export function evidenceOf(endpoint: string): Evidence {
   return route.evidence === 'observed' ? 'observed' : 'configured-unverified';
 }
 
-export function transportsOf(endpoint: string): Array<'web-session' | 'mobile-token'> {
+export function transportsOf(endpoint: string): Array<'web-session'> {
   if (!ROUTES[endpoint]) return [];
   return ['web-session'];
 }
