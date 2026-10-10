@@ -1,0 +1,22 @@
+{
+  "name": "clubdeck-nextgen",
+  "private": true,
+  "version": "2.0.0",
+  "type": "module",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "desktop": "npm run build && electron .",
+    "desktop:preview": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^44.7.0",
+    "typescript": "~6.0.2",
+    "vite": "^8.3.0"
+  },
+  "dependencies": {
+    "agora-rtc-sdk-ng": "^4.24.8"
+  }
+}
