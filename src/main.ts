@@ -3,6 +3,7 @@ import { ClubhouseApiError, clubhouseClient } from './api/client';
 import { beginJoin, commitJoin, emptyRoomSession, finishLeave, localClipAllowed, roleSyncDecision, roomAudience } from './api/guards';
 
 const CHAT_POLL_MS = 15_000;
+const GUIDELINES_KEY = 'clubbox-guidelines-accepted';
 import { roomSync } from './api/roomSync';
 import { audioEngine } from './audio/audioEngine';
 import { readAudioPrefs, writeAudioPrefs, type AudioPrefs } from './audio/audioPrefs';
@@ -73,6 +74,8 @@ class ClubboxApp {
   private loginBusy = false;
   private loginNotice = '';
   private adoptInFlight = false;
+  private guidelinesOpen = false;
+  private pendingLive = false;
   private isCreateModalOpen: boolean = false;
   private isSettingsModalOpen: boolean = false;
   private isProfileDrawerOpen: boolean = false;
@@ -140,7 +143,12 @@ class ClubboxApp {
       void this.tryAdoptOfficialSession();
     });
 
-    if (electronAPI()?.isElectron) {
+    if (!this.guidelinesAccepted() && !clubhouseClient.getConfig().useSandbox) {
+      this.pendingLive = true;
+      this.guidelinesOpen = true;
+      await clubhouseClient.updateConfig({ useSandbox: true });
+    }
+    if (electronAPI()?.isElectron && this.guidelinesAccepted()) {
       await clubhouseClient.adoptWebSession();
     }
     await this.refreshMe();
@@ -405,7 +413,64 @@ class ClubboxApp {
     }
   }
 
+  private guidelinesAccepted(): boolean {
+    try {
+      return localStorage.getItem(GUIDELINES_KEY) === '1';
+    } catch {
+      return false;
+    }
+  }
+
+  private acceptGuidelines(): void {
+    try {
+      localStorage.setItem(GUIDELINES_KEY, '1');
+    } catch {
+      this.showToast(t('somethingWrong'), '⚠️');
+      return;
+    }
+    this.guidelinesOpen = false;
+    const goLive = this.pendingLive;
+    this.pendingLive = false;
+    this.render();
+    if (goLive) void this.switchRuntimeMode(false);
+  }
+
+  private declineGuidelines(): void {
+    this.guidelinesOpen = false;
+    this.pendingLive = false;
+    this.render();
+  }
+
+  private renderGuidelines(): void {
+    const existing = document.getElementById('guidelines-gate');
+    if (!this.guidelinesOpen) {
+      existing?.remove();
+      return;
+    }
+    const gate = existing ?? document.createElement('div');
+    gate.id = 'guidelines-gate';
+    gate.className = 'guidelines-gate';
+    gate.innerHTML = markup(html`
+      <div class="guidelines-card">
+        <h2>${t('guidelinesTitle')}</h2>
+        <p>${t('guidelinesBody')}</p>
+        <div class="guidelines-actions">
+          <button class="btn btn-primary" type="button" data-action="accept-guidelines">${t('guidelinesAccept')}</button>
+          <button class="btn btn-secondary" type="button" data-action="decline-guidelines">${t('guidelinesDecline')}</button>
+        </div>
+      </div>
+    `);
+    if (!existing) document.body.appendChild(gate);
+  }
+
   private async openOfficialSignIn(): Promise<void> {
+    if (!this.guidelinesAccepted()) {
+      this.pendingLive = true;
+      this.guidelinesOpen = true;
+      this.currentTab = 'login';
+      this.render();
+      return;
+    }
     const api = electronAPI();
     this.currentTab = 'login';
     if (!api?.openOfficialSignIn) {
@@ -419,6 +484,7 @@ class ClubboxApp {
   }
 
   private async tryAdoptOfficialSession(): Promise<void> {
+    if (!this.guidelinesAccepted()) return;
     if (this.adoptInFlight || clubhouseClient.getConfig().webSession) return;
     this.adoptInFlight = true;
     this.loginBusy = true;
@@ -1334,6 +1400,7 @@ class ClubboxApp {
     if (this.currentTab === 'settings') void this.fillAudioDevices();
     this.renderCockpit();
     this.syncRecBanner();
+    this.renderGuidelines();
     if (this.isProfileDrawerOpen) this.renderProfileDrawer();
   }
 
@@ -2127,6 +2194,12 @@ class ClubboxApp {
       case 'open-official-signin':
         void this.openOfficialSignIn();
         break;
+      case 'accept-guidelines':
+        this.acceptGuidelines();
+        break;
+      case 'decline-guidelines':
+        this.declineGuidelines();
+        break;
       case 'save-settings':
         void this.saveSettings();
         break;
@@ -2154,6 +2227,12 @@ class ClubboxApp {
   }
 
   private async switchRuntimeMode(useSandbox: boolean): Promise<void> {
+    if (!useSandbox && !this.guidelinesAccepted()) {
+      this.pendingLive = true;
+      this.guidelinesOpen = true;
+      this.render();
+      return;
+    }
     if (this.currentChannel || this.joinInFlight) await this.leaveRoom({ silent: true });
     await clubhouseClient.updateConfig({ useSandbox });
     audioEngine.setSimulateMeterOnFailure(useSandbox);
@@ -2171,6 +2250,12 @@ class ClubboxApp {
     const allowLocalRecording = (document.getElementById('cfg-allow-recording') as HTMLInputElement | null)?.checked === true;
     const languageValue = (document.getElementById('cfg-language') as HTMLSelectElement | null)?.value;
     const language = languageValue === 'tr' ? 'tr' : 'en';
+    if (!isSandbox && !this.guidelinesAccepted()) {
+      this.pendingLive = true;
+      this.guidelinesOpen = true;
+      this.render();
+      return;
+    }
     const previousSandbox = clubhouseClient.getConfig().useSandbox;
     if (isSandbox !== previousSandbox && (this.currentChannel || this.joinInFlight)) {
       await this.leaveRoom({ silent: true });

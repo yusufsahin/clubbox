@@ -1196,6 +1196,42 @@ span.topic-chip {
   display: none;
 }
 
+.guidelines-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(8, 10, 16, 0.72);
+}
+
+.guidelines-card {
+  max-width: 520px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+}
+
+.guidelines-card h2 {
+  font-size: 20px;
+  margin-bottom: 8px;
+}
+
+.guidelines-card p {
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.guidelines-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+}
+
 .cockpit-left {
   display: flex;
   align-items: center;
