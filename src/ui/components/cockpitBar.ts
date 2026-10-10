@@ -73,7 +73,7 @@ export function cockpitBar(state: CockpitState): SafeHtml {
         ` : ''}
 
         ${state.inRoom ? html`
-          <button class="toggle-state-btn" type="button" data-action="save-clip" title="${state.canClip ? t('clipTitle') : t('clipPrivate')}" ${state.canClip ? '' : 'disabled'}>
+          <button class="toggle-state-btn" type="button" data-action="save-clip" title="${state.canClip ? t('clipTitle') : t('clipUnavailable')}" ${state.canClip ? '' : 'disabled'}>
             <span>✂</span>
             <span>${t('clip')}</span>
           </button>

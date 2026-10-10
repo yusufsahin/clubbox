@@ -16,6 +16,7 @@ export class AudioEngine {
   private recordMix: GainNode | null = null;
   private clipNode: AudioWorkletNode | null = null;
   private clipReady: Promise<boolean> | null = null;
+  private clipArmed = false;
   private mediaRecorder: MediaRecorder | null = null;
   private recordedChunks: Blob[] = [];
   private remoteNodes = new Map<string, { source: MediaStreamAudioSourceNode; gain: GainNode }>();
@@ -813,7 +814,13 @@ export class AudioEngine {
     }).catch(() => false);
   }
 
+  public isClipArmed(): boolean {
+    return this.clipArmed;
+  }
+
   public armClip(armed: boolean): void {
+    this.clipArmed = armed;
+    if (!armed && !this.ctx) return;
     this.initContextIfNeeded();
     void this.clipReady?.then((ready) => {
       if (!ready) return;

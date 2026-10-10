@@ -78,6 +78,38 @@ export function classifyHttpFailure(status: number, message: string): LiveFailur
   return { kind: 'network', message, expireSession: false };
 }
 
+export type RoomAudience = 'public' | 'friends' | 'friends-of-friends' | 'house' | 'unknown';
+
+const PUBLIC_AUDIENCES = new Set(['public', 'interest', 'open']);
+const FRIENDS_AUDIENCES = new Set(['friends', 'friend']);
+const FRIENDS_OF_FRIENDS_AUDIENCES = new Set(['friends_of_friends', 'friend_of_friend', 'social']);
+const HOUSE_AUDIENCES = new Set(['house', 'social_club']);
+
+export function roomAudience(channel: {
+  privacy_settings?: { type?: unknown } | null;
+}): RoomAudience {
+  const raw = channel.privacy_settings?.type;
+  const type = typeof raw === 'string' ? raw.toLowerCase() : '';
+  if (PUBLIC_AUDIENCES.has(type)) return 'public';
+  if (FRIENDS_OF_FRIENDS_AUDIENCES.has(type)) return 'friends-of-friends';
+  if (FRIENDS_AUDIENCES.has(type)) return 'friends';
+  if (HOUSE_AUDIENCES.has(type)) return 'house';
+  return 'unknown';
+}
+
+/** Local clips need an explicit opt-in, replays, a host clips flag, and a public room. */
+export function localClipAllowed(input: {
+  allowLocalRecording: boolean;
+  replayEnabled: boolean;
+  hostClipsEnabled: boolean;
+  audience: RoomAudience;
+}): boolean {
+  return input.allowLocalRecording
+    && input.replayEnabled
+    && input.hostClipsEnabled
+    && input.audience === 'public';
+}
+
 export function businessFailure(data: unknown): string | null {
   if (!data || typeof data !== 'object') return null;
   const record = data as { success?: unknown; error_message?: unknown };

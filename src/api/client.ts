@@ -42,6 +42,7 @@ export interface ClubhouseConfig {
   language: 'en' | 'tr';
   allowUnverified: boolean;
   hasSecureToken: boolean;
+  allowLocalRecording: boolean;
 }
 
 const DEFAULT_CONFIG: ClubhouseConfig = {
@@ -61,6 +62,7 @@ const DEFAULT_CONFIG: ClubhouseConfig = {
   language: 'en',
   allowUnverified: false,
   hasSecureToken: false,
+  allowLocalRecording: false,
 };
 
 

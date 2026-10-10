@@ -8,7 +8,9 @@ import {
   createSingleFlight,
   emptyRoomSession,
   finishLeave,
+  localClipAllowed,
   roleSyncDecision,
+  roomAudience,
 } from '../src/api/guards.ts';
 
 test('HTTP 200 success false is a business error and 403 does not expire the session', () => {
@@ -27,6 +29,26 @@ test('HTTP 200 success false is a business error and 403 does not expire the ses
   const auth = classifyHttpFailure(401, 'Unauthorized');
   assert.equal(auth.kind, 'auth');
   assert.equal(auth.expireSession, true);
+});
+
+test('local clips follow the public-room audience, not the old private flag', () => {
+  assert.equal(roomAudience({ privacy_settings: { type: 'house' } }), 'house');
+  assert.equal(roomAudience({ privacy_settings: { type: 'friends_of_friends' } }), 'friends-of-friends');
+  assert.equal(roomAudience({ privacy_settings: { type: 'public' } }), 'public');
+  assert.equal(roomAudience({}), 'unknown');
+
+  const allowed = {
+    allowLocalRecording: true,
+    replayEnabled: true,
+    hostClipsEnabled: true,
+    audience: 'public' as const,
+  };
+  assert.equal(localClipAllowed(allowed), true);
+  assert.equal(localClipAllowed({ ...allowed, allowLocalRecording: false }), false);
+  assert.equal(localClipAllowed({ ...allowed, replayEnabled: false }), false);
+  assert.equal(localClipAllowed({ ...allowed, hostClipsEnabled: false }), false);
+  assert.equal(localClipAllowed({ ...allowed, audience: 'house' }), false);
+  assert.equal(localClipAllowed({ ...allowed, audience: 'friends' }), false);
 });
 
 test('an older join cannot replace the room left by a newer action', async () => {

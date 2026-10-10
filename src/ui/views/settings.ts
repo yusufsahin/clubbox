@@ -87,6 +87,10 @@ export function settingsView(config: ClubhouseConfig, isElectron: boolean, short
           <input type="checkbox" id="cfg-allow-unverified" ${config.allowUnverified ? 'checked' : ''} />
           <span><strong>${t('allowUnverified')}</strong><br />${t('allowUnverifiedHelp')}</span>
         </label>
+        <label style="display:flex; align-items:flex-start; gap:8px; margin-top:16px; cursor:pointer;">
+          <input type="checkbox" id="cfg-allow-recording" ${config.allowLocalRecording ? 'checked' : ''} />
+          <span><strong>${t('allowLocalRecording')}</strong><br />${t('allowLocalRecordingHelp')}</span>
+        </label>
       </div>
 
       <div style="background:var(--bg-card); border:1px solid var(--border-subtle); border-radius:var(--radius-lg); padding:24px; margin-bottom:20px;">

@@ -33,6 +33,12 @@ export interface CHChannel {
   club_id?: number;
   is_private: boolean;
   is_social_mode?: boolean;
+  privacy_settings?: {
+    type?: string;
+    display_text?: string;
+    tooltip_text?: string;
+  };
+  is_clips_enabled?: boolean;
   is_handraise_enabled?: boolean;
   is_chat_enabled?: boolean;
   should_join_muted?: boolean;

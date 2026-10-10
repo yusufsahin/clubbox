@@ -1,6 +1,6 @@
 import './style.css';
 import { ClubhouseApiError, clubhouseClient } from './api/client';
-import { beginJoin, commitJoin, emptyRoomSession, finishLeave, roleSyncDecision } from './api/guards';
+import { beginJoin, commitJoin, emptyRoomSession, finishLeave, localClipAllowed, roleSyncDecision, roomAudience } from './api/guards';
 import { roomSync } from './api/roomSync';
 import { audioEngine } from './audio/audioEngine';
 import { readAudioPrefs, writeAudioPrefs, type AudioPrefs } from './audio/audioPrefs';
@@ -652,6 +652,10 @@ class ClubboxApp {
     this.currentChannel.num_all = detail.num_all;
     this.currentChannel.num_speakers = detail.num_speakers;
     this.currentChannel.has_raised_hands = detail.has_raised_hands;
+    if (typeof detail.is_replay_enabled === 'boolean') this.currentChannel.is_replay_enabled = detail.is_replay_enabled;
+    if (typeof detail.is_clips_enabled === 'boolean') this.currentChannel.is_clips_enabled = detail.is_clips_enabled;
+    if (detail.privacy_settings) this.currentChannel.privacy_settings = detail.privacy_settings;
+    this.syncClipArm();
     this.syncSelectedProfileFromRoom();
     this.maybeShowSpeakerInvite();
     this.syncAgoraRole();
@@ -1134,11 +1138,28 @@ class ClubboxApp {
     audioEngine.toggleRecording();
   }
 
+  private clipsAllowed(): boolean {
+    const channel = this.currentChannel;
+    if (!channel) return false;
+    return localClipAllowed({
+      allowLocalRecording: clubhouseClient.getConfig().allowLocalRecording === true,
+      replayEnabled: channel.is_replay_enabled === true,
+      hostClipsEnabled: channel.is_clips_enabled === true,
+      audience: roomAudience(channel),
+    });
+  }
+
+  private syncClipArm(): void {
+    audioEngine.armClip(this.clipsAllowed());
+    const badge = document.getElementById('clip-armed-badge');
+    if (badge) badge.hidden = !audioEngine.isClipArmed();
+  }
+
   private async saveClip(): Promise<void> {
     const channel = this.currentChannel;
     if (!channel) return;
-    if (channel.is_private || channel.is_social_mode) {
-      this.showToast(t('clipPrivate'), '✂');
+    if (!this.clipsAllowed()) {
+      this.showToast(t('clipUnavailable'), '✂');
       return;
     }
     const blob = await audioEngine.saveClip();
@@ -1205,8 +1226,7 @@ class ClubboxApp {
     }
 
     if (this.roomSession.generation !== generation || !this.currentChannel) return;
-    const closedRoom = !!this.currentChannel.is_private || !!this.currentChannel.is_social_mode;
-    audioEngine.armClip(!closedRoom);
+    this.syncClipArm();
     this.audioConnected = clubhouseClient.getConfig().useSandbox ? null : false;
     if (this.isMeSpeaker()) void audioEngine.startMicrophone();
     await this.connectRoomAudio(generation);
@@ -1511,6 +1531,7 @@ class ClubboxApp {
                 ${this.currentChannel.is_active_trending_topic_channel ? html`<span class="live-updates-note">${t('trending')}</span>` : ''}
                 ${this.currentChannel.is_replay_enabled ? html`<span class="live-updates-note">${t('replayAvailable')}</span>` : ''}
                 ${this.liveUpdatesUnavailable() ? html`<span class="live-updates-note">${t('liveUpdatesNote')}</span>` : ''}
+                <span class="recording-badge" id="clip-armed-badge" ${audioEngine.isClipArmed() ? '' : 'hidden'}>● ${t('clipArmed')}</span>
                 <span class="recording-badge" id="recording-badge" ${audioEngine.getIsRecording() ? '' : 'hidden'}>● ${t('recording')}</span>
               </div>
             ` : html`
@@ -1823,7 +1844,7 @@ class ClubboxApp {
       unreadChat: this.chatOpen && this.currentTab === 'stage' ? 0 : this.unreadChat,
       chatOpen: this.chatOpen,
       canChat: this.currentChannel?.is_chat_enabled !== false,
-      canClip: !!this.currentChannel && !this.currentChannel.is_private && !this.currentChannel.is_social_mode,
+      canClip: this.clipsAllowed(),
       micVolume: audioEngine.getMicVolume(),
       monitorEnabled: audioEngine.getMonitorEnabled(),
     });
@@ -2280,6 +2301,7 @@ class ClubboxApp {
     const agoraAppId = (document.getElementById('cfg-agora-app-id') as HTMLInputElement)?.value;
     const isSandbox = (document.getElementById('radio-sandbox') as HTMLInputElement)?.checked;
     const allowUnverified = (document.getElementById('cfg-allow-unverified') as HTMLInputElement | null)?.checked === true;
+    const allowLocalRecording = (document.getElementById('cfg-allow-recording') as HTMLInputElement | null)?.checked === true;
     const languageValue = (document.getElementById('cfg-language') as HTMLSelectElement | null)?.value;
     const language = languageValue === 'tr' ? 'tr' : 'en';
     const previousSandbox = clubhouseClient.getConfig().useSandbox;
@@ -2295,6 +2317,7 @@ class ClubboxApp {
       agoraAppId: agoraAppId || clubhouseClient.getConfig().agoraAppId,
       useSandbox: isSandbox,
       allowUnverified,
+      allowLocalRecording,
       language,
     });
     if (clubhouseClient.takeSecureStorageFailure()) {
@@ -2302,6 +2325,7 @@ class ClubboxApp {
       return;
     }
     audioEngine.setSimulateMeterOnFailure(isSandbox);
+    this.syncClipArm();
     setLanguage(language);
     if (agoraAppId) agoraVoice.appId = agoraAppId;
     this.showToast(t('settingsSaved'), '✅');
