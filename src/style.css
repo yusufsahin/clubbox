@@ -210,8 +210,15 @@ body {
   color: var(--text-muted);
 }
 
-.sidebar-user {
+.sidebar-footer {
   margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sidebar-user {
+  margin-top: 0;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -234,6 +241,18 @@ body {
   border-radius: var(--radius-full);
   object-fit: cover;
   border: 2px solid var(--border-subtle);
+}
+
+.avatar-initials {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: #fff;
+  font-weight: 700;
+  flex-shrink: 0;
+  line-height: 1;
+  user-select: none;
 }
 
 .sidebar-user-placeholder {
@@ -420,6 +439,51 @@ body {
   overflow-y: auto;
   padding: 24px;
   padding-bottom: 120px; /* Space for bottom cockpit bar */
+}
+
+.content-area.no-cockpit {
+  padding-bottom: 24px;
+}
+
+.section-placeholder {
+  max-width: 520px;
+  margin: 72px auto;
+  text-align: center;
+}
+
+.section-placeholder h2 {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.section-placeholder p {
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.top-icon-btn {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-card);
+  color: var(--text-main);
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.top-avatar-btn {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+  overflow: hidden;
 }
 
 /* Stage Section */
@@ -786,14 +850,258 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 18px;
+  margin-bottom: 10px;
+}
+
+.room-card-more {
+  margin-left: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.room-card.is-visited {
+  opacity: 0.72;
+}
+
+.room-share {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.replay-note {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.conversation-row.is-archived {
+  opacity: 0.72;
+}
+
+.conversation-share {
+  margin-top: 8px;
+}
+
+.room-card-privacy {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+.room-title-ideas {
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.list-note {
+  color: var(--text-muted);
+  font-size: 13px;
+  margin: -8px 0 12px;
+}
+
+.room-card-speaking {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.topic-chips {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.topic-chip {
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-card);
+  color: var(--text-main);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.topic-chip.active {
+  border-color: rgba(121, 82, 245, 0.7);
+  background: rgba(121, 82, 245, 0.18);
+}
+
+span.topic-chip {
+  cursor: default;
+}
+
+.house-photo {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  object-fit: cover;
+  vertical-align: -3px;
+  margin-right: 6px;
+}
+
+.list-page {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.list-page h2 {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
+.list-empty {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.conversation-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.conversation-row {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.conversation-row.is-new {
+  border-color: rgba(121, 82, 245, 0.7);
+}
+
+.conversation-title {
+  font-weight: 700;
+}
+
+.conversation-preview,
+.conversation-meta {
+  color: var(--text-muted);
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.profile-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.profile-setting-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.nav-dot {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--accent-emerald, #22c55e);
+  color: #000;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+}
+
+.host-room-fab {
+  position: fixed;
+  right: 28px;
+  bottom: 28px;
+  z-index: 25;
+}
+
+#view-root:not(.no-cockpit) .host-room-fab {
+  bottom: 112px;
+}
+
+.mini-player {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-card);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mini-player-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.mini-player-topic,
+.chat-ticker {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mini-player-unread {
+  font-size: 11px;
+  color: var(--accent-emerald);
+}
+
+.chat-ticker {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  top: -34px;
+  max-width: 420px;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.host-tag {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--accent-emerald);
+  text-transform: uppercase;
+}
+
+.speaker-follow-btn {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 0;
+  background: var(--accent-purple);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 .speaker-avatar-overlap {
   display: flex;
 }
 
-.speaker-avatar-overlap img {
+.speaker-avatar-overlap img,
+.speaker-avatar-overlap .avatar-initials {
   width: 32px;
   height: 32px;
   border-radius: 50%;
@@ -802,8 +1110,23 @@ body {
   object-fit: cover;
 }
 
-.speaker-avatar-overlap img:first-child {
+.speaker-avatar-overlap img:first-child,
+.speaker-avatar-overlap .avatar-initials:first-child {
   margin-left: 0;
+}
+
+.explore-empty,
+.chat-empty {
+  color: var(--text-muted);
+  text-align: center;
+  padding: 48px 16px;
+}
+
+.explore-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
 }
 
 .speaker-names-list {
@@ -831,6 +1154,32 @@ body {
   justify-content: space-between;
   box-shadow: var(--shadow-md);
   z-index: 20;
+}
+
+.audio-retry-btn {
+  position: absolute;
+  top: -42px;
+  right: 12px;
+}
+
+.live-updates-note {
+  display: inline-block;
+  margin-top: 4px;
+  color: var(--accent-amber);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.recording-badge {
+  display: inline-block;
+  margin-top: 4px;
+  color: #f43f5e;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.recording-badge[hidden] {
+  display: none;
 }
 
 .cockpit-left {
@@ -875,7 +1224,13 @@ body {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  width: 70px;
+  width: 92px;
+}
+
+#mic-vol-slider,
+#profile-vol-slider {
+  width: 100%;
+  accent-color: var(--accent-emerald);
 }
 
 .mic-meter-label {
@@ -998,16 +1353,92 @@ body {
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
-  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  user-select: none;
+  overflow: hidden;
+}
+
+.soundpad-play {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  width: 100%;
+  padding: 28px 16px 40px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 12px;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  position: relative;
-  user-select: none;
+}
+
+.soundpad-edit-btn {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  border: 0;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-dim);
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.soundpad-tile.editing {
+  border-color: rgba(121, 82, 245, 0.7);
+}
+
+.sound-editor {
+  margin-top: 20px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.sound-editor-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.sound-loop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.shortcut-row {
+  display: grid;
+  grid-template-columns: 1fr 140px auto auto;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.shortcut-label {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.shortcut-combo {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
 }
 
 .soundpad-tile:hover {
@@ -1255,6 +1686,7 @@ body {
   .brand-title, .brand-badge, .mode-badge, .nav-label, .sidebar-user-info, .count-badge { display: none; }
   .brand { margin-bottom: 18px; }
   .cockpit-bar { left: 96px; }
+  .audio-retry-btn { right: 8px; }
   .cockpit-center { display: none; }
   .stage-chat-panel { display: none; }
 }

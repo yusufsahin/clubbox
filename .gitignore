@@ -6,6 +6,9 @@ dist
 dist-ssr
 .vite
 
+# electron-builder output
+release
+
 # TypeScript
 *.tsbuildinfo
 
@@ -17,6 +20,9 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+
+# Local API recorder output. Redacted, and still never committed.
+api-captures/
 
 # Secrets and local env (auth token, Agora credentials)
 .env

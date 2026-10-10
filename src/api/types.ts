@@ -4,6 +4,7 @@ export interface CHUser {
   username: string;
   photo_url: string | null;
   bio?: string;
+  share_url?: string;
   twitter?: string | null;
   instagram?: string | null;
   num_followers?: number;
@@ -32,8 +33,17 @@ export interface CHChannel {
   club_id?: number;
   is_private: boolean;
   is_social_mode?: boolean;
+  is_handraise_enabled?: boolean;
+  is_chat_enabled?: boolean;
+  should_join_muted?: boolean;
   creator_user_profile_id?: number;
   url?: string;
+  club_photo_url?: string | null;
+  privacy_label?: string;
+  privacy_tooltip?: string;
+  visited?: boolean;
+  is_replay_enabled?: boolean;
+  is_active_trending_topic_channel?: boolean;
   num_speakers: number;
   num_all: number;
   has_raised_hands?: boolean;
@@ -46,8 +56,6 @@ export interface CHChannel {
 export interface CHChannelDetail extends CHChannel {
   description?: string;
   agora_native_mute?: boolean;
-  is_handraise_enabled?: boolean;
-  is_chat_enabled?: boolean;
 }
 
 export interface CHAuthResponse {
@@ -62,6 +70,43 @@ export interface CHAuthResponse {
   send_rc_token?: boolean;
   is_blocked?: boolean;
   is_verified?: boolean;
+}
+
+export interface FeedTopic {
+  key: string;
+  display_name: string;
+}
+
+export interface CHConversation {
+  conversation_id: string;
+  title: string;
+  short_title: string;
+  preview_segment_text: string;
+  summary: string;
+  author_name: string;
+  author_names: string[];
+  social_club_name: string;
+  social_club_photo: string;
+  is_subscribed: boolean | null;
+  can_reply: boolean;
+  cant_reply_reason: string;
+  pending_count: number;
+  pending_names: string[];
+  has_listened: boolean | null;
+  permanent_house_chat: boolean;
+  share_url: string;
+  preview_segment_type: string;
+  is_archived: boolean;
+  privacy_label: string;
+  privacy_tooltip: string;
+  has_new_segments: boolean;
+  time_content_updated: string;
+}
+
+export interface MeSettings {
+  contact_upload_enabled: boolean;
+  follower_requests_enabled: boolean;
+  private_conversations_enabled: boolean;
 }
 
 export interface CHNotification {
@@ -91,4 +136,7 @@ export interface SoundEffectItem {
   type: 'synth' | 'custom';
   synthType?: 'applause' | 'airhorn' | 'laugh' | 'rimshot' | 'bell' | 'gong' | 'laser';
   audioBuffer?: AudioBuffer;
+  sourceBytes?: ArrayBuffer;
+  volume?: number;
+  loop?: boolean;
 }

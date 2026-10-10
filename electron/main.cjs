@@ -1,9 +1,26 @@
-const { app, BrowserWindow, session, ipcMain } = require('electron');
+const { app, BrowserWindow, dialog, session, ipcMain, safeStorage, globalShortcut } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { startApiRecorder } = require('./apiRecorder.cjs');
+
+const CH_WEB_APP_VERSION = '22.2.0';
+const RECAPTCHA_SITE_KEY_FALLBACK = '6Lf8IJcsAAAAAHr6Puq4KiD0A7jnz0ndgJUihuN2';
+
+app.setName('Clubbox');
+if (process.platform === 'win32') {
+  app.setAppUserModelId('app.clubbox.desktop');
+}
 
 let mainWindow = null;
 let tokenCaptureWindow = null;
+let recorderWebContentsId = -1;
+
+function watchRecorderWindow(win) {
+  recorderWebContentsId = win.webContents.id;
+  win.on('closed', () => {
+    if (recorderWebContentsId === win.webContents.id) recorderWebContentsId = -1;
+  });
+}
 
 function headerValue(headers, name) {
   const target = name.toLowerCase();
@@ -19,7 +36,8 @@ function createWindow() {
     height: 840,
     minWidth: 1040,
     minHeight: 680,
-    title: 'Clubdeck Next-Gen | Clubhouse Desktop Studio',
+    title: 'Clubbox',
+    icon: path.join(__dirname, '../build/icon.ico'),
     backgroundColor: '#080a0f',
     frame: true,
     autoHideMenuBar: true,
@@ -29,13 +47,12 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.cjs'),
       nodeIntegration: false,
       contextIsolation: true,
-      webSecurity: false,
     },
   });
 
-  // Auto-grant microphone & media permissions in desktop app
-  session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
-    if (permission === 'media') {
+  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+    const mainId = mainWindow && !mainWindow.isDestroyed() ? mainWindow.webContents.id : -1;
+    if (permission === 'media' && (webContents.id === mainId || webContents.id === recorderWebContentsId)) {
       return callback(true);
     }
     callback(false);
@@ -185,26 +202,144 @@ ipcMain.on('open-token-capture', () => {
   openTokenCaptureWindow();
 });
 
+function authTokenFile() {
+  return path.join(app.getPath('userData'), 'clubbox-auth.bin');
+}
+
+ipcMain.handle('clubbox:token-get', () => {
+  try {
+    if (!safeStorage.isEncryptionAvailable()) return null;
+    const file = authTokenFile();
+    if (!fs.existsSync(file)) return null;
+    const token = safeStorage.decryptString(fs.readFileSync(file));
+    return typeof token === 'string' && token ? token : null;
+  } catch {
+    return null;
+  }
+});
+
+const SHORTCUT_ACTIONS = ['mute', 'clip', 'pad1', 'pad2', 'pad3', 'pad4', 'pad5', 'pad6', 'pad7', 'pad8', 'pad9'];
+const SHORTCUT_MODIFIERS = new Set(['Command', 'Cmd', 'Control', 'Ctrl', 'CommandOrControl', 'Alt', 'Option', 'AltGr', 'Shift', 'Super', 'Meta']);
+const SHORTCUT_KEYS = new Set(['Plus', 'Space', 'Tab', 'Backspace', 'Delete', 'Insert', 'Return', 'Enter', 'Up', 'Down', 'Left', 'Right', 'Home', 'End', 'PageUp', 'PageDown']);
+
+function isShortcutAccelerator(value) {
+  if (typeof value !== 'string' || value.length > 64) return false;
+  const parts = value.split('+');
+  if (parts.length < 1 || parts.length > 5) return false;
+  const key = parts[parts.length - 1];
+  const functionKey = /^F([1-9]|1\d|2[0-4])$/.test(key);
+  const keyOk = /^[A-Z0-9]$/.test(key) || SHORTCUT_KEYS.has(key) || functionKey;
+  if (!keyOk) return false;
+  const mods = parts.slice(0, -1);
+  if (mods.length === 0) return functionKey;
+  return mods.every((mod) => SHORTCUT_MODIFIERS.has(mod));
+}
+
+function shortcutsFile() {
+  return path.join(app.getPath('userData'), 'clubbox-shortcuts.json');
+}
+
+function readShortcutFile() {
+  try {
+    if (!fs.existsSync(shortcutsFile())) return null;
+    const parsed = JSON.parse(fs.readFileSync(shortcutsFile(), 'utf8'));
+    return sanitizeShortcuts(parsed);
+  } catch {
+    return null;
+  }
+}
+
+function sanitizeShortcuts(input) {
+  if (!input || typeof input !== 'object') return {};
+  const out = {};
+  const seen = new Set();
+  for (const action of SHORTCUT_ACTIONS) {
+    if (!Object.prototype.hasOwnProperty.call(input, action)) continue;
+    const value = input[action];
+    if (value === '') {
+      out[action] = '';
+      continue;
+    }
+    if (!isShortcutAccelerator(value) || seen.has(value)) continue;
+    seen.add(value);
+    out[action] = value;
+  }
+  return out;
+}
+
+let registeredAccelerators = [];
+
+function sendGlobalShortcut(action) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.send('clubbox:global-shortcut', action);
+}
+
+// globalShortcut has no keyup, so these are toggle-to-talk presses.
+function applyGlobalShortcuts(map) {
+  for (const accelerator of registeredAccelerators) {
+    try {
+      globalShortcut.unregister(accelerator);
+    } catch {
+      // The shortcut was already released.
+    }
+  }
+  registeredAccelerators = [];
+  const failed = [];
+  for (const action of SHORTCUT_ACTIONS) {
+    const accelerator = map[action];
+    if (!accelerator) continue;
+    try {
+      const ok = globalShortcut.register(accelerator, () => sendGlobalShortcut(action));
+      if (!ok) failed.push(action);
+      else registeredAccelerators.push(accelerator);
+    } catch {
+      failed.push(action);
+    }
+  }
+  return failed;
+}
+
+ipcMain.handle('clubbox:shortcuts-get', () => readShortcutFile());
+
+ipcMain.handle('clubbox:shortcuts-set', (_event, shortcuts) => {
+  const clean = sanitizeShortcuts(shortcuts);
+  try {
+    const file = shortcutsFile();
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, JSON.stringify(clean));
+  } catch {
+    // Registration can still apply for this session.
+  }
+  return { ok: true, failed: applyGlobalShortcuts(clean) };
+});
+
+ipcMain.handle('clubbox:token-set', (_event, token) => {
+  try {
+    const file = authTokenFile();
+    if (token == null || token === '') {
+      if (fs.existsSync(file)) fs.unlinkSync(file);
+      return true;
+    }
+    if (typeof token !== 'string' || token.length > 8192) return false;
+    if (!safeStorage.isEncryptionAvailable()) return false;
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, safeStorage.encryptString(token));
+    return true;
+  } catch {
+    return false;
+  }
+});
+
 const WEB_AUTH_ENDPOINTS = {
   start_phone_number_web_auth: '/web_api/start_phone_number_web_auth',
   complete_phone_number_web_auth: '/web_api/complete_phone_number_web_auth',
   resend_phone_number_auth: '/web_api/resend_phone_number_auth',
 };
 
-const WEB_SESSION_PATHS = {
-  me: '/web_api/me',
-  get_channels: '/web_api/get_feed_v3',
-  get_channel: '/web_api/get_channel',
-  join_channel: '/web_api/join_channel',
-  leave_channel: '/web_api/leave_channel',
-  active_ping: '/web_api/active_ping',
-  create_channel: '/web_api/create_channel',
-  get_profile: '/web_api/get_profile',
-  follow: '/web_api/follow',
-  unfollow: '/web_api/unfollow',
-  search_users: '/web_api/search',
-  accept_speaker_invite: '/web_api/become_speaker',
-};
+// Shared with src/api/client.ts. Chat methods stay as configured until a capture
+// in docs/api/web-api.md confirms them. get_channel and unfollow are omitted, so
+// web sign-in shows that live updates are unavailable instead of failing silently.
+const WEB_SESSION_PATHS = require('./webApiRoutes.json');
 
 let authPage = null;
 let authPageReady = null;
@@ -232,9 +367,25 @@ function authPageWindow() {
   return authPage;
 }
 
+async function recaptchaSiteKey(win) {
+  try {
+    const fromPage = await win.webContents.executeJavaScript(`(() => {
+      const script = document.querySelector('script[src*="recaptcha"]');
+      if (!script || !script.src) return '';
+      try { return new URL(script.src).searchParams.get('render') || ''; }
+      catch { return ''; }
+    })()`, true);
+    if (typeof fromPage === 'string' && fromPage) return fromPage;
+  } catch {
+    // The sign-in page can still use the known site key.
+  }
+  return RECAPTCHA_SITE_KEY_FALLBACK;
+}
+
 async function postClubhouseWebAuth(endpoint, body) {
   const win = authPageWindow();
   await authPageReady;
+  const siteKey = await recaptchaSiteKey(win);
   const script = `(async () => {
     const endpoint = ${JSON.stringify(endpoint)};
     const body = ${JSON.stringify(body || {})};
@@ -246,7 +397,7 @@ async function postClubhouseWebAuth(endpoint, body) {
       return { ok: false, status: 0, body: 'Clubhouse verification did not load. Try again.' };
     }
     await new Promise((resolve) => window.grecaptcha.ready(resolve));
-    const token = await window.grecaptcha.execute('6Lf8IJcsAAAAAHr6Puq4KiD0A7jnz0ndgJUihuN2', { action: 'auth' });
+    const token = await window.grecaptcha.execute(${JSON.stringify(siteKey)}, { action: 'auth' });
     if (!body.web_rc_token) body.web_rc_token = token;
     if (body.tokens && !body.tokens.web_rc_token) body.tokens.web_rc_token = token;
     if (body.invite_code == null) delete body.invite_code;
@@ -259,8 +410,8 @@ async function postClubhouseWebAuth(endpoint, body) {
         'Accept': 'application/json',
         'Content-Type': 'application/json; charset=utf-8',
         'X-CSRFToken': decodeURIComponent(csrf),
-        'CH-Web-AppVersion': '22.2.0',
-        'CH-Web-Version': '22.2.0',
+        'CH-Web-AppVersion': ${JSON.stringify(CH_WEB_APP_VERSION)},
+        'CH-Web-Version': ${JSON.stringify(CH_WEB_APP_VERSION)},
       },
       body: JSON.stringify(body),
     });
@@ -282,9 +433,44 @@ async function postClubhouseWebAuth(endpoint, body) {
   return result;
 }
 
+function webSessionUrl(pathName, method, body) {
+  const base = `https://www.clubhouse.com${pathName}`;
+  if (method !== 'GET' || !body || typeof body !== 'object') return base;
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(body)) {
+    if (value == null) continue;
+    params.set(key, String(value));
+  }
+  const query = params.toString();
+  return query ? `${base}?${query}` : base;
+}
+
+function logResponseShape(endpoint, text) {
+  if (endpoint !== 'join_channel' && endpoint !== 'get_channels') return;
+  try {
+    const parsed = JSON.parse(text);
+    const keys = parsed && typeof parsed === 'object' ? Object.keys(parsed) : [];
+    console.log('[web]', endpoint, 'keys', keys.join(','));
+    const nested = parsed && parsed.channel;
+    if (nested && typeof nested === 'object') {
+      console.log('[web]', endpoint, 'channel keys', Object.keys(nested).join(','));
+    }
+    const first = Array.isArray(parsed?.items) ? parsed.items[0] : null;
+    if (first && typeof first === 'object') {
+      console.log('[web]', endpoint, 'item keys', Object.keys(first).join(','));
+      const inner = first.channel;
+      if (inner && typeof inner === 'object') {
+        console.log('[web]', endpoint, 'item.channel keys', Object.keys(inner).join(','));
+      }
+    }
+  } catch {
+    // Shape logging is diagnostic only.
+  }
+}
+
 async function postWithWebSession(endpoint, body) {
-  const pathName = WEB_SESSION_PATHS[endpoint];
-  if (!pathName) {
+  const route = WEB_SESSION_PATHS[endpoint];
+  if (!route) {
     return {
       ok: false,
       status: 0,
@@ -296,21 +482,23 @@ async function postWithWebSession(endpoint, body) {
     name: 'csrftoken',
   });
   const csrf = cookies[0]?.value || '';
-  const response = await session.defaultSession.fetch(`https://www.clubhouse.com${pathName}`, {
-    method: 'POST',
+  const method = route.method || 'POST';
+  const response = await session.defaultSession.fetch(webSessionUrl(route.path, method, body), {
+    method,
     headers: {
       Accept: 'application/json',
       'Content-Type': 'application/json; charset=utf-8',
       'X-CSRFToken': csrf,
-      'CH-Web-AppVersion': '22.2.0',
-      'CH-Web-Version': '22.2.0',
+      'CH-Web-AppVersion': CH_WEB_APP_VERSION,
+      'CH-Web-Version': CH_WEB_APP_VERSION,
       Origin: 'https://www.clubhouse.com',
       Referer: 'https://www.clubhouse.com/home',
     },
-    body: body == null ? '{}' : JSON.stringify(body),
+    body: method === 'GET' ? undefined : (body == null ? '{}' : JSON.stringify(body)),
   });
   const text = await response.text();
   console.log('[web]', endpoint, response.status);
+  logResponseShape(endpoint, text);
   return { ok: response.ok, status: response.status, body: text };
 }
 
@@ -325,8 +513,8 @@ ipcMain.handle('ch:request', async (_event, payload) => {
   for (const [key, value] of Object.entries(incoming)) {
     if (typeof value === 'string') headers[key] = value;
   }
-  const webSession = headers['X-Clubdeck-Web-Session'] === '1';
-  delete headers['X-Clubdeck-Web-Session'];
+  const webSession = headers['X-Clubbox-Web-Session'] === '1';
+  delete headers['X-Clubbox-Web-Session'];
 
   if (WEB_AUTH_ENDPOINTS[endpoint]) {
     try {
@@ -357,8 +545,84 @@ ipcMain.handle('ch:request', async (_event, payload) => {
   }
 });
 
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+if (!hasSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (_event, argv) => {
+    if (argv.includes('--api-recorder')) {
+      startApiRecorder({ onWindow: watchRecorderWindow });
+      return;
+    }
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+  });
+}
+
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll();
+});
+
+function setupAutoUpdate() {
+  // GitHub releases only. Dev and the portable exe stay on the version that was launched.
+  if (!app.isPackaged || process.env.PORTABLE_EXECUTABLE_DIR) return;
+  let autoUpdater;
+  try {
+    ({ autoUpdater } = require('electron-updater'));
+  } catch {
+    return;
+  }
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.on('error', () => {
+    // A missing release or a private repo should not interrupt the studio.
+  });
+  autoUpdater.on('update-available', (info) => {
+    const version = info && typeof info.version === 'string' ? info.version : '';
+    dialog
+      .showMessageBox({
+        type: 'info',
+        buttons: ['Download', 'Later'],
+        defaultId: 0,
+        cancelId: 1,
+        title: 'Clubbox update',
+        message: version ? `Version ${version} is available.` : 'An update is available.',
+      })
+      .then((result) => {
+        if (result.response === 0) autoUpdater.downloadUpdate().catch(() => {});
+      })
+      .catch(() => {});
+  });
+  autoUpdater.on('update-downloaded', (info) => {
+    const version = info && typeof info.version === 'string' ? info.version : '';
+    dialog
+      .showMessageBox({
+        type: 'info',
+        buttons: ['Restart', 'Later'],
+        defaultId: 0,
+        cancelId: 1,
+        title: 'Clubbox update',
+        message: version ? `Version ${version} is ready to install.` : 'The update is ready to install.',
+      })
+      .then((result) => {
+        if (result.response === 0) autoUpdater.quitAndInstall();
+      })
+      .catch(() => {});
+  });
+  autoUpdater.checkForUpdates().catch(() => {});
+}
+
 app.whenReady().then(() => {
+  if (!hasSingleInstanceLock) return;
+  const savedShortcuts = readShortcutFile();
+  if (savedShortcuts) applyGlobalShortcuts(savedShortcuts);
   createWindow();
+  setupAutoUpdate();
+  if (process.env.CLUBBOX_API_RECORDER === '1' || process.argv.includes('--api-recorder')) {
+    startApiRecorder({ onWindow: watchRecorderWindow });
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

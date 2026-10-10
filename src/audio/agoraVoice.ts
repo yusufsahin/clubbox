@@ -22,8 +22,9 @@ export class AgoraVoiceEngine {
   private currentChannel: string | null = null;
   private onSpeakerVolumeCallbacks: ((speakers: { uid: string | number; level: number }[]) => void)[] = [];
 
-  // Default known Clubhouse Agora App ID (can be overridden in settings)
-  public appId: string = '938d3d95b5764796b3204b67d233436e';
+  // Same default as ClubhouseConfig.agoraAppId. The join_channel field that
+  // should replace it is documented in docs/api/web-api.md after a capture.
+  public appId: string = '938de3e8055e42b281bb8c6f69c21f78';
 
   constructor() {
     AgoraRTC.setLogLevel(3); // Warning level
@@ -141,7 +142,7 @@ export class AgoraVoiceEngine {
   private async publishBroadcast(isMusicMode: boolean): Promise<void> {
     if (!this.client) return;
 
-    await audioEngine.startMicrophone();
+    await audioEngine.ensureMicrophone();
     const broadcastTrack = audioEngine.getBroadcastTrack();
     if (!broadcastTrack) {
       throw new Error('Broadcast mix is unavailable');

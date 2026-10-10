@@ -1,7 +1,9 @@
-# 🎙️ Clubdeck Next-Gen (v2.0)
-### High-Performance Desktop Audio Studio for Clubhouse
+# Clubbox
+### Desktop studio for Clubhouse
 
-Clubdeck Next-Gen is an unofficial, modern desktop client and creator cockpit for Clubhouse. Built with **Electron, Vite, TypeScript, and the Web Audio API**, it gives creators, hosts, musicians, and podcasters professional broadcast capabilities right from their desktop.
+**Unofficial — not affiliated with Clubhouse or clubdeck.app.**
+
+Clubbox is an unofficial desktop studio for Clubhouse. Built with **Electron, Vite, TypeScript, and the Web Audio API**, it gives creators, hosts, musicians, and podcasters broadcast tools on the desktop.
 
 ---
 

@@ -16,6 +16,7 @@ export class RoomSync implements RoomUpdateSource {
   private timer: number | null = null;
   private channelId: string | null = null;
   private generation = 0;
+  private warnedUnsupported = false;
   private callbacks: ((detail: CHChannelDetail) => void)[] = [];
   private intervalMs: number;
 
@@ -52,6 +53,14 @@ export class RoomSync implements RoomUpdateSource {
   private async poll(generation: number): Promise<void> {
     const channelId = this.channelId;
     if (!channelId || generation !== this.generation) return;
+
+    if (!clubhouseClient.supports('get_channel')) {
+      if (!this.warnedUnsupported) {
+        this.warnedUnsupported = true;
+        console.warn('[RoomSync] Live updates unavailable in web sign-in');
+      }
+      return;
+    }
 
     try {
       const detail = await clubhouseClient.getChannel(channelId);

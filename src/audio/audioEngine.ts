@@ -1,4 +1,6 @@
 import type { SoundEffectItem } from '../api/types';
+import { deleteStoredSound, PAD_HOTKEYS, readStoredSounds, writeStoredSound, type StoredSound } from './soundLibrary';
+import { encodeStereoWav } from './wav';
 
 export class AudioEngine {
   private ctx: AudioContext | null = null;
@@ -11,10 +13,16 @@ export class AudioEngine {
   private analyser: AnalyserNode | null = null;
   private broadcastDest: MediaStreamAudioDestinationNode | null = null;
   private recorderDest: MediaStreamAudioDestinationNode | null = null;
+  private recordMix: GainNode | null = null;
+  private clipNode: AudioWorkletNode | null = null;
+  private clipReady: Promise<boolean> | null = null;
   private mediaRecorder: MediaRecorder | null = null;
   private recordedChunks: Blob[] = [];
   private remoteNodes = new Map<string, { source: MediaStreamAudioSourceNode; gain: GainNode }>();
 
+  private inputDeviceId = '';
+  private outputDeviceId = '';
+  private remoteVolumes = new Map<string, number>();
   private isMuted: boolean = true;
   private isMusicMode: boolean = false;
   private monitorEnabled: boolean = false;
@@ -25,6 +33,8 @@ export class AudioEngine {
   private onVolumeChangeCallbacks: ((level: number) => void)[] = [];
   private onRecordingStateCallbacks: ((isRecording: boolean, blobUrl?: string) => void)[] = [];
   private animationFrameId: number | null = null;
+  private micStartPromise: Promise<boolean> | null = null;
+  private activeVoices = new Set<AudioScheduledSourceNode>();
 
   public soundEffects: SoundEffectItem[] = [
     { id: 'fx-applause', name: 'Applause', hotkey: '1', icon: '👏', type: 'synth', synthType: 'applause' },
@@ -41,7 +51,7 @@ export class AudioEngine {
 
   private initContextIfNeeded(): AudioContext {
     if (!this.ctx) {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      const AudioCtx = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
       this.ctx = new AudioCtx({ latencyHint: 'interactive' });
 
       this.masterGain = this.ctx.createGain();
@@ -56,12 +66,17 @@ export class AudioEngine {
 
       this.broadcastDest = this.ctx.createMediaStreamDestination();
       this.recorderDest = this.ctx.createMediaStreamDestination();
+      this.recordMix = this.ctx.createGain();
+      this.recordMix.gain.value = 1;
+      this.recordMix.connect(this.recorderDest);
 
       // Local speakers hear the soundpad. The send bus is what Agora publishes.
       this.soundpadGain.connect(this.masterGain);
       this.soundpadGain.connect(this.broadcastDest);
-      this.soundpadGain.connect(this.recorderDest);
+      this.soundpadGain.connect(this.recordMix);
       this.masterGain.connect(this.ctx.destination);
+      this.startClipBuffer();
+      if (this.outputDeviceId) void this.applyOutputSink();
     }
 
     if (this.ctx.state === 'suspended') {
@@ -71,24 +86,48 @@ export class AudioEngine {
     return this.ctx;
   }
 
-  public async startMicrophone(): Promise<boolean> {
+  public startMicrophone(): Promise<boolean> {
+    if (this.micStartPromise) return this.micStartPromise;
+    return this.trackMicrophoneStart(this.openMicrophone());
+  }
+
+  public restartMicrophone(): Promise<boolean> {
+    const previous = this.micStartPromise ?? Promise.resolve(false);
+    return this.trackMicrophoneStart(previous.then(() => this.openMicrophone(), () => this.openMicrophone()));
+  }
+
+  public ensureMicrophone(): Promise<boolean> {
+    const live = this.micStream?.getAudioTracks().some((track) => track.readyState === 'live') ?? false;
+    if (live) return Promise.resolve(true);
+    return this.startMicrophone();
+  }
+
+  private trackMicrophoneStart(run: Promise<boolean>): Promise<boolean> {
+    const tracked = run.finally(() => {
+      if (this.micStartPromise === tracked) this.micStartPromise = null;
+    });
+    this.micStartPromise = tracked;
+    return tracked;
+  }
+
+  private async openMicrophone(): Promise<boolean> {
     try {
       const ctx = this.initContextIfNeeded();
 
-      const constraints: MediaStreamConstraints = {
-        audio: this.isMusicMode
-          ? {
-              echoCancellation: false,
-              noiseSuppression: false,
-              autoGainControl: false,
-              sampleRate: 48000,
-            }
-          : {
-              echoCancellation: true,
-              noiseSuppression: true,
-              autoGainControl: true,
-            },
-      };
+      const audio: MediaTrackConstraints = this.isMusicMode
+        ? {
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false,
+            sampleRate: 48000,
+          }
+        : {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          };
+      if (this.inputDeviceId) audio.deviceId = { ideal: this.inputDeviceId };
+      const constraints: MediaStreamConstraints = { audio };
 
       this.releaseMicrophoneGraph();
 
@@ -102,7 +141,7 @@ export class AudioEngine {
       this.micSource.connect(this.micGain);
       this.micGain.connect(this.analyser!);
       this.micGain.connect(this.broadcastDest!);
-      this.micGain.connect(this.recorderDest!);
+      this.micGain.connect(this.recordMix!);
 
       this.monitorGain = ctx.createGain();
       this.monitorGain.gain.value = 1;
@@ -112,8 +151,10 @@ export class AudioEngine {
       }
 
       this.startMeterLoop();
+      const liveTracks = this.micStream?.getAudioTracks().filter((track) => track.readyState === 'live').length ?? 0;
+      console.log('[Clubbox] mic tracks', liveTracks);
       return true;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.warn('Microphone access not granted or unavailable, starting simulated VU meter:', err);
       this.startSimulatedMeterLoop();
       return false;
@@ -141,11 +182,9 @@ export class AudioEngine {
     return this.isMuted;
   }
 
-  public toggleMusicMode(): boolean {
+  public async toggleMusicMode(): Promise<boolean> {
     this.isMusicMode = !this.isMusicMode;
-    if (this.micStream) {
-      this.startMicrophone();
-    }
+    await this.restartMicrophone();
     return this.isMusicMode;
   }
 
@@ -186,11 +225,11 @@ export class AudioEngine {
     const ctx = this.initContextIfNeeded();
     const source = ctx.createMediaStreamSource(new MediaStream([track]));
     const gain = ctx.createGain();
-    gain.gain.value = 1;
+    gain.gain.value = this.getRemoteVolume(key);
     source.connect(gain);
     // Local playback and the recording only. Never the send bus.
     gain.connect(this.masterGain!);
-    gain.connect(this.recorderDest!);
+    gain.connect(this.recordMix!);
     this.remoteNodes.set(key, { source, gain });
   }
 
@@ -209,10 +248,63 @@ export class AudioEngine {
     }
   }
 
+  public setMicVolume(volume: number): void {
+    this.micVolume = Math.max(0, Math.min(1, volume));
+    if (!this.micGain || !this.ctx || this.isMuted) return;
+    const now = this.ctx.currentTime;
+    this.micGain.gain.cancelScheduledValues(now);
+    this.micGain.gain.setValueAtTime(this.micGain.gain.value, now);
+    this.micGain.gain.setTargetAtTime(this.micVolume, now, 0.015);
+  }
+
+  public getMicVolume(): number {
+    return this.micVolume;
+  }
+
+  public getInputDeviceId(): string {
+    return this.inputDeviceId;
+  }
+
+  public setInputDeviceId(deviceId: string): void {
+    this.inputDeviceId = deviceId;
+    const live = this.micStream?.getAudioTracks().some((track) => track.readyState === 'live') ?? false;
+    if (live) void this.restartMicrophone();
+  }
+
+  public canSelectOutput(): boolean {
+    return typeof AudioContext !== 'undefined' && 'setSinkId' in AudioContext.prototype;
+  }
+
+  public getOutputDeviceId(): string {
+    return this.outputDeviceId;
+  }
+
+  public setOutputDevice(deviceId: string): void {
+    this.outputDeviceId = deviceId;
+    if (this.ctx) void this.applyOutputSink();
+  }
+
+  private async applyOutputSink(): Promise<void> {
+    if (!this.ctx || !this.canSelectOutput()) return;
+    const sink = (this.ctx as AudioContext & { setSinkId?: (id: string) => Promise<void> }).setSinkId;
+    if (!sink) return;
+    try {
+      await sink.call(this.ctx, this.outputDeviceId);
+    } catch {
+      // The chosen output can disappear between the list and the switch.
+    }
+  }
+
+  public getRemoteVolume(uid: string | number): number {
+    return this.remoteVolumes.get(String(uid)) ?? 1;
+  }
+
   public setRemoteVolume(uid: string | number, volume: number): void {
-    const nodes = this.remoteNodes.get(String(uid));
-    if (!nodes || !this.ctx) return;
     const vol = Math.max(0, Math.min(1, volume));
+    const key = String(uid);
+    this.remoteVolumes.set(key, vol);
+    const nodes = this.remoteNodes.get(key);
+    if (!nodes || !this.ctx) return;
     nodes.gain.gain.setTargetAtTime(vol, this.ctx.currentTime, 0.02);
   }
 
@@ -243,6 +335,10 @@ export class AudioEngine {
     if (this.soundpadGain && this.ctx) {
       this.soundpadGain.gain.setTargetAtTime(this.soundpadVolume, this.ctx.currentTime, 0.02);
     }
+  }
+
+  public getSoundpadVolume(): number {
+    return this.soundpadVolume;
   }
 
   public onVolumeLevel(cb: (level: number) => void): () => void {
@@ -302,11 +398,16 @@ export class AudioEngine {
     if (!fx) return;
 
     const ctx = this.initContextIfNeeded();
+    const padGain = ctx.createGain();
+    padGain.gain.value = Math.max(0, Math.min(1, fx.volume ?? 1));
+    padGain.connect(this.soundpadGain!);
 
     if (fx.audioBuffer) {
       const src = ctx.createBufferSource();
       src.buffer = fx.audioBuffer;
-      src.connect(this.soundpadGain!);
+      src.loop = fx.loop === true;
+      src.connect(padGain);
+      this.trackVoice(src);
       src.start();
       return;
     }
@@ -314,28 +415,47 @@ export class AudioEngine {
     if (fx.type === 'synth' && fx.synthType) {
       switch (fx.synthType) {
         case 'applause':
-          this.synthApplause(ctx);
+          this.synthApplause(ctx, padGain);
           break;
         case 'airhorn':
-          this.synthAirhorn(ctx);
+          this.synthAirhorn(ctx, padGain);
           break;
         case 'rimshot':
-          this.synthRimshot(ctx);
+          this.synthRimshot(ctx, padGain);
           break;
         case 'bell':
-          this.synthBell(ctx);
+          this.synthBell(ctx, padGain);
           break;
         case 'laugh':
-          this.synthLaugh(ctx);
+          this.synthLaugh(ctx, padGain);
           break;
         case 'laser':
-          this.synthLaser(ctx);
+          this.synthLaser(ctx, padGain);
           break;
       }
     }
   }
 
-  private synthAirhorn(ctx: AudioContext): void {
+  public stopAllSounds(): void {
+    for (const voice of this.activeVoices) {
+      try {
+        voice.stop();
+      } catch {
+        // The voice already ended.
+      }
+      this.safeDisconnect(voice);
+    }
+    this.activeVoices.clear();
+  }
+
+  private trackVoice(node: AudioScheduledSourceNode): void {
+    this.activeVoices.add(node);
+    node.addEventListener('ended', () => {
+      this.activeVoices.delete(node);
+    }, { once: true });
+  }
+
+  private synthAirhorn(ctx: AudioContext, dest: AudioNode): void {
     const now = ctx.currentTime;
     const freqs = [466.16, 554.37, 622.25]; // Bb4, Db5, Eb5 brass chord
 
@@ -352,14 +472,15 @@ export class AudioEngine {
       gain.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
 
       osc.connect(gain);
-      gain.connect(this.soundpadGain!);
+      gain.connect(dest);
+      this.trackVoice(osc);
 
       osc.start(now);
       osc.stop(now + 0.7);
     });
   }
 
-  private synthApplause(ctx: AudioContext): void {
+  private synthApplause(ctx: AudioContext, dest: AudioNode): void {
     const bufferSize = ctx.sampleRate * 2.5; // 2.5 seconds
     const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
     const data = buffer.getChannelData(0);
@@ -387,13 +508,14 @@ export class AudioEngine {
 
     noise.connect(filter);
     filter.connect(gain);
-    gain.connect(this.soundpadGain!);
+    gain.connect(dest);
+    this.trackVoice(noise);
 
     noise.start(now);
     noise.stop(now + 2.5);
   }
 
-  private synthRimshot(ctx: AudioContext): void {
+  private synthRimshot(ctx: AudioContext, dest: AudioNode): void {
     const now = ctx.currentTime;
     // Transient click
     const osc = ctx.createOscillator();
@@ -406,7 +528,8 @@ export class AudioEngine {
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
 
     osc.connect(gain);
-    gain.connect(this.soundpadGain!);
+    gain.connect(dest);
+    this.trackVoice(osc);
     osc.start(now);
     osc.stop(now + 0.15);
 
@@ -420,12 +543,13 @@ export class AudioEngine {
     ringGain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
 
     ring.connect(ringGain);
-    ringGain.connect(this.soundpadGain!);
+    ringGain.connect(dest);
+    this.trackVoice(ring);
     ring.start(now);
     ring.stop(now + 0.25);
   }
 
-  private synthBell(ctx: AudioContext): void {
+  private synthBell(ctx: AudioContext, dest: AudioNode): void {
     const now = ctx.currentTime;
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
@@ -437,12 +561,13 @@ export class AudioEngine {
     gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.2);
 
     osc.connect(gain);
-    gain.connect(this.soundpadGain!);
+    gain.connect(dest);
+    this.trackVoice(osc);
     osc.start(now);
     osc.stop(now + 1.2);
   }
 
-  private synthLaugh(ctx: AudioContext): void {
+  private synthLaugh(ctx: AudioContext, dest: AudioNode): void {
     const now = ctx.currentTime;
     // Series of 4 cheerful bursts
     for (let i = 0; i < 4; i++) {
@@ -458,13 +583,14 @@ export class AudioEngine {
       gain.gain.exponentialRampToValueAtTime(0.001, burstTime + 0.15);
 
       osc.connect(gain);
-      gain.connect(this.soundpadGain!);
+      gain.connect(dest);
+      this.trackVoice(osc);
       osc.start(burstTime);
       osc.stop(burstTime + 0.16);
     }
   }
 
-  private synthLaser(ctx: AudioContext): void {
+  private synthLaser(ctx: AudioContext, dest: AudioNode): void {
     const now = ctx.currentTime;
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
@@ -477,28 +603,229 @@ export class AudioEngine {
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
 
     osc.connect(gain);
-    gain.connect(this.soundpadGain!);
+    gain.connect(dest);
+    this.trackVoice(osc);
     osc.start(now);
     osc.stop(now + 0.3);
   }
 
   public async loadCustomAudioFile(file: File, name: string): Promise<string> {
     const ctx = this.initContextIfNeeded();
-    const arrayBuffer = await file.arrayBuffer();
-    const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+    const original = await file.arrayBuffer();
+    const audioBuffer = await ctx.decodeAudioData(original.slice(0));
+    const label = (name || file.name).trim().slice(0, 40) || 'Sound';
 
-    const newId = 'fx-custom-' + Date.now();
     const newItem: SoundEffectItem = {
-      id: newId,
-      name: name || file.name.substring(0, 14),
-      hotkey: (this.soundEffects.length + 1).toString(),
+      id: 'fx-custom-' + Date.now(),
+      name: label,
+      hotkey: this.claimHotkey(''),
       icon: '🎵',
       type: 'custom',
       audioBuffer,
+      sourceBytes: original,
+      volume: 1,
+      loop: false,
     };
 
     this.soundEffects.push(newItem);
-    return newId;
+    await this.persistPad(newItem);
+    return newItem.id;
+  }
+
+  public async loadStoredPads(): Promise<void> {
+    const rows = await readStoredSounds();
+    const deleted = new Set(rows.filter((row) => row.deleted).map((row) => row.id));
+    this.soundEffects = this.soundEffects.filter((fx) => !deleted.has(fx.id));
+
+    const custom: StoredSound[] = [];
+    for (const row of rows) {
+      if (row.deleted) continue;
+      const existing = this.soundEffects.find((fx) => fx.id === row.id);
+      if (existing) {
+        this.applyStoredPad(existing, row);
+        continue;
+      }
+      if (row.audio) custom.push(row);
+    }
+
+    if (custom.length > 0) {
+      const ctx = new AudioContext();
+      try {
+        for (const row of custom) {
+          if (!row.audio) continue;
+          try {
+            const audioBuffer = await ctx.decodeAudioData(row.audio.slice(0));
+            const item: SoundEffectItem = {
+              id: row.id,
+              name: row.name || 'Sound',
+              hotkey: row.hotkey,
+              icon: row.icon || '🎵',
+              type: 'custom',
+              audioBuffer,
+              sourceBytes: row.audio,
+              volume: this.clampPadVolume(row.volume),
+              loop: row.loop === true,
+            };
+            this.soundEffects.push(item);
+          } catch {
+            // A corrupt file stays out of the rack.
+          }
+        }
+      } finally {
+        await ctx.close();
+      }
+    }
+
+    const repaired = this.repairHotkeys();
+    for (const id of repaired) {
+      const fx = this.soundEffects.find((item) => item.id === id);
+      if (fx) await this.persistPad(fx);
+    }
+  }
+
+  public async updateSound(id: string, patch: { name?: string; icon?: string; hotkey?: string; volume?: number; loop?: boolean }): Promise<void> {
+    const fx = this.soundEffects.find((item) => item.id === id);
+    if (!fx) return;
+
+    if (patch.hotkey != null && patch.hotkey !== fx.hotkey && (PAD_HOTKEYS as readonly string[]).includes(patch.hotkey)) {
+      const other = this.soundEffects.find((item) => item.id !== id && item.hotkey === patch.hotkey);
+      if (other) {
+        other.hotkey = fx.hotkey;
+        await this.persistPad(other);
+      }
+      fx.hotkey = patch.hotkey;
+    }
+    if (patch.name != null) {
+      const name = patch.name.trim().slice(0, 40);
+      if (name) fx.name = name;
+    }
+    if (patch.icon != null) {
+      const icon = patch.icon.trim().slice(0, 8);
+      if (icon) fx.icon = icon;
+    }
+    if (patch.volume != null) fx.volume = this.clampPadVolume(patch.volume);
+    if (patch.loop != null) fx.loop = patch.loop;
+    await this.persistPad(fx);
+  }
+
+  public async deleteSound(id: string): Promise<void> {
+    const fx = this.soundEffects.find((item) => item.id === id);
+    if (!fx) return;
+    this.soundEffects = this.soundEffects.filter((item) => item.id !== id);
+    if (fx.type === 'custom') {
+      await deleteStoredSound(id);
+      return;
+    }
+    await writeStoredSound({
+      id: fx.id,
+      name: fx.name,
+      icon: fx.icon,
+      hotkey: '',
+      volume: fx.volume ?? 1,
+      loop: false,
+      deleted: true,
+    });
+  }
+
+  private applyStoredPad(fx: SoundEffectItem, row: StoredSound): void {
+    if (row.name) fx.name = row.name;
+    if (row.icon) fx.icon = row.icon;
+    if (row.hotkey) fx.hotkey = row.hotkey;
+    fx.volume = this.clampPadVolume(row.volume);
+    fx.loop = row.loop === true;
+  }
+
+  private clampPadVolume(volume: number): number {
+    return Math.max(0, Math.min(1, Number.isFinite(volume) ? volume : 1));
+  }
+
+  private claimHotkey(preferred: string): string {
+    const used = new Set(this.soundEffects.map((fx) => fx.hotkey));
+    if ((PAD_HOTKEYS as readonly string[]).includes(preferred) && !used.has(preferred)) return preferred;
+    return PAD_HOTKEYS.find((key) => !used.has(key)) ?? '';
+  }
+
+  private repairHotkeys(): string[] {
+    const changed: string[] = [];
+    const used = new Set<string>();
+    for (const fx of this.soundEffects) {
+      const before = fx.hotkey;
+      if (!(PAD_HOTKEYS as readonly string[]).includes(fx.hotkey) || used.has(fx.hotkey)) {
+        fx.hotkey = PAD_HOTKEYS.find((key) => !used.has(key)) ?? '';
+      }
+      if (fx.hotkey) used.add(fx.hotkey);
+      if (fx.hotkey !== before) changed.push(fx.id);
+    }
+    return changed;
+  }
+
+  private async persistPad(fx: SoundEffectItem): Promise<void> {
+    await writeStoredSound({
+      id: fx.id,
+      name: fx.name,
+      icon: fx.icon,
+      hotkey: fx.hotkey,
+      volume: fx.volume ?? 1,
+      loop: fx.loop === true,
+      ...(fx.type === 'custom' && fx.sourceBytes ? { audio: fx.sourceBytes } : {}),
+    });
+  }
+
+  // Share-to-Clubhouse stays hidden until a capture shows a clip upload.
+  private startClipBuffer(): void {
+    if (this.clipReady || !this.ctx || !this.recordMix) return;
+    const ctx = this.ctx;
+    const mix = this.recordMix;
+    this.clipReady = ctx.audioWorklet.addModule('/clip-processor.js').then(() => {
+      const node = new AudioWorkletNode(ctx, 'clubbox-clip', {
+        numberOfInputs: 1,
+        numberOfOutputs: 1,
+        outputChannelCount: [2],
+        channelCount: 2,
+      });
+      const silent = ctx.createGain();
+      silent.gain.value = 0;
+      mix.connect(node);
+      node.connect(silent);
+      silent.connect(ctx.destination);
+      node.port.start();
+      this.clipNode = node;
+      return true;
+    }).catch(() => false);
+  }
+
+  public armClip(armed: boolean): void {
+    this.initContextIfNeeded();
+    void this.clipReady?.then((ready) => {
+      if (!ready) return;
+      this.clipNode?.port.postMessage(armed ? 'arm' : 'disarm');
+    });
+  }
+
+  public saveClip(): Promise<Blob | null> {
+    this.initContextIfNeeded();
+    const ready = this.clipReady ?? Promise.resolve(false);
+    return ready.then((ok) => {
+      const node = this.clipNode;
+      if (!ok || !node) return null;
+      return new Promise<Blob | null>((resolve) => {
+        const finish = (blob: Blob | null) => {
+          node.port.removeEventListener('message', onMessage);
+          resolve(blob);
+        };
+        const onMessage = (event: MessageEvent<{ type?: string; sampleRate?: number; left?: Float32Array; right?: Float32Array }>) => {
+          if (event.data?.type !== 'clip' || !event.data.left || !event.data.right || !event.data.sampleRate) return;
+          if (event.data.left.length < event.data.sampleRate / 5) {
+            finish(null);
+            return;
+          }
+          finish(encodeStereoWav(event.data.left, event.data.right, event.data.sampleRate));
+        };
+        node.port.addEventListener('message', onMessage);
+        node.port.postMessage('dump');
+        window.setTimeout(() => finish(null), 2000);
+      });
+    });
   }
 
   // --- Stage Recording ---

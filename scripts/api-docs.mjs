@@ -1,0 +1,248 @@
+/**
+ * Turns local redacted captures into docs/api/web-api.md and docs/api/realtime.md.
+ * Refuses to write a file that still contains a phone, email, token, or cookie.
+ */
+import fs from 'node:fs';
+import path from 'node:path';
+import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
+
+const require = createRequire(import.meta.url);
+const { outputHasLeak } = require('../electron/redact.cjs');
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const captureDir = path.join(root, 'api-captures');
+const docsDir = path.join(root, 'docs', 'api');
+const routesPath = path.join(root, 'electron', 'webApiRoutes.json');
+
+function readCaptures() {
+  if (!fs.existsSync(captureDir)) return [];
+  const records = [];
+  for (const name of fs.readdirSync(captureDir)) {
+    if (!name.endsWith('.jsonl')) continue;
+    const text = fs.readFileSync(path.join(captureDir, name), 'utf8');
+    for (const line of text.split(/\r?\n/)) {
+      if (!line.trim()) continue;
+      try {
+        records.push(JSON.parse(line));
+      } catch {
+        // Skip a torn line from a recorder that was still writing.
+      }
+    }
+  }
+  return records;
+}
+
+function typeName(value) {
+  if (value === null) return 'null';
+  if (Array.isArray(value)) return value.length ? `array<${typeName(value[0])}>` : 'array';
+  if (typeof value === 'object') return 'object';
+  return typeof value;
+}
+
+function schemaList(value, depth = 0) {
+  if (!value || typeof value !== 'object' || Array.isArray(value) || depth > 4) return [];
+  const lines = [];
+  for (const [key, child] of Object.entries(value)) {
+    const pad = '  '.repeat(depth);
+    lines.push(`${pad}- \`${key}\`: ${typeName(child)}`);
+    if (child && typeof child === 'object' && !Array.isArray(child)) {
+      lines.push(...schemaList(child, depth + 1));
+    } else if (Array.isArray(child) && child[0] && typeof child[0] === 'object' && !Array.isArray(child[0])) {
+      lines.push(...schemaList(child[0], depth + 1));
+    }
+  }
+  return lines;
+}
+
+function example(value) {
+  if (value == null) return 'No body observed.';
+  const pretty = JSON.stringify(value, null, 2).replaceAll('```', "'''");
+  if (pretty.length > 4000) return `${pretty.slice(0, 4000)}\n…`;
+  return pretty;
+}
+
+function groupHttp(records) {
+  const groups = new Map();
+  for (const record of records) {
+    if (record.type !== 'http' || typeof record.path !== 'string') continue;
+    const method = String(record.method || 'GET').toUpperCase();
+    const key = `${method} ${record.path}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(record);
+  }
+  return groups;
+}
+
+function sectionFor(method, routePath, records) {
+  const sample = records.find((record) => record.status >= 200 && record.status < 300) || records[0];
+  const statuses = [...new Set(records.map((record) => record.status).filter((status) => status != null))];
+  const actions = [...new Set(records.flatMap((record) => record.actions || []))];
+  const agora = records.map((record) => record.agora).find((entry) => entry && (entry.appIdKey || entry.channelKey || entry.uidKey));
+  const lines = [
+    `## ${method} ${routePath}`,
+    '',
+    actions.length ? `Seen when: ${actions.join('; ')}.` : 'Seen in a capture. The checklist did not label the click.',
+    '',
+    '### Request',
+    '',
+    ...(schemaList(sample?.request).length ? schemaList(sample.request) : ['- No request body observed.']),
+    '',
+    '```json',
+    example(sample?.request),
+    '```',
+    '',
+    '### Response',
+    '',
+    ...(schemaList(sample?.response).length ? schemaList(sample.response) : ['- No JSON response body observed.']),
+    '',
+    '```json',
+    example(sample?.response),
+    '```',
+    '',
+    `Status codes seen: ${statuses.length ? statuses.join(', ') : 'none recorded'}.`,
+    '',
+  ];
+  if (agora) {
+    lines.push('### Agora');
+    lines.push('');
+    lines.push(`- App id key: \`${agora.appIdKey || 'not present'}\``);
+    lines.push(`- Channel key: \`${agora.channelKey || 'not present'}\``);
+    lines.push(`- Uid key: \`${agora.uidKey || 'not present'}\``);
+    lines.push('');
+  }
+  return lines.join('\n');
+}
+
+function unconfirmedSection(key, route) {
+  return [
+    `## ${route.method} ${route.path}`,
+    '',
+    `App endpoint key: \`${key}\`.`,
+    '',
+    'Not observed in a capture yet. No request or response example is included, because none was recorded.',
+    '',
+  ].join('\n');
+}
+
+function writeChecked(filePath, text) {
+  if (outputHasLeak(text)) {
+    console.error(`[Clubbox] Refusing to write ${filePath}: redaction check failed`);
+    process.exit(1);
+  }
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, text);
+}
+
+function buildWebApi(records, routes) {
+  const groups = groupHttp(records);
+  const used = new Set();
+  const parts = [
+    '# Clubhouse web API',
+    '',
+    'Generated by `scripts/api-docs.mjs` from local redacted captures. Raw captures stay in `api-captures/` and are gitignored. Examples use placeholders only.',
+    '',
+    'Sign-in (`start_phone_number_web_auth`, `complete_phone_number_web_auth`, `resend_phone_number_auth`) is not part of this list. The user signs in themselves in the recorder window.',
+    '',
+  ];
+
+  for (const [key, route] of Object.entries(routes)) {
+    const matchKey = `${String(route.method || 'POST').toUpperCase()} ${route.path}`;
+    const observed = groups.get(matchKey) || [];
+    used.add(matchKey);
+    if (!observed.length) {
+      parts.push(unconfirmedSection(key, route));
+      continue;
+    }
+    const methods = [...new Set(observed.map((record) => String(record.method || '').toUpperCase()))];
+    parts.push(sectionFor(methods[0] || route.method, route.path, observed));
+    parts.push(`App endpoint key: \`${key}\`. Configured method: ${route.method}.`);
+    parts.push('');
+  }
+
+  const extra = [...groups.keys()].filter((key) => !used.has(key)).sort();
+  if (extra.length) {
+    parts.push('## Captured paths the app does not call yet', '');
+    for (const key of extra) {
+      const [method, routePath] = key.split(/ (.+)/);
+      parts.push(sectionFor(method, routePath, groups.get(key)));
+    }
+  }
+
+  return `${parts.join('\n').trim()}\n`;
+}
+
+function buildRealtime(records) {
+  const sockets = records.filter((record) => record.type === 'websocket');
+  const pubnub = records.filter((record) => record.type === 'pubnub');
+  const agora = records.filter((record) => record.type === 'agora' || record.type === 'agora_join');
+  const lines = [
+    '# Realtime traffic',
+    '',
+    'Generated by `scripts/api-docs.mjs`. Payloads are redacted placeholders.',
+    '',
+    '## Websockets',
+    '',
+  ];
+  if (!sockets.length) {
+    lines.push('No websocket frames captured yet.');
+    lines.push('');
+  } else {
+    const byUrl = new Map();
+    for (const record of sockets) {
+      const key = record.url || 'unknown';
+      if (!byUrl.has(key)) byUrl.set(key, []);
+      byUrl.get(key).push(record);
+    }
+    for (const [url, frames] of byUrl) {
+      lines.push(`### ${url}`, '');
+      const types = new Set();
+      for (const frame of frames) {
+        const payload = frame.payload;
+        if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
+          const kind = payload.action || payload.type || payload.event || payload.message_type;
+          if (typeof kind === 'string') types.add(kind);
+        }
+      }
+      lines.push(`Frames seen: ${frames.length}.`);
+      lines.push(types.size ? `Message type fields: ${[...types].map((entry) => `\`${entry}\``).join(', ')}.` : 'No action/type/event field was present on the sampled frames.');
+      const sample = frames.find((frame) => frame.payload && typeof frame.payload === 'object');
+      if (sample) {
+        lines.push('', ...(schemaList(sample.payload).length ? schemaList(sample.payload) : ['- Empty object.']));
+        lines.push('', '```json', example(sample.payload), '```', '');
+      } else {
+        lines.push('');
+      }
+    }
+  }
+
+  lines.push('## PubNub HTTP', '');
+  if (!pubnub.length) {
+    lines.push('No PubNub HTTP calls captured yet.');
+    lines.push('');
+  } else {
+    for (const record of pubnub.slice(0, 20)) {
+      lines.push(`- ${record.method || 'GET'} \`${record.path || 'unknown'}\` status ${record.status ?? 'unknown'}`);
+    }
+    lines.push('');
+  }
+
+  lines.push('## Agora URLs', '');
+  if (!agora.length) {
+    lines.push('No Agora URLs captured yet. The app id, channel, and uid keys are recorded on `join_channel` in `web-api.md` when that response includes them.');
+    lines.push('');
+  } else {
+    for (const record of agora) {
+      lines.push(`- \`${record.url || 'unknown'}\``);
+    }
+    lines.push('');
+  }
+
+  return `${lines.join('\n').trim()}\n`;
+}
+
+const routes = JSON.parse(fs.readFileSync(routesPath, 'utf8'));
+const records = readCaptures();
+writeChecked(path.join(docsDir, 'web-api.md'), buildWebApi(records, routes));
+writeChecked(path.join(docsDir, 'realtime.md'), buildRealtime(records));
+console.log(`[Clubbox] Wrote docs from ${records.length} capture lines`);
