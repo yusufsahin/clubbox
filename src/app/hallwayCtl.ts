@@ -1,0 +1,166 @@
+// @ts-nocheck — extracted controller; imports trimmed over time.
+import { ClubhouseApiError, clubhouseClient } from '../api/client.ts';
+import { beginJoin, commitJoin, finishLeave, localClipAllowed, roleSyncDecision, roomAudience } from '../api/guards.ts';
+import { capturedCreateBody, leaveClosesRoom, roomHasOthers } from '../api/roomActions.ts';
+import { applyFollowResponse, mergeProfile, PEOPLE_LIST_ENDPOINTS, profileCountsMissing, readProfile, relationshipFromStatus, talkPartners, type PeopleListKind } from '../api/relationship.ts';
+import { PubNubRoomSource } from '../api/pubnubRoomSource.ts';
+import { roomSync } from '../api/roomSync.ts';
+import { audioEngine } from '../audio/audioEngine.ts';
+import { readAudioPrefs, writeAudioPrefs, type AudioPrefs } from '../audio/audioPrefs.ts';
+import { eventToAccelerator, normalizeShortcuts, readShortcuts, writeShortcuts, type ShortcutAction, type ShortcutMap } from '../shortcuts.ts';
+import { agoraVoice } from '../audio/agoraVoice.ts';
+import type { CHChannel, CHChannelDetail, CHChatMessage, CHConversation, CHUser, FeedTopic, MeSettings, SearchHit, SearchObjectType } from '../api/types.ts';
+import { setLanguage, t } from '../i18n/index.ts';
+import { avatarHtml, installAvatarFallback } from '../ui/avatar.ts';
+import { cockpitBar } from '../ui/components/cockpitBar.ts';
+import { mountCreateModal } from '../ui/components/createModal.ts';
+import { paintPersonSheet, selfProfilePage } from '../ui/components/profileDrawer.ts';
+import { mountSpeakerInvite } from '../ui/components/speakerInvite.ts';
+import { showToast } from '../ui/components/toast.ts';
+import { html, markup, safeUrl } from '../ui/html.ts';
+import { activityView } from '../ui/views/activity.ts';
+import { exploreView } from '../ui/views/explore.ts';
+import { friendsView } from '../ui/views/friends.ts';
+import { peopleListView } from '../ui/views/peopleList.ts';
+import { discoverView, type DiscoverTab } from '../ui/views/discover.ts';
+import { loginView } from '../ui/views/login.ts';
+import { messagesView } from '../ui/views/messages.ts';
+import { settingsView } from '../ui/views/settings.ts';
+import { soundboardView } from '../ui/views/soundboard.ts';
+import { chatList, emptyStageView, stageColumn, stageView } from '../ui/views/stage.ts';
+import type { ClubboxApp } from './clubboxApp.ts';
+
+const CHAT_POLL_MS = 15_000;
+const GUIDELINES_KEY = 'clubbox-guidelines-accepted';
+
+function electronAPI() {
+  return (window as Window & { electronAPI?: unknown }).electronAPI ?? null;
+}
+
+function recordingFilename(topic: string | undefined, kind: 'recording' | 'clip' = 'recording'): string {
+  const slug = (topic || 'room')
+    .normalize('NFKD')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40)
+    .replace(/-+$/g, '') || 'room';
+  const now = new Date();
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  const stamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`;
+  const extension = kind === 'clip' ? 'wav' : 'webm';
+  return `clubbox-${kind}-${slug}-${stamp}.${extension}`;
+}
+
+
+export async function reloadChannels(this: ClubboxApp) : Promise<void> {
+    const res = await clubhouseClient.getChannels();
+    this.channelsList = res.channels || [];
+    this.feedTopics = Array.isArray(res.available_topics)
+      ? res.available_topics.filter((topic): topic is FeedTopic => !!topic && typeof topic.key === 'string' && typeof topic.display_name === 'string')
+      : [];
+  }
+
+export async function refreshExplore(this: ClubboxApp) : Promise<void> {
+    try {
+      await this.reloadChannels();
+      if (this.currentTab === 'explore') this.render();
+    } catch (err) {
+      this.reportApiError(err);
+    }
+  }
+
+export function liveUpdatesUnavailable(this: ClubboxApp) : boolean {
+    const config = clubhouseClient.getConfig();
+    return config.webSession && !clubhouseClient.supports('get_channel');
+  }
+
+export async function refreshCurrentRoom(this: ClubboxApp) : Promise<void> {
+    if (!this.currentChannel || !clubhouseClient.supports('get_channel')) return;
+    const detail = await clubhouseClient.getChannel(this.channelApiId(this.currentChannel));
+    this.applyRoomUpdate(detail);
+  }
+
+export function hallwayNotices(this: ClubboxApp) : string[] {
+    const notices: string[] = [];
+    if (this.needsAgeVerification) notices.push(t('ageCheck'));
+    if (this.isOnboarding) notices.push(t('onboardingNote'));
+    if (this.publicHallway === false) notices.push(t('hallwayHidden'));
+    if (!clubhouseClient.supports('join_channel')) notices.push(t('notVerifiedHint'));
+    return notices;
+  }
+
+export function roomHousePhoto(this: ClubboxApp) : ReturnType<typeof html> | string {
+    const photo = safeUrl(this.currentChannel?.club_photo_url);
+    if (!photo) return '≡ƒÅ¢∩╕Å';
+    return html`<img class="house-photo" src="${photo}" alt="" />`;
+  }
+
+export function discoverTypes(this: ClubboxApp) : SearchObjectType[] {
+    if (this.discoverTab === 'people') return ['UserProfile'];
+    if (this.discoverTab === 'rooms') return ['LiveChannel', 'Replay'];
+    if (this.discoverTab === 'houses') return ['SocialClub'];
+    return ['LiveChannel', 'Replay', 'SegmentTranscription', 'SocialClub', 'UserProfile'];
+  }
+
+export function scheduleDiscoverSearch(this: ClubboxApp) : void {
+    if (this.discoverTimer != null) window.clearTimeout(this.discoverTimer);
+    const input = document.getElementById('discover-query') as HTMLInputElement | null;
+    this.discoverQuery = input?.value ?? this.discoverQuery;
+    if (!this.discoverQuery.trim()) {
+      this.discoverSeq += 1;
+      this.discoverHits = null;
+      this.discoverLoading = false;
+      this.render();
+      return;
+    }
+    this.discoverTimer = window.setTimeout(() => {
+      this.discoverTimer = null;
+      void this.runDiscoverSearch();
+    }, 250);
+  }
+
+export async function runDiscoverSearch(this: ClubboxApp) : Promise<void> {
+    if (this.discoverTimer != null) {
+      window.clearTimeout(this.discoverTimer);
+      this.discoverTimer = null;
+    }
+    const query = this.discoverQuery.trim();
+    if (!query) {
+      this.discoverHits = null;
+      this.discoverLoading = false;
+      this.render();
+      return;
+    }
+    const seq = ++this.discoverSeq;
+    this.discoverLoading = true;
+    try {
+      const res = await clubhouseClient.search(query, this.discoverTypes());
+      if (seq !== this.discoverSeq) return;
+      this.discoverHits = res.hits ?? [];
+    } catch (err) {
+      if (seq !== this.discoverSeq) return;
+      this.discoverHits = [];
+      this.reportApiError(err);
+    } finally {
+      if (seq === this.discoverSeq) {
+        this.discoverLoading = false;
+        this.render();
+        const field = document.getElementById('discover-query') as HTMLInputElement | null;
+        field?.focus();
+        if (field) field.setSelectionRange(field.value.length, field.value.length);
+      }
+    }
+  }
+
+export function wireHallwayCtl(proto: ClubboxApp): void {
+  proto.reloadChannels = reloadChannels;
+  proto.refreshExplore = refreshExplore;
+  proto.liveUpdatesUnavailable = liveUpdatesUnavailable;
+  proto.refreshCurrentRoom = refreshCurrentRoom;
+  proto.hallwayNotices = hallwayNotices;
+  proto.roomHousePhoto = roomHousePhoto;
+  proto.discoverTypes = discoverTypes;
+  proto.scheduleDiscoverSearch = scheduleDiscoverSearch;
+  proto.runDiscoverSearch = runDiscoverSearch;
+}

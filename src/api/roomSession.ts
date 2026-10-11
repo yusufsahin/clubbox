@@ -1,5 +1,12 @@
 import type { ClubhouseApiClient } from './client.ts';
 import { ClubhouseApiError } from './client.ts';
+import { RoomEffectRunner, type RealtimeHub } from '../app/roomEffectRunner.ts';
+import {
+  initialRoomSessionState,
+  nextRoomSession,
+  type RoomEffect,
+  type RoomSessionState,
+} from '../domain/roomSession.ts';
 
 export type AgoraFacade = {
   join(role: 'audience' | 'host', token: string): void;
@@ -16,11 +23,11 @@ export type RoomSessionDeps = {
   myUserId: number;
   setInterval: (fn: () => void, ms: number) => number;
   clearInterval: (id: number) => void;
+  realtime?: RealtimeHub;
 };
 
 /**
- * Testable room session for R1 listen/host flows.
- * ClubboxApp can delegate to this; BDD steps call it directly.
+ * Imperative adapter over the pure RoomSession state machine for BDD and tests.
  */
 export class RoomSessionController {
   channelId: string | null = null;
@@ -36,63 +43,130 @@ export class RoomSessionController {
   lastCreateToken: string | null = null;
   uiMessages: string[] = [];
   pendingExperimental: string | null = null;
-  private presenceTimer: number | null = null;
+  private machine: RoomSessionState = initialRoomSessionState();
   private hidden = false;
   private readonly client: ClubhouseApiClient;
   private readonly agora: AgoraFacade;
   private readonly myUserId: number;
-  private readonly setIntervalFn: (fn: () => void, ms: number) => number;
-  private readonly clearIntervalFn: (id: number) => void;
+  private readonly runner: RoomEffectRunner;
 
   constructor(deps: RoomSessionDeps) {
     this.client = deps.client;
     this.agora = deps.agora;
     this.myUserId = deps.myUserId;
-    this.setIntervalFn = deps.setInterval;
-    this.clearIntervalFn = deps.clearInterval;
+    const realtime: RealtimeHub = deps.realtime ?? {
+      subscribe: () => {
+        this.realtimeConnected = true;
+      },
+      unsubscribe: () => {
+        this.realtimeConnected = false;
+      },
+    };
+    this.runner = new RoomEffectRunner({
+      client: deps.client,
+      agora: deps.agora,
+      realtime,
+      audio: { stopRecording: () => { this.recording = false; } },
+      myUserId: deps.myUserId,
+      setInterval: deps.setInterval,
+      clearInterval: deps.clearInterval,
+      onRecordingStopped: () => {
+        this.recording = false;
+      },
+    });
   }
 
   setHidden(hidden: boolean): void {
     this.hidden = hidden;
   }
 
-  /** Attach without join_channel — for presence / leave scenarios that start mid-room. */
+  private syncFromMachine(): void {
+    this.channelId = this.machine.channelId;
+    this.role =
+      this.machine.role === 'host' || this.machine.role === 'speaker' || this.machine.role === 'moderator'
+        ? 'host'
+        : this.machine.channelId
+          ? 'audience'
+          : null;
+    this.presenceActive = this.machine.pingActive;
+  }
+
+  private pushEvent(event: Parameters<typeof nextRoomSession>[1]): RoomEffect[] {
+    const result = nextRoomSession(this.machine, event);
+    this.machine = result.state;
+    this.syncFromMachine();
+    return result.effects;
+  }
+
+  private async dispatch(event: Parameters<typeof nextRoomSession>[1]): Promise<void> {
+    const effects = this.pushEvent(event);
+    await this.runner.runAll(effects);
+  }
+
   attachAsListener(channelId: string, token = 'agora_rtc_token_fixture'): void {
-    this.channelId = channelId;
-    this.role = 'audience';
+    this.machine = {
+      ...initialRoomSessionState(),
+      phase: 'Listening',
+      generation: 1,
+      channelId,
+      role: 'audience',
+      token,
+      agoraJoined: true,
+      agoraRole: 'audience',
+      pingActive: true,
+      pubnubSubscribed: true,
+    };
+    this.syncFromMachine();
     this.lastJoinToken = token;
-    this.startPresence(channelId);
-    this.realtimeConnected = true;
+    void this.runner.runAll([
+      { type: 'agoraJoin', role: 'audience', token },
+      { type: 'pubnubSubscribe', channelId },
+      { type: 'pingStart', channelId },
+    ]);
   }
 
   attachAsHost(channelId: string, token = 'agora_create_token_fixture'): void {
-    this.channelId = channelId;
-    this.role = 'host';
+    this.machine = {
+      ...initialRoomSessionState(),
+      phase: 'Hosting',
+      generation: 1,
+      channelId,
+      role: 'host',
+      token,
+      agoraJoined: true,
+      agoraRole: 'host',
+      pingActive: true,
+      pubnubSubscribed: true,
+    };
+    this.syncFromMachine();
     this.lastCreateToken = token;
-    this.startPresence(channelId);
-    this.realtimeConnected = true;
+    void this.runner.runAll([
+      { type: 'agoraJoin', role: 'host', token },
+      { type: 'pubnubSubscribe', channelId },
+      { type: 'pingStart', channelId },
+    ]);
   }
 
   tickPresence(): void {
-    if (!this.presenceActive || !this.channelId) return;
-    void this.client.activePing(this.channelId);
+    void this.dispatch({ type: 'TICK' });
   }
 
   async joinFromHallway(channelId: string): Promise<{ ok: boolean; message?: string }> {
     try {
+      await this.dispatch({ type: 'JOIN_START' });
+      const generation = this.machine.pendingGeneration ?? this.machine.generation;
       const joined = await this.client.joinChannel(channelId);
-      this.channelId = channelId;
-      this.role = 'audience';
-      this.lastJoinToken = (joined as { token?: string }).token ?? '';
+      const token = (joined as { token?: string }).token ?? '';
       if (!this.client.getConfig().agoraAppId) {
         this.uiMessages.push('Audio key not found');
-        this.client.getApiHealth(); // ensure health store exists
+        this.client.getApiHealth();
       }
-      this.agora.join('audience', this.lastJoinToken);
-      this.startPresence(channelId);
-      this.realtimeConnected = true;
+      await this.dispatch({ type: 'JOIN_OK', channelId, token, generation });
+      this.lastJoinToken = token;
       return { ok: true };
     } catch (err) {
+      const generation = this.machine.pendingGeneration ?? this.machine.generation;
+      await this.dispatch({ type: 'JOIN_FAIL', generation });
       const status = err instanceof ClubhouseApiError ? err.status : 0;
       if (status === 404 || status === 405) {
         this.uiMessages.push('Joining rooms is not available on Clubhouse web yet');
@@ -106,11 +180,9 @@ export class RoomSessionController {
   }
 
   async leaveQuietly(): Promise<void> {
-    if (this.channelId) await this.client.leaveChannel(this.channelId);
-    this.agora.leave();
-    this.stopPresence();
-    this.realtimeConnected = false;
-    if (this.recording) this.recording = false;
+    this.machine = { ...this.machine, recording: this.recording };
+    await this.dispatch({ type: 'LEAVE' });
+    await this.dispatch({ type: 'LEAVE_COMPLETE' });
     this.channelId = null;
     this.role = null;
   }
@@ -120,39 +192,46 @@ export class RoomSessionController {
     options: { replayEnabled: boolean; chatEnabled: boolean },
   ): Promise<{ ok: boolean }> {
     try {
+      await this.dispatch({ type: 'CREATE_START' });
+      const generation = this.machine.pendingGeneration ?? this.machine.generation;
       const created = await this.client.createChannel(title, {
         audience: 'friends-of-friends',
         replayEnabled: options.replayEnabled,
         chatEnabled: options.chatEnabled,
       });
-      this.channelId = (created as { channel?: string }).channel ?? title;
-      this.role = 'host';
-      this.lastCreateToken = (created as { token?: string }).token ?? '';
-      this.agora.join('host', this.lastCreateToken);
-      this.startPresence(this.channelId);
-      this.realtimeConnected = true;
+      const channelId = (created as { channel?: string }).channel ?? title;
+      const token = (created as { token?: string }).token ?? '';
+      await this.dispatch({ type: 'CREATE_OK', channelId, token, generation });
+      this.lastCreateToken = token;
       return { ok: true };
     } catch {
+      const generation = this.machine.pendingGeneration ?? this.machine.generation;
+      await this.dispatch({ type: 'JOIN_FAIL', generation });
       return { ok: false };
     }
   }
 
   async raiseHand(raise: boolean): Promise<void> {
     if (!this.channelId) return;
-    await this.client.raiseHand(this.channelId, raise);
+    await this.dispatch(raise ? { type: 'RAISE' } : { type: 'LOWER' });
   }
 
   async acceptInvite(): Promise<void> {
     if (!this.channelId) return;
-    await this.client.becomeSpeaker(this.channelId);
-    this.agora.switchToHost(this.lastJoinToken ?? this.lastCreateToken ?? '');
+    if (this.machine.phase !== 'Invited') {
+      this.pushEvent({ type: 'INVITED' });
+    }
+    await this.dispatch({ type: 'ACCEPT' });
     this.micMuted = true;
     this.role = 'host';
   }
 
   async declineInvite(): Promise<void> {
     if (!this.channelId) return;
-    await this.client.rejectSpeakerInvite(this.channelId, this.myUserId);
+    if (this.machine.phase !== 'Invited') {
+      this.pushEvent({ type: 'INVITED' });
+    }
+    await this.dispatch({ type: 'DECLINE', userId: this.myUserId });
   }
 
   async sendChat(message: string): Promise<string> {
@@ -200,9 +279,8 @@ export class RoomSessionController {
   async endRoom(): Promise<void> {
     if (!this.channelId) return;
     await this.client.endChannel(this.channelId);
-    this.agora.leave();
-    this.stopPresence();
-    this.realtimeConnected = false;
+    await this.dispatch({ type: 'ENDED' });
+    await this.dispatch({ type: 'LEAVE_COMPLETE' });
     this.channelId = null;
   }
 
@@ -214,29 +292,11 @@ export class RoomSessionController {
     if (this.channelId) await this.leaveQuietly();
     this.cookiesCleared = true;
     this.signedIn = false;
-    this.stopPresence();
-    this.realtimeConnected = false;
     this.uiMessages.push('sign-in');
   }
 
   playSoundboardWhileMicMuted(): void {
     this.agora.setBroadcastMix({ soundboard: true, mic: false });
-  }
-
-  private startPresence(channelId: string): void {
-    this.stopPresence();
-    this.presenceActive = true;
-    this.presenceTimer = this.setIntervalFn(() => {
-      void this.client.activePing(channelId);
-    }, 30_000);
-  }
-
-  private stopPresence(): void {
-    this.presenceActive = false;
-    if (this.presenceTimer != null) {
-      this.clearIntervalFn(this.presenceTimer);
-      this.presenceTimer = null;
-    }
   }
 
   get isHidden(): boolean {

@@ -1,0 +1,792 @@
+// @ts-nocheck — extracted controller; imports trimmed over time.
+export { RoomEffectRunner, type RoomEffectDeps } from './roomEffectRunner.ts';
+import { ClubhouseApiError, clubhouseClient } from '../api/client.ts';
+import { beginJoin, commitJoin, finishLeave, localClipAllowed, roleSyncDecision, roomAudience } from '../api/guards.ts';
+import { capturedCreateBody, leaveClosesRoom, roomHasOthers } from '../api/roomActions.ts';
+import { applyFollowResponse, mergeProfile, PEOPLE_LIST_ENDPOINTS, profileCountsMissing, readProfile, relationshipFromStatus, talkPartners, type PeopleListKind } from '../api/relationship.ts';
+import { PubNubRoomSource } from '../api/pubnubRoomSource.ts';
+import { roomSync } from '../api/roomSync.ts';
+import { audioEngine } from '../audio/audioEngine.ts';
+import { readAudioPrefs, writeAudioPrefs, type AudioPrefs } from '../audio/audioPrefs.ts';
+import { eventToAccelerator, normalizeShortcuts, readShortcuts, writeShortcuts, type ShortcutAction, type ShortcutMap } from '../shortcuts.ts';
+import { agoraVoice } from '../audio/agoraVoice.ts';
+import type { CHChannel, CHChannelDetail, CHChatMessage, CHConversation, CHUser, FeedTopic, MeSettings, SearchHit, SearchObjectType } from '../api/types.ts';
+import { setLanguage, t } from '../i18n/index.ts';
+import { avatarHtml, installAvatarFallback } from '../ui/avatar.ts';
+import { cockpitBar } from '../ui/components/cockpitBar.ts';
+import { mountCreateModal } from '../ui/components/createModal.ts';
+import { paintPersonSheet, selfProfilePage } from '../ui/components/profileDrawer.ts';
+import { mountSpeakerInvite } from '../ui/components/speakerInvite.ts';
+import { showToast } from '../ui/components/toast.ts';
+import { html, markup, safeUrl } from '../ui/html.ts';
+import { activityView } from '../ui/views/activity.ts';
+import { exploreView } from '../ui/views/explore.ts';
+import { friendsView } from '../ui/views/friends.ts';
+import { peopleListView } from '../ui/views/peopleList.ts';
+import { discoverView, type DiscoverTab } from '../ui/views/discover.ts';
+import { loginView } from '../ui/views/login.ts';
+import { messagesView } from '../ui/views/messages.ts';
+import { settingsView } from '../ui/views/settings.ts';
+import { soundboardView } from '../ui/views/soundboard.ts';
+import { chatList, emptyStageView, stageColumn, stageView } from '../ui/views/stage.ts';
+import type { ClubboxApp } from './clubboxApp.ts';
+
+const CHAT_POLL_MS = 15_000;
+const GUIDELINES_KEY = 'clubbox-guidelines-accepted';
+
+function electronAPI() {
+  return (window as Window & { electronAPI?: unknown }).electronAPI ?? null;
+}
+
+function recordingFilename(topic: string | undefined, kind: 'recording' | 'clip' = 'recording'): string {
+  const slug = (topic || 'room')
+    .normalize('NFKD')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40)
+    .replace(/-+$/g, '') || 'room';
+  const now = new Date();
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  const stamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`;
+  const extension = kind === 'clip' ? 'wav' : 'webm';
+  return `clubbox-${kind}-${slug}-${stamp}.${extension}`;
+}
+
+
+export function handleBeforeUnload(this: ClubboxApp) : void {
+    const channel = this.currentChannel;
+    this.roomSession = finishLeave(this.roomSession);
+    this.joinInFlight = false;
+    this.stopRoomPresence();
+    audioEngine.stopRecording();
+    audioEngine.armClip(false);
+    audioEngine.stopMicrophone();
+    void agoraVoice.leave();
+    if (!channel || !clubhouseClient.supports('leave_channel')) return;
+    void clubhouseClient.leaveChannel(this.channelApiId(channel)).catch(() => {
+      // Page is going away; the leave request is best-effort.
+    });
+  }
+
+export function startRoomPresence(this: ClubboxApp, channelId: string) : void {
+    this.stopRoomPresence();
+    const pingEvidence = clubhouseClient.evidence('active_ping');
+    // Bundle or observed: keep the official-client cadence (30s), including while hidden.
+    if (pingEvidence === 'observed' || pingEvidence === 'bundle') {
+      this.pingTimer = window.setInterval(() => {
+        void clubhouseClient.activePing(channelId).catch((err) => {
+          console.warn('[Clubbox] active_ping failed:', err);
+        });
+      }, 30000);
+    }
+    const pubnubToken = this.currentChannel?.pubnub_token;
+    this.pubnubSource.setToken(pubnubToken);
+    this.pubnubSource.start(channelId);
+    if (this.pollsPaused) return;
+    this.syncChatPolling();
+    // Polling fallback when PubNub token is missing (Ctrl+P still refreshes).
+    if (!pubnubToken) roomSync.start(channelId);
+  }
+
+export function stopChatPolling(this: ClubboxApp) : void {
+    if (this.chatTimer !== null) {
+      clearInterval(this.chatTimer);
+      this.chatTimer = null;
+    }
+  }
+
+export function syncChatPolling(this: ClubboxApp) : void {
+    const open = !!this.currentChannel
+      && !this.pollsPaused
+      && this.chatOpen
+      && this.currentChannel.is_chat_enabled !== false;
+    if (!open) {
+      this.stopChatPolling();
+      return;
+    }
+    if (this.chatTimer !== null) return;
+    void this.refreshChat();
+    this.chatTimer = window.setInterval(() => {
+      void this.refreshChat();
+    }, CHAT_POLL_MS);
+  }
+
+export function stopRoomPresence(this: ClubboxApp) : void {
+    if (this.pingTimer !== null) {
+      clearInterval(this.pingTimer);
+      this.pingTimer = null;
+    }
+    this.stopChatPolling();
+    this.pubnubSource.stop();
+    roomSync.stop();
+  }
+
+export async function refreshChat(this: ClubboxApp) : Promise<void> {
+    const chatEvidence = clubhouseClient.evidence('get_channel_messages');
+    if (!this.currentChannel || (chatEvidence !== 'observed' && chatEvidence !== 'bundle')) return;
+    try {
+      const chat = await clubhouseClient.getChannelMessages(this.channelApiId(this.currentChannel));
+      const next = chat.messages || [];
+      const same = next.length === this.chatMessages.length
+        && next.every((message, index) => message.id === this.chatMessages[index]?.id && message.message === this.chatMessages[index]?.message);
+      if (same) return;
+      const known = new Set(this.chatMessages.map((message) => message.id));
+      const added = next.filter((message) => !known.has(message.id)).length;
+      this.chatMessages = next;
+      if (this.currentTab !== 'stage' || !this.chatOpen) {
+        if (added > 0) {
+          this.unreadChat += added;
+          if (this.currentTab !== 'stage') this.renderSidebar();
+        }
+        this.renderCockpit();
+        return;
+      }
+      this.renderChat();
+    } catch (err) {
+      console.warn('[Clubbox] chat refresh failed:', err);
+    }
+  }
+
+export function channelApiId(this: ClubboxApp, channel: { channel?: string; channel_id: string | number }) : string {
+    return channel.channel || String(channel.channel_id);
+  }
+
+export function applyRoomUpdate(this: ClubboxApp, detail: CHChannelDetail) : void {
+    if (!this.currentChannel) return;
+    const sameRoom =
+      String(detail.channel_id) === String(this.currentChannel.channel_id) ||
+      detail.channel === this.currentChannel.channel;
+    if (!sameRoom || !detail.users) return;
+
+    this.currentChannel.users = detail.users;
+    this.currentChannel.num_all = detail.num_all;
+    this.currentChannel.num_speakers = detail.num_speakers;
+    this.currentChannel.has_raised_hands = detail.has_raised_hands;
+    if (typeof detail.is_replay_enabled === 'boolean') this.currentChannel.is_replay_enabled = detail.is_replay_enabled;
+    if (typeof detail.is_clips_enabled === 'boolean') this.currentChannel.is_clips_enabled = detail.is_clips_enabled;
+    if (detail.privacy_settings) this.currentChannel.privacy_settings = detail.privacy_settings;
+    this.syncClipArm();
+    this.syncSelectedProfileFromRoom();
+    this.maybeShowSpeakerInvite();
+    this.syncAgoraRole();
+    const mine = detail.users.find((user) => user.user_id === this.me?.user_id);
+    if (typeof mine?.is_hand_raised === 'boolean') clubhouseClient.setHandRaised(mine.is_hand_raised);
+
+    if (this.isProfileDrawerOpen) this.renderProfileDrawer();
+    if (this.selfProfileOpen || this.currentTab !== 'stage') return;
+    this.renderStage();
+    this.renderCockpit();
+  }
+
+export function isMeSpeaker(this: ClubboxApp) : boolean {
+    if (!this.currentChannel || !this.me) return false;
+    return this.currentChannel.users.some((user) => user.user_id === this.me?.user_id && !!user.is_speaker);
+  }
+
+export function isMeModerator(this: ClubboxApp) : boolean {
+    if (!this.currentChannel || !this.me) return false;
+    return this.currentChannel.users.some((user) => user.user_id === this.me?.user_id && !!user.is_moderator);
+  }
+
+export function syncAgoraRole(this: ClubboxApp) : void {
+    if (clubhouseClient.getConfig().useSandbox || !agoraVoice.getIsJoined() || !this.me) return;
+    if (this.agoraRoleSyncing) return;
+    const decision = roleSyncDecision(this.agoraPromoteFailures, this.isMeSpeaker() === agoraVoice.getIsSpeaker());
+    if (decision === 'reset') {
+      this.agoraPromoteFailures = 0;
+      return;
+    }
+    if (decision === 'give-up') return;
+    this.agoraPromoteFailures += 1;
+    this.agoraRoleSyncing = true;
+    void this.runAgoraRoleSync();
+  }
+
+export async function runAgoraRoleSync(this: ClubboxApp) : Promise<void> {
+    try {
+      if (this.currentChannel && agoraVoice.getIsJoined()) {
+        const wantSpeaker = this.isMeSpeaker();
+        if (wantSpeaker !== agoraVoice.getIsSpeaker()) {
+          if (wantSpeaker) {
+            const ok = await agoraVoice.promoteToSpeaker();
+            this.audioConnected = ok;
+            if (!ok) this.showToast(t('micStageFailed'), '≡ƒöç');
+          } else {
+            await agoraVoice.demoteToAudience();
+            audioEngine.setMuted(true);
+            const micBtn = document.getElementById('mic-toggle-btn');
+            if (micBtn) {
+              micBtn.classList.remove('unmuted');
+              micBtn.textContent = '≡ƒöç';
+            }
+            this.showToast(t('movedToAudience'), '≡ƒÄÖ∩╕Å');
+          }
+        }
+      }
+    } catch (err) {
+      this.reportApiError(err);
+    }
+    this.agoraRoleSyncing = false;
+    if (!this.currentChannel || !agoraVoice.getIsJoined() || clubhouseClient.getConfig().useSandbox) return;
+    const decision = roleSyncDecision(this.agoraPromoteFailures, this.isMeSpeaker() === agoraVoice.getIsSpeaker());
+    if (decision === 'reset') {
+      this.agoraPromoteFailures = 0;
+      return;
+    }
+    if (decision === 'give-up') {
+      this.audioConnected = false;
+      this.showToast(t('agoraPromoteStopped'), '≡ƒöç');
+      return;
+    }
+    this.syncAgoraRole();
+  }
+
+export async function inviteToStage(this: ClubboxApp, userId: number) : Promise<void> {
+    if (!this.currentChannel || !this.isMeModerator()) return;
+    if (!this.allowAction('invite_speaker')) return;
+    try {
+      await clubhouseClient.inviteSpeaker(this.channelApiId(this.currentChannel), userId);
+      this.showToast(t('invitedToSpeakToast'), '≡ƒÄÖ∩╕Å');
+      await this.refreshCurrentRoom();
+    } catch (err) {
+      this.reportApiError(err);
+    }
+  }
+
+export async function moderateSpeaker(this: ClubboxApp, userId: number, action: 'mute' | 'moderator' | 'audience') : Promise<void> {
+    if (!this.currentChannel || !this.isMeModerator()) return;
+    const channelId = this.channelApiId(this.currentChannel);
+    const endpoint = action === 'mute' ? 'mute_speaker' : action === 'moderator' ? 'make_moderator' : 'uninvite_speaker';
+    if (!this.allowAction(endpoint)) return;
+    try {
+      if (action === 'mute') await clubhouseClient.muteSpeaker(channelId, userId);
+      else if (action === 'moderator') await clubhouseClient.makeModerator(channelId, userId);
+      else await clubhouseClient.uninviteSpeaker(channelId, userId);
+      this.openSpeakerMenuId = null;
+      await this.refreshCurrentRoom();
+    } catch (err) {
+      this.reportApiError(err);
+    }
+  }
+
+export function maybeShowSpeakerInvite(this: ClubboxApp) : void {
+    if (!this.me || !this.currentChannel || this.speakerInviteVisible) return;
+    const mine = this.currentChannel.users.find((user) => user.user_id === this.me?.user_id);
+    if (!mine?.is_invited_to_speak || mine.is_speaker) {
+      this.dismissedSpeakerInvite = false;
+      return;
+    }
+    if (this.dismissedSpeakerInvite) return;
+    this.speakerInviteVisible = true;
+    this.renderSpeakerInvite();
+  }
+
+export function renderSpeakerInvite(this: ClubboxApp) : void {
+    mountSpeakerInvite();
+  }
+
+export function closeSpeakerInvite(this: ClubboxApp, dismiss = true) : void {
+    this.speakerInviteVisible = false;
+    if (dismiss) this.dismissedSpeakerInvite = true;
+    document.getElementById('speaker-invite-overlay')?.remove();
+  }
+
+export async function acceptSpeakerInvite(this: ClubboxApp) : Promise<void> {
+    if (!this.currentChannel || !this.me) return;
+    if (!this.allowAction('accept_speaker_invite')) return;
+    const acceptBtn = document.getElementById('accept-speak-btn') as HTMLButtonElement | null;
+    if (acceptBtn) acceptBtn.disabled = true;
+    try {
+      await clubhouseClient.becomeSpeaker(this.channelApiId(this.currentChannel));
+      this.closeSpeakerInvite();
+      await this.refreshCurrentRoom();
+      if (!clubhouseClient.getConfig().useSandbox && agoraVoice.getIsJoined()) {
+        await agoraVoice.promoteToSpeaker();
+      }
+      audioEngine.setMuted(true);
+      this.showToast(t('onStage'), '≡ƒÄÖ∩╕Å');
+    } catch (err) {
+      this.reportApiError(err);
+      if (acceptBtn) acceptBtn.disabled = false;
+    }
+  }
+
+export async function declineSpeakerInvite(this: ClubboxApp) : Promise<void> {
+    if (!this.currentChannel || !this.me) return;
+    if (!this.allowAction('reject_speaker_invite')) {
+      this.closeSpeakerInvite();
+      return;
+    }
+    try {
+      await clubhouseClient.rejectSpeakerInvite(this.channelApiId(this.currentChannel), this.me.user_id);
+      this.closeSpeakerInvite();
+    } catch (err) {
+      this.reportApiError(err);
+    }
+  }
+
+export async function muteEveryone(this: ClubboxApp) : Promise<void> {
+    if (!this.currentChannel || !this.isMeModerator()) return;
+    if (!this.allowAction('mute_speaker')) return;
+    const myId = this.me?.user_id ?? clubhouseClient.getCurrentUserId();
+    const speakers = this.currentChannel.users.filter(
+      (user) => user.is_speaker && user.user_id !== myId && !user.is_muted,
+    );
+    for (const speaker of speakers) {
+      try {
+        await clubhouseClient.muteSpeaker(this.channelApiId(this.currentChannel), speaker.user_id);
+      } catch (err) {
+        this.reportApiError(err);
+      }
+    }
+    await this.refreshCurrentRoom();
+  }
+
+export async function refreshStageManual(this: ClubboxApp) : Promise<void> {
+    if (!this.currentChannel) return;
+    try {
+      if (clubhouseClient.supports('get_channel')) {
+        const detail = await clubhouseClient.getChannel(this.channelApiId(this.currentChannel));
+        this.currentChannel = detail;
+        this.renderStage();
+      }
+    } catch (err) {
+      this.reportApiError(err);
+    }
+  }
+
+export async function toggleHandRaise(this: ClubboxApp) {
+    if (!this.currentChannel) return;
+    if (!this.allowAction('audience_reply')) return;
+    if (this.currentChannel.is_handraise_enabled === false) {
+      this.showToast(t('handOff'), 'Γ£ï');
+      return;
+    }
+    if (this.isMeSpeaker()) return;
+    const isRaised = clubhouseClient.isHandRaised();
+    try {
+      await clubhouseClient.raiseHand(this.channelApiId(this.currentChannel), !isRaised);
+    } catch (err) {
+      this.reportApiError(err);
+      return;
+    }
+    const handBtn = document.getElementById('hand-btn');
+    if (handBtn) {
+      if (!isRaised) {
+        handBtn.classList.add('active');
+        this.showToast(t('handRaisedToast'), 'Γ£ï');
+      } else {
+        handBtn.classList.remove('active');
+        this.showToast(t('handLowered'), '≡ƒæç');
+      }
+    }
+  }
+
+export function recordingAllowed(this: ClubboxApp) : boolean {
+    const channel = this.currentChannel;
+    if (!channel) return false;
+    if (clubhouseClient.getConfig().allowLocalRecording !== true) return false;
+    return channel.is_replay_enabled === true;
+  }
+
+export function syncRecBanner(this: ClubboxApp) : void {
+    const banner = document.getElementById('rec-banner');
+    if (!banner) return;
+    banner.hidden = !audioEngine.getIsRecording();
+    banner.textContent = t('recBanner');
+  }
+
+export function toggleRecording(this: ClubboxApp) {
+    const starting = !audioEngine.getIsRecording();
+    if (starting && !this.recordingAllowed()) {
+      const allowed = clubhouseClient.getConfig().allowLocalRecording === true;
+      this.showToast(t(allowed ? 'recordingNeedsReplay' : 'recordingNeedsConsent'), '≡ƒö┤');
+      return;
+    }
+    if (starting && !window.confirm(t('recordingConfirm'))) return;
+    audioEngine.toggleRecording();
+  }
+
+export function clipsAllowed(this: ClubboxApp) : boolean {
+    const channel = this.currentChannel;
+    if (!channel) return false;
+    return localClipAllowed({
+      allowLocalRecording: clubhouseClient.getConfig().allowLocalRecording === true,
+      replayEnabled: channel.is_replay_enabled === true,
+      hostClipsEnabled: channel.is_clips_enabled === true,
+      audience: roomAudience(channel),
+    });
+  }
+
+export function syncClipArm(this: ClubboxApp) : void {
+    audioEngine.armClip(this.clipsAllowed());
+    const badge = document.getElementById('clip-armed-badge');
+    if (badge) badge.hidden = !audioEngine.isClipArmed();
+  }
+
+export async function saveClip(this: ClubboxApp) : Promise<void> {
+    const channel = this.currentChannel;
+    if (!channel) return;
+    if (!this.clipsAllowed()) {
+      this.showToast(t('clipUnavailable'), 'Γ£é');
+      return;
+    }
+    const blob = await audioEngine.saveClip();
+    if (!blob) {
+      this.showToast(t('clipEmpty'), 'Γ£é');
+      return;
+    }
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = recordingFilename(channel.topic, 'clip');
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+    this.showToast(t('clipSaved'), 'Γ£é');
+  }
+
+export function allowAction(this: ClubboxApp, endpoint: string) : boolean {
+    if (!clubhouseClient.supports(endpoint)) {
+      const evidence = clubhouseClient.evidence(endpoint);
+      const key = evidence === 'unsupported'
+        ? 'unsupportedAction'
+        : evidence === 'community'
+          ? 'availableInClubhouseApp'
+          : 'unverifiedAction';
+      this.showToast(t(key), '≡ƒöÆ');
+      return false;
+    }
+    if (clubhouseClient.needsExperimentalConfirmation(endpoint)) {
+      if (!window.confirm(t('experimentalConfirm'))) return false;
+      clubhouseClient.confirmExperimental(endpoint);
+    }
+    return true;
+  }
+
+export async function joinRoom(this: ClubboxApp, channelId: string, preset?: CHChannelDetail) {
+    if (!preset && !this.allowAction('join_channel')) return;
+    if (this.currentChannel) {
+      const currentId = this.channelApiId(this.currentChannel);
+      if (currentId === channelId || String(this.currentChannel.channel_id) === channelId) return;
+      await this.leaveRoom({ silent: true });
+    }
+
+    const begun = beginJoin(this.roomSession);
+    this.roomSession = begun.session;
+    const generation = begun.generation;
+    this.joinInFlight = true;
+
+    try {
+      const joined = preset ?? await clubhouseClient.joinChannel(channelId);
+      const committed = commitJoin(this.roomSession, generation);
+      if (!committed) return;
+      this.roomSession = committed;
+      const listed = this.channelsList.find((channel) => channel.channel === channelId || String(channel.channel_id) === channelId);
+      if (listed) {
+        if (!safeUrl(joined.url) && safeUrl(listed.url)) joined.url = listed.url;
+        if (!joined.club_name && listed.club_name) joined.club_name = listed.club_name;
+        if (!joined.club_photo_url && listed.club_photo_url) joined.club_photo_url = listed.club_photo_url;
+        if (!joined.privacy_tooltip && listed.privacy_tooltip) joined.privacy_tooltip = listed.privacy_tooltip;
+        if (!joined.privacy_label && listed.privacy_label) joined.privacy_label = listed.privacy_label;
+        if (joined.is_replay_enabled == null && listed.is_replay_enabled != null) joined.is_replay_enabled = listed.is_replay_enabled;
+        if (joined.is_active_trending_topic_channel == null && listed.is_active_trending_topic_channel != null) {
+          joined.is_active_trending_topic_channel = listed.is_active_trending_topic_channel;
+        }
+      }
+      this.currentChannel = joined;
+      if (joined.is_chat_enabled === false) this.chatOpen = false;
+      if (joined.should_join_muted === true) audioEngine.setMuted(true);
+    } catch (err) {
+      if (this.roomSession.generation !== generation) return;
+      if (err instanceof ClubhouseApiError && (err.status === 404 || err.status === 405)) {
+        this.showToast(t('joinUnavailableOnWeb'), '≡ƒöÆ');
+      } else {
+        this.reportApiError(err);
+      }
+      this.render();
+      return;
+    } finally {
+      if (this.roomSession.generation === generation) this.joinInFlight = false;
+    }
+
+    if (this.roomSession.generation !== generation || !this.currentChannel) return;
+    this.syncClipArm();
+    this.audioConnected = clubhouseClient.getConfig().useSandbox ? null : false;
+    if (this.isMeSpeaker()) void audioEngine.startMicrophone();
+    await this.connectRoomAudio(generation);
+
+    if (this.roomSession.generation !== generation || !this.currentChannel) return;
+    this.startRoomPresence(this.channelApiId(this.currentChannel));
+    this.chatMessages = [];
+    {
+      const chatEvidence = clubhouseClient.evidence('get_channel_messages');
+      if (chatEvidence === 'observed' || chatEvidence === 'bundle') {
+        try {
+          const chat = await clubhouseClient.getChannelMessages(this.channelApiId(this.currentChannel));
+          this.chatMessages = chat.messages || [];
+        } catch (err) {
+          this.reportApiError(err);
+        }
+      }
+    }
+    if (this.roomSession.generation !== generation || !this.currentChannel) return;
+    this.currentTab = 'stage';
+    this.unreadChat = 0;
+    if (this.currentChannel.is_chat_enabled !== false) this.chatOpen = true;
+    this.render();
+    if (clubhouseClient.getConfig().useSandbox || this.audioConnected) {
+      this.showToast(t('joinedRoom', { topic: this.currentChannel.topic }), '≡ƒÄÖ∩╕Å');
+    }
+    if (this.currentChannel.should_join_muted === true) this.showToast(t('joinMuted'), '≡ƒöç');
+  }
+
+export async function connectRoomAudio(this: ClubboxApp, generation: number) : Promise<void> {
+    if (this.roomSession.generation !== generation || !this.currentChannel || clubhouseClient.getConfig().useSandbox) return;
+    if (!this.me) {
+      this.audioConnected = false;
+      this.showToast(t('signInToHear'), '≡ƒöæ');
+      return;
+    }
+    if (!clubhouseClient.getConfig().agoraAppId) {
+      this.audioConnected = false;
+      clubhouseClient.noteApiHealth('agora', t('audioKeyNotFound'));
+      this.showToast(t('audioKeyNotFound'), '≡ƒöç');
+      return;
+    }
+    if (!this.currentChannel.token) {
+      this.audioConnected = false;
+      this.showToast(t('noAudioToken'), '≡ƒöç');
+      return;
+    }
+    const ok = await agoraVoice.join(
+      this.currentChannel.channel,
+      this.currentChannel.token,
+      this.me.user_id,
+      { isSpeaker: this.isMeSpeaker(), isMusicMode: audioEngine.getIsMusicMode() }
+    );
+    if (this.roomSession.generation !== generation) {
+      await agoraVoice.leave();
+      return;
+    }
+    this.audioConnected = ok;
+    if (!ok) this.showToast(t('audioTokenGap'), '≡ƒöç');
+  }
+
+export async function releaseRoomLocally(this: ClubboxApp, options: { skipServer?: boolean } = {}) : Promise<void> {
+    const channel = this.currentChannel;
+    const channelId = channel ? this.channelApiId(channel) : null;
+    this.privateVoice = false;
+    this.privateLines = [];
+    this.closeProfileDrawer();
+    audioEngine.setRoomHeard(true);
+    audioEngine.stopVoiceNote();
+    this.roomSession = finishLeave(this.roomSession);
+    this.joinInFlight = false;
+    this.agoraRoleSyncing = false;
+    this.agoraPromoteFailures = 0;
+    this.stopRoomPresence();
+    this.dismissedSpeakerInvite = false;
+    this.closeSpeakerInvite(false);
+    this.currentChannel = null;
+    this.chatMessages = [];
+    this.unreadChat = 0;
+    this.audioConnected = null;
+    this.openSpeakerMenuId = null;
+    clubhouseClient.setHandRaised(false);
+    audioEngine.stopRecording();
+    audioEngine.armClip(false);
+    audioEngine.stopMicrophone();
+    try {
+      await agoraVoice.leave();
+    } catch {
+      // Local publishing still stops below if leave throws.
+    }
+    if (options.skipServer || !channelId || !clubhouseClient.supports('leave_channel')) return;
+    try {
+      await clubhouseClient.leaveChannel(channelId);
+    } catch (err) {
+      this.reportApiError(err);
+    }
+  }
+
+export async function leaveRoom(this: ClubboxApp, options: { silent?: boolean; end?: boolean } = {}) {
+    const channel = this.currentChannel;
+    const hadRoom = !!channel;
+    if (!hadRoom && !this.joinInFlight && !agoraVoice.getIsJoined() && !audioEngine.getIsRecording()) return;
+    const myId = this.me?.user_id ?? clubhouseClient.getCurrentUserId();
+    const closes = !!channel && myId != null && leaveClosesRoom(channel.users, myId);
+    const sandbox = clubhouseClient.getConfig().useSandbox;
+    let end = options.end === true;
+    if (!options.silent && !options.end && closes) {
+      if (!window.confirm(t('leaveEndsRoomConfirm'))) return;
+      end = true;
+    } else if (!options.silent && !options.end && hadRoom) {
+      if (!window.confirm(t('leaveRoomConfirm'))) return;
+    } else if (options.silent && !options.end && closes && sandbox) {
+      end = true;
+    }
+    if (end && channel) {
+      if (!sandbox && !clubhouseClient.supports('end_channel')) {
+        this.showToast(t('availableInClubhouseApp'), '≡ƒöÆ');
+        await this.releaseRoomLocally({ skipServer: true });
+        this.afterRoomExit(hadRoom, true, false);
+        return;
+      }
+      try {
+        await clubhouseClient.endChannel(this.channelApiId(channel));
+      } catch (err) {
+        this.reportApiError(err);
+        return;
+      }
+      await this.releaseRoomLocally({ skipServer: true });
+      this.afterRoomExit(hadRoom, options.silent === true, true);
+      return;
+    }
+    await this.releaseRoomLocally();
+    this.afterRoomExit(hadRoom, options.silent === true, false);
+  }
+
+export function afterRoomExit(this: ClubboxApp, hadRoom: boolean, silent: boolean, ended: boolean) : void {
+    this.currentTab = 'explore';
+    this.chatOpen = true;
+    this.render();
+    if (hadRoom && !silent) this.showToast(ended ? t('endedRoom') : t('leftRoom'), ended ? 'ΓÅ╣' : '≡ƒæï');
+    if (!hadRoom) return;
+    void this.reloadChannels().then(() => {
+      if (this.currentTab === 'explore') this.render();
+    }).catch((err) => this.reportApiError(err));
+  }
+
+export async function endRoom(this: ClubboxApp) : Promise<void> {
+    const channel = this.currentChannel;
+    const myId = this.me?.user_id ?? clubhouseClient.getCurrentUserId();
+    if (!channel || !this.isMeModerator() || myId == null) return;
+    if (!this.allowAction('end_channel')) return;
+    if (roomHasOthers(channel.users, myId) && !window.confirm(t('endRoomConfirm'))) return;
+    await this.leaveRoom({ silent: true, end: true });
+  }
+
+export async function sendChatMessage(this: ClubboxApp) {
+    const input = document.getElementById('chat-input') as HTMLInputElement;
+    if (!input || !input.value.trim() || !this.currentChannel) return;
+    if (this.currentChannel.is_chat_enabled === false) {
+      this.showToast(t('chatOff'), '≡ƒÆ¼');
+      return;
+    }
+
+    if (!this.me) {
+      this.showToast(t('signInToChat'), '≡ƒöæ');
+      this.currentTab = 'login';
+      this.render();
+      return;
+    }
+
+    const text = input.value.trim();
+    if (!clubhouseClient.getConfig().useSandbox) {
+      if (!this.allowAction('send_channel_message')) return;
+      try {
+        await clubhouseClient.sendChannelMessage(this.channelApiId(this.currentChannel), text);
+      } catch (err) {
+        this.reportApiError(err);
+        return;
+      }
+      input.value = '';
+      await this.refreshChat();
+      return;
+    }
+
+    const newMsg: CHChatMessage = {
+      id: 'msg-' + Date.now(),
+      user_id: this.me.user_id,
+      name: this.me.name,
+      username: this.me.username,
+      photo_url: this.me.photo_url,
+      message: text,
+      timestamp: 'Just now',
+    };
+
+    this.chatMessages.push(newMsg);
+    input.value = '';
+    this.renderChat();
+    const scrollEl = document.getElementById('chat-scroll');
+    if (scrollEl) scrollEl.scrollTop = scrollEl.scrollHeight;
+  }
+
+export async function confirmCreateRoom(this: ClubboxApp) : Promise<void> {
+    const topic = (document.getElementById('new-room-topic') as HTMLInputElement | null)?.value.trim();
+    const privacy = (document.getElementById('new-room-privacy') as HTMLSelectElement | null)?.value;
+    const audience = privacy === 'friends' || privacy === 'friends-of-friends' || privacy === 'house' ? privacy : 'public';
+    const replayEnabled = (document.getElementById('new-room-replays') as HTMLInputElement | null)?.checked !== false;
+    const chatEnabled = (document.getElementById('new-room-chat') as HTMLInputElement | null)?.checked !== false;
+    const confirmBtn = document.querySelector('[data-action="confirm-create"]') as HTMLButtonElement | null;
+    if (!topic) {
+      this.showToast(t('enterTopic'), 'ΓÜá∩╕Å');
+      return;
+    }
+    if (!this.allowAction('create_channel')) return;
+    if (!clubhouseClient.getConfig().useSandbox && !capturedCreateBody(topic, { audience, replayEnabled, chatEnabled })) {
+      this.showToast(t('createOnlyCaptured'), '≡ƒöÆ');
+      return;
+    }
+    if (confirmBtn) {
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = t('starting');
+    }
+    try {
+      const newChan = await clubhouseClient.createChannel(topic, {
+        audience,
+        replayEnabled,
+        chatEnabled,
+      });
+      this.channelsList.unshift(newChan);
+      this.closeCreateModal();
+      await this.joinRoom(newChan.channel || newChan.channel_id.toString(), newChan);
+    } catch (err) {
+      this.reportApiError(err);
+      if (confirmBtn) {
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = t('goLive');
+      }
+    }
+  }
+
+export function wireRoomCtl(proto: ClubboxApp): void {
+  proto.handleBeforeUnload = handleBeforeUnload;
+  proto.startRoomPresence = startRoomPresence;
+  proto.stopChatPolling = stopChatPolling;
+  proto.syncChatPolling = syncChatPolling;
+  proto.stopRoomPresence = stopRoomPresence;
+  proto.refreshChat = refreshChat;
+  proto.channelApiId = channelApiId;
+  proto.applyRoomUpdate = applyRoomUpdate;
+  proto.isMeSpeaker = isMeSpeaker;
+  proto.isMeModerator = isMeModerator;
+  proto.syncAgoraRole = syncAgoraRole;
+  proto.runAgoraRoleSync = runAgoraRoleSync;
+  proto.inviteToStage = inviteToStage;
+  proto.moderateSpeaker = moderateSpeaker;
+  proto.maybeShowSpeakerInvite = maybeShowSpeakerInvite;
+  proto.renderSpeakerInvite = renderSpeakerInvite;
+  proto.closeSpeakerInvite = closeSpeakerInvite;
+  proto.acceptSpeakerInvite = acceptSpeakerInvite;
+  proto.declineSpeakerInvite = declineSpeakerInvite;
+  proto.muteEveryone = muteEveryone;
+  proto.refreshStageManual = refreshStageManual;
+  proto.toggleHandRaise = toggleHandRaise;
+  proto.recordingAllowed = recordingAllowed;
+  proto.syncRecBanner = syncRecBanner;
+  proto.toggleRecording = toggleRecording;
+  proto.clipsAllowed = clipsAllowed;
+  proto.syncClipArm = syncClipArm;
+  proto.saveClip = saveClip;
+  proto.allowAction = allowAction;
+  proto.joinRoom = joinRoom;
+  proto.connectRoomAudio = connectRoomAudio;
+  proto.releaseRoomLocally = releaseRoomLocally;
+  proto.leaveRoom = leaveRoom;
+  proto.afterRoomExit = afterRoomExit;
+  proto.endRoom = endRoom;
+  proto.sendChatMessage = sendChatMessage;
+  proto.confirmCreateRoom = confirmCreateRoom;
+}

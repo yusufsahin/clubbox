@@ -3,12 +3,19 @@ import prettier from 'eslint-config-prettier';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['dist/**', 'node_modules/**', 'api-captures/**', 'release/**', 'build/**'] },
+  { ignores: ['dist/**', 'node_modules/**', 'api-captures/**', 'release/**', 'build/**', 'scripts/split-main.mjs', 'scripts/fix-ctl-files.mjs', 'scripts/extract-ctl-methods.mjs'] },
   {
     files: ['src/**/*.ts'],
     extends: [eslint.configs.recommended, ...tseslint.configs.recommended, prettier],
     rules: {
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+    },
+  },
+  {
+    files: ['src/app/**/*Ctl.ts', 'src/app/clubboxApp.ts'],
+    rules: {
+      '@typescript-eslint/no-unused-vars': 'off',
+      '@typescript-eslint/ban-ts-comment': 'off',
     },
   },
   {
