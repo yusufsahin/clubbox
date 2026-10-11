@@ -1,4 +1,4 @@
-import type { HouseChatMessage, HouseListItem } from '../../api/communityLists';
+import type { HouseChatMessage, HouseListItem, HouseMemberItem } from '../../api/communityLists';
 import { t } from '../../i18n';
 import { html, safeUrl, type SafeHtml } from '../html';
 
@@ -7,9 +7,12 @@ export type HousesViewState = {
   open: HouseListItem | null;
   canHost: boolean;
   canChat: boolean;
+  canMembers: boolean;
   chatOpen: boolean;
   chatMessages: HouseChatMessage[] | null;
   canPost: boolean;
+  membersOpen: boolean;
+  members: HouseMemberItem[] | null;
 };
 
 function housePhoto(url: string): SafeHtml | string {
@@ -52,7 +55,9 @@ export function housesView(state: HousesViewState): SafeHtml {
           ${state.open.description ? html`<p class="list-note">${state.open.description}</p>` : html`<p class="list-empty">${t('houseNoDescription')}</p>`}
           <p class="conversation-meta">${t('houseMembers', { count: state.open.members })}</p>
           <div class="thread-actions">
-            <button class="btn btn-secondary" type="button" data-action="open-house-members" data-house-id="${state.open.id}" data-house-slug="${state.open.slug}">${t('houseViewMembers')}</button>
+            ${state.canMembers ? html`
+              <button class="btn btn-secondary" type="button" data-action="open-house-members" data-house-id="${state.open.id}" data-house-slug="${state.open.slug}">${t('houseViewMembers')}</button>
+            ` : ''}
             ${state.canChat ? html`
               <button class="btn btn-secondary" type="button" data-action="open-house-chat" data-house-id="${state.open.id}" data-house-slug="${state.open.slug}">${t('houseChat')}</button>
             ` : ''}
@@ -60,6 +65,29 @@ export function housesView(state: HousesViewState): SafeHtml {
               <button class="btn btn-primary" type="button" data-action="host-house-room" data-house-id="${state.open.id}" data-house-slug="${state.open.slug}">${t('hostInHouse')}</button>
             ` : ''}
           </div>
+
+          ${state.membersOpen ? html`
+            <div class="house-chat">
+              <div class="house-chat-header">
+                <strong>${t('houseViewMembers')}</strong>
+                <button class="btn btn-secondary" type="button" data-action="close-house-members">${t('close')}</button>
+              </div>
+              ${state.members == null ? html`<p class="list-empty">${t('listLoading')}</p>` : state.members.length === 0 ? html`
+                <p class="list-empty">${t('peopleListEmpty')}</p>
+              ` : html`
+                <div class="conversation-list">
+                  ${state.members.map((member) => html`
+                    <button class="discover-row discover-main" type="button" data-action="open-profile" data-user-id="${member.userId}">
+                      <span class="discover-copy">
+                        <strong>${member.name}</strong>
+                        <span class="list-empty">@${member.username}</span>
+                      </span>
+                    </button>
+                  `)}
+                </div>
+              `}
+            </div>
+          ` : ''}
 
           ${state.chatOpen ? html`
             <div class="house-chat">

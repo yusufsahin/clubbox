@@ -24,6 +24,13 @@ export type HouseChatMessage = {
   time: string;
 };
 
+export type HouseMemberItem = {
+  userId: number;
+  name: string;
+  username: string;
+  photoUrl: string | null;
+};
+
 export type HouseChatState = {
   messages: HouseChatMessage[];
   canPost: boolean;
@@ -120,6 +127,36 @@ export function readHouseChatPayload(payload: unknown): HouseChatState {
       || permissions?.can_post === true
     );
   return { messages, canPost };
+}
+
+export function readHouseMembersPayload(payload: unknown): HouseMemberItem[] {
+  const root = asRecord(payload);
+  if (!root) return [];
+  const list = Array.isArray(root.members)
+    ? root.members
+    : (Array.isArray(root.users) ? root.users : (Array.isArray(root.items) ? root.items : []));
+  const out: HouseMemberItem[] = [];
+  for (const entry of list) {
+    const raw = asRecord(entry);
+    if (!raw) continue;
+    const profile = asRecord(raw.user_profile) ?? asRecord(raw.user) ?? raw;
+    const userIdRaw = profile.user_id ?? profile.id ?? raw.user_id;
+    const userId = typeof userIdRaw === 'number'
+      ? userIdRaw
+      : (typeof userIdRaw === 'string' && userIdRaw.trim() ? Number(userIdRaw) : NaN);
+    const name = readString(profile.name, raw.name);
+    const username = readString(profile.username, raw.username);
+    if (!Number.isFinite(userId) && !name && !username) continue;
+    out.push({
+      userId: Number.isFinite(userId) ? userId : out.length + 1,
+      name: name || username || String(userId),
+      username: username || String(userId),
+      photoUrl: typeof profile.photo_url === 'string'
+        ? profile.photo_url
+        : (typeof raw.photo_url === 'string' ? raw.photo_url : null),
+    });
+  }
+  return out;
 }
 
 export function readEventsPayload(payload: unknown): EventListItem[] {

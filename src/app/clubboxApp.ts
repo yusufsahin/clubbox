@@ -15,7 +15,7 @@ import { applyThemeToDocument, readAppPrefs, writeAppPrefs, zoomFactorFromPercen
 import { eventToAccelerator, normalizeShortcuts, readShortcuts, writeShortcuts, type ShortcutAction, type ShortcutMap } from '../shortcuts';
 import { agoraVoice } from '../audio/agoraVoice';
 import type { ActivityItem } from '../api/activityFeed';
-import type { EventListItem, HouseChatMessage, HouseListItem } from '../api/communityLists';
+import type { EventListItem, HouseChatMessage, HouseListItem, HouseMemberItem } from '../api/communityLists';
 import type { PingCandidate } from '../api/pingInvites';
 import type { ReplayPlayback } from '../api/replayPlayback';
 import type { CHChannel, CHChannelDetail, CHChatMessage, CHConversation, ConversationThread, CHUser, FeedTopic, MeSettings, SearchHit, SearchObjectType } from '../api/types';
@@ -96,6 +96,8 @@ export class ClubboxApp {
   houseChatOpen = false;
   houseChatMessages: HouseChatMessage[] | null = null;
   houseChatCanPost = false;
+  houseMembersOpen = false;
+  houseMembers: HouseMemberItem[] | null = null;
   eventsList: EventListItem[] | null = null;
   replayPlayback: ReplayPlayback | null = null;
   replayRate = 1;
@@ -914,9 +916,12 @@ export class ClubboxApp {
         open: this.selectedHouse,
         canHost: clubhouseClient.supports('create_channel'),
         canChat: clubhouseClient.supports('get_social_club_messages'),
+        canMembers: clubhouseClient.supports('get_social_club_members'),
         chatOpen: this.houseChatOpen,
         chatMessages: this.houseChatMessages,
         canPost: this.houseChatCanPost && clubhouseClient.supports('send_social_club_message'),
+        membersOpen: this.houseMembersOpen,
+        members: this.houseMembers,
       });
     } else if (this.currentTab === 'events') {
       return eventsView({
@@ -1322,7 +1327,11 @@ export class ClubboxApp {
         break;
       }
       case 'open-conversation':
-        if (el.dataset.conversationId) void this.openConversationThread(el.dataset.conversationId);
+        if (el.dataset.conversationId) {
+          this.currentTab = 'messages';
+          void this.loadConversations();
+          void this.openConversationThread(el.dataset.conversationId);
+        }
         break;
       case 'hide-room': {
         const channelId = el.dataset.channelId;
@@ -1371,11 +1380,10 @@ export class ClubboxApp {
         void this.openHouse(el.dataset.houseSlug);
         break;
       case 'open-house-members':
-        if (el.dataset.houseId && clubhouseClient.supports('get_social_club_members')) {
-          void clubhouseClient.getSocialClubMembers(Number(el.dataset.houseId)).then(() => {
-            this.showToast(t('houseViewMembers'), '🏛');
-          }).catch((err) => this.reportApiError(err));
-        }
+        void this.loadHouseMembers(el.dataset.houseId);
+        break;
+      case 'close-house-members':
+        this.closeHouseMembers();
         break;
       case 'open-house-chat':
         void this.loadHouseChat(el.dataset.houseId, el.dataset.houseSlug);
@@ -1420,8 +1428,11 @@ export class ClubboxApp {
         void this.loadEvents();
         break;
       case 'copy-event-link': {
-        const link = el.dataset.eventUrl;
-        if (!link) break;
+        const link = safeUrl(el.dataset.eventUrl);
+        if (!link) {
+          this.showToast(t('noShareLink'), '🔗');
+          break;
+        }
         void navigator.clipboard.writeText(link).then(() => this.showToast(t('copiedLink'), '🔗'))
           .catch(() => this.showToast(t('somethingWrong'), '⚠️'));
         break;

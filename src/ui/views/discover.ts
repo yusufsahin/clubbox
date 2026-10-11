@@ -53,24 +53,30 @@ function hitRow(hit: SearchHit): SafeHtml {
   }
   if (hit.kind === 'house') {
     const photo = safeUrl(hit.photoUrl);
+    const body = html`
+      ${photo ? html`<img class="house-photo" src="${photo}" alt="" />` : ''}
+      <span class="discover-copy">
+        <strong>${hit.name}</strong>
+        ${hit.subtitle ? html`<span class="discover-bio">${hit.subtitle}</span>` : ''}
+        ${hit.members != null ? html`<span class="list-empty">${t('discoverMembers', { count: hit.members })}</span>` : ''}
+      </span>
+    `;
+    if (!hit.slug) {
+      return html`<div class="discover-row">${body}</div>`;
+    }
     return html`
-      <div class="discover-row">
-        ${photo ? html`<img class="house-photo" src="${photo}" alt="" />` : ''}
-        <span class="discover-copy">
-          <strong>${hit.name}</strong>
-          ${hit.subtitle ? html`<span class="discover-bio">${hit.subtitle}</span>` : ''}
-          ${hit.members != null ? html`<span class="list-empty">${t('discoverMembers', { count: hit.members })}</span>` : ''}
-        </span>
-      </div>
+      <button class="discover-row discover-main" type="button" data-action="open-house" data-house-slug="${hit.slug}" data-house-id="${hit.id}">
+        ${body}
+      </button>
     `;
   }
   return html`
-    <div class="discover-row">
+    <button class="discover-row discover-main" type="button" data-action="open-conversation" data-conversation-id="${hit.id}">
       <span class="discover-copy">
         <strong>${hit.title || t('messages')}</strong>
         ${hit.summary ? html`<span class="discover-bio">${hit.summary}</span>` : ''}
       </span>
-    </div>
+    </button>
   `;
 }
 

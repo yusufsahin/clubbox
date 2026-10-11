@@ -105,7 +105,7 @@ function threadPanel(item: CHConversation, state: MessagesState): SafeHtml {
           <h3>${title}</h3>
           ${subtitle ? html`<p class="thread-subtitle">${subtitle}</p>` : ''}
         </div>
-        <button class="top-icon-btn" type="button" data-action="close-conversation" title="${t('cancel')}">✕</button>
+        <button class="top-icon-btn" type="button" data-action="close-conversation" title="${t('close')}">✕</button>
       </div>
 
       <div class="thread-scroll">
@@ -200,7 +200,10 @@ export function messagesView(state: MessagesState): SafeHtml {
   const houseCount = active.filter((item) => conversationKind(item) === 'house').length;
   const vmCount = active.filter((item) => conversationKind(item) === 'vm').length;
   const shown = state.filter === 'all' ? active : active.filter((item) => conversationKind(item) === state.filter);
-  const open = items?.find((item) => item.conversation_id === state.openId) ?? null;
+  const openInFilter = shown.find((item) => item.conversation_id === state.openId)
+    ?? (state.filter === 'all' ? archive.find((item) => item.conversation_id === state.openId) : undefined)
+    ?? null;
+  const open = openInFilter;
 
   return html`
     <div class="messages-page">

@@ -283,10 +283,12 @@ function hitsFromSearch(data: Record<string, unknown>): SearchHit[] {
     }
     if (club && typeof club.name === 'string') {
       const id = numericId(club.social_club_id);
+      const slug = textOf(club.slug) || textOf(club.social_club_slug) || (id != null ? String(id) : '');
       hits.push({
         kind: 'house',
         id: id ?? 0,
         name: club.name,
+        slug,
         photoUrl: typeof club.photo_url === 'string' ? club.photo_url : null,
         members: typeof club.num_members === 'number' ? club.num_members : null,
         subtitle: textOf(club.subtitle),

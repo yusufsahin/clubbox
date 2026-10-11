@@ -12,6 +12,7 @@ import {
   readEventsPayload,
   readHouseChatPayload,
   readHouseDetail,
+  readHouseMembersPayload,
   readHousesPayload,
   type EventListItem,
 } from '../api/communityLists.ts';
@@ -71,15 +72,43 @@ export async function loadHouses(this: ClubboxApp): Promise<void> {
 
 export async function openHouse(this: ClubboxApp, slug: string | undefined): Promise<void> {
     if (!slug || !clubhouseClient.supports('get_social_club')) return;
+    this.currentTab = 'houses';
     this.houseChatOpen = false;
     this.houseChatMessages = null;
     this.houseChatCanPost = false;
+    this.houseMembersOpen = false;
+    this.houseMembers = null;
     try {
       const res = await clubhouseClient.getSocialClub(slug);
       this.selectedHouse = readHouseDetail(res);
     } catch (err) {
       this.reportApiError(err);
     }
+    this.render();
+  }
+
+export async function loadHouseMembers(this: ClubboxApp, houseIdRaw: string | undefined): Promise<void> {
+    if (!clubhouseClient.supports('get_social_club_members')) return;
+    const houseId = Number(houseIdRaw);
+    if (!Number.isFinite(houseId)) return;
+    this.houseChatOpen = false;
+    this.houseChatMessages = null;
+    this.houseMembersOpen = true;
+    this.houseMembers = null;
+    if (this.currentTab === 'houses') this.render();
+    try {
+      const res = await clubhouseClient.getSocialClubMembers(houseId);
+      this.houseMembers = readHouseMembersPayload(res);
+    } catch (err) {
+      this.houseMembers = [];
+      this.reportApiError(err);
+    }
+    if (this.currentTab === 'houses') this.render();
+  }
+
+export function closeHouseMembers(this: ClubboxApp): void {
+    this.houseMembersOpen = false;
+    this.houseMembers = null;
     if (this.currentTab === 'houses') this.render();
   }
 
@@ -87,6 +116,8 @@ export async function loadHouseChat(this: ClubboxApp, houseIdRaw: string | undef
     if (!slug || !clubhouseClient.supports('get_social_club_messages')) return;
     const houseId = Number(houseIdRaw);
     if (!Number.isFinite(houseId)) return;
+    this.houseMembersOpen = false;
+    this.houseMembers = null;
     this.houseChatOpen = true;
     this.houseChatMessages = null;
     if (this.currentTab === 'houses') this.render();
@@ -223,6 +254,8 @@ export function wireActivityCtl(proto: ClubboxApp): void {
   proto.loadSuggestions = loadSuggestions;
   proto.loadHouses = loadHouses;
   proto.openHouse = openHouse;
+  proto.loadHouseMembers = loadHouseMembers;
+  proto.closeHouseMembers = closeHouseMembers;
   proto.loadHouseChat = loadHouseChat;
   proto.closeHouseChat = closeHouseChat;
   proto.sendHouseChat = sendHouseChat;

@@ -15,11 +15,10 @@ Do these before continuing the Autonomous plan, then tick them:
 
 - Autonomous plan already **Done** through **11.8 (strict)**; triage **NO NEW FAILURES**.
 - Done (local polish, no new API bodies):
-  - Spatial audio: single `change` path (no double toast from click + change)
-  - Settings zoom % refreshes after Ctrl+=/−/0
-  - Hallway keyword Enter adds chip; theme label + Agora placeholder i18n; header Messages title matches nav
-  - Sandbox thread Invite adds a member (was toast-only); e2e covers Discover + Friends
-- Tests: unit 127 pass · BDD 123 scenarios / 717 steps · trace strict 0 errors · lint + build green.
+  - Discover house/conversation hits navigate (`open-house` / `open-conversation`)
+  - Messages filter no longer shows a ghost thread outside the active filter; close tooltip uses Close
+  - House Members panel lists members (was toast-only); event link copy goes through `safeUrl`
+- Tests: unit 128 pass · BDD 123 scenarios / 717 steps · trace strict 0 errors · lint + build green.
 - **Stopped:** no further shippable product work without inventing endpoint bodies or owner capture.
 - Blocked: owner live room capture (0.9 S1–S3); topic-chip **server** `get_feed_v3` body; conversation delete/title + unread-summary body; replay chunk; `gif_reaction` body; unfollow omitted from web routes (capture needed).
 - Still @pending: ST-9 deferred; room_host DX-1/DX-3.

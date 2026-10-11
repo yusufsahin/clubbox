@@ -4,7 +4,7 @@ export type SearchHit =
   | { kind: 'user'; user: CHUser; followsMe: boolean }
   | { kind: 'room'; channel: string; topic: string; speakers: number; listeners: number }
   | { kind: 'replay'; channel: string; topic: string }
-  | { kind: 'house'; id: number; name: string; photoUrl: string | null; members: number | null; subtitle: string }
+  | { kind: 'house'; id: number; name: string; slug: string; photoUrl: string | null; members: number | null; subtitle: string }
   | { kind: 'conversation'; id: string; title: string; summary: string };
 
 export interface CHUser {
