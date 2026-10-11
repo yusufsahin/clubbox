@@ -6,6 +6,7 @@ import {
   roomPubNubChannels,
   type ParsedRealtimeEvent,
 } from './realtimeEvents.ts';
+import { applyRemoteMute } from './remoteMute.ts';
 import type { RealtimeHub, PubNubSubscribeParams } from './realtimeHub.ts';
 import type { CHChannelDetail, CHChatMessage } from './types.ts';
 
@@ -112,6 +113,15 @@ export class RealtimeRoomCoordinator {
     const current = this.channel ? this.channel.channel || String(this.channel.channel_id) : null;
     const parsed = parseRealtimeMessage(raw, current);
     this.applyParsed(parsed);
+  }
+
+  /** Agora uid = Clubhouse user_id. Mute is not on PubNub (docs/api/realtime.md). */
+  applyAgoraMute(uid: number | string, muted: boolean): void {
+    if (!this.channel) return;
+    const users = applyRemoteMute(this.channel.users, uid, muted);
+    if (users === this.channel.users) return;
+    this.channel = mergeChannelUsers(this.channel, users);
+    this.callbacks.onChannelUpdate?.(this.channel);
   }
 
   handleChat(fromName: string, text: string): void {
@@ -252,6 +262,10 @@ export class RealtimeRoomCoordinator {
 
   userIsModerator(name: string): boolean {
     return !!this.channel?.users.some((user) => user.name === name && user.is_moderator);
+  }
+
+  userIsMuted(name: string): boolean {
+    return !!this.channel?.users.some((user) => user.name === name && user.is_muted);
   }
 
   inviteVisible(): boolean {

@@ -8,11 +8,14 @@ import type {
 type AgoraSdk = typeof import('agora-rtc-sdk-ng').default;
 import { audioEngine } from './audioEngine';
 import { clubhouseClient } from '../api/client';
+import { muteFromAgoraEvent } from '../api/remoteMute';
 
 export interface AgoraJoinOptions {
   isSpeaker: boolean;
   isMusicMode: boolean;
 }
+
+export type RemoteMuteReport = { uid: string | number; muted: boolean };
 
 export class AgoraVoiceEngine {
   private client: IAgoraRTCClient | null = null;
@@ -22,6 +25,7 @@ export class AgoraVoiceEngine {
   private isSpeaker: boolean = false;
   private currentChannel: string | null = null;
   private onSpeakerVolumeCallbacks: ((speakers: { uid: string | number; level: number }[]) => void)[] = [];
+  private onRemoteMuteCallbacks: ((report: RemoteMuteReport) => void)[] = [];
   private sdkPromise: Promise<AgoraSdk> | null = null;
   private nativeMuteSignalling = false;
 
@@ -43,8 +47,10 @@ export class AgoraVoiceEngine {
       this.client = AgoraRTC.createClient({ mode: 'live', codec: 'vp8' });
 
       // Remote audio is played through the Web Audio graph (and the recorder).
+      // Mute badges follow Agora (not PubNub): publish/unpublish + user-info-updated.
       this.client.on('user-published', async (user: IAgoraRTCRemoteUser, mediaType: 'audio' | 'video') => {
         if (mediaType === 'audio') {
+          this.emitRemoteMute(user.uid, muteFromAgoraEvent('user-published'));
           await this.client?.subscribe(user, mediaType);
           const remoteTrack = user.audioTrack as IRemoteAudioTrack | undefined;
           if (remoteTrack) {
@@ -56,8 +62,13 @@ export class AgoraVoiceEngine {
 
       this.client.on('user-unpublished', (user: IAgoraRTCRemoteUser, mediaType: 'audio' | 'video') => {
         if (mediaType === 'audio') {
+          this.emitRemoteMute(user.uid, muteFromAgoraEvent('user-unpublished'));
           audioEngine.removeRemoteTrack(user.uid);
         }
+      });
+
+      this.client.on('user-info-updated', (uid: string | number, msg: string) => {
+        this.emitRemoteMute(uid, muteFromAgoraEvent('user-info-updated', msg));
       });
 
       this.client.on('user-left', (user: IAgoraRTCRemoteUser) => {
@@ -206,6 +217,7 @@ export class AgoraVoiceEngine {
     this.isJoined = false;
     this.isSpeaker = false;
     this.currentChannel = null;
+    this.nativeMuteSignalling = false;
   }
 
   public setNativeMuteSignalling(enabled: boolean): void {
@@ -221,10 +233,23 @@ export class AgoraVoiceEngine {
     }
   }
 
+  private emitRemoteMute(uid: string | number, muted: boolean | null): void {
+    if (muted == null) return;
+    const report: RemoteMuteReport = { uid, muted };
+    this.onRemoteMuteCallbacks.forEach((cb) => cb(report));
+  }
+
   public onVolumeLevels(cb: (speakers: { uid: string | number; level: number }[]) => void): () => void {
     this.onSpeakerVolumeCallbacks.push(cb);
     return () => {
       this.onSpeakerVolumeCallbacks = this.onSpeakerVolumeCallbacks.filter((c) => c !== cb);
+    };
+  }
+
+  public onRemoteMute(cb: (report: RemoteMuteReport) => void): () => void {
+    this.onRemoteMuteCallbacks.push(cb);
+    return () => {
+      this.onRemoteMuteCallbacks = this.onRemoteMuteCallbacks.filter((c) => c !== cb);
     };
   }
 

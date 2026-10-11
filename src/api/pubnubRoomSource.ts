@@ -131,6 +131,11 @@ export class PubNubRoomSource implements RoomUpdateSource {
     this.coordinator?.handleRaw(raw);
   }
 
+  /** Agora remote mute → same channel snapshot / onUpdate path as PubNub stage events. */
+  applyAgoraMute(uid: number | string, muted: boolean): void {
+    this.coordinator?.applyAgoraMute(uid, muted);
+  }
+
   shouldPollChat(): boolean {
     return this.coordinator?.shouldPollChat() ?? false;
   }

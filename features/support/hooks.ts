@@ -7,6 +7,10 @@ import type { ClubboxWorld } from './world.ts';
 Before(function (this: ClubboxWorld) {
   this.transport.clearRequests();
   this.agora = new FakeAgora();
+  this.agora.onRemoteMute(({ uid, muted }) => {
+    this.realtimeRoom.applyAgoraMute(uid, muted);
+    this.syncFromRealtime();
+  });
   this.session = new RoomSessionController({
     client: this.client,
     agora: this.agora,

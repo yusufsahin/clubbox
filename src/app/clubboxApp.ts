@@ -296,6 +296,12 @@ export class ClubboxApp {
       });
     });
 
+    // Mute badges: Agora uid = Clubhouse user_id (not PubNub). Same room-update path as PubNub stage events.
+    agoraVoice.onRemoteMute(({ uid, muted }) => {
+      if (!this.currentChannel?.users) return;
+      this.pubnubSource.applyAgoraMute(uid, muted);
+    });
+
     audioEngine.setSimulateMeterOnFailure(clubhouseClient.getConfig().useSandbox);
 
     if (this.currentTab === 'stage') {

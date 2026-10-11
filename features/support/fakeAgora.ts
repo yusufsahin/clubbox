@@ -4,6 +4,8 @@ export type AgoraJoin = {
   published: boolean;
 };
 
+export type RemoteMuteReport = { uid: number | string; muted: boolean };
+
 /** Records Agora join/leave/publish for room scenarios. */
 export class FakeAgora {
   joins: AgoraJoin[] = [];
@@ -12,6 +14,7 @@ export class FakeAgora {
   broadcastHasMic = true;
   republishCount = 0;
   lastEncoder: 'speech_standard' | 'high_quality_stereo' | null = null;
+  private muteListeners: ((report: RemoteMuteReport) => void)[] = [];
 
   join(role: 'audience' | 'host', token: string): void {
     this.left = false;
@@ -38,5 +41,29 @@ export class FakeAgora {
 
   lastJoin(): AgoraJoin | undefined {
     return this.joins[this.joins.length - 1];
+  }
+
+  onRemoteMute(cb: (report: RemoteMuteReport) => void): () => void {
+    this.muteListeners.push(cb);
+    return () => {
+      this.muteListeners = this.muteListeners.filter((listener) => listener !== cb);
+    };
+  }
+
+  /** Simulate Agora user-info-updated mute-audio / unmute-audio (uid = Clubhouse user_id). */
+  reportMute(uid: number | string, muted: boolean): void {
+    for (const listener of this.muteListeners) listener({ uid, muted });
+  }
+
+  reportUserInfoUpdated(uid: number | string, msg: 'mute-audio' | 'unmute-audio'): void {
+    this.reportMute(uid, msg === 'mute-audio');
+  }
+
+  reportAudioPublished(uid: number | string): void {
+    this.reportMute(uid, false);
+  }
+
+  reportAudioUnpublished(uid: number | string): void {
+    this.reportMute(uid, true);
   }
 }

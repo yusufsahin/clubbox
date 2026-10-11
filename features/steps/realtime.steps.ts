@@ -175,6 +175,30 @@ Then('{string} shows the moderator badge', function (this: ClubboxWorld, quoted:
   assert.equal(this.realtimeRoom.userIsModerator(name), true);
 });
 
+When('Agora reports that {string} muted her microphone', function (this: ClubboxWorld, quoted: string) {
+  const name = quoted.replace(/^"|"$/g, '');
+  const user = this.realtimeRoom.channel?.users.find((entry) => entry.name === name);
+  assert.ok(user, `no user ${name}`);
+  this.agora.reportUserInfoUpdated(user.user_id, 'mute-audio');
+});
+
+When('Agora reports that {string} unmuted her microphone', function (this: ClubboxWorld, quoted: string) {
+  const name = quoted.replace(/^"|"$/g, '');
+  const user = this.realtimeRoom.channel?.users.find((entry) => entry.name === name);
+  assert.ok(user, `no user ${name}`);
+  this.agora.reportUserInfoUpdated(user.user_id, 'unmute-audio');
+});
+
+Then('{string} shows the muted badge', function (this: ClubboxWorld, quoted: string) {
+  const name = quoted.replace(/^"|"$/g, '');
+  assert.equal(this.realtimeRoom.userIsMuted(name), true);
+});
+
+Then('{string} does not show the muted badge', function (this: ClubboxWorld, quoted: string) {
+  const name = quoted.replace(/^"|"$/g, '');
+  assert.equal(this.realtimeRoom.userIsMuted(name), false);
+});
+
 Then('the chat shows {string} as plain text from {string}', function (this: ClubboxWorld, textQuoted: string, fromQuoted: string) {
   const text = textQuoted.replace(/^"|"$/g, '');
   const from = fromQuoted.replace(/^"|"$/g, '');

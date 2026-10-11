@@ -39,6 +39,15 @@ Feature: Live room updates through realtime
     When the realtime hub receives the Clubhouse action "leave_channel" for "Ayse" in room "otherRoom"
     Then "Ayse" appears in the audience
 
+  @community @RL-4
+  Scenario: Remote mute state comes from Agora, not PubNub
+    # Official clients read mute from Agora (user-info-updated / publish); see docs/api/realtime.md.
+    Given "Ayse" is speaking in the room
+    When Agora reports that "Ayse" muted her microphone
+    Then "Ayse" shows the muted badge
+    When Agora reports that "Ayse" unmuted her microphone
+    Then "Ayse" does not show the muted badge
+
   @community @RL-7
   Scenario: Being invited to speak arrives through realtime
     When the realtime hub receives an invite to speak for me

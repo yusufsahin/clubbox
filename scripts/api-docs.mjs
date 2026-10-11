@@ -377,6 +377,18 @@ function sameText(left, right) {
   return left.replace(/\r\n/g, '\n') === right.replace(/\r\n/g, '\n');
 }
 
+/** Keep hand-written community appendix (Room channels and actions) across regenerations. */
+const REALTIME_APPENDIX_MARKER = '## Room channels and actions';
+
+function withRealtimeAppendix(generated, existingPath) {
+  if (!fs.existsSync(existingPath)) return generated;
+  const existing = fs.readFileSync(existingPath, 'utf8');
+  const idx = existing.indexOf(REALTIME_APPENDIX_MARKER);
+  if (idx < 0) return generated;
+  const appendix = existing.slice(idx).replace(/\s+$/, '');
+  return `${generated.replace(/\s+$/, '')}\n\n${appendix}\n`;
+}
+
 const CALLSITE_NAMES = [
   'join_channel',
   'web_listener_join',
@@ -586,12 +598,12 @@ const bundleNames = [...new Set(bundleHits.map((hit) => hit.name))].sort();
 const routes = evidenceRoutes(mergeBundleRoutes(savedRoutes, bundleNames), records);
 applyWebClientMethodsToRoutes(routes);
 const webApi = buildWebApi(records, routes);
-const realtime = buildRealtime(records, callsites);
+const realtimePath = path.join(docsDir, 'realtime.md');
+const realtime = withRealtimeAppendix(buildRealtime(records, callsites), realtimePath);
 const bundleDoc = buildBundleDoc(savedRoutes, routes, bundleHits);
 const callsiteDoc = buildCallsitesDoc(callsites);
 const routesText = `${JSON.stringify(routes, null, 2)}\n`;
 const webPath = path.join(docsDir, 'web-api.md');
-const realtimePath = path.join(docsDir, 'realtime.md');
 const bundlePath = path.join(docsDir, 'web-bundle-endpoints.md');
 const callsitePath = path.join(docsDir, 'bundle-callsites.md');
 

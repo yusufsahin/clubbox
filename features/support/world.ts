@@ -259,6 +259,11 @@ export class ClubboxWorld extends World {
         },
       },
     });
+    // Same path as live: Agora mute events update room users via the coordinator.
+    this.agora.onRemoteMute(({ uid, muted }) => {
+      this.realtimeRoom.applyAgoraMute(uid, muted);
+      this.syncFromRealtime();
+    });
     this.session = new RoomSessionController({
       client: this.client,
       agora: this.agora,
