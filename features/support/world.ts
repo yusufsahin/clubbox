@@ -12,7 +12,11 @@ import { FakeClock } from './fakeClock.ts';
 import { FakeTransport } from './fakeTransport.ts';
 import { FakePubNub } from './fakePubnub.ts';
 import { RealtimeRoomCoordinator } from '../../src/api/realtimeRoomCoordinator.ts';
-import { channelHasFriendSpeaker, prepareHallwayFeedRooms } from '../../src/hallway/hallwayDisplay.ts';
+import {
+  channelHasFriendSpeaker,
+  prepareHallwayChannels,
+  prepareHallwayFeedRooms,
+} from '../../src/hallway/hallwayDisplay.ts';
 import { defaultHallwayPrefs, readHallwayPrefs, type HallwayPrefs } from '../../src/hallway/hallwayPrefs.ts';
 import { SavedSearchTicker } from '../../src/hallway/savedSearchTicker.ts';
 import {
@@ -458,9 +462,29 @@ export class ClubboxWorld extends World {
     setLanguage(next);
   }
 
-  filteredHallway(): HallwayCard[] {
-    if (!this.selectedTopic) return this.hallwayRooms;
-    return this.hallwayRooms.filter((room) => room.topicKey === this.selectedTopic);
+  /** Same pipeline as ClubboxApp.displayedHallwayChannels (prepareHallwayChannels). */
+  hallwayRoomsForSelection(): HallwayCard[] {
+    const feed = this.hallwayRooms.map((room) => ({
+      ...room,
+      topic: room.title,
+      topic_key: room.topicKey || undefined,
+      users: room.users ?? [],
+    }));
+    return prepareHallwayChannels(feed, this.hallwayPrefs, this.selectedTopic).map((room) => ({
+      title: room.title,
+      channel: room.channel,
+      clubName: room.clubName,
+      replays: room.replays,
+      clips: room.clips,
+      startedAt: room.startedAt,
+      listeners: room.listeners,
+      speakers: room.speakers,
+      url: room.url,
+      topicKey: room.topic_key ?? room.topicKey ?? '',
+      is_nsfw: room.is_nsfw,
+      friendSpeaker: room.friendSpeaker,
+      users: room.users,
+    }));
   }
 
   conversationSegments(): Array<{ transcription?: string; text?: string }> {
@@ -480,7 +504,7 @@ export class ClubboxWorld extends World {
     }
   }
 
-  applyHallwayDisplay(): HallwayCard[] {
+  hallwayDisplayRoomsFromPrefs(): HallwayCard[] {
     const feed = this.hallwayRooms.map((room) => ({
       ...room,
       users: room.users ?? [],

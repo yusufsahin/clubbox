@@ -75,7 +75,7 @@ When('I select the topic chip {string}', function (this: ClubboxWorld, topic: st
 });
 
 Then('only rooms for {string} are shown', function (this: ClubboxWorld, topic: string) {
-  const shown = this.filteredHallway();
+  const shown = this.hallwayRoomsForSelection();
   assert.ok(shown.length > 0);
   assert.ok(shown.every((room) => room.topicKey === topic));
 });
@@ -146,7 +146,7 @@ Given('the hallway contains a room marked NSFW', function (this: ClubboxWorld) {
     is_nsfw: true,
   }];
   this.hallwayPrefs = { ...defaultHallwayPrefs(), showNsfw: false };
-  this.hallwayDisplayRooms = this.applyHallwayDisplay();
+  this.hallwayDisplayRooms = this.hallwayDisplayRoomsFromPrefs();
 });
 
 When('the hallway loads', function (this: ClubboxWorld) {
@@ -164,7 +164,7 @@ When('the hallway loads', function (this: ClubboxWorld) {
       topicKey: 'tech',
     });
   }
-  this.hallwayDisplayRooms = this.applyHallwayDisplay();
+  this.hallwayDisplayRooms = this.hallwayDisplayRoomsFromPrefs();
 });
 
 Then('{string} is listed first with a star next to {string}', function (this: ClubboxWorld, roomTitle: string, friendName: string) {
@@ -198,7 +198,7 @@ Then('that room is shown', function (this: ClubboxWorld) {
 When('I turn on {string} for the hallway', function (this: ClubboxWorld, label: string) {
   assert.equal(label, 'Show NSFW rooms');
   this.hallwayPrefs = { ...this.hallwayPrefs, showNsfw: true };
-  this.hallwayDisplayRooms = this.applyHallwayDisplay();
+  this.hallwayDisplayRooms = this.hallwayDisplayRoomsFromPrefs();
 });
 
 When('I open the online friends panel', async function (this: ClubboxWorld) {
