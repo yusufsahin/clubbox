@@ -406,6 +406,11 @@ ipcMain.handle('clubbox:clear-web-session', async (event) => {
       `https://${cookie.domain.replace(/^\./, '')}${cookie.path || '/'}`,
       cookie.name,
     )));
+    try {
+      fs.unlinkSync(path.join(app.getPath('userData'), 'web-session-ok'));
+    } catch {
+      // ignore
+    }
   } catch (err) {
     console.warn('[Clubbox] clear-web-session failed:', err);
   }
@@ -655,9 +660,10 @@ function scheduleBundleCrawlRetry() {
   }, delay);
 }
 
-function notifyWebSessionMaybe(reason) {
+function notifyWebSessionMaybe(reason, options = {}) {
   if (!mainWindow || mainWindow.isDestroyed()) return;
-  if (reason && lastSignInNotice === reason) return;
+  const force = options.force === true;
+  if (!force && reason && lastSignInNotice === reason) return;
   if (reason) lastSignInNotice = reason;
   mainWindow.webContents.send('clubbox:web-session-maybe');
   scheduleBundleCrawl();
@@ -691,7 +697,8 @@ function armWebSessionCookieWatch() {
     if (cookieNotifyTimer) clearTimeout(cookieNotifyTimer);
     cookieNotifyTimer = setTimeout(() => {
       cookieNotifyTimer = null;
-      notifyWebSessionMaybe(`cookie:${cookie.name}`);
+      // Force: the same cookie name may update several times during SMS verify.
+      notifyWebSessionMaybe(`cookie:${cookie.name}:${Date.now()}`, { force: true });
     }, 500);
   });
 }
@@ -791,6 +798,78 @@ function logResponseShape(endpoint, text) {
   }
 }
 
+function authSession() {
+  if (signInView && !signInView.webContents.isDestroyed()) {
+    return signInView.webContents.session;
+  }
+  return session.defaultSession;
+}
+
+async function listClubhouseCookies(sess) {
+  const byUrl = await sess.cookies.get({ url: 'https://www.clubhouse.com' });
+  const byDomain = await sess.cookies.get({ domain: '.clubhouse.com' });
+  const map = new Map();
+  for (const cookie of [...byUrl, ...byDomain]) {
+    map.set(`${cookie.name}|${cookie.domain}|${cookie.path}`, cookie);
+  }
+  return [...map.values()];
+}
+
+async function syncClubhouseCookiesToDefault(sourceSession) {
+  if (!sourceSession || sourceSession === session.defaultSession) return 0;
+  const cookies = await listClubhouseCookies(sourceSession);
+  let written = 0;
+  for (const cookie of cookies) {
+    const domain = cookie.domain || 'clubhouse.com';
+    const host = domain.startsWith('.') ? domain.slice(1) : domain;
+    try {
+      await session.defaultSession.cookies.set({
+        url: `https://${host}${cookie.path || '/'}`,
+        name: cookie.name,
+        value: cookie.value,
+        domain: cookie.domain,
+        path: cookie.path,
+        secure: cookie.secure,
+        httpOnly: cookie.httpOnly,
+        expirationDate: cookie.expirationDate,
+        sameSite: cookie.sameSite,
+      });
+      written += 1;
+    } catch (err) {
+      console.warn('[Clubbox] cookie sync failed:', cookie.name, err instanceof Error ? err.message : err);
+    }
+  }
+  return written;
+}
+
+async function probeMeInSignInPage() {
+  if (!signInView || signInView.webContents.isDestroyed()) return null;
+  try {
+    return await signInView.webContents.executeJavaScript(`
+      (async () => {
+        const match = document.cookie.split(';').map((s) => s.trim()).find((s) => s.startsWith('csrftoken='));
+        const csrf = match ? decodeURIComponent(match.slice('csrftoken='.length)) : '';
+        const res = await fetch('https://www.clubhouse.com/web_api/me', {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json; charset=utf-8',
+            'X-CSRFToken': csrf,
+            'CH-Web-AppVersion': ${JSON.stringify(CH_WEB_APP_VERSION)},
+            'CH-Web-Version': ${JSON.stringify(CH_WEB_APP_VERSION)},
+          },
+          body: '{}',
+        });
+        return { status: res.status, ok: res.ok, body: await res.text() };
+      })()
+    `);
+  } catch (err) {
+    console.warn('[Clubbox] in-page me probe failed:', err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
 async function postWithWebSession(endpoint, body) {
   const route = WEB_SESSION_PATHS[endpoint];
   if (!route) {
@@ -800,11 +879,17 @@ async function postWithWebSession(endpoint, body) {
       body: JSON.stringify({ error_message: 'This action is not available on the web session yet.' }),
     };
   }
-  const cookies = await session.defaultSession.cookies.get({
-    url: 'https://www.clubhouse.com',
-    name: 'csrftoken',
-  });
-  const csrf = cookies[0]?.value || '';
+  const sess = authSession();
+  const allCookies = await listClubhouseCookies(sess);
+  const csrf = allCookies.find((cookie) => cookie.name === 'csrftoken')?.value || '';
+  console.log(
+    '[web] session cookies',
+    allCookies.map((cookie) => cookie.name).join(',') || '(none)',
+    'csrf',
+    csrf ? 'yes' : 'no',
+    'fromSignInView',
+    sess !== session.defaultSession,
+  );
   const method = route.method || 'POST';
   let pathName;
   let requestBody;
@@ -817,31 +902,62 @@ async function postWithWebSession(endpoint, body) {
       body: JSON.stringify({ error_message: err instanceof Error ? err.message : String(err) }),
     };
   }
-  const response = await session.defaultSession.fetch(webSessionUrl(pathName, method, requestBody), {
-    method,
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json; charset=utf-8',
-      'X-CSRFToken': csrf,
-      'CH-Web-AppVersion': CH_WEB_APP_VERSION,
-      'CH-Web-Version': CH_WEB_APP_VERSION,
-      Origin: 'https://www.clubhouse.com',
-      Referer: 'https://www.clubhouse.com/home',
-    },
-    body: method === 'GET' ? undefined : JSON.stringify(requestBody ?? {}),
-  });
-  const text = await response.text();
-  console.log('[web]', endpoint, response.status);
+
+  let status = 0;
+  let ok = false;
+  let text = '';
+
+  // Prefer an in-page fetch while the sign-in BrowserView is open — it sends
+  // HttpOnly cookies the same way the Clubhouse SPA does.
+  if (endpoint === 'me' && signInView && !signInView.webContents.isDestroyed()) {
+    const probed = await probeMeInSignInPage();
+    if (probed && typeof probed.status === 'number') {
+      status = probed.status;
+      ok = !!probed.ok;
+      text = typeof probed.body === 'string' ? probed.body : '';
+      console.log('[web] me via sign-in page', status);
+    }
+  }
+
+  if (!status) {
+    const response = await sess.fetch(webSessionUrl(pathName, method, requestBody), {
+      method,
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json; charset=utf-8',
+        'X-CSRFToken': csrf,
+        'CH-Web-AppVersion': CH_WEB_APP_VERSION,
+        'CH-Web-Version': CH_WEB_APP_VERSION,
+        Origin: 'https://www.clubhouse.com',
+        Referer: 'https://www.clubhouse.com/home',
+      },
+      body: method === 'GET' ? undefined : JSON.stringify(requestBody ?? {}),
+    });
+    status = response.status;
+    ok = response.ok;
+    text = await response.text();
+    console.log('[web]', endpoint, status);
+  }
+
   logResponseShape(endpoint, text);
+  if (ok && endpoint === 'me') {
+    const synced = await syncClubhouseCookiesToDefault(sess);
+    try {
+      fs.writeFileSync(path.join(app.getPath('userData'), 'web-session-ok'), '1');
+    } catch {
+      // ignore
+    }
+    console.log('[web] me ok; cookies synced to defaultSession:', synced);
+  }
   try {
     appendApiLog(app.getPath('userData'), {
       endpoint,
       body: requestBody && typeof requestBody === 'object' ? Object.fromEntries(
         Object.keys(requestBody).map((key) => [key, typeof requestBody[key]]),
       ) : {},
-      status: response.status,
-      ok: response.ok,
+      status,
+      ok,
       responseBody: text,
       appVersion: CH_WEB_APP_VERSION,
       kind: 'web_api',
@@ -849,7 +965,7 @@ async function postWithWebSession(endpoint, body) {
   } catch (err) {
     console.warn('[Clubbox] api-log write failed:', err);
   }
-  return { ok: response.ok, status: response.status, body: text };
+  return { ok, status, body: text };
 }
 
 ipcMain.handle('clubbox:ensure-realtime-config', async (event) => {
