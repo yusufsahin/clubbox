@@ -1,4 +1,4 @@
-const { app, BrowserWindow, session, ipcMain, globalShortcut, shell, Notification } = require('electron');
+const { app, BrowserWindow, session, ipcMain, globalShortcut, shell, Notification, nativeTheme } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -283,6 +283,13 @@ ipcMain.handle('clubbox:set-zoom', (event, factor) => {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.setZoomFactor(Math.max(0.5, Math.min(2, value)));
   }
+  return { ok: true };
+});
+
+ipcMain.handle('clubbox:set-native-theme', (event, source) => {
+  if (!isTrustedSender(event)) return { ok: false };
+  const next = source === 'light' || source === 'dark' || source === 'system' ? source : 'system';
+  nativeTheme.themeSource = next;
   return { ok: true };
 });
 

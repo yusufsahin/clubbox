@@ -12,7 +12,7 @@ import { PubNubRoomSource } from '../api/pubnubRoomSource';
 import { roomSync } from '../api/roomSync';
 import { audioEngine } from '../audio/audioEngine';
 import { readAudioPrefs, type AudioPrefs } from '../audio/audioPrefs';
-import { applyThemeToDocument, readAppPrefs, zoomFactorFromPercent } from './appPrefs';
+import { readAppPrefs, syncSystemThemeListener, zoomFactorFromPercent } from './appPrefs';
 import { readShortcuts, type ShortcutAction, type ShortcutMap } from '../shortcuts';
 import { agoraVoice } from '../audio/agoraVoice';
 import type { ActivityItem } from '../api/activityFeed';
@@ -223,7 +223,11 @@ export class ClubboxApp {
 
   async init() {
     setLanguage(clubhouseClient.getConfig().language);
-    applyThemeToDocument(readAppPrefs().theme, window.matchMedia('(prefers-color-scheme: dark)').matches);
+    {
+      const theme = readAppPrefs().theme;
+      syncSystemThemeListener(theme);
+      void electronAPI()?.setNativeThemeSource?.(theme);
+    }
     void electronAPI()?.setZoomFactor?.(zoomFactorFromPercent(readAppPrefs().zoomPercent));
     this.applyAudioPrefs();
     navigator.mediaDevices?.addEventListener('devicechange', () => {
@@ -382,21 +386,21 @@ export class ClubboxApp {
     if (err instanceof ClubhouseApiError) {
       if (err.kind === 'auth' || err.status === 401) return;
       if (err.kind === 'permission') {
-        this.showToast(t('permissionDenied'), '??');
+        this.showToast(t('permissionDenied'), '🔒');
         return;
       }
       if (err.status === 403) {
-        this.showToast(t('requestForbidden'), '??');
+        this.showToast(t('requestForbidden'), '🔒');
         return;
       }
       if (err.kind === 'timeout') {
-        this.showToast(t('requestTimedOut'), '??');
+        this.showToast(t('requestTimedOut'), '⏱️');
         return;
       }
       if (err.kind === 'rate-limit') {
         if (!this.rateLimitNotices.has(err.endpoint)) {
           this.rateLimitNotices.add(err.endpoint);
-          this.showToast(t('rateLimited'), '?');
+          this.showToast(t('rateLimited'), '⏳');
         }
         return;
       }
@@ -666,7 +670,7 @@ export class ClubboxApp {
           <div class="nav-item ${this.currentTab === 'stage' ? 'active' : ''}" data-action="nav" data-tab="stage">
             <span class="icon">📻</span>
             <span>${t('liveStage')}</span>
-            ${this.currentChannel ? html`<span class="count-badge" style="background:var(--accent-emerald); color:#000;">${t('liveBadge')}</span>` : ''}
+            ${this.currentChannel ? html`<span class="count-badge count-badge-live">${t('liveBadge')}</span>` : ''}
           </div>
 
           <div class="nav-item ${this.currentTab === 'soundboard' ? 'active' : ''}" data-action="nav" data-tab="soundboard">
@@ -734,11 +738,11 @@ export class ClubboxApp {
 
           <div class="top-actions">
             <button class="top-icon-btn" type="button" data-action="nav" data-tab="messages" title="${t('messages')}">
-              ✉️
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4z"/><path d="m4 7 8 6 8-6"/></svg>
               ${this.unreadConversations > 0 ? html`<span class="nav-dot">${this.unreadConversations}</span>` : ''}
             </button>
             <button class="top-icon-btn" type="button" data-action="nav" data-tab="activity" title="${t('activity')}">
-              🔔
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18h12"/><path d="M8 18V10a4 4 0 0 1 8 0v8"/><path d="M10 18a2 2 0 0 0 4 0"/></svg>
               ${this.unreadNotifications ? html`<span class="nav-dot"></span>` : ''}
             </button>
             <button class="top-avatar-btn ${this.selfProfileOpen ? 'active' : ''}" type="button" data-action="sidebar-user" title="${this.me ? this.me.name : t('signIn')}">

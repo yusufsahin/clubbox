@@ -67,6 +67,34 @@ export function applyThemeToDocument(choice: ThemeChoice, prefersDark = false): 
   return resolved;
 }
 
+type ThemeMedia = Pick<MediaQueryList, 'matches' | 'addEventListener' | 'removeEventListener'>;
+
+let systemThemeMedia: ThemeMedia | null = null;
+let systemThemeHandler: ((event: MediaQueryListEvent) => void) | null = null;
+
+/** While choice is "system", follow OS light/dark changes; otherwise detach. */
+export function syncSystemThemeListener(
+  choice: ThemeChoice,
+  media: ThemeMedia = window.matchMedia('(prefers-color-scheme: dark)'),
+  onChange?: (resolved: 'light' | 'dark') => void,
+): 'light' | 'dark' {
+  if (systemThemeMedia && systemThemeHandler) {
+    systemThemeMedia.removeEventListener('change', systemThemeHandler);
+    systemThemeMedia = null;
+    systemThemeHandler = null;
+  }
+  const resolved = applyThemeToDocument(choice, media.matches);
+  if (choice === 'system') {
+    systemThemeHandler = (event) => {
+      const next = applyThemeToDocument('system', event.matches);
+      onChange?.(next);
+    };
+    media.addEventListener('change', systemThemeHandler);
+    systemThemeMedia = media;
+  }
+  return resolved;
+}
+
 export function zoomFactorFromPercent(percent: number): number {
   return clampZoom(percent) / 100;
 }

@@ -18,6 +18,7 @@ export type ElectronAPI = {
   onPubNubMessage?: (callback: (message: Record<string, unknown>) => void) => () => void;
   onPubNubStatus?: (callback: (status: RealtimeHubStatus) => void) => () => void;
   clearWebSession?: () => Promise<{ ok: boolean }>;
+  setNativeThemeSource?: (source: 'system' | 'light' | 'dark') => Promise<{ ok: boolean }>;
   appendApiLog?: (record: {
     endpoint: string;
     status: number;

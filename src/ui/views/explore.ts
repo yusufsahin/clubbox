@@ -63,7 +63,7 @@ export function exploreView(
   hallway: HallwayPrefs,
   selectedTopicKey: string | null = null,
 ): SafeHtml {
-  return html`
+  const view = html`
     <div style="max-width:1100px; margin:0 auto;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
         <div>
@@ -179,4 +179,9 @@ export function exploreView(
       `}
     </div>
   `;
+  // Narrow layouts pad the hallway so the optional FAB does not cover cards.
+  queueMicrotask(() => {
+    document.getElementById('view-root')?.classList.toggle('has-fab-pad', access.canCreate);
+  });
+  return view;
 }

@@ -27,6 +27,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   clearWebSession: () => ipcRenderer.invoke('clubbox:clear-web-session'),
   setZoomFactor: (factor) => ipcRenderer.invoke('clubbox:set-zoom', factor),
+  setNativeThemeSource: (source) => ipcRenderer.invoke('clubbox:set-native-theme', source),
   showDesktopNotification: (payload) => ipcRenderer.invoke('clubbox:desktop-notification', payload),
   appendApiLog: (record) => ipcRenderer.invoke('clubbox:api-log-append', record),
   runApiTriage: () => ipcRenderer.invoke('clubbox:run-api-triage'),

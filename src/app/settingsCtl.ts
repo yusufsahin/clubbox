@@ -1,12 +1,12 @@
 import { clubhouseClient } from '../api/client.ts';
-import { applyThemeToDocument, readAppPrefs, writeAppPrefs } from './appPrefs.ts';
+import { readAppPrefs, syncSystemThemeListener, writeAppPrefs } from './appPrefs.ts';
+import { electronAPI } from './electronApi.ts';
 import { mergeProfile, profileCountsMissing, readProfile } from '../api/relationship.ts';
 import { audioEngine } from '../audio/audioEngine.ts';
 import { agoraVoice } from '../audio/agoraVoice.ts';
 import { setLanguage, t } from '../i18n/index.ts';
 import { html, markup } from '../ui/html.ts';
 import type { ClubboxApp } from './clubboxApp.ts';
-import { electronAPI } from './electronApi.ts';
 
 const GUIDELINES_KEY = 'clubbox-guidelines-accepted';
 
@@ -153,7 +153,8 @@ export async function saveSettings(this: ClubboxApp) : Promise<void> {
     const desktopNotifications = (document.getElementById('cfg-desktop-notifications') as HTMLInputElement | null)?.checked === true;
     const prefs = readAppPrefs();
     writeAppPrefs({ ...prefs, theme, desktopNotifications });
-    applyThemeToDocument(theme, window.matchMedia('(prefers-color-scheme: dark)').matches);
+    syncSystemThemeListener(theme);
+    void electronAPI()?.setNativeThemeSource?.(theme);
     if (!isSandbox && !this.guidelinesAccepted()) {
       this.pendingLive = true;
       this.guidelinesOpen = true;
