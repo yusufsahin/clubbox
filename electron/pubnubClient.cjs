@@ -147,6 +147,9 @@ function createPubNubClient(options) {
       subscribeKey = null;
       emitStatus({ connected: false, reconnecting: false });
     },
+    isConnected() {
+      return !stopped && !!config && !!subscribeKey && !reconnectTimer;
+    },
   };
 }
 

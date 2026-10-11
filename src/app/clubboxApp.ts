@@ -39,7 +39,6 @@ import { peopleListView } from '../ui/views/peopleList';
 import { discoverView, type DiscoverTab } from '../ui/views/discover';
 import { loginView } from '../ui/views/login';
 import { messagesView } from '../ui/views/messages';
-import { settingsView } from '../ui/views/settings';
 import { chatList, emptyStageView, stageColumn, stageView } from '../ui/views/stage';
 import { readHallwayPrefs, type HallwayPrefs } from '../hallway/hallwayPrefs';
 import { usableFeedTopics } from '../hallway/hallwayDisplay';
@@ -191,6 +190,12 @@ export class ClubboxApp {
   shortcuts: ShortcutMap = readShortcuts();
   recordingShortcut: ShortcutAction | null = null;
   editingSoundId: string | null = null;
+  connectionStatus: {
+    webSession: boolean;
+    realtimeKeys: boolean;
+    pubnubConnected: boolean;
+    agoraJoined: boolean;
+  } | null = null;
   hallwayPrefs: HallwayPrefs = readHallwayPrefs();
   feedNextCursor: string | null = null;
   feedLoadingMore = false;
@@ -787,7 +792,7 @@ export class ClubboxApp {
                 ${this.currentChannel!.privacy_tooltip ? html`<span class="live-updates-note">${this.currentChannel!.privacy_tooltip}</span>` : ''}
                 ${this.currentChannel!.is_active_trending_topic_channel ? html`<span class="live-updates-note">${t('trending')}</span>` : ''}
                 ${this.currentChannel!.is_replay_enabled ? html`<span class="live-updates-note">${t('replayAvailable')}</span>` : ''}
-                ${this.liveUpdatesUnavailable() ? html`<span class="live-updates-note">${t('liveUpdatesNote')}</span>` : ''}
+                ${this.liveUpdatesUnavailable() ? html`<span class="live-updates-note">${this.pubnubSource.getLastFailureReason?.() ? t('liveUpdatesRetrying') : t('liveUpdatesNote')}</span>` : ''}
                 <span class="recording-badge" id="clip-armed-badge" ${audioEngine.isClipArmed() ? '' : 'hidden'}>● ${t('clipArmed')}</span>
                 <span class="recording-badge" id="recording-badge" ${audioEngine.getIsRecording() ? '' : 'hidden'}>● ${t('recording')}</span>
               </div>
@@ -1039,27 +1044,6 @@ export class ClubboxApp {
 
 
 
-
-  renderSettingsView(): ReturnType<typeof html> {
-    return settingsView(
-      clubhouseClient.getConfig(),
-      this.shortcuts,
-      this.recordingShortcut,
-      !!electronAPI()?.isElectron,
-      this.me ? {
-        settings: this.meSettings,
-        notificationsEnabled: this.notificationsEnabled,
-        soundEffectsEnabled: this.soundEffectsEnabled,
-        anonymousEnabled: this.anonymousEnabled,
-        blockedCount: this.blockedCount,
-        isAdmin: this.isAdmin,
-      } : null,
-      clubhouseClient.getApiHealth(),
-      readAppPrefs(),
-      audioEngine.soundEffects,
-      this.editingSoundId,
-    );
-  }
 
   renderCockpitBar(): ReturnType<typeof html> {
     const flags = stageControlFlags(this);

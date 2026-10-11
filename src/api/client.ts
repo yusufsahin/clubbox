@@ -1014,13 +1014,21 @@ export class ClubhouseApiClient {
   }
 
   public async adoptWebSession(): Promise<boolean> {
-    const desktop = typeof window !== 'undefined' && !!(window as Window & { electronAPI?: { isElectron?: boolean } }).electronAPI?.isElectron;
+    const desktopApi = typeof window !== 'undefined'
+      ? (window as Window & { electronAPI?: { isElectron?: boolean; ensureRealtimeConfig?: () => Promise<unknown> } }).electronAPI
+      : undefined;
+    const desktop = !!desktopApi?.isElectron;
     if (!desktop || this.config.webSession) return false;
     const previous = this.config.webSession;
     this.config.webSession = true;
     this.suppressAuthExpired = true;
     try {
-      const res = await this.request<{ success: boolean; user_profile?: CHUser }>('me', {}, true);
+      // forceLive hits the Electron cookie jar; injected transports (unit tests) stay on the harness path.
+      const res = await this.request<{ success: boolean; user_profile?: CHUser }>(
+        'me',
+        {},
+        !this.injectedTransport,
+      );
       if (!res?.user_profile) {
         this.clearAdoptedWebSession(previous);
         return false;
@@ -1030,6 +1038,8 @@ export class ClubhouseApiClient {
         useSandbox: false,
         userId: res.user_profile.user_id,
       });
+      // Already-signed-in users never open the sign-in window — crawl for PubNub/Agora keys here.
+      void desktopApi?.ensureRealtimeConfig?.();
       return true;
     } catch {
       this.clearAdoptedWebSession(previous);
@@ -1315,7 +1325,11 @@ export class ClubhouseApiClient {
   }
 
   public async getConversationUnreadSummary(conversationId: string): Promise<{ success: boolean; unread_count?: number }> {
-    return this.call('get_conversation_unread_summary', { conversation_id: conversationId });
+    const id = typeof conversationId === 'string' ? conversationId.trim() : '';
+    if (!id) {
+      throw new ClubhouseApiError(0, 'get_conversation_unread_summary', 'Conversation id is required', 'business');
+    }
+    return this.call('get_conversation_unread_summary', { conversation_id: id });
   }
 
   public async getUserSocialClubs(): Promise<{ success: boolean; social_clubs?: unknown[] }> {

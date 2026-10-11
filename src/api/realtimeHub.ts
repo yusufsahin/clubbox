@@ -14,6 +14,7 @@ export type RealtimeHubStatus = {
   connected: boolean;
   reconnecting: boolean;
   reconnectDelayMs?: number;
+  reason?: string;
 };
 
 export type RealtimeHub = {
@@ -23,16 +24,26 @@ export type RealtimeHub = {
   isConnected(): boolean;
   getStatus(): RealtimeHubStatus;
   getLastSubscribe(): PubNubSubscribeParams | null;
+  getLastFailureReason(): string | null;
   onMessage(handler: (message: Record<string, unknown>) => void): () => void;
   onStatus(handler: (status: RealtimeHubStatus) => void): () => void;
 };
 
 type ElectronPubNubApi = {
-  pubnubSubscribe?: (params: PubNubSubscribeParams) => Promise<{ ok: boolean }>;
+  pubnubSubscribe?: (params: PubNubSubscribeParams) => Promise<{ ok: boolean; reason?: string }>;
   pubnubResubscribe?: () => Promise<{ ok: boolean }>;
   pubnubUnsubscribe?: () => Promise<{ ok: boolean }>;
+  ensureRealtimeConfig?: () => Promise<{ ok: boolean; reason?: string; hasKeys?: boolean }>;
   onPubNubMessage?: (handler: (message: Record<string, unknown>) => void) => () => void;
   onPubNubStatus?: (handler: (status: RealtimeHubStatus) => void) => () => void;
+  onRealtimeConfig?: (handler: (payload: { hasKeys?: boolean; reason?: string | null }) => void) => () => void;
+  appendApiLog?: (record: {
+    endpoint: string;
+    status: number;
+    ok?: boolean;
+    error?: string;
+    kind?: string;
+  }) => Promise<{ ok: boolean }>;
 };
 
 export function createElectronRealtimeHub(electronAPI: ElectronPubNubApi | null | undefined): RealtimeHub {
@@ -40,12 +51,45 @@ export function createElectronRealtimeHub(electronAPI: ElectronPubNubApi | null 
   let connected = false;
   let reconnecting = false;
   let reconnectDelayMs: number | undefined;
+  let lastFailureReason: string | null = null;
   const messageHandlers = new Set<(message: Record<string, unknown>) => void>();
   const statusHandlers = new Set<(status: RealtimeHubStatus) => void>();
 
   const emitStatus = () => {
-    const status = { connected, reconnecting, reconnectDelayMs };
+    const status: RealtimeHubStatus = {
+      connected,
+      reconnecting,
+      reconnectDelayMs,
+      reason: lastFailureReason ?? undefined,
+    };
     statusHandlers.forEach((handler) => handler(status));
+  };
+
+  const trySubscribe = (params: PubNubSubscribeParams) => {
+    void electronAPI?.pubnubSubscribe?.(params).then((result) => {
+      if (result?.ok) {
+        connected = true;
+        reconnecting = false;
+        lastFailureReason = null;
+        emitStatus();
+        return;
+      }
+      connected = false;
+      reconnecting = true;
+      lastFailureReason = result?.reason || 'subscribe_failed';
+      emitStatus();
+      void electronAPI?.appendApiLog?.({
+        endpoint: 'pubnub_subscribe',
+        status: 0,
+        ok: false,
+        error: lastFailureReason,
+        kind: 'realtime',
+      });
+      // Missing keys: crawl, then retry when keys arrive.
+      if (lastFailureReason === 'missing_subscribe_key') {
+        void electronAPI?.ensureRealtimeConfig?.();
+      }
+    });
   };
 
   electronAPI?.onPubNubMessage?.((message) => {
@@ -55,7 +99,16 @@ export function createElectronRealtimeHub(electronAPI: ElectronPubNubApi | null 
     connected = status.connected;
     reconnecting = status.reconnecting;
     reconnectDelayMs = status.reconnectDelayMs;
-    statusHandlers.forEach((handler) => handler(status));
+    if (status.connected) lastFailureReason = null;
+    statusHandlers.forEach((handler) => handler({
+      ...status,
+      reason: lastFailureReason ?? status.reason,
+    }));
+  });
+  electronAPI?.onRealtimeConfig?.((payload) => {
+    if (payload.hasKeys && last) {
+      trySubscribe(last);
+    }
   });
 
   return {
@@ -63,8 +116,9 @@ export function createElectronRealtimeHub(electronAPI: ElectronPubNubApi | null 
       last = params;
       connected = true;
       reconnecting = false;
+      lastFailureReason = null;
       emitStatus();
-      void electronAPI?.pubnubSubscribe?.(params);
+      trySubscribe(params);
     },
     resubscribe() {
       if (!last) return;
@@ -76,12 +130,14 @@ export function createElectronRealtimeHub(electronAPI: ElectronPubNubApi | null 
       last = null;
       connected = false;
       reconnecting = false;
+      lastFailureReason = null;
       emitStatus();
       void electronAPI?.pubnubUnsubscribe?.();
     },
     isConnected: () => connected,
-    getStatus: () => ({ connected, reconnecting, reconnectDelayMs }),
+    getStatus: () => ({ connected, reconnecting, reconnectDelayMs, reason: lastFailureReason ?? undefined }),
     getLastSubscribe: () => last,
+    getLastFailureReason: () => lastFailureReason,
     onMessage(handler) {
       messageHandlers.add(handler);
       return () => messageHandlers.delete(handler);

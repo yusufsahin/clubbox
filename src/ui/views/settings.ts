@@ -55,6 +55,13 @@ export type ApiHealthRow = {
   time: string;
 };
 
+export type ConnectionStatusReadout = {
+  webSession: boolean;
+  realtimeKeys: boolean;
+  pubnubConnected: boolean;
+  agoraJoined: boolean;
+};
+
 export function settingsView(
   config: ClubhouseConfig,
   shortcuts: ShortcutMap,
@@ -65,6 +72,7 @@ export function settingsView(
   appPrefs: AppPrefs | null = null,
   soundEffects: SoundEffectItem[] = [],
   editingSoundId: string | null = null,
+  connectionStatus: ConnectionStatusReadout | null = null,
 ): SafeHtml {
   return html`
     <div style="max-width:780px; margin:0 auto;" data-page="settings" data-nav-contains="api-config">
@@ -222,6 +230,18 @@ export function settingsView(
           <span><strong>${t('allowLocalRecording')}</strong><br />${t('allowLocalRecordingHelp')}</span>
         </label>
       </div>
+
+      ${connectionStatus ? html`
+      <div style="background:var(--bg-card); border:1px solid var(--border-subtle); border-radius:var(--radius-lg); padding:24px; margin-bottom:20px;" data-connection-status>
+        <h3 style="font-size:16px; font-weight:700; margin-bottom:12px;">${t('connectionStatusTitle')}</h3>
+        <div class="profile-settings">
+          <div class="profile-setting-row"><span>${t('connectionStatusWeb')}</span><span>${connectionStatus.webSession ? t('connectionStatusOk') : t('connectionStatusBad')}</span></div>
+          <div class="profile-setting-row"><span>${t('connectionStatusRealtime')}</span><span>${connectionStatus.realtimeKeys ? t('connectionStatusOk') : t('connectionStatusBad')}</span></div>
+          <div class="profile-setting-row"><span>${t('connectionStatusPubNub')}</span><span>${connectionStatus.pubnubConnected ? t('connectionStatusOk') : t('connectionStatusBad')}</span></div>
+          <div class="profile-setting-row"><span>${t('connectionStatusAgora')}</span><span>${connectionStatus.agoraJoined ? t('connectionStatusOk') : t('connectionStatusBad')}</span></div>
+        </div>
+      </div>
+      ` : ''}
 
       <div style="background:var(--bg-card); border:1px solid var(--border-subtle); border-radius:var(--radius-lg); padding:24px; margin-bottom:20px;">
         <h3 style="font-size:16px; font-weight:700; margin-bottom:6px;">${t('apiHealthTitle')}</h3>

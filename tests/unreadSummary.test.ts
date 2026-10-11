@@ -16,3 +16,7 @@ test('conversationIdsForUnreadSummary dedupes and caps at 10', () => {
   assert.equal(conversationIdsForUnreadSummary(many).length, 10);
   assert.deepEqual(conversationIdsForUnreadSummary(many).slice(0, 3), ['c0', 'c1', 'c2']);
 });
+
+test('empty conversation ids are never sent to unread summary', () => {
+  assert.deepEqual(conversationIdsForUnreadSummary(['', '   ', null as unknown as string]), []);
+});

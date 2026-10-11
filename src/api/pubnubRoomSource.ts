@@ -83,6 +83,10 @@ export class PubNubRoomSource implements RoomUpdateSource {
     return !!this.token && this.hub.isConnected() && !this.paused;
   }
 
+  getLastFailureReason(): string | null {
+    return this.hub.getLastFailureReason?.() ?? null;
+  }
+
   async resubscribe(): Promise<void> {
     await this.coordinator?.refresh();
   }

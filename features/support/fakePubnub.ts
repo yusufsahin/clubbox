@@ -40,6 +40,10 @@ export class FakePubNub implements RealtimeHub {
     return this.connected && !this.disconnected;
   }
 
+  getLastFailureReason(): string | null {
+    return null;
+  }
+
   getStatus(): RealtimeHubStatus {
     return { connected: this.isConnected(), reconnecting: this.reconnecting, reconnectDelayMs: this.reconnectDelayMs };
   }

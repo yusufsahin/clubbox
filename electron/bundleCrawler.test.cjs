@@ -59,6 +59,7 @@ test('secret values never land outside realtime-config.json', async () => {
   const crawler = createBundleCrawler({
     userDataPath: userData,
     projectRoot,
+    writeProjectArtifacts: true,
     sleepFn: async () => {},
     fetchFn: async (url) => {
       const body = files.get(url);
@@ -91,6 +92,46 @@ test('secret values never land outside realtime-config.json', async () => {
   assert.match(reportDoc, /PubNub channel templates/);
 });
 
+test('runtime crawl writes only under userData (never projectRoot)', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'clubbox-crawl-runtime-'));
+  const userData = path.join(root, 'userData');
+  const projectRoot = path.join(root, 'project');
+  fs.mkdirSync(path.join(projectRoot, 'electron'), { recursive: true });
+  fs.mkdirSync(path.join(projectRoot, 'api-captures'), { recursive: true });
+  fs.writeFileSync(path.join(projectRoot, 'electron', 'webApiRoutes.json'), '{}\n');
+  const marker = path.join(projectRoot, 'api-captures', 'must-not-change.txt');
+  fs.writeFileSync(marker, 'keep\n');
+
+  const files = new Map([
+    ['https://www.clubhouse.com/', homeHtml],
+    ['https://www.clubhouse.com/_next/static/buildAbc123XYZ/_buildManifest.js', manifest],
+    ['https://www.clubhouse.com/_next/static/chunks/fixture-room.js', roomChunk],
+    ['https://www.clubhouse.com/_next/static/chunks/webpack.js', 'console.log("webpack");'],
+  ]);
+
+  const crawler = createBundleCrawler({
+    userDataPath: userData,
+    projectRoot,
+    writeProjectArtifacts: false,
+    sleepFn: async () => {},
+    fetchFn: async (url) => {
+      const body = files.get(url);
+      if (body == null) return { ok: false, status: 404, text: async () => '' };
+      return { ok: true, status: 200, text: async () => body };
+    },
+  });
+
+  const result = await crawler.crawl({ force: true });
+  assert.equal(result.ok, true);
+  assert.equal(result.writeProjectArtifacts, false);
+  assert.ok(fs.existsSync(path.join(userData, 'realtime-config.json')));
+  assert.ok(fs.existsSync(path.join(userData, 'bundle-cache', 'meta.json')));
+  assert.equal(fs.existsSync(path.join(projectRoot, 'api-captures', 'bundle-callsites.json')), false);
+  assert.equal(fs.existsSync(path.join(projectRoot, 'api-captures', 'bundle-discovery.md')), false);
+  assert.equal(fs.readFileSync(marker, 'utf8'), 'keep\n');
+  assert.equal(fs.readFileSync(path.join(projectRoot, 'electron', 'webApiRoutes.json'), 'utf8'), '{}\n');
+});
+
 test('a cache written by an older extractor is re-crawled for the same build', async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'clubbox-crawl-ver-'));
   const userData = path.join(root, 'userData');
@@ -111,6 +152,7 @@ test('a cache written by an older extractor is re-crawled for the same build', a
   const crawler = createBundleCrawler({
     userDataPath: userData,
     projectRoot,
+    writeProjectArtifacts: false,
     sleepFn: async () => {},
     fetchFn: async (url) => {
       const body = files.get(url);

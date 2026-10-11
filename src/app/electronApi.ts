@@ -12,11 +12,21 @@ export type ElectronAPI = {
   closeOfficialSignIn?: () => Promise<{ ok: boolean }>;
   onWebSessionMaybe?: (callback: () => void) => void;
   onAgoraAppId?: (callback: (appId: string) => void) => () => void;
-  pubnubSubscribe?: (params: PubNubSubscribeParams) => Promise<{ ok: boolean }>;
+  pubnubSubscribe?: (params: PubNubSubscribeParams) => Promise<{ ok: boolean; reason?: string }>;
   pubnubResubscribe?: () => Promise<{ ok: boolean }>;
   pubnubUnsubscribe?: () => Promise<{ ok: boolean }>;
+  ensureRealtimeConfig?: () => Promise<{ ok: boolean; reason?: string; hasKeys?: boolean }>;
+  connectionStatus?: () => Promise<{
+    ok: boolean;
+    webSession?: boolean;
+    realtimeKeys?: boolean;
+    pubnubConnected?: boolean;
+    agoraAppIdPresent?: boolean;
+    agoraJoined?: boolean;
+  }>;
   onPubNubMessage?: (callback: (message: Record<string, unknown>) => void) => () => void;
   onPubNubStatus?: (callback: (status: RealtimeHubStatus) => void) => () => void;
+  onRealtimeConfig?: (callback: (payload: { hasKeys?: boolean; reason?: string | null }) => void) => () => void;
   clearWebSession?: () => Promise<{ ok: boolean }>;
   setNativeThemeSource?: (source: 'system' | 'light' | 'dark') => Promise<{ ok: boolean }>;
   appendApiLog?: (record: {

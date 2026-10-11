@@ -50,6 +50,7 @@ async function main() {
   const crawler = createBundleCrawler({
     userDataPath: userData,
     projectRoot: root,
+    writeProjectArtifacts: true,
   });
 
   console.log('[Clubbox] crawling clubhouse.com Next.js chunks (≤1 req/s, max 200)…');

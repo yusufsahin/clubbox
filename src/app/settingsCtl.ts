@@ -6,6 +6,7 @@ import { audioEngine } from '../audio/audioEngine.ts';
 import { agoraVoice } from '../audio/agoraVoice.ts';
 import { setLanguage, t } from '../i18n/index.ts';
 import { html, markup } from '../ui/html.ts';
+import { settingsView } from '../ui/views/settings.ts';
 import type { ClubboxApp } from './clubboxApp.ts';
 
 const GUIDELINES_KEY = 'clubbox-guidelines-accepted';
@@ -305,6 +306,71 @@ export function closeCreateModal(this: ClubboxApp) {
     document.getElementById('create-modal-overlay')?.remove();
   }
 
+export function renderSettingsView(this: ClubboxApp) {
+  void this.refreshConnectionStatus();
+  return settingsView(
+    clubhouseClient.getConfig(),
+    this.shortcuts,
+    this.recordingShortcut,
+    !!electronAPI()?.isElectron,
+    this.me ? {
+      settings: this.meSettings,
+      notificationsEnabled: this.notificationsEnabled,
+      soundEffectsEnabled: this.soundEffectsEnabled,
+      anonymousEnabled: this.anonymousEnabled,
+      blockedCount: this.blockedCount,
+      isAdmin: this.isAdmin,
+    } : null,
+    clubhouseClient.getApiHealth(),
+    readAppPrefs(),
+    audioEngine.soundEffects,
+    this.editingSoundId,
+    this.connectionStatus,
+  );
+}
+
+export async function refreshConnectionStatus(this: ClubboxApp): Promise<void> {
+  const api = electronAPI();
+  const agoraJoined = agoraVoice.getIsJoined();
+  if (!api?.connectionStatus) {
+    this.connectionStatus = {
+      webSession: !!clubhouseClient.getConfig().webSession,
+      realtimeKeys: false,
+      pubnubConnected: this.pubnubSource.isConnected(),
+      agoraJoined,
+    };
+    return;
+  }
+  try {
+    const status = await api.connectionStatus();
+    const next = {
+      webSession: !!status.webSession || !!clubhouseClient.getConfig().webSession,
+      realtimeKeys: !!status.realtimeKeys,
+      pubnubConnected: !!status.pubnubConnected || this.pubnubSource.isConnected(),
+      agoraJoined,
+    };
+    const prev = this.connectionStatus;
+    if (
+      prev
+      && prev.webSession === next.webSession
+      && prev.realtimeKeys === next.realtimeKeys
+      && prev.pubnubConnected === next.pubnubConnected
+      && prev.agoraJoined === next.agoraJoined
+    ) {
+      return;
+    }
+    this.connectionStatus = next;
+    if (this.currentTab === 'settings') this.render();
+  } catch {
+    this.connectionStatus = {
+      webSession: !!clubhouseClient.getConfig().webSession,
+      realtimeKeys: false,
+      pubnubConnected: this.pubnubSource.isConnected(),
+      agoraJoined,
+    };
+  }
+}
+
 export function wireSettingsCtl(proto: ClubboxApp): void {
   proto.finishSignIn = finishSignIn;
   proto.guidelinesAccepted = guidelinesAccepted;
@@ -323,4 +389,6 @@ export function wireSettingsCtl(proto: ClubboxApp): void {
   proto.closeSettingsModal = closeSettingsModal;
   proto.openCreateModal = openCreateModal;
   proto.closeCreateModal = closeCreateModal;
+  proto.renderSettingsView = renderSettingsView;
+  proto.refreshConnectionStatus = refreshConnectionStatus;
 }

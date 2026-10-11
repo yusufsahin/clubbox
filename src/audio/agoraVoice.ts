@@ -121,16 +121,37 @@ export class AgoraVoiceEngine {
       console.log(
         `[AgoraRTC] Joined ${channelName} as UID ${uid} (${options.isSpeaker ? 'host' : 'audience'})`
       );
+      void this.logAgora('agora_join', true, configuredAppId ? 'config' : 'fallback');
       return true;
     } catch (err) {
       // No Agora token-refresh request has been captured. Do not invent one.
       console.warn('[AgoraRTC] Live Agora join failed:', err);
+      const code = err && typeof err === 'object' && 'code' in err ? String((err as { code: unknown }).code) : 'join_failed';
+      void this.logAgora('agora_join', false, clubhouseClient.getConfig().agoraAppId ? 'config' : 'fallback', code);
       try {
         await this.leave();
       } catch {
         // Leave is best-effort after a failed join.
       }
       return false;
+    }
+  }
+
+  private async logAgora(endpoint: string, ok: boolean, source: string, error?: string): Promise<void> {
+    try {
+      const api = (globalThis as typeof globalThis & {
+        electronAPI?: { appendApiLog?: (r: Record<string, unknown>) => Promise<unknown> };
+      }).electronAPI;
+      // Shape only — never log the Agora app id value.
+      await api?.appendApiLog?.({
+        endpoint,
+        status: ok ? 200 : 0,
+        ok,
+        error: ok ? `source=${source}` : `${error || 'join_failed'};source=${source}`,
+        kind: 'audio',
+      });
+    } catch {
+      // Logging must not break join.
     }
   }
 

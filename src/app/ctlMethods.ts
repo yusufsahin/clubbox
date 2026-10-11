@@ -141,6 +141,8 @@ export type ClubboxAppCtlMethods = {
   handleAuthExpired: typeof settingsCtl.handleAuthExpired;
   refreshMe: typeof settingsCtl.refreshMe;
   openSettingsModal: typeof settingsCtl.openSettingsModal;
+  renderSettingsView: typeof settingsCtl.renderSettingsView;
+  refreshConnectionStatus: typeof settingsCtl.refreshConnectionStatus;
   closeSettingsModal: typeof settingsCtl.closeSettingsModal;
   openCreateModal: typeof settingsCtl.openCreateModal;
   closeCreateModal: typeof settingsCtl.closeCreateModal;

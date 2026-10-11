@@ -70,11 +70,15 @@ export async function refreshExplore(this: ClubboxApp) : Promise<void> {
 
 export function liveUpdatesUnavailable(this: ClubboxApp) : boolean {
     const config = clubhouseClient.getConfig();
+    const hubFailed = typeof this.pubnubSource.getLastFailureReason === 'function'
+      ? !!this.pubnubSource.getLastFailureReason()
+      : false;
     return isLiveUpdatesUnavailable({
       webSession: !!config.webSession,
       inRoom: !!this.currentChannel,
       hasPubnubToken: !!this.currentChannel?.pubnub_token,
       supportsGetChannel: clubhouseClient.supports('get_channel'),
+      pubnubSubscribeFailed: hubFailed,
     });
   }
 

@@ -34,6 +34,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   pubnubSubscribe: (params) => ipcRenderer.invoke('clubbox:pubnub-subscribe', params),
   pubnubResubscribe: () => ipcRenderer.invoke('clubbox:pubnub-resubscribe'),
   pubnubUnsubscribe: () => ipcRenderer.invoke('clubbox:pubnub-unsubscribe'),
+  ensureRealtimeConfig: () => ipcRenderer.invoke('clubbox:ensure-realtime-config'),
+  connectionStatus: () => ipcRenderer.invoke('clubbox:connection-status'),
   onPubNubMessage: (callback) => {
     const listener = (_event, message) => callback(message);
     ipcRenderer.on('clubbox:pubnub-message', listener);
@@ -43,5 +45,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const listener = (_event, status) => callback(status);
     ipcRenderer.on('clubbox:pubnub-status', listener);
     return () => ipcRenderer.removeListener('clubbox:pubnub-status', listener);
+  },
+  onRealtimeConfig: (callback) => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on('clubbox:realtime-config', listener);
+    return () => ipcRenderer.removeListener('clubbox:realtime-config', listener);
   },
 });

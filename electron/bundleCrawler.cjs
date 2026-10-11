@@ -188,14 +188,18 @@ function discoveryReport(scripts, realtime) {
  * @param {{
  *   userDataPath: string,
  *   projectRoot: string,
+ *   writeProjectArtifacts?: boolean,
  *   fetchFn?: typeof fetch,
  *   sleepFn?: (ms: number) => Promise<void>,
  *   now?: () => number,
  * }} options
+ * writeProjectArtifacts: only npm run api:discover. Runtime/packaged must omit or pass false
+ * so the app never writes api-captures/* or electron/webApiRoutes.json.
  */
 function createBundleCrawler(options) {
   const userDataPath = options.userDataPath;
   const projectRoot = options.projectRoot;
+  const writeProjectArtifacts = options.writeProjectArtifacts === true;
   const fetchFn = options.fetchFn || globalThis.fetch.bind(globalThis);
   const sleepFn = options.sleepFn || sleep;
   const now = options.now || Date.now;
@@ -282,19 +286,23 @@ function createBundleCrawler(options) {
       throw new Error('Refusing to write realtime-config.json: redaction check failed');
     }
     fs.writeFileSync(realtimeConfigPath, secretsText);
-
-    const existing = readJson(callsitePath, { scripts: [], realtime: {} });
-    const scripts = mergeScripts(existing.scripts || [], analyzed);
-    const realtime = aggregateRealtime(scripts);
-    const payload = { scripts, realtime, buildId, crawledAt: new Date(now()).toISOString() };
-    writeJsonChecked(callsitePath, payload);
     writeJsonChecked(metaPath, { buildId, complete: true, chunks: chunkPaths.length, extractorVersion: EXTRACTOR_VERSION });
-    promoteRoutesWithBodies(routesPath, scripts);
 
-    const report = discoveryReport(scripts, realtime);
-    if (outputHasLeak(report)) throw new Error('discovery report failed redaction');
-    ensureDir(path.dirname(reportPath));
-    fs.writeFileSync(reportPath, report);
+    let scripts = analyzed;
+    let reportPathOut = null;
+    if (writeProjectArtifacts) {
+      const existing = readJson(callsitePath, { scripts: [], realtime: {} });
+      scripts = mergeScripts(existing.scripts || [], analyzed);
+      const realtime = aggregateRealtime(scripts);
+      const payload = { scripts, realtime, buildId, crawledAt: new Date(now()).toISOString() };
+      writeJsonChecked(callsitePath, payload);
+      promoteRoutesWithBodies(routesPath, scripts);
+      const report = discoveryReport(scripts, realtime);
+      if (outputHasLeak(report)) throw new Error('discovery report failed redaction');
+      ensureDir(path.dirname(reportPath));
+      fs.writeFileSync(reportPath, report);
+      reportPathOut = reportPath;
+    }
 
     return {
       ok: true,
@@ -302,8 +310,9 @@ function createBundleCrawler(options) {
       buildId,
       chunks: chunkPaths.length,
       scripts: scripts.length,
-      reportPath,
+      reportPath: reportPathOut,
       realtimeConfigPath,
+      writeProjectArtifacts,
     };
   }
 

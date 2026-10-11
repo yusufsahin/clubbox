@@ -392,6 +392,7 @@ const WEB_SESSION_PATHS = require('./webApiRoutes.json');
 let signInWindow = null;
 let lastSignInNotice = '';
 let bundleCrawlInFlight = null;
+let bundleCrawlAttempt = 0;
 let pubnubClient = null;
 
 function readRealtimeConfig() {
@@ -404,12 +405,38 @@ function readRealtimeConfig() {
   }
 }
 
+function hasRealtimeKeys() {
+  const config = readRealtimeConfig();
+  return typeof config.pubnubSubscribeKey === 'string' && config.pubnubSubscribeKey.length > 0
+    && typeof config.agoraAppId === 'string' && /^[a-fA-F0-9]{32}$/.test(config.agoraAppId);
+}
+
 function pushAgoraAppIdFromConfig() {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   const config = readRealtimeConfig();
   const appId = typeof config.agoraAppId === 'string' ? config.agoraAppId : null;
   if (appId && /^[a-fA-F0-9]{32}$/.test(appId)) {
     mainWindow.webContents.send('clubbox:agora-app-id', appId);
+  }
+}
+
+function logRealtimeShape(record) {
+  try {
+    appendApiLog(app.getPath('userData'), {
+      endpoint: record.endpoint,
+      method: 'REALTIME',
+      path: record.path || record.endpoint,
+      status: typeof record.status === 'number' ? record.status : (record.ok ? 200 : 0),
+      ok: !!record.ok,
+      body: {},
+      responseBody: '',
+      error: record.error || '',
+      appVersion: CH_WEB_APP_VERSION,
+      kind: record.kind || 'realtime',
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.warn('[Clubbox] realtime log failed:', err instanceof Error ? err.message : err);
   }
 }
 
@@ -422,6 +449,16 @@ function ensurePubNubClient() {
       mainWindow.webContents.send('clubbox:pubnub-message', message);
     },
     onStatus: (status) => {
+      if (status?.reconnecting || status?.connected === false) {
+        logRealtimeShape({
+          endpoint: 'pubnub_status',
+          path: 'pubnub_status',
+          ok: !!status?.connected,
+          status: status?.connected ? 200 : 0,
+          error: status?.reconnecting ? 'reconnecting' : 'disconnected',
+          kind: 'realtime',
+        });
+      }
       if (!mainWindow || mainWindow.isDestroyed()) return;
       mainWindow.webContents.send('clubbox:pubnub-status', status);
     },
@@ -429,32 +466,75 @@ function ensurePubNubClient() {
   return pubnubClient;
 }
 
-function scheduleBundleCrawl() {
-  if (bundleCrawlInFlight) return;
+function scheduleBundleCrawl(options = {}) {
+  if (bundleCrawlInFlight) return bundleCrawlInFlight;
+  const force = options.force === true;
+  // Runtime never writes project artifacts (packaged app.asar is read-only; shipping route table must not change at runtime).
   const crawler = createBundleCrawler({
     userDataPath: app.getPath('userData'),
     projectRoot: path.join(__dirname, '..'),
+    writeProjectArtifacts: false,
     fetchFn: (url, init) => session.defaultSession.fetch(url, init),
   });
-  bundleCrawlInFlight = crawler.crawl().then((result) => {
+  bundleCrawlInFlight = crawler.crawl({ force }).then((result) => {
     if (result.ok && result.reason === 'crawled') {
       console.log(`[Clubbox] bundle crawl done buildId=${result.buildId} chunks=${result.chunks}`);
+      bundleCrawlAttempt = 0;
       try {
         fs.writeFileSync(path.join(app.getPath('userData'), 'web-session-ok'), '1');
       } catch {
         // ignore
       }
+      logRealtimeShape({ endpoint: 'bundle_crawl', path: 'bundle_crawl', ok: true, status: 200, kind: 'realtime' });
     } else if (result.ok && result.reason === 'cache_hit') {
       console.log(`[Clubbox] bundle crawl cache hit buildId=${result.buildId}`);
+      bundleCrawlAttempt = 0;
     } else {
       console.warn('[Clubbox] bundle crawl skipped:', result.reason);
+      logRealtimeShape({
+        endpoint: 'bundle_crawl',
+        path: 'bundle_crawl',
+        ok: false,
+        status: 0,
+        error: String(result.reason || 'skipped'),
+        kind: 'realtime',
+      });
+      scheduleBundleCrawlRetry();
     }
     pushAgoraAppIdFromConfig();
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('clubbox:realtime-config', {
+        hasKeys: hasRealtimeKeys(),
+        reason: result.reason || null,
+      });
+    }
+    return result;
   }).catch((err) => {
-    console.warn('[Clubbox] bundle crawl failed:', err instanceof Error ? err.message : err);
+    const message = err instanceof Error ? err.message : String(err);
+    console.warn('[Clubbox] bundle crawl failed:', message);
+    logRealtimeShape({
+      endpoint: 'bundle_crawl',
+      path: 'bundle_crawl',
+      ok: false,
+      status: 0,
+      error: message.slice(0, 120),
+      kind: 'realtime',
+    });
+    scheduleBundleCrawlRetry();
+    return { ok: false, reason: 'error' };
   }).finally(() => {
     bundleCrawlInFlight = null;
   });
+  return bundleCrawlInFlight;
+}
+
+function scheduleBundleCrawlRetry() {
+  bundleCrawlAttempt += 1;
+  if (bundleCrawlAttempt > 4) return;
+  const delay = Math.min(60_000, 5_000 * (2 ** (bundleCrawlAttempt - 1)));
+  setTimeout(() => {
+    scheduleBundleCrawl();
+  }, delay);
 }
 
 function maybeNotifyWebSession(target) {
@@ -669,16 +749,52 @@ async function postWithWebSession(endpoint, body) {
   return { ok: response.ok, status: response.status, body: text };
 }
 
-ipcMain.handle('clubbox:pubnub-subscribe', async (event, payload) => {
+ipcMain.handle('clubbox:ensure-realtime-config', async (event) => {
+  if (!isTrustedSender(event)) return { ok: false, reason: 'unauthorized' };
+  const pending = scheduleBundleCrawl();
+  const result = pending ? await pending : { ok: hasRealtimeKeys(), reason: hasRealtimeKeys() ? 'ready' : 'missing' };
+  return {
+    ok: !!result?.ok || hasRealtimeKeys(),
+    reason: result?.reason || (hasRealtimeKeys() ? 'ready' : 'missing_keys'),
+    hasKeys: hasRealtimeKeys(),
+  };
+});
+
+ipcMain.handle('clubbox:connection-status', async (event) => {
   if (!isTrustedSender(event)) return { ok: false };
   const config = readRealtimeConfig();
+  const hub = pubnubClient;
+  return {
+    ok: true,
+    webSession: fs.existsSync(path.join(app.getPath('userData'), 'web-session-ok')),
+    realtimeKeys: hasRealtimeKeys(),
+    pubnubConnected: !!(hub && typeof hub.isConnected === 'function' ? hub.isConnected() : false),
+    agoraAppIdPresent: typeof config.agoraAppId === 'string' && /^[a-fA-F0-9]{32}$/.test(config.agoraAppId),
+  };
+});
+
+ipcMain.handle('clubbox:pubnub-subscribe', async (event, payload) => {
+  if (!isTrustedSender(event)) return { ok: false, reason: 'unauthorized' };
+  const config = readRealtimeConfig();
   const subscribeKey = typeof config.pubnubSubscribeKey === 'string' ? config.pubnubSubscribeKey : null;
-  if (!subscribeKey || !payload || typeof payload !== 'object') return { ok: false };
+  if (!subscribeKey) {
+    scheduleBundleCrawl();
+    logRealtimeShape({
+      endpoint: 'pubnub_subscribe',
+      path: 'pubnub_subscribe',
+      ok: false,
+      status: 0,
+      error: 'missing_subscribe_key',
+      kind: 'realtime',
+    });
+    return { ok: false, reason: 'missing_subscribe_key' };
+  }
+  if (!payload || typeof payload !== 'object') return { ok: false, reason: 'invalid_payload' };
   const channelId = String(payload.channelId || '');
   const token = String(payload.token || '');
   const origin = String(payload.origin || 'clubhouse.pubnubapi.com');
   const uuid = String(payload.uuid || 'clubbox');
-  if (!channelId || !token) return { ok: false };
+  if (!channelId || !token) return { ok: false, reason: 'missing_channel_or_token' };
   // Only the room's own Clubhouse channels (users.*, channel_user.*, channel_all.*, channel_speakers.*).
   const channels = Array.isArray(payload.channels)
     ? payload.channels
@@ -694,7 +810,14 @@ ipcMain.handle('clubbox:pubnub-subscribe', async (event, payload) => {
     heartbeat: payload.heartbeat,
     timeToken: payload.timeToken,
   }, subscribeKey);
-  return { ok: true };
+  logRealtimeShape({
+    endpoint: 'pubnub_subscribe',
+    path: 'pubnub_subscribe',
+    ok: true,
+    status: 200,
+    kind: 'realtime',
+  });
+  return { ok: true, reason: 'subscribed' };
 });
 
 ipcMain.handle('clubbox:pubnub-resubscribe', async (event) => {
@@ -780,6 +903,8 @@ app.whenReady().then(() => {
   if (savedShortcuts) applyGlobalShortcuts(savedShortcuts);
   createWindow();
   startRecorderIfAllowed(process.argv);
+  // Returning signed-in users never reopen /signin — still need PubNub/Agora keys in userData.
+  scheduleBundleCrawl();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
