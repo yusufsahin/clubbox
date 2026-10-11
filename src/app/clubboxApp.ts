@@ -1540,10 +1540,14 @@ export class ClubboxApp {
           this.renderCockpit();
         });
         break;
-      case 'apply-voice-effect':
+      case 'apply-voice-effect': {
         audioEngine.applyVoiceEffect();
+        const applied = audioEngine.getBroadcastEffect();
+        this.audioPrefs.voiceEffectApplied = applied;
+        this.saveAudioPrefs();
         this.showToast(t('voiceEffectApply'), '🎙️');
         break;
+      }
       case 'retry-audio':
         void this.connectRoomAudio(this.roomSession.generation).then(() => {
           this.renderStage();

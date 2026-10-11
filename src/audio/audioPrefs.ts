@@ -1,11 +1,14 @@
 const AUDIO_PREFS_KEY = 'clubbox_audio';
 
+export type StoredVoiceEffect = 'none' | 'radio' | 'deep' | 'robot' | 'echo';
+
 export interface AudioPrefs {
   inputDeviceId: string;
   outputDeviceId: string;
   micVolume: number;
   monitorEnabled: boolean;
   spatialAudioEnabled: boolean;
+  voiceEffectApplied: StoredVoiceEffect;
   remoteVolumes: Record<string, number>;
 }
 
@@ -15,8 +18,16 @@ const DEFAULT_PREFS: AudioPrefs = {
   micVolume: 1,
   monitorEnabled: false,
   spatialAudioEnabled: false,
+  voiceEffectApplied: 'none',
   remoteVolumes: {},
 };
+
+function readVoiceEffect(value: unknown): StoredVoiceEffect {
+  if (value === 'radio' || value === 'deep' || value === 'robot' || value === 'echo' || value === 'none') {
+    return value;
+  }
+  return 'none';
+}
 
 function clampVolume(value: unknown): number {
   const number = typeof value === 'number' ? value : Number(value);
@@ -41,6 +52,7 @@ export function readAudioPrefs(): AudioPrefs {
       micVolume: clampVolume(parsed.micVolume),
       monitorEnabled: parsed.monitorEnabled === true,
       spatialAudioEnabled: parsed.spatialAudioEnabled === true,
+      voiceEffectApplied: readVoiceEffect(parsed.voiceEffectApplied),
       remoteVolumes,
     };
   } catch {

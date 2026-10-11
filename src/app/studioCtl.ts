@@ -316,6 +316,7 @@ export function applyAudioPrefs(this: ClubboxApp) : void {
     audioEngine.setMicVolume(this.audioPrefs.micVolume);
     audioEngine.setMonitorEnabled(this.audioPrefs.monitorEnabled);
     audioEngine.setSpatialAudioEnabled(this.audioPrefs.spatialAudioEnabled === true);
+    audioEngine.restoreAppliedVoiceEffect(this.audioPrefs.voiceEffectApplied || 'none');
     audioEngine.setInputDeviceId(this.audioPrefs.inputDeviceId);
     audioEngine.setOutputDevice(this.audioPrefs.outputDeviceId);
     for (const [uid, volume] of Object.entries(this.audioPrefs.remoteVolumes)) {

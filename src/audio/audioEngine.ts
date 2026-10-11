@@ -465,6 +465,12 @@ export class AudioEngine {
     if (this.micGain) this.wireMicEffects();
   }
 
+  /** Restore a previously applied effect (e.g. from audioPrefs) without preview. */
+  public restoreAppliedVoiceEffect(effect: VoiceEffectId): void {
+    this.voiceEffects = { selected: effect, applied: effect, previewActive: false };
+    if (this.micGain) this.wireMicEffects();
+  }
+
   public getVoiceEffectState(): VoiceEffectState {
     return { ...this.voiceEffects };
   }
