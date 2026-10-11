@@ -1344,8 +1344,21 @@ export class ClubboxApp {
       case 'open-conversation':
         if (el.dataset.conversationId) {
           this.currentTab = 'messages';
-          void this.loadConversations();
-          void this.openConversationThread(el.dataset.conversationId);
+          const known = this.conversations.find((entry) => entry.conversation_id === el.dataset.conversationId);
+          if (known) {
+            const kind = conversationKind(known);
+            this.messageFilter = kind === 'house' || kind === 'vm' ? kind : 'all';
+          } else {
+            this.messageFilter = 'all';
+          }
+          void this.loadConversations().then(() => {
+            const loaded = this.conversations.find((entry) => entry.conversation_id === el.dataset.conversationId);
+            if (loaded) {
+              const kind = conversationKind(loaded);
+              this.messageFilter = kind === 'house' || kind === 'vm' ? kind : 'all';
+            }
+            return this.openConversationThread(el.dataset.conversationId!);
+          });
         }
         break;
       case 'hide-room': {
