@@ -13,12 +13,13 @@ Do these before continuing the Autonomous plan, then tick them:
 
 ### Last autonomous run (2026-10-11)
 
-- Autonomous plan already **Done** through **11.8 (strict)**; this devam wired Messages segment reactions.
-- Done: Thread react pad (`send_conversation_emoji_reaction`); failures surface via toast + API Health; DESIGN Today updated.
-- Tests: `npm test` — **120** unit + **123 BDD** + trace strict; tsc/lint/build green.
+- Autonomous plan already **Done** through **11.8 (strict)**; this devam applied Phase 8 Help Center copy.
+- Done: Audience / Messages / Clips / replays-default i18n (en+tr); Status row 8 updated; `createDefaults` regression test.
+- Remaining product gaps need undocumented bodies (`gif_reaction`, conversation delete/title, replay chunk) or owner capture / packaged e2e / ST-9 & DX.
+- Tests: `npm test` — **119** unit + **123 BDD** + trace strict; tsc/lint/build green. Stopped: no further shippable work without inventing bodies or owner capture.
 - Blocked: `test:e2e:packaged`; owner live room capture (0.9 S1–S3); topic-chip request body uncaptured.
 - Still @pending: ST-9 deferred; room_host DX-1/DX-3.
-- Questions for the owner: Capture a topic-chip click on clubhouse.com (`get_feed_v3` body) so Hallway topics can filter server-side.
+- Questions for the owner: Capture a topic-chip click on clubhouse.com (`get_feed_v3` body) so Hallway topics can filter server-side. Also capture conversation delete/title bodies and a replay chunk if those UIs should ship next.
 
 ## Status
 
@@ -36,7 +37,7 @@ Legend: **Uygulandı** = code is in the tree. **Canlı doğrulandı** = exercise
 | — | 0.1–0.4 Rename, mock data, recorder, web-session regressions | Uygulandı |
 | — | 1–4 Audio, live API, identity, UI wiring | Uygulandı; live room parts not verified |
 | — | 5 / 7 Security and review bugs | Uygulandı; see 0.7 for what is still open |
-| — | 8 Clubhouse parity | Uygulandı for captured fields only; Help Center corrections in the Phase 8 intro still to apply (privacy model, Messages, Clips, moderator tools) |
+| — | 8 Clubhouse parity | Uygulandı for captured fields only. Help Center copy applied for audiences, Messages (VM/House + archive), replays-default note, and local-vs-Clubhouse Clips. Moderator chat delete / pinned link still wait on documented bodies. |
 | — | 9 Studio features (devices, soundboard, global shortcuts, packaging) | Uygulandı (packaging + updater: see 0.6 step 5) |
 
 ## Project context (include with every task)
