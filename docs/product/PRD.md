@@ -177,22 +177,22 @@ These appear in `create_channel` / `me` responses (`user_capabilities`, `channel
 | DX-14 | Highlights (`get_highlight`, `are_highlights_enabled`) | Play like replays (GET path `{id}`) | P3 |
 | DX-15 | Clubhouse Talk (`talk/*` paid advisor calls) | Out of scope (payments) | Won't |
 
-### 4.9 Navigation (see NAVIGATION.md)
+### 4.9 Navigation (see NAVIGATION.md v2)
 
 | ID | Feature | HC | CD | Today | Evidence | Priority |
 | --- | --- | --- | --- | --- | --- | --- |
-| NAV-1 | Sidebar with only the agreed sections (Hallway, Discover, Messages, Activity, Soundboard, Recordings) | | | ❌ | — | P1 |
-| NAV-2 | Friends/Houses/Events/API&Config moved to Discover, Activity and Settings | | | ❌ | — | P1 |
-| NAV-3 | One "Start a room" entry (top bar) + Ctrl+N | | | ❌ | — | P1 |
-| NAV-4 | Room is a context: header keeps the current page; cockpit + "Now in" card | | | ❌ | — | P1 |
-| NAV-5 | Minimize returns to the previous page | | | ❌ | — | P1 |
-| NAV-6 | Router with Back/Forward (Alt+←/→, mouse buttons), breadcrumbs, Esc closes top layer | | | ❌ | — | P1 |
-| NAV-7 | Exactly one active indicator (avatar for profile/settings) | | | ❌ | — | P1 |
-| NAV-8 | Per-section state kept (scroll, tab, open item) | | | ❌ | — | P2 |
-| NAV-9 | Badges only for attention (unread, live) | | | ❌ | — | P1 |
-| NAV-10 | Settings split: General, Audio, Shortcuts, Account, Privacy & recording, Advanced | | | ❌ | — | P1 |
-| NAV-11 | Global search + paste clubhouse.com link (Ctrl+K) | | | ❌ | — | P1 |
-| NAV-12 | Section shortcuts Ctrl+1…5, Ctrl+, | | | ❌ | — | P2 |
+| NAV-1 | Sidebar: Hallway, Discover, Messages, Activity, Soundboard + profile card and ⚙ | | | ❌ | — | P1 |
+| NAV-2 | Friends + Houses merged into Discover; Events into Activity; API & Config into Settings | | | ❌ | — | P1 |
+| NAV-3 | One "Start a room" button (top bar) + Ctrl+N | | | ❌ | — | P1 |
+| NAV-4 | Room = bottom bar on every page; header keeps the current page | | | ❌ | — | P1 |
+| NAV-5 | Minimize and Leave return to the previous page | | | ❌ | — | P1 |
+| NAV-6 | Back arrow + Esc on every sub-page (simple previous-view stack) | | | ❌ | — | P1 |
+| NAV-7 | Exactly one highlighted item | | | ❌ | — | P1 |
+| NAV-8 | Per-section state cache | | | ❌ | — | Won't |
+| NAV-9 | Badges only for Messages (count) and Activity (dot) | | | ❌ | — | P1 |
+| NAV-10 | Settings: General, Audio, Account + collapsed Advanced | | | ❌ | — | P1 |
+| NAV-11 | Global Ctrl+K search (Discover search covers it) | | | ❌ | — | Won't |
+| NAV-12 | Section shortcuts Ctrl+1…5 | | | ❌ | — | Won't |
 | NAV-13 | No duplicated page titles | | | ❌ | — | P2 |
 | NAV-14 | No placeholder "??" toast icons | | | ❌ | — | P1 |
 

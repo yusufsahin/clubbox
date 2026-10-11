@@ -10,7 +10,7 @@ Light mode is broken and dark mode has contrast failures (owner screenshot + aud
 - [x] 15.3 first: contrast test, theme-audit script, e2e axe checks for light and dark (they must fail at first)
 - [ ] 15.1 semantic tokens for both themes; replace the 70 hard-coded colours and 3 undefined variables
 - [ ] 15.2 system-theme listener + nativeTheme, remove/fix the overlapping "Start a Room" FAB, SVG icons in the top bar, HOST label contrast
-- [ ] Phase 16 — navigation & IA (docs/product/NAVIGATION.md, features/navigation.feature): 16.1 router/history → 16.2 shell → 16.3 search, shortcuts, settings split
+- [ ] Phase 16 — simplified navigation (NAVIGATION.md v2): 16.1 new shell → 16.2 one way back, settings, toasts
 - [ ] Attach light/dark screenshots (reports/theme/) in the summary; commit per item; stop
 ### Last autonomous run (2026-10-11)
 
@@ -1152,38 +1152,27 @@ Acceptance: themeContrast + theme-audit + e2e axe checks green for both themes; 
 
 ---
 
-## Phase 16 — Navigation & information architecture
+## Phase 16 — Navigation, simplified (v2)
 
-**Source of truth:** `docs/product/NAVIGATION.md` (audit N-1…N-15, target IA, behaviour rules) and `features/navigation.feature` (NAV-1…NAV-14, all @pending). Do Phase 15 (themes) first; 16.2 reuses its SVG icons. TDD: un-pend one scenario at a time.
+**Source of truth:** `docs/product/NAVIGATION.md` v2 and `features/navigation.feature` (all @pending). v1 (router, history, Ctrl+K, Recordings, six settings sections) is cancelled — do not build it. Do Phase 15 (themes) first. TDD: un-pend one scenario at a time. Keep changes small; prefer deleting code over adding it.
 
-### Task 16.1 — Router and history (NAV-5, NAV-6, NAV-7, NAV-8)
-
-```
-1. src/app/router.ts: typed routes from NAVIGATION.md §4.1 (hash-based so file:// works). Route → { section, title, breadcrumb[] , render }. Replace the currentTab union and selfProfileOpen / replay / login special cases with routes; sign-in becomes a gate, not a tab.
-2. History stack with back()/forward(); bind Alt+←/→, mouse buttons 3/4 (Electron: app-command 'browser-backward'/'browser-forward' on the BrowserWindow), toolbar ‹ button, Backspace when no input is focused. Esc closes the topmost sheet/modal before navigating.
-3. Per-section state cache (scroll position, active tab, open conversation, search query) restored on return.
-4. Replace the 11 close-* actions with router.back() / breadcrumb links (keep a sheet close for the profile sheet only).
-5. Unit tests for the router (pure), BDD for NAV-5..8.
-```
-
-### Task 16.2 — New shell: sidebar, top bar, room context (NAV-1, NAV-2, NAV-3, NAV-4, NAV-7, NAV-9, NAV-13)
+### Task 16.1 — New shell (NAV-1, NAV-2, NAV-3, NAV-4, NAV-7, NAV-9, NAV-13)
 
 ```
-1. Sidebar: CLUBHOUSE (Hallway, Discover, Messages, Activity) + STUDIO (Soundboard, Recordings); "Now in: <room>" card only while in a room; user card → #/me. Remove Friends, Houses, Events, Live Stage, Start a Room, API & Config items and the floating Start button.
-2. Merge views: Discover tabs Top / People (suggestions + people you talk to) / Rooms / Houses; house pages under Discover › Houses with breadcrumbs. Activity tabs All / Events (events view moves here).
-3. Top bar: ‹ Back, breadcrumb/title of the current route, global search box (16.3), one "Start a room" button, avatar with menu (Profile, Settings, Theme, Sign out). Remove the envelope and bell (badges move to the sidebar items).
-4. Room context: the room page owns the room header (topic, ON AIR, badges, share, Leave, Minimize). Other pages keep their own header; the cockpit shows the room title (click → room) + mic/hand/record/Leave. Minimize = router.back(). Leaving returns to the page before the room.
-5. Badges: Messages unread count, Activity dot, live pulse on "Now in"; remove Hallway and Soundboard counts.
-6. Remove page-level H2s that repeat the header title.
-7. Recordings page (P2): list local recordings, clips and chapter files saved by Clubbox (from the download folder metadata Clubbox already writes, or a small index file in userData); open folder / play / delete.
+1. Sidebar: Hallway, Discover, Messages (unread count), Activity (dot), Soundboard; bottom: profile card (opens my profile) + ⚙ (opens Settings). Delete the Friends, Houses, Events, Live Stage, Start a Room and API & Config items, the mini player, the floating Start button, and the ✉ / 🔔 / avatar buttons in the top bar.
+2. Discover page: search box (existing; pasting a clubhouse.com link keeps working), then the "People you may know" + "People you talk to" sections (from Friends), then Houses (from the Houses page). A house opens as a sub-page.
+3. Activity page: one list; events from the Events page appear in it when the API returns them (no tab).
+4. Top bar: [← on sub-pages] + page title + one "Start a room" button. Ctrl+N opens the composer.
+5. While in a room: the bottom bar (cockpit) shows the room title (click → room page) + mic/hand/record/Leave on every page. The room header (topic, share, Minimize, Leave) appears only on the room page. Other pages keep their own title.
+6. Remove the Hallway and Soundboard counts. Remove headings that repeat the top-bar title.
 ```
 
-### Task 16.3 — Global search, shortcuts, settings split (NAV-10, NAV-11, NAV-12, NAV-14)
+### Task 16.2 — One way back, settings, toasts (NAV-5, NAV-6, NAV-10, NAV-14)
 
 ```
-1. Ctrl+K search box in the top bar: people / rooms / houses via the observed search endpoint; pasting a clubhouse.com link (room, @user, house, event, replay) routes directly (reuse openClubhouseLink).
-2. Shortcuts: Ctrl+1…5, Ctrl+K, Ctrl+N, Ctrl+, , Ctrl+Shift+R (return to room); a "?" overlay listing them; also shown in Settings › Shortcuts. Do not clash with existing room hotkeys (Space, H, R, C, 1-9 pads) — pads stay without Ctrl.
-3. Settings at #/settings/:section with a left sub-nav: General (language, theme, zoom), Audio (devices, music mode, monitor, voice effects), Shortcuts, Account (sign-in, sign-out, one-device note), Privacy & recording (local recording, clips, request log), Advanced (runtime mode, headers, API Health, experimental actions, evidence log). Reached from the avatar menu and Ctrl+, .
-4. NAV-14: replace the 26 showToast(..., '??') calls with proper icons (or the SVG icon set from Phase 15); add a unit/lint check that rejects '??' as a toast icon.
-Acceptance (Phase 16): navigation.feature green; trace strict mode passes with NAV-1…NAV-14; Playwright e2e walks every route in light and dark mode without console errors; screenshots of the new shell in reports/theme/.
+1. App state gets `viewStack: View[]` (no URL router). Opening a sub-page (house, conversation, replay, people list, my profile, settings, room) pushes the current view; ← and Esc pop it. Esc closes an open sheet/modal first. Replace the 11 close-* actions with this.
+2. Minimize the room = pop; leaving the room = pop to the view before the room.
+3. Settings: one page with General (language, theme, zoom), Audio (devices, music mode, monitor, voice effects, shortcuts), Account (sign-in/out); "Advanced" collapsed at the bottom with runtime mode, headers, API Health, experimental actions, request log.
+4. Replace the 26 showToast(..., '??') icons; add a check in npm test that fails on '??' as a toast icon.
+Acceptance (Phase 16): navigation.feature green; trace strict passes; e2e (sandbox) walks Hallway → Discover → house → back, Messages → conversation → Esc, room → Minimize → back, Settings → Advanced, in light and dark mode without console errors.
 ```
