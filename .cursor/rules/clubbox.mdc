@@ -18,6 +18,7 @@ Electron 44, Vite 8, TypeScript 6, vanilla DOM (no React/Vue/state library), ago
 - Do not edit `features/*.feature` to make a test pass. If a scenario looks wrong, stop and write the question under "Questions for the owner" at the end of `CURSOR_TASKS.md`.
 - Escape every API-controlled string (the `html` tagged template in src/ui/html.ts), URLs through `safeUrl()`. Every user-facing string in `src/i18n/en.ts` and `src/i18n/tr.ts`.
 - No background polling while the window is hidden > 2 min (except active_ping in a room); respect 429 backoff.
+- A phase that changes UI is only done after `npm run test:e2e` passes and fresh `reports/theme/` screenshots exist for the surfaces it touched.
 
 ## Autonomous workflow (no owner involvement needed)
 When the owner writes only "devam", "continue" or "go", run this workflow from step 0 without asking anything.

@@ -56,7 +56,7 @@ export async function loadSuggestions(this: ClubboxApp) : Promise<void> {
 export async function loadHouses(this: ClubboxApp): Promise<void> {
     if (!clubhouseClient.supports('get_user_social_clubs')) {
       this.housesList = [];
-      if (this.currentTab === 'houses') this.render();
+      if (this.currentTab === 'houses' || this.currentTab === 'discover') this.render();
       return;
     }
     try {
@@ -66,7 +66,7 @@ export async function loadHouses(this: ClubboxApp): Promise<void> {
       this.housesList = [];
       this.reportApiError(err);
     }
-    if (this.currentTab === 'houses') this.render();
+    if (this.currentTab === 'houses' || this.currentTab === 'discover') this.render();
   }
 
 export async function openHouse(this: ClubboxApp, slug: string | undefined): Promise<void> {

@@ -96,64 +96,54 @@ test.describe('theme contrast (sandbox)', () => {
         await page.screenshot({ path: path.join(shotDir, `${theme}-discover.png`), fullPage: true });
         await assertNoContrastViolations(page, `${theme} discover`);
 
-        const houseBtn = page.locator('[data-action="open-house"]').first();
-        if (await houseBtn.isVisible().catch(() => false)) {
-          await houseBtn.click({ force: true });
-          await page.waitForTimeout(400);
-          await page.screenshot({ path: path.join(shotDir, `${theme}-house.png`), fullPage: true });
-          await assertNoContrastViolations(page, `${theme} house`);
-          const back = page.locator('[data-action="nav-back"]');
-          if (await back.isVisible().catch(() => false)) await back.click({ force: true });
-        }
+        await expect(page.locator('[data-action="open-house"]').first()).toBeVisible({ timeout: 15_000 });
+        await page.locator('[data-action="open-house"]').first().click({ force: true });
+        await expect(page.locator('body')).toContainText(/Sandbox House|House|Members/i, { timeout: 10_000 });
+        await page.screenshot({ path: path.join(shotDir, `${theme}-house.png`), fullPage: true });
+        await assertNoContrastViolations(page, `${theme} house`);
+        await page.locator('[data-action="nav-back"]').click({ force: true }).catch(async () => {
+          await page.keyboard.press('Escape');
+        });
 
         await page.locator(place('messages')).click({ force: true });
         await page.screenshot({ path: path.join(shotDir, `${theme}-messages.png`), fullPage: true });
         await assertNoContrastViolations(page, `${theme} messages`);
-        const openThread = page.locator('[data-action="open-conversation"]').first();
-        if (await openThread.isVisible().catch(() => false)) {
-          await openThread.click({ force: true });
-          await page.waitForTimeout(300);
-          await page.screenshot({ path: path.join(shotDir, `${theme}-conversation.png`), fullPage: true });
-          await assertNoContrastViolations(page, `${theme} conversation`);
-          await page.keyboard.press('Escape');
-          await page.waitForTimeout(200);
-        }
+        await expect(page.locator('[data-action="open-conversation"]').first()).toBeVisible({ timeout: 10_000 });
+        await page.locator('[data-action="open-conversation"]').first().click({ force: true });
+        await page.waitForTimeout(300);
+        await page.screenshot({ path: path.join(shotDir, `${theme}-conversation.png`), fullPage: true });
+        await assertNoContrastViolations(page, `${theme} conversation`);
+        await page.keyboard.press('Escape');
+        await page.waitForTimeout(200);
 
         await page.locator(place('activity')).click({ force: true });
         await page.screenshot({ path: path.join(shotDir, `${theme}-activity.png`), fullPage: true });
         await assertNoContrastViolations(page, `${theme} activity`);
 
+        // Composer while not in a room (Start a room lives in the top bar).
         await page.locator(place('explore')).click({ force: true });
-        const room = page.locator('[data-action="join-room"]').first();
-        if (await room.count()) {
-          await room.click({ force: true });
-          await page.waitForTimeout(500);
-        }
-        await page.locator(place('stage')).click({ force: true }).catch(() => undefined);
-        await expect(page.locator('#cockpit-root, [data-room-title], [data-action="leave-room"]').first()).toBeVisible({ timeout: 15_000 });
+        await page.locator('[data-action="create-room"]').first().click({ force: true });
+        await expect(page.locator('[data-create-composer] .room-type-list')).toBeVisible({ timeout: 10_000 });
+        await page.screenshot({ path: path.join(shotDir, `${theme}-modal.png`), fullPage: true });
+        await assertNoContrastViolations(page, `${theme} modal`);
+        await page.keyboard.press('Escape');
+        await expect(page.locator('[data-create-composer]')).toHaveCount(0);
+
+        await expect(page.locator('[data-action="join-room"]').first()).toBeVisible({ timeout: 15_000 });
+        await page.locator('[data-action="join-room"]').first().click({ force: true });
+        await expect(page.locator('[data-action="leave-room"]').first()).toBeVisible({ timeout: 15_000 });
+        await expect(page.locator('[data-cockpit="room"], [data-room-title]').first()).toBeVisible({ timeout: 10_000 });
         await page.screenshot({ path: path.join(shotDir, `${theme}-stage.png`), fullPage: true });
         await assertNoContrastViolations(page, `${theme} stage`);
 
-        const detailsBtn = page.locator('[data-action="open-room-details"]');
-        if (await detailsBtn.isVisible().catch(() => false)) {
-          await detailsBtn.click({ force: true });
-          await expect(page.locator('[data-room-details]')).toBeVisible({ timeout: 5_000 });
-          await page.screenshot({ path: path.join(shotDir, `${theme}-room-details.png`), fullPage: true });
-          await assertNoContrastViolations(page, `${theme} room details`);
-          await page.locator('[data-action="close-room-details"]').click({ force: true });
-        }
+        await page.locator('[data-action="open-room-details"]').click({ force: true });
+        await expect(page.locator('[data-room-details]')).toBeVisible({ timeout: 5_000 });
+        await page.screenshot({ path: path.join(shotDir, `${theme}-room-details.png`), fullPage: true });
+        await assertNoContrastViolations(page, `${theme} room details`);
+        await page.locator('[data-action="close-room-details"]').click({ force: true });
 
-        await page.locator('[data-action="leave-room"]').first().click({ force: true }).catch(() => undefined);
-
-        const createBtn = page.locator('[data-action="create-room"]').first();
-        if (await createBtn.isVisible().catch(() => false)) {
-          await createBtn.click({ force: true });
-          await page.waitForTimeout(300);
-          await expect(page.locator('[data-create-composer] .room-type-list')).toBeVisible();
-          await page.screenshot({ path: path.join(shotDir, `${theme}-modal.png`), fullPage: true });
-          await assertNoContrastViolations(page, `${theme} modal`);
-          await page.keyboard.press('Escape');
-        }
+        await page.locator('[data-action="leave-room"]').first().click({ force: true });
+        await expect(page.locator(place('explore'))).toBeVisible({ timeout: 10_000 });
 
         await page.locator('[data-action="open-settings"]').click({ force: true });
         const advanced = page.locator('.settings-advanced');

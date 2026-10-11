@@ -99,7 +99,7 @@ test('sandbox studio path: join, hand, pad, chat, leave, messages, theme', async
     await expect(page.locator('[data-action="join-room"]').first()).toBeVisible({ timeout: 15_000 });
     await page.locator('[data-action="join-room"]').first().click();
     await expect(page.locator('body')).toContainText(/Leave|Leave quietly|Stage|Mute/i, { timeout: 15_000 });
-    await expect(page.locator('#cockpit-root, .room-bar, [data-room-title]').first()).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('[data-cockpit="room"], [data-room-title]').first()).toBeVisible({ timeout: 10_000 });
 
     const detailsBtn = page.locator('[data-action="open-room-details"]');
     if (await detailsBtn.isVisible().catch(() => false)) {
@@ -161,9 +161,14 @@ test('sandbox studio path: join, hand, pad, chat, leave, messages, theme', async
     }
 
     await page.locator('[data-action="open-settings"]').click();
+    await expect(page.locator('#cfg-theme')).toBeVisible({ timeout: 10_000 });
     await page.locator('#cfg-theme').selectOption('dark');
     await page.locator('#cfg-language').selectOption('tr');
-    await page.locator('[data-action="save-settings"]').click();
+    await page.evaluate(() => {
+      const root = document.getElementById('view-root');
+      if (root) root.scrollTop = root.scrollHeight;
+      (document.querySelector('[data-action="save-settings"]') as HTMLButtonElement | null)?.click();
+    });
     await expect(page.locator('body')).toContainText(/Ayarlar|Clubbox/i, { timeout: 10_000 });
 
     // Navigation guard: external location changes must not leave the app document.
