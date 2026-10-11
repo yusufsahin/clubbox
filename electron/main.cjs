@@ -60,6 +60,23 @@ function isClubhouseHttps(target) {
   return host === 'clubhouse.com' || host.endsWith('.clubhouse.com');
 }
 
+/** Profile social links + Clubhouse pages — opened via shell.openExternal. */
+function isAllowedExternalHttps(target) {
+  if (isClubhouseHttps(target)) return true;
+  let url;
+  try {
+    url = new URL(target);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== 'https:') return false;
+  if (url.username || url.password) return false;
+  const host = url.hostname.toLowerCase();
+  return host === 'x.com' || host === 'www.x.com'
+    || host === 'twitter.com' || host === 'www.twitter.com'
+    || host === 'instagram.com' || host === 'www.instagram.com';
+}
+
 function isTrustedSender(event) {
   if (!mainWindow || mainWindow.isDestroyed()) return false;
   const contents = mainWindow.webContents;
@@ -138,7 +155,7 @@ function createWindow() {
     if (!isAppDocumentUrl(url)) event.preventDefault();
   });
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (isClubhouseHttps(url)) {
+    if (isAllowedExternalHttps(url)) {
       shell.openExternal(url).catch(() => {});
     }
     return { action: 'deny' };

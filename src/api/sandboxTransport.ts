@@ -4,6 +4,7 @@ import {
   INITIAL_MOCK_CHANNELS,
   MOCK_ME,
   SANDBOX_CHAT_MESSAGES,
+  SANDBOX_PROFILES,
   sandboxPeoplePage,
 } from './sandboxData';
 import type {
@@ -41,6 +42,14 @@ interface SandboxInput {
 
 function readRequestBody(body: RequestBody | undefined): SandboxInput {
   const record = body ?? {};
+  const userIds = Array.isArray(record.user_ids)
+    ? record.user_ids.filter((id): id is number => typeof id === 'number' && Number.isFinite(id))
+    : undefined;
+  const privacy = typeof record.privacy_level === 'string' ? record.privacy_level : undefined;
+  let audience = typeof record.audience === 'string' ? record.audience : undefined;
+  if (!audience && privacy === 'friend') audience = 'friends';
+  if (!audience && privacy === 'friend_of_friend') audience = 'friends-of-friends';
+  const talkFromIds = userIds && userIds.length > 0 ? userIds[0] : undefined;
   return {
     channel: typeof record.channel === 'string' ? record.channel : undefined,
     userId: typeof record.user_id === 'number' ? record.user_id : undefined,
@@ -49,10 +58,10 @@ function readRequestBody(body: RequestBody | undefined): SandboxInput {
     topic: typeof record.topic === 'string' ? record.topic : undefined,
     isPrivate: record.is_private === true,
     isSocial: record.is_social_mode === true,
-    audience: typeof record.audience === 'string' ? record.audience : undefined,
+    audience,
     replayEnabled: record.is_replay_enabled !== false,
     chatEnabled: record.is_chat_enabled !== false,
-    talkUserId: typeof record.talk_user_id === 'number' ? record.talk_user_id : undefined,
+    talkUserId: typeof record.talk_user_id === 'number' ? record.talk_user_id : talkFromIds,
     talkUserName: typeof record.talk_user_name === 'string' ? record.talk_user_name : undefined,
     talkUserUsername: typeof record.talk_user_username === 'string' ? record.talk_user_username : undefined,
     cursor: typeof record.next_cursor === 'string' && record.next_cursor.length > 0 ? record.next_cursor : undefined,
@@ -624,15 +633,21 @@ export class SandboxBackend {
       case 'get_profile': {
         const username = typeof input.username === 'string' ? input.username.replace(/^@/, '') : '';
         if (username) {
-          const byName = this.mockChannels
-            .flatMap((c) => c.users)
-            .find((u) => u.username === username);
+          const named = Object.values(SANDBOX_PROFILES).find((u) => u.username === username);
+          const byName = named
+            || this.mockChannels.flatMap((c) => c.users).find((u) => u.username === username);
           return {
             success: true,
             user_profile: byName || { ...MOCK_ME, username, name: username },
           } as T;
         }
         const userId = input.userId;
+        if (userId != null && SANDBOX_PROFILES[userId]) {
+          return { success: true, user_profile: SANDBOX_PROFILES[userId] } as T;
+        }
+        if (userId === MOCK_ME.user_id) {
+          return { success: true, user_profile: { ...MOCK_ME } } as T;
+        }
         const channelUser = this.mockChannels
           .flatMap((c) => c.users)
           .find((u) => u.user_id === userId);
@@ -640,6 +655,22 @@ export class SandboxBackend {
           success: true,
           user_profile: channelUser || MOCK_ME,
         } as T;
+      }
+
+      case 'create_conversation': {
+        const ids = Array.isArray(body?.user_ids)
+          ? body.user_ids.filter((id): id is number => typeof id === 'number')
+          : [];
+        const peerId = ids[0];
+        if (peerId == null) return { success: true } as T;
+        const profile = SANDBOX_PROFILES[peerId]
+          || this.mockChannels.flatMap((c) => c.users).find((u) => u.user_id === peerId);
+        const id = this.startVm({
+          userId: peerId,
+          name: profile?.name || `User ${peerId}`,
+          username: profile?.username || `user${peerId}`,
+        });
+        return { success: true, conversation_id: id } as T;
       }
 
       case 'get_followers':

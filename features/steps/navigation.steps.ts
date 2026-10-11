@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { Given, When, Then } from '@cucumber/cucumber';
+import { readProfile } from '../../src/api/relationship.ts';
 import { t } from '../../src/i18n/index.ts';
+import { selfProfilePage } from '../../src/ui/components/profileDrawer.ts';
+import { markup } from '../../src/ui/html.ts';
 import { sidebarPlaceLabels } from '../../src/ui/shellChrome.ts';
 import { homeForFormerPlace } from '../../src/ui/navMap.ts';
 import { popView, pushView } from '../../src/app/viewStack.ts';
@@ -124,6 +127,51 @@ When('I open my profile', function (this: ClubboxWorld) {
   ui.selfProfileOpen = true;
   ui.settingsOpen = false;
   paintNavUi(this);
+  // Full self profile page (SO-9) for profile.feature assertions.
+  const me = readProfile({
+    user_id: 100982,
+    name: 'Sandbox User',
+    username: 'sandbox',
+    photo_url: null,
+    bio: 'My bio',
+    share_url: 'https://www.clubhouse.com/@sandbox',
+    num_followers: 10,
+    num_following: 5,
+    num_cofollows: 2,
+    chatting_with: [
+      { user_id: 301, name: 'Chloe Davis', username: 'chloed', photo_url: null },
+    ],
+    social_clubs: [
+      { social_club_id: 1, name: 'Sandbox House', slug: 'h1', photo_url: null },
+    ],
+  });
+  if (me) {
+    let root = this.dom.window.document.getElementById('profile-drawer');
+    if (!root) {
+      root = this.dom.window.document.createElement('div');
+      root.id = 'profile-drawer';
+      this.dom.window.document.body.appendChild(root);
+    }
+    root.innerHTML = markup(selfProfilePage({
+      profile: me,
+      canChangeRelationship: false,
+      canInvite: false,
+      loading: false,
+      showVolume: false,
+      remoteVolume: 1,
+      requestedFollowingCount: null,
+      placeLabel: 'Hallway',
+      canMessage: false,
+      canDm: false,
+      canWave: false,
+      voiceMode: false,
+      privateLines: [],
+      listEnabled: { followers: false, following: false },
+      inRoomNow: null,
+      isSelf: true,
+      isPrivateLocked: false,
+    }));
+  }
 });
 
 Then('my profile card is highlighted', function (this: ClubboxWorld) {

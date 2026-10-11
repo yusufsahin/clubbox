@@ -49,6 +49,8 @@ test('captured counts stay separate and unknown status does not become a friend'
   assert.equal(relationshipFromStatus(undefined), 'unknown');
   assert.equal(relationshipFromStatus(''), 'unknown');
   assert.equal(isFriend(profile), false);
+  assert.equal(isFriend({ follow_status: 'following', follows_me: true }), true);
+  assert.equal(isFriend({ follow_status: 'following', follows_me: false }), false);
 });
 
 test('following id list length is not a following count', () => {

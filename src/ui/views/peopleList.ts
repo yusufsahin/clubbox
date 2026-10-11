@@ -6,7 +6,10 @@ import { html, type SafeHtml } from '../html';
 
 export function peopleListTitle(kind: PeopleListKind): string {
   if (kind === 'followers') return t('followers');
-  return t('following');
+  if (kind === 'following') return t('following');
+  if (kind === 'friends') return t('profileFriends');
+  if (kind === 'mutual_follows') return t('mutualFollows');
+  return t('mutualFriends');
 }
 
 export function peopleListView(state: {
@@ -14,8 +17,22 @@ export function peopleListView(state: {
   users: CHUser[] | null;
   nextCursor: string | null;
   loadingMore: boolean;
+  unavailable?: boolean;
+  moreNotShown?: number;
 }): SafeHtml {
+  if (state.unavailable) {
+    return html`
+      <div class="list-page people-list" data-people-list-unavailable>
+        <button class="profile-back" type="button" data-action="close-people-list">${t('backToProfile')}</button>
+        <h2>${peopleListTitle(state.kind)}</h2>
+        <p class="list-empty" data-list-unavailable>${t('listsUnavailableWeb')}</p>
+      </div>
+    `;
+  }
   const users = state.users;
+  const more = typeof state.moreNotShown === 'number' && state.moreNotShown > 0
+    ? state.moreNotShown
+    : 0;
   return html`
     <div class="list-page people-list">
       <button class="profile-back" type="button" data-action="close-people-list">${t('backToProfile')}</button>
@@ -33,6 +50,7 @@ export function peopleListView(state: {
           </button>
         </div>
       `)}
+      ${more > 0 ? html`<p class="list-note" data-mutual-more>${t('mutualMoreNotShown', { count: more })}</p>` : ''}
       ${state.nextCursor ? html`
         <button class="btn btn-secondary" type="button" data-action="people-list-more" ${state.loadingMore ? 'disabled' : ''}>${t('peopleListMore')}</button>
       ` : ''}

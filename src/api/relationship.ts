@@ -4,18 +4,41 @@ import type { CHUser } from './types';
 export type Relationship = 'unknown' | 'none' | 'following' | 'follower' | 'friends' | 'requested';
 
 /**
- * Captured follow_status values. Leave this empty until Session E records the strings.
- * Do not guess Clubhouse's names.
+ * Web parseUserProfile follow_status strings (bundle + profile.feature).
+ * following / not_following / requested → Relationship.
  */
-export const FOLLOW_STATUS: Readonly<Record<string, Exclude<Relationship, 'unknown'>>> = {};
+export const FOLLOW_STATUS: Readonly<Record<string, Exclude<Relationship, 'unknown'>>> = {
+  following: 'following',
+  not_following: 'none',
+  requested: 'requested',
+};
 
-/** Sandbox list keys. Live routes stay absent until a capture records the request body. */
-export type PeopleListKind = 'followers' | 'following';
+/** Count boxes + local mutual lists. Web has no followers/following/friends list endpoints. */
+export type PeopleListKind = 'followers' | 'following' | 'friends' | 'mutual_friends' | 'mutual_follows';
 
-export const PEOPLE_LIST_ENDPOINTS: Record<PeopleListKind, string> = {
+export const PEOPLE_LIST_ENDPOINTS: Record<'followers' | 'following', string> = {
   followers: 'get_followers',
   following: 'get_following',
 };
+
+/** Label for the profile follow control (SO-8). */
+export function followControlLabel(user: {
+  follow_status?: string | null;
+  follows_me?: boolean;
+  has_protected_profile?: boolean;
+}): 'Follow' | 'Follow back' | 'Following' | 'Friends' | 'Requested' | 'Request' {
+  const status = typeof user.follow_status === 'string' ? user.follow_status : '';
+  const rel = relationshipFromStatus(status);
+  if (rel === 'requested' || status === 'requested') return 'Requested';
+  if (rel === 'following' || status === 'following') {
+    return user.follows_me === true ? 'Friends' : 'Following';
+  }
+  if (user.has_protected_profile === true && (rel === 'none' || rel === 'unknown')) {
+    return 'Request';
+  }
+  if (user.follows_me === true) return 'Follow back';
+  return 'Follow';
+}
 
 export interface PeopleListPage {
   users: CHUser[];
@@ -45,8 +68,21 @@ export function relationshipFromStatus(status: string | null | undefined): Relat
   return FOLLOW_STATUS[status] ?? 'unknown';
 }
 
-export function isFriend(user: { follow_status?: string | null }): boolean {
-  return relationshipFromStatus(user.follow_status) === 'friends';
+/** Mutual follow — Friends on the profile control (following + follows_me). */
+export function isFriend(user: {
+  follow_status?: string | null;
+  follows_me?: boolean;
+}): boolean {
+  return relationshipFromStatus(user.follow_status) === 'following' && user.follows_me === true;
+}
+
+/** Protected profile locked for non-friends (Help Center / SO-9). */
+export function isPrivateLocked(user: {
+  has_protected_profile?: boolean;
+  follow_status?: string | null;
+  follows_me?: boolean;
+}): boolean {
+  return user.has_protected_profile === true && !isFriend(user);
 }
 
 /** True when they follow me and I have not followed them yet (SO-7). */
@@ -137,8 +173,36 @@ export function readProfile(raw: unknown, depth = 0): CHUser | null {
   };
   if (typeof bio === 'string' && bio.length > 0) user.bio = bio;
   if (typeof record.share_url === 'string') user.share_url = record.share_url;
+  else if (typeof record.url === 'string') user.share_url = record.url;
   if (record.twitter === null || typeof record.twitter === 'string') user.twitter = record.twitter;
   if (record.instagram === null || typeof record.instagram === 'string') user.instagram = record.instagram;
+  const canDm = flag(record.can_dm);
+  const canWave = flag(record.can_wave);
+  if (canDm != null) user.can_dm = canDm;
+  if (canWave != null) user.can_wave = canWave;
+  if (depth === 0 && Array.isArray(record.social_clubs)) {
+    user.social_clubs = record.social_clubs
+      .map((club) => {
+        if (!club || typeof club !== 'object') return null;
+        const row = club as Record<string, unknown>;
+        const clubId = numericId(row.social_club_id);
+        if (clubId == null || typeof row.name !== 'string') return null;
+        return {
+          social_club_id: clubId,
+          name: row.name,
+          slug: typeof row.slug === 'string' ? row.slug : undefined,
+          photo_url: typeof row.photo_url === 'string' ? row.photo_url : null,
+          num_members: countOf(row.num_members),
+        };
+      })
+      .filter((club): club is NonNullable<typeof club> => club != null);
+  }
+  if (depth === 0 && Array.isArray(record.chatting_with)) {
+    user.chatting_with = record.chatting_with
+      .map((entry) => readProfile(entry, 1))
+      .filter((person): person is CHUser => person != null)
+      .slice(0, 5);
+  }
   const followers = countOf(record.num_followers);
   const following = countOf(record.num_following);
   const cofollows = countOf(record.num_cofollows);
@@ -195,6 +259,12 @@ export function mergeProfile(base: CHUser, incoming: CHUser): CHUser {
     displayname: incoming.displayname !== undefined ? incoming.displayname : base.displayname,
     bio: incoming.bio ?? base.bio,
     share_url: incoming.share_url ?? base.share_url,
+    can_dm: incoming.can_dm ?? base.can_dm,
+    can_wave: incoming.can_wave ?? base.can_wave,
+    social_clubs: incoming.social_clubs ?? base.social_clubs,
+    chatting_with: incoming.chatting_with ?? base.chatting_with,
+    twitter: incoming.twitter !== undefined ? incoming.twitter : base.twitter,
+    instagram: incoming.instagram !== undefined ? incoming.instagram : base.instagram,
   };
 }
 

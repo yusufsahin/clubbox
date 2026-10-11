@@ -64,6 +64,11 @@ const REQUEST_BUILDERS: Partial<Record<string, (params: RequestBody) => RequestB
       : undefined;
     const handraisePermission = typeof params.handraisePermission === 'number' ? params.handraisePermission : undefined;
     const link = typeof params.link === 'string' ? params.link : undefined;
+    const userIds = Array.isArray(params.userIds)
+      ? params.userIds.filter((id): id is number => typeof id === 'number' && Number.isFinite(id))
+      : typeof params.talk_user_id === 'number'
+        ? [params.talk_user_id]
+        : undefined;
     const body: RequestBody = createChannelBody(topic, {
       audience,
       replayEnabled,
@@ -71,6 +76,7 @@ const REQUEST_BUILDERS: Partial<Record<string, (params: RequestBody) => RequestB
       socialClubId,
       handraisePermission,
       link,
+      userIds,
     });
     if (params._sandbox === true) {
       if (typeof params.audience === 'string') body.audience = params.audience;

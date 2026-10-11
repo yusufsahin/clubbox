@@ -1,6 +1,6 @@
 import { ApiHealthStore, type ApiHealthFailure, type RedactedRequestLogEntry } from './apiHealth';
 import { canCall, evidenceOf, routeMethod, routePath, routeRecord, type Evidence, type Transport } from './capabilities';
-import { PEOPLE_LIST_ENDPOINTS, readPeopleList, readProfile, type PeopleListKind, type PeopleListPage } from './relationship';
+import { PEOPLE_LIST_ENDPOINTS, readPeopleList, readProfile, type PeopleListPage } from './relationship';
 import { businessFailure, classifyHttpFailure, nextBackoffMs, type ApiErrorKind } from './guards';
 import { FEED_MAX_PAGES, mergeFeedChannels, nextFeedCursor, type FeedPage } from './feedPagination';
 import { parseGiphyId } from './giphyId';
@@ -1179,6 +1179,7 @@ export class ClubhouseApiClient {
     const audience = options.audience ?? 'public';
     const replayEnabled = options.replayEnabled !== false;
     const chatEnabled = options.chatEnabled !== false;
+    const talkUserIds = options.talkWith ? [options.talkWith.userId] : undefined;
     return this.call('create_channel', {
       _sandbox: this.getSandbox() ? true : undefined,
       topic,
@@ -1188,6 +1189,7 @@ export class ClubhouseApiClient {
       socialClubId: options.socialClubId,
       handraisePermission: options.handraisePermission,
       link: options.link,
+      userIds: talkUserIds,
       talk_user_id: options.talkWith?.userId,
       talk_user_name: options.talkWith?.name,
       talk_user_username: options.talkWith?.username,
@@ -1423,7 +1425,7 @@ export class ClubhouseApiClient {
     return this.call('uninvite_speaker', { channel: channelId, user_id: userId });
   }
 
-  public async getPeopleList(kind: PeopleListKind, userId: number, cursor?: string | null): Promise<PeopleListPage> {
+  public async getPeopleList(kind: 'followers' | 'following', userId: number, cursor?: string | null): Promise<PeopleListPage> {
     const endpoint = PEOPLE_LIST_ENDPOINTS[kind];
     if (!this.supports(endpoint)) return { users: [], nextCursor: null };
     const body: RequestBody = { user_id: userId };

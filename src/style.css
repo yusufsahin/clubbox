@@ -2809,6 +2809,21 @@ button.profile-stat-box:hover .stat-value {
   text-align: center;
 }
 
+button.mutual-line {
+  display: block;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  padding: 6px 8px;
+  color: var(--accent-purple-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+button.mutual-line:hover {
+  text-decoration: underline;
+}
+
 .mutual-name {
   background: transparent;
   border: 0;

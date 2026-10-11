@@ -160,8 +160,8 @@ Legend — Today: ✅ works live · ✅* wired (live verification pending) · �
 | SO-5 | Activity / notifications | ✓ | ✓ | ✅ | C (get_notifications) | P2 |
 | SO-6 | Houses: list, page, members, join | ✓ | | ✅ | B (get_social_club*) | P2 |
 | SO-7 | "Follow back" button when someone follows me and I do not follow them (search results, profile) | ✓ | | 🧪 | O (follows_me) | P2 |
-| SO-8 | Profile actions: Message (any time, can_dm), Talk live (can_wave → create_channel friend + user_ids), follow control by follow_status (Follow / Follow back / Following / Friends / Requested), Share | ✓ | ✓ | 🧪 message only in a room; Talk live blocked in live | O/B | P1 |
-| SO-9 | Profile sections: houses (social_clubs), recently chatting (chatting_with, max 5), X/Instagram links, "in a room now · Join", clickable mutual friends/follows lists, private-profile state; own profile adds my houses (get_user_social_clubs) | ✓ | ✓ | ❌ | O/B | P1 |
+| SO-8 | Profile actions: Message (any time, can_dm), Talk live (can_wave → create_channel friend + user_ids), follow control by follow_status (Follow / Follow back / Following / Friends / Requested), Share | ✓ | ✓ | ✅* | O/B | P1 |
+| SO-9 | Profile sections: houses (social_clubs), recently chatting (chatting_with, max 5), X/Instagram links, "in a room now · Join", clickable mutual friends/follows lists, private-profile state; own profile adds my houses (get_user_social_clubs) | ✓ | ✓ | ✅* | O/B | P1 |
 
 ### 4.8 Capabilities discovered in API responses (decided)
 

@@ -132,6 +132,8 @@ export class ClubboxApp {
     users: CHUser[] | null;
     nextCursor: string | null;
     loadingMore: boolean;
+    unavailable?: boolean;
+    moreNotShown?: number;
   } | null = null;
   peopleListSeq = 0;
   openSpeakerMenuId: number | null = null;
@@ -890,7 +892,9 @@ export class ClubboxApp {
       if (this.peopleList && this.peopleList.userId === this.me.user_id) {
         return peopleListView(this.peopleList);
       }
-      const self = this.selectedProfile?.user_id === this.me.user_id ? this.selectedProfile : this.me;
+      const self = this.selectedProfile?.user_id === this.me.user_id
+        ? this.selectedProfile
+        : this.me;
       return selfProfilePage(this.profileState(self));
     }
     if (this.currentTab === 'login') {
@@ -1333,7 +1337,7 @@ export class ClubboxApp {
         }
         break;
       case 'copy-profile-share': {
-        const link = safeUrl(this.me?.share_url);
+        const link = safeUrl(el.dataset.url) || safeUrl(this.selectedProfile?.share_url) || safeUrl(this.me?.share_url);
         if (!link) return;
         void navigator.clipboard.writeText(link).then(() => {
           this.showToast(t('copiedProfile'), '🔗');
@@ -1614,8 +1618,14 @@ export class ClubboxApp {
         void this.sendVm(el.dataset.userId, el.dataset.name, el.dataset.username);
         break;
       case 'talk-live':
-        this.showToast(t('unverifiedAction'), '🔒');
+      case 'profile-talk-live':
+        void this.talkLive(el.dataset.userId, el.dataset.name, el.dataset.username);
         break;
+      case 'profile-message': {
+        const uid = Number(el.dataset.userId || this.selectedProfile?.user_id);
+        if (Number.isFinite(uid)) void this.messageFromProfile(uid);
+        break;
+      }
       case 'private-mode':
         this.privateVoice = el.dataset.mode === 'voice';
         audioEngine.setRoomHeard(!this.privateVoice);
@@ -1829,8 +1839,11 @@ export class ClubboxApp {
       case 'open-people-list': {
         const kind = el.dataset.list;
         const userId = Number(el.dataset.userId);
-        if ((kind === 'followers' || kind === 'following') && Number.isFinite(userId)) {
-          void this.openPeopleList(kind, userId, null);
+        const allowed: PeopleListKind[] = [
+          'followers', 'following', 'friends', 'mutual_friends', 'mutual_follows',
+        ];
+        if (kind && (allowed as string[]).includes(kind) && Number.isFinite(userId)) {
+          void this.openPeopleList(kind as PeopleListKind, userId, null);
         }
         break;
       }

@@ -76,7 +76,8 @@ These names do not appear anywhere in the downloaded web bundle. The web client 
 
 ## Notes for binding
 
-- `create_channel` also accepts `social_club_id` (house rooms), `handraise_permission` (hand-raise setting at creation) and `link` (pinned link at creation).
+- `create_channel` also accepts `social_club_id` (house rooms), `handraise_permission` (hand-raise setting at creation) and `link` (pinned link at creation). Talk-live from a profile uses `privacy_level: "friend"` and `user_ids: [peerId]` (same keys as the composer).
+- `create_conversation` from a profile uses `source: 14` (same source the web client passes at createConversation call sites in the bundle).
 - `get_profile` accepts `{user_id}` or `{username}`.
 - Replays and highlights use path params: `GET /web_api/get_replay_channel/{channel}`, `GET /web_api/get_replay_channel_chunk/{channel}/{chunk}`, `GET /web_api/get_highlight/{id}/`.
 - Web listening join uses a path form `/web_api/join_channel/{channel}/` with a reCAPTCHA token — out of scope (Clubbox never runs reCAPTCHA).

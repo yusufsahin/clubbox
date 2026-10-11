@@ -556,6 +556,18 @@ Given('I host the room {string} with replays off', async function (this: Clubbox
 });
 
 Then('I do not see {string} or {string}', function (this: ClubboxWorld, a: string, b: string) {
+  const sheet = this.dom.window.document.getElementById('profile-drawer');
+  if (sheet?.querySelector('[data-profile="other"]')) {
+    if (a === 'Message' || b === 'Message') {
+      assert.equal(sheet.querySelector('[data-action="profile-message"]'), null);
+    }
+    if (a === 'Talk live' || b === 'Talk live') {
+      assert.equal(sheet.querySelector('[data-action="profile-talk-live"]'), null);
+    }
+    if (a !== 'Message' && a !== 'Talk live') assert.ok(!(sheet.textContent ?? '').includes(a));
+    if (b !== 'Message' && b !== 'Talk live') assert.ok(!(sheet.textContent ?? '').includes(b));
+    return;
+  }
   assert.ok(!this.uiMessages.includes(a));
   assert.ok(!this.uiMessages.includes(b));
   // Composer never surfaces these mobile-only labels.

@@ -120,6 +120,29 @@ test.describe('theme contrast (sandbox)', () => {
         await page.screenshot({ path: path.join(shotDir, `${theme}-activity.png`), fullPage: true });
         await assertNoContrastViolations(page, `${theme} activity`);
 
+        // Profile sheet (other person) + my profile page.
+        await page.locator(place('explore')).click({ force: true });
+        await expect(page.locator('[data-action="join-room"]').first()).toBeVisible({ timeout: 15_000 });
+        await page.locator('[data-action="join-room"]').first().click({ force: true });
+        await expect(page.locator('[data-action="leave-room"]').first()).toBeVisible({ timeout: 15_000 });
+        await page.locator('.speaker-card[data-action="open-profile"]:not(.me-speaker)').first().click({ force: true });
+        await expect(page.locator('#profile-drawer.open, [data-profile="other"]').first()).toBeVisible({ timeout: 10_000 });
+        await page.screenshot({ path: path.join(shotDir, `${theme}-profile.png`), fullPage: true });
+        await assertNoContrastViolations(page, `${theme} profile`);
+        await page.locator('[data-action="close-profile"]').click({ force: true }).catch(async () => {
+          await page.keyboard.press('Escape');
+        });
+        await page.locator('[data-action="leave-room"]').first().click({ force: true });
+        await expect(page.locator(place('explore'))).toBeVisible({ timeout: 10_000 });
+
+        await page.locator('[data-action="sidebar-user"]').click({ force: true });
+        await expect(page.locator('[data-profile="self"], .profile-page').first()).toBeVisible({ timeout: 10_000 });
+        await page.screenshot({ path: path.join(shotDir, `${theme}-my-profile.png`), fullPage: true });
+        await assertNoContrastViolations(page, `${theme} my profile`);
+        await page.locator('[data-action="close-self-profile"], [data-action="nav-back"]').first().click({ force: true }).catch(async () => {
+          await page.keyboard.press('Escape');
+        });
+
         // Composer while not in a room (Start a room lives in the top bar).
         await page.locator(place('explore')).click({ force: true });
         await page.locator('[data-action="create-room"]').first().click({ force: true });

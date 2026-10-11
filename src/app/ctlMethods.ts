@@ -76,6 +76,7 @@ export type ClubboxAppCtlMethods = {
   profileState: typeof profileCtl.profileState;
   renderProfileDrawer: typeof profileCtl.renderProfileDrawer;
   talkLive: typeof profileCtl.talkLive;
+  messageFromProfile: typeof profileCtl.messageFromProfile;
   sendVm: typeof profileCtl.sendVm;
   sendPrivateMessage: typeof profileCtl.sendPrivateMessage;
   findKnownUser: typeof profileCtl.findKnownUser;

@@ -28,6 +28,10 @@ export interface CHUser {
   /** Raw get_profile string. Unmapped values stay an unknown relationship. */
   follow_status?: string;
   has_protected_profile?: boolean;
+  can_dm?: boolean;
+  can_wave?: boolean;
+  social_clubs?: { social_club_id: number; name: string; slug?: string; photo_url?: string | null; num_members?: number }[];
+  chatting_with?: CHUser[];
   is_speaker?: boolean;
   is_moderator?: boolean;
   is_muted?: boolean;
