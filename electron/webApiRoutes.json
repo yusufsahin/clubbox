@@ -32,7 +32,7 @@
   "create_channel": {
     "path": "/web_api/create_channel",
     "method": "POST",
-    "evidence": "configured-unverified",
+    "evidence": "observed",
     "mutation": true
   },
   "get_profile": {

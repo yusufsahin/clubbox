@@ -24,7 +24,7 @@ If a list name is only `in-bundle, not observed`, leave it. Do not add a button 
 - `audience_reply` — configured
 - `become_speaker` — configured
 - `complete_phone_number_web_auth` — in-bundle, not observed
-- `create_channel` — configured
+- `create_channel` — observed
 - `create_conversation` — in-bundle, not observed
 - `delete_conversation` — in-bundle, not observed
 - `delete_conversation_segment` — in-bundle, not observed

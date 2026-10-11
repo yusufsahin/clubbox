@@ -1,7 +1,7 @@
 import './style.css';
 import { ClubhouseApiError, clubhouseClient } from './api/client';
 import { beginJoin, commitJoin, emptyRoomSession, finishLeave, localClipAllowed, roleSyncDecision, roomAudience } from './api/guards';
-import { leaveClosesRoom, roomHasOthers } from './api/roomActions';
+import { capturedCreateBody, leaveClosesRoom, roomHasOthers } from './api/roomActions';
 import { applyFollowResponse, mergeProfile, PEOPLE_LIST_ENDPOINTS, profileCountsMissing, readProfile, relationshipFromStatus, talkPartners, type PeopleListKind } from './api/relationship';
 
 const CHAT_POLL_MS = 15_000;
@@ -587,7 +587,7 @@ class ClubboxApp {
 
   private startRoomPresence(channelId: string): void {
     this.stopRoomPresence();
-    if (clubhouseClient.supports('active_ping')) {
+    if (clubhouseClient.evidence('active_ping') === 'observed') {
       // docs/api/web-api.md has no captured active_ping interval, so this stays at 30s.
       this.pingTimer = window.setInterval(() => {
         void clubhouseClient.activePing(channelId).catch((err) => {
@@ -633,7 +633,7 @@ class ClubboxApp {
   }
 
   private async refreshChat(): Promise<void> {
-    if (!this.currentChannel || !clubhouseClient.supports('get_channel_messages')) return;
+    if (!this.currentChannel || clubhouseClient.evidence('get_channel_messages') !== 'observed') return;
     try {
       const chat = await clubhouseClient.getChannelMessages(this.channelApiId(this.currentChannel));
       const next = chat.messages || [];
@@ -1218,8 +1218,8 @@ class ClubboxApp {
     return false;
   }
 
-  private async joinRoom(channelId: string) {
-    if (!this.allowAction('join_channel')) return;
+  private async joinRoom(channelId: string, preset?: CHChannelDetail) {
+    if (!preset && !this.allowAction('join_channel')) return;
     if (this.currentChannel) {
       const currentId = this.channelApiId(this.currentChannel);
       if (currentId === channelId || String(this.currentChannel.channel_id) === channelId) return;
@@ -1232,7 +1232,7 @@ class ClubboxApp {
     this.joinInFlight = true;
 
     try {
-      const joined = await clubhouseClient.joinChannel(channelId);
+      const joined = preset ?? await clubhouseClient.joinChannel(channelId);
       const committed = commitJoin(this.roomSession, generation);
       if (!committed) return;
       this.roomSession = committed;
@@ -1268,12 +1268,14 @@ class ClubboxApp {
 
     if (this.roomSession.generation !== generation || !this.currentChannel) return;
     this.startRoomPresence(this.channelApiId(this.currentChannel));
-    try {
-      const chat = await clubhouseClient.getChannelMessages(this.channelApiId(this.currentChannel));
-      this.chatMessages = chat.messages || [];
-    } catch (err) {
-      this.chatMessages = [];
-      this.reportApiError(err);
+    this.chatMessages = [];
+    if (clubhouseClient.evidence('get_channel_messages') === 'observed') {
+      try {
+        const chat = await clubhouseClient.getChannelMessages(this.channelApiId(this.currentChannel));
+        this.chatMessages = chat.messages || [];
+      } catch (err) {
+        this.reportApiError(err);
+      }
     }
     if (this.roomSession.generation !== generation || !this.currentChannel) return;
     this.currentTab = 'stage';
@@ -1366,8 +1368,10 @@ class ClubboxApp {
       end = true;
     }
     if (end && channel) {
-      if (!sandbox) {
-        this.showToast(t('unverifiedAction'), '🔒');
+      if (!sandbox && clubhouseClient.evidence('end_channel') !== 'observed') {
+        this.showToast(t('leftRoomStillOpen'), '🔒');
+        await this.releaseRoomLocally({ skipServer: true });
+        this.afterRoomExit(hadRoom, true, false);
         return;
       }
       try {
@@ -2314,6 +2318,10 @@ class ClubboxApp {
       return;
     }
     if (!this.allowAction('create_channel')) return;
+    if (!clubhouseClient.getConfig().useSandbox && !capturedCreateBody(topic, { audience, replayEnabled, chatEnabled })) {
+      this.showToast(t('createOnlyCaptured'), '🔒');
+      return;
+    }
     if (confirmBtn) {
       confirmBtn.disabled = true;
       confirmBtn.textContent = t('starting');
@@ -2326,7 +2334,7 @@ class ClubboxApp {
       });
       this.channelsList.unshift(newChan);
       this.closeCreateModal();
-      await this.joinRoom(newChan.channel || newChan.channel_id.toString());
+      await this.joinRoom(newChan.channel || newChan.channel_id.toString(), newChan);
     } catch (err) {
       this.reportApiError(err);
       if (confirmBtn) {

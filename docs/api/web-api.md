@@ -505,9 +505,374 @@ Not observed in a capture yet. No request or response example is included, becau
 
 ## POST /web_api/create_channel
 
-App endpoint key: `create_channel`.
+Seen when: smoke-open.
 
-Not observed in a capture yet. No request or response example is included, because none was recorded.
+Hint match (not proof): Host a room as friends only or friends of friends, then open the people picker; Create a friends-of-friends room; Replays off at creation; Chat off.
+
+### Request
+
+- `is_chat_enabled`: boolean
+- `is_public_room`: boolean
+- `is_replay_enabled`: boolean
+- `is_private`: boolean
+- `is_social_mode`: boolean
+- `user_ids`: array
+- `topic_ids`: array
+- `source`: number
+- `topic`: string
+- `privacy_level`: string
+
+```json
+{
+  "is_chat_enabled": false,
+  "is_public_room": false,
+  "is_replay_enabled": false,
+  "is_private": false,
+  "is_social_mode": false,
+  "user_ids": [],
+  "topic_ids": [],
+  "source": 14,
+  "topic": "test",
+  "privacy_level": "friend_of_friend"
+}
+```
+
+### Response
+
+- `creator_user_profile_id`: string
+- `channel_id`: string
+- `channel`: string
+- `time_created`: string
+- `language`: string
+- `topic`: string
+- `privacy_settings`: object
+  - `type`: string
+  - `display_text`: string
+  - `tooltip_text`: string
+- `is_private`: boolean
+- `is_social_mode`: boolean
+- `is_social_club_lounge`: boolean
+- `url`: string
+- `feature_flags`: array<string>
+- `handraise_queue_setting`: number
+- `handraise_queue_options`: array<object>
+  - `value`: number
+  - `label`: string
+  - `short_label`: string
+  - `sub_label`: string
+- `is_handraise_enabled`: boolean
+- `handraise_permission`: number
+- `is_handraise_available`: boolean
+- `is_topics_available`: boolean
+- `is_automatic_speaker_approval_available`: boolean
+- `is_pinned_links_available`: boolean
+- `are_games_available`: boolean
+- `is_overflow_menu_available`: boolean
+- `is_room_chat_available`: boolean
+- `is_suggested_links_available`: boolean
+- `show_last_speaker_warning`: boolean
+- `is_trending_topic_channel`: boolean
+- `hide_moderator_indicator`: boolean
+- `is_nsfw`: boolean
+- `is_preview`: boolean
+- `users`: array<object>
+  - `user_id`: string
+  - `name`: string
+  - `photo_url`: null
+  - `is_speaker`: boolean
+  - `is_moderator`: boolean
+  - `time_joined_as_speaker`: string
+  - `is_followed_by_speaker`: boolean
+  - `is_cofollowed_by_speaker`: boolean
+  - `first_name`: string
+  - `channel_emoji`: null
+  - `username`: string
+  - `skintone`: number
+  - `twitter`: null
+  - `is_social_club_member`: boolean
+  - `is_web_listener`: boolean
+  - `selected_poll_option_id`: null
+  - `is_photo_nsfw`: boolean
+  - `is_opted_out_of_highlights`: boolean
+  - `full_photo_url`: null
+  - `is_invited_as_speaker`: boolean
+  - `is_eligible_for_paid_reactions`: boolean
+- `club`: null
+- `social_club`: null
+- `welcome_for_user_profile`: null
+- `is_club_follower`: boolean
+- `is_club_member`: boolean
+- `is_club_admin`: boolean
+- `is_club_pending_accept`: boolean
+- `is_pending_accept_club_rules`: boolean
+- `clips_permission`: number
+- `is_replay_enabled`: boolean
+- `can_disable_replay`: boolean
+- `are_highlights_enabled`: boolean
+- `is_replay_hidden_from_profile`: boolean
+- `is_chat_enabled`: boolean
+- `chat_permission`: number
+- `chat_permission_options`: array<object>
+  - `value`: number
+  - `label`: string
+  - `short_label`: string
+  - `sub_label`: string
+- `is_web_listening_enabled`: boolean
+- `is_gif_enabled`: boolean
+- `emoji_reaction_options`: array<string>
+- `topics`: array
+- `is_saved`: boolean
+- `can_save`: boolean
+- `user_capabilities`: object
+  - `can_end_room`: boolean
+  - `can_save`: boolean
+  - `can_disable_replay`: boolean
+  - `can_share`: boolean
+  - `can_invite`: boolean
+  - `can_edit_pinned_links`: boolean
+  - `can_disable_room_chat`: boolean
+  - `can_change_enable_web_listening`: boolean
+  - `can_remove_speakers`: boolean
+  - `can_mute_speakers`: boolean
+  - `can_edit_handraise_queue`: boolean
+  - `can_edit_background_music`: boolean
+  - `can_edit_room_title`: boolean
+  - `can_update_suggested_links`: boolean
+  - `can_post_to_chat`: boolean
+  - `can_speak`: boolean
+  - `can_gif_react`: boolean
+  - `can_send_paid_reacts`: boolean
+  - `can_send_paid_react_thanks`: boolean
+  - `can_view_moderator_actions_history`: boolean
+  - `can_edit_host_banner`: boolean
+  - `stage_removed`: boolean
+  - `can_rejoin_stage_directly`: boolean
+  - `can_update_highlights_settings`: boolean
+  - `can_create_highlights`: boolean
+  - `can_manage_channel_user_poll`: boolean
+  - `can_view_channel_user_poll_votes`: boolean
+- `share_menu_options`: array<string>
+- `ping_bar`: object
+  - `mode`: string
+  - `title`: string
+- `paid_tier`: number
+- `emoji_reactions`: object
+  - `channel_reactions`: array<string>
+  - `audio_reactions`: array<string>
+  - `profile_reactions`: array<string>
+- `reactions`: object
+  - `channel_reactions`: array<object>
+    - `id`: string
+    - `sort_priority`: number
+    - `emoji`: string
+  - `audio_reactions`: array<object>
+    - `id`: string
+    - `sort_priority`: number
+    - `emoji`: string
+  - `profile_reactions`: array<object>
+    - `id`: string
+    - `sort_priority`: number
+    - `emoji`: string
+  - `paid_reactions`: array<object>
+    - `id`: string
+    - `image_url`: string
+    - `coins_price`: number
+    - `title`: string
+    - `sort_priority`: number
+  - `paid_profile_reactions`: array<object>
+    - `id`: string
+    - `image_url`: string
+    - `coins_price`: number
+    - `title`: string
+    - `sort_priority`: number
+- `is_channel_user_poll_enabled`: boolean
+- `channel_user_poll`: object
+  - `poll_metadata`: null
+  - `poll_results`: null
+  - `poll_upsell_card`: object
+    - `title`: string
+    - `subtitle`: string
+  - `poll_validation_rules`: object
+    - `title_characters_min`: number
+    - `title_characters_max`: number
+    - `title_warning_threshold`: number
+    - `option_characters_min`: number
+    - `option_characters_max`: number
+    - `option_warning_threshold`: number
+  - `poll_colors`: array<object>
+    - `light_hex`: string
+    - `dark_hex`: string
+- `channel_paid_reactions_active_speaker_limit`: number
+- `channel_paid_reactions_ticker_duration_ms`: number
+- `success`: boolean
+- `should_join_muted`: boolean
+- `rtm_token`: string
+- `token`: string
+- `pubnub_token`: string
+- `pubnub_origin`: string
+- `pubnub_heartbeat_value`: number
+- `pubnub_heartbeat_interval`: number
+- `pubnub_time_token`: string
+- `pubnub_enable`: boolean
+- `agora_native_mute`: boolean
+
+```json
+{
+  "creator_user_profile_id": "<id>",
+  "channel_id": "<id>",
+  "channel": "PG2LoOww",
+  "time_created": "<redacted>T09:57:14.295383Z",
+  "language": "en",
+  "topic": "test",
+  "privacy_settings": {
+    "type": "friend_of_friend",
+    "display_text": "your friends of friends",
+    "tooltip_text": "this room is open to your friends of friends"
+  },
+  "is_private": false,
+  "is_social_mode": false,
+  "is_social_club_lounge": false,
+  "url": "https://www.clubhouse.com/room/G39clnVDWWtrgBWpA:xvPM_yGMUSSm1s6rh8q3zYxarR9M-3fpPrAD_gezFHA?utm_medium=ch_instant_invite&utm_campaign=nuBblL0zLJaRQmEljazl7A-2511477&chs=p7wCwqOZoJ%3AvdywmOKFY0jymA5rdTtX3uu_IUh-D1Oew1pYfSsoUxQ",
+  "feature_flags": [
+    "AGORA_AUDIO_PROFILE_MUSIC_STANDARD_STEREO",
+    "MUSIC_STANDARD_STEREO"
+  ],
+  "handraise_queue_setting": 0,
+  "handraise_queue_options": [
+    {
+      "value": 0,
+      "label": "open stage",
+      "short_label": "open stage",
+      "sub_label": "anyone can speak"
+    },
+    {
+      "value": 2,
+      "label": "request to join",
+      "short_label": "request to join",
+      "sub_label": "anyone can request, mods approve"
+    },
+    {
+      "value": 1,
+      "label": "invite only",
+      "short_label": "invite only",
+      "sub_label": "only mods can invite to stage"
+    }
+  ],
+  "is_handraise_enabled": false,
+  "handraise_permission": 0,
+  "is_handraise_available": false,
+  "is_topics_available": false,
+  "is_automatic_speaker_approval_available": true,
+  "is_pinned_links_available": true,
+  "are_games_available": false,
+  "is_overflow_menu_available": true,
+  "is_room_chat_available": true,
+  "is_suggested_links_available": false,
+  "show_last_speaker_warning": true,
+  "is_trending_topic_channel": false,
+  "hide_moderator_indicator": false,
+  "is_nsfw": false,
+  "is_preview": false,
+  "users": [
+    {
+      "user_id": "<id>",
+      "name": "user_18",
+      "photo_url": null,
+      "is_speaker": true,
+      "is_moderator": true,
+      "time_joined_as_speaker": "<redacted>T09:57:14.320026+00:00",
+      "is_followed_by_speaker": true,
+      "is_cofollowed_by_speaker": true,
+      "first_name": "user_5",
+      "channel_emoji": null,
+      "username": "user_6",
+      "skintone": 3,
+      "twitter": null,
+      "is_social_club_member": false,
+      "is_web_listener": false,
+      "selected_poll_option_id": null,
+      "is_photo_nsfw": false,
+      "is_opted_out_of_highlights": false,
+      "full_photo_url": null,
+      "is_invited_as_speaker": false,
+      "is_eligible_for_paid_reactions": false
+    }
+  ],
+  "club": null,
+  "social_club": null,
+  "welcome_for_user_profile": null,
+  "is_club_follower": false,
+  "is_club_member": false,
+  "is_club_admin": false,
+  "is_club_pending_accept": false,
+  "is_pending_accept_club_rules": false,
+  "clips_permission": 0,
+  "is_replay_enabled": false,
+  "can_disable_replay": false,
+  "are_highlights_enabled": false,
+  "is_replay_hidden_from_profile": false,
+  "is_chat_enabled": false,
+  "chat_permission": 1,
+  "chat_permission_options": [
+    {
+      "value": 1,
+      "label": "open chat",
+      "short_label": "open chat",
+      "sub_label": "anyone can chat"
+    },
+    {
+      "value": 2,
+      "label": "followers of the host",
+      "short_label": "followers of the host",
+      "sub_label": "anyone who follows the host can chat"
+    },
+    {
+      "value": 3,
+      "label": "trusted followers of the host",
+      "short_label": "trusted followers",
+      "sub_label": "friends, verified followers with enough karma or Clubhouse Plus subscriptions"
+    }
+  ],
+  "is_web_listening_enabled": true,
+  "is_gif_enabled": true,
+  "emoji_reaction_options": [
+    "❤️",
+    "🙏",
+    "💀",
+    "😂",
+    "👀",
+    "👋",
+    "👍",
+    "👎",
+    "🙌",
+    "‼️",
+    "😢",
+    "🫠",
+    "💯",
+    "🌶️",
+    "🌷",
+    "🚩",
+    "❌",
+    "😡",
+    "😱",
+    "🙄",
+    "💅",
+    "👩",
+    "🐦‍🔥",
+    "🌸"
+  ],
+  "topics": [],
+  "is_saved": false,
+  "can_save": false,
+  "user_capabilities": {
+    "can_end_room": true,
+    "can_sa
+…
+```
+
+Status codes seen: 200.
+
+App endpoint key: `create_channel`. Configured method: POST.
 
 ## POST /web_api/get_profile
 
@@ -1286,7 +1651,7 @@ App endpoint key: `get_conversation`. Configured method: POST.
 
 ## POST /web_api/get_create_channel_targets
 
-Seen in a capture. The checklist did not label the click.
+Seen when: smoke-open.
 
 ### Request
 
@@ -1812,4 +2177,4 @@ Status codes seen: 400.
 
 ## Checklist coverage
 
-- `smoke-open`: POST /web_api/get_conversations (200); POST /web_api/get_feed_v3 (200); POST /web_api/me (200)
+- `smoke-open`: POST /web_api/create_channel (200); POST /web_api/get_conversations (200); POST /web_api/get_create_channel_targets (200); POST /web_api/get_feed_v3 (200); POST /web_api/me (200); POST /web_api/record_action_trails (200)

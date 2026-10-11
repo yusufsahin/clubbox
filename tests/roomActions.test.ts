@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  capturedCreateBody,
   conversationKind,
   leaveClosesRoom,
   permissionOn,
@@ -12,6 +13,29 @@ test('archived chats stay out of house and voice-message kinds', () => {
   assert.equal(conversationKind({ is_archived: true, permanent_house_chat: true }), 'archive');
   assert.equal(conversationKind({ is_archived: false, permanent_house_chat: true }), 'house');
   assert.equal(conversationKind({ is_archived: false, permanent_house_chat: false }), 'vm');
+});
+
+test('live create sends only the captured friends-of-friends body', () => {
+  const body = capturedCreateBody('room', {
+    audience: 'friends-of-friends',
+    replayEnabled: false,
+    chatEnabled: false,
+  });
+  assert.deepEqual(body, {
+    topic: 'room',
+    is_chat_enabled: false,
+    is_public_room: false,
+    is_replay_enabled: false,
+    is_private: false,
+    is_social_mode: false,
+    privacy_level: 'friend_of_friend',
+    user_ids: [],
+    topic_ids: [],
+    source: 14,
+  });
+  assert.equal(capturedCreateBody('room', { audience: 'public', replayEnabled: false, chatEnabled: false }), null);
+  assert.equal(capturedCreateBody('room', { audience: 'friends-of-friends', replayEnabled: true, chatEnabled: false }), null);
+  assert.equal(capturedCreateBody('room', { audience: 'friends-of-friends', replayEnabled: false, chatEnabled: true }), null);
 });
 
 test('permission buttons follow an explicit true flag', () => {

@@ -1,7 +1,7 @@
 import { canCall, evidenceOf, type Evidence, type Transport } from './capabilities';
 import { PEOPLE_LIST_ENDPOINTS, readPeopleList, readProfile, type PeopleListKind, type PeopleListPage } from './relationship';
 import { businessFailure, classifyHttpFailure, nextBackoffMs, type ApiErrorKind } from './guards';
-import { permissionOn } from './roomActions';
+import { capturedCreateBody, permissionOn } from './roomActions';
 import { INITIAL_MOCK_CHANNELS, MOCK_ME, SANDBOX_CHAT_MESSAGES, sandboxPeoplePage, sandboxUserIds } from './sandboxData';
 import type { CHAuthResponse, CHChannel, CHChannelDetail, CHChatMessage, CHConversation, CHUser, ConversationSegment, ConversationThread, FeedTopic, MeSettings, PresenceFriend, SearchHit, SearchObjectType } from './types';
 
@@ -1156,7 +1156,11 @@ export class ClubhouseApiClient {
         talk_user_username: options.talkWith?.username,
       });
     }
-    return this.request('create_channel', body);
+    const proven = capturedCreateBody(topic, { audience, replayEnabled, chatEnabled });
+    if (!proven) {
+      throw new ClubhouseApiError(0, 'create_channel', 'Not captured', 'unknown');
+    }
+    return this.request('create_channel', proven);
   }
 
   public async endChannel(channelId: string): Promise<ApiAck> {
