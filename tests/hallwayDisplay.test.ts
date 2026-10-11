@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   filterHallwayByTopic,
+  hallwayPrivacyCounts,
+  hallwayRoomPrivacy,
   filterNsfwHallwayRooms,
   prepareHallwayChannels,
   roomTitleKeywordHits,
@@ -76,4 +78,37 @@ test('filterHallwayByTopic keeps matching topic_key or all when unset', () => {
   ];
   assert.equal(filterHallwayByTopic(rooms, null).length, 3);
   assert.deepEqual(filterHallwayByTopic(rooms, 'tech').map((r) => r.topic), ['A']);
+});
+
+// Shapes from get_feed_v3 captures: privacy_settings.type is house / public / friend_of_friend (friend never seen on web).
+const privacyRoom = (channel: string, type?: string) => ({
+  channel,
+  topic: channel,
+  users: [],
+  ...(type ? { privacy_settings: { type, display_text: 'x', tooltip_text: 'y' } } : {}),
+});
+
+test('hallwayRoomPrivacy reads privacy_settings.type and treats unknown values as other', () => {
+  assert.equal(hallwayRoomPrivacy(privacyRoom('a', 'house')), 'house');
+  assert.equal(hallwayRoomPrivacy(privacyRoom('b', 'public')), 'public');
+  assert.equal(hallwayRoomPrivacy(privacyRoom('c', 'friend_of_friend')), 'friend_of_friend');
+  assert.equal(hallwayRoomPrivacy(privacyRoom('d', 'friend')), 'friend');
+  assert.equal(hallwayRoomPrivacy(privacyRoom('g', 'dm')), 'dm');
+  assert.equal(hallwayRoomPrivacy(privacyRoom('e', 'social')), 'other');
+  assert.equal(hallwayRoomPrivacy(privacyRoom('h', 'closed')), 'other');
+  assert.equal(hallwayRoomPrivacy(privacyRoom('f')), 'other');
+});
+
+test('hallwayPrivacyCounts counts every privacy so chips can show what the feed holds', () => {
+  const rooms = [privacyRoom('a', 'house'), privacyRoom('b', 'house'), privacyRoom('c', 'public'), privacyRoom('d', 'friend_of_friend')];
+  assert.deepEqual(hallwayPrivacyCounts(rooms), { house: 2, public: 1, friend_of_friend: 1, friend: 0, dm: 0, other: 0 });
+});
+
+test('prepareHallwayChannels keeps only the chosen privacy, and all rooms when none is chosen', () => {
+  const rooms = [privacyRoom('a', 'house'), privacyRoom('b', 'public'), privacyRoom('c', 'friend_of_friend'), privacyRoom('d', 'public')];
+  const prefs = { keywords: [], showNsfw: false, onlyKeywordMatches: false } as never;
+  assert.deepEqual(prepareHallwayChannels(rooms, prefs, null, 'public').map((r) => r.channel), ['b', 'd']);
+  assert.deepEqual(prepareHallwayChannels(rooms, prefs, null, 'friend_of_friend').map((r) => r.channel), ['c']);
+  assert.deepEqual(prepareHallwayChannels(rooms, prefs, null, 'friend').map((r) => r.channel), []);
+  assert.equal(prepareHallwayChannels(rooms, prefs).length, 4);
 });

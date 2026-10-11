@@ -218,3 +218,44 @@ Do:
    - Update the Project context block (file list and line counts are stale).
 Acceptance (Phase 21): with an already signed-in session, starting the app creates realtime-config.json, the room shows live updates (sandbox + fake PubNub in tests), the request log contains PubNub/Agora records, and Connection status shows all green in a live room.
 ```
+
+## Phase 22 — Hallway room types (HAL-9, owner report 2026-10-12: "public, friends ve friends of friends odalarını göremiyorum")
+
+```
+Context (verified, do not re-investigate):
+- Nothing in Clubbox drops rooms by privacy. The cause is the web feed: across 52 captured first pages of get_feed_v3,
+  house = 535 rooms (86 %), public = 79 (13 %), friend_of_friend = 10 (1.6 %), friend = 0. Every house room in the
+  captures has the tooltip "this room is open to everyone" and is_private: true.
+- So a first page has about 10 house rooms, 1–2 public rooms and almost never a friends-of-friends room, and they are
+  unlabelled and mixed in, so the owner cannot find them.
+- Web bundle enum ChannelPrivacyLevel: dm="dm", friend="friend", friend_of_friend="friend_of_friend", house="house";
+  the feed also sends "public". Legacy app types (social, closed) do not exist on web.
+- Already done (commit with this phase's spec): src/hallway/hallwayDisplay.ts exports HALLWAY_PRIVACIES, HallwayPrivacy,
+  hallwayRoomPrivacy(room), hallwayPrivacyCounts(rooms) and prepareHallwayChannels(channels, prefs, topicKey, privacy).
+  Tests: tests/hallwayDisplay.test.ts. Use these; do not add a second classifier.
+
+22.1 State + chips
+- Add selectedPrivacy: HallwayPrivacy | null to the app (default null = All). displayedHallwayChannels passes it.
+- Above the room list, next to the topic chips, show chips "All N", "Public N", "Friends of friends N", "Friends N",
+  "Houses N" from hallwayPrivacyCounts(channelsList). Hide a chip whose count is 0, except the selected one.
+  Persist the choice in hallway prefs (localStorage, try/catch as hallwayPrefs already does).
+- i18n en + tr: roomTypeAll, roomTypePublic ("Herkese açık"), roomTypeFriendOfFriend ("Arkadaşların arkadaşları"),
+  roomTypeFriend ("Arkadaşlar"), roomTypeHouse ("Evler").
+
+22.2 Load more for sparse types
+- When a type is selected and fewer than 5 rooms of it are listed and feedNextCursor exists, call loadMoreChannels
+  repeatedly until 5 are listed, the cursor ends, or 8 pages total (FEED_MAX_PAGES) are loaded. Respect feedLoadingMore,
+  the polling limits rule and the 429 handling (stop on rate-limit). Show "Checked N pages" under the chips.
+- Never auto-load when no type is selected.
+
+22.3 Card badge + empty state
+- Each room card shows a small badge with the type label (same i18n keys), coloured via existing theme tokens only
+  (run test:theme-audit). House rooms keep the house name/photo line; the badge says "House".
+- Empty state for a selected type after loading stops:
+  friend → "Clubhouse web does not list rooms only for friends. Rooms your friends start for you appear in Activity or as an invite."
+  others → "No <type> rooms in the first N pages of the feed right now."
+
+Acceptance: features/hallway.feature @HAL-9 scenarios pass via real functions (remove @pending as each passes) (no shortcut steps), unit tests green,
+npm run test:e2e green with a hallway fixture containing all three types, fresh light + dark screenshots of the chips
+and a badge, PRD HAL-9 Today column set. Then stop.
+```

@@ -93,13 +93,31 @@ export function applyHallwayKeywords<T extends { topic?: string }>(rooms: T[], p
   return [...matching, ...rooms.filter((room) => !keywordMatches(room.topic, keywords))];
 }
 
-export function prepareHallwayChannels<T extends { topic?: string; topic_key?: string; is_nsfw?: boolean; users: HallwaySpeaker[] }>(
+/** privacy_settings.type: web enum ChannelPrivacyLevel (dm, friend, friend_of_friend, house) plus public from get_feed_v3. Legacy app types (social, closed) map to other. */
+export const HALLWAY_PRIVACIES = ['public', 'friend', 'friend_of_friend', 'house', 'dm'] as const;
+export type HallwayPrivacy = (typeof HALLWAY_PRIVACIES)[number] | 'other';
+type PrivacyRoom = { privacy_settings?: { type?: string } };
+
+export function hallwayRoomPrivacy(room: PrivacyRoom): HallwayPrivacy {
+  const type = room.privacy_settings?.type;
+  return (HALLWAY_PRIVACIES as readonly string[]).includes(type ?? '') ? (type as HallwayPrivacy) : 'other';
+}
+
+export function hallwayPrivacyCounts(rooms: PrivacyRoom[]): Record<HallwayPrivacy, number> {
+  const counts: Record<HallwayPrivacy, number> = { house: 0, public: 0, friend_of_friend: 0, friend: 0, dm: 0, other: 0 };
+  for (const room of rooms) counts[hallwayRoomPrivacy(room)] += 1;
+  return counts;
+}
+
+export function prepareHallwayChannels<T extends { topic?: string; topic_key?: string; is_nsfw?: boolean; users: HallwaySpeaker[] } & PrivacyRoom>(
   channels: T[],
   prefs: HallwayPrefs,
   topicKey: string | null = null,
+  privacy: HallwayPrivacy | null = null,
 ): T[] {
   const usableKey = topicKey && channels.some((channel) => channel.topic_key === topicKey) ? topicKey : null;
-  const visible = filterNsfwHallwayRooms(filterHallwayByTopic(channels, usableKey), prefs);
+  const byPrivacy = privacy ? channels.filter((channel) => hallwayRoomPrivacy(channel) === privacy) : channels;
+  const visible = filterNsfwHallwayRooms(filterHallwayByTopic(byPrivacy, usableKey), prefs);
   return sortHallwayRooms(applyHallwayKeywords(visible, prefs));
 }
 
