@@ -1,0 +1,156 @@
+import type { CHUser } from './types';
+
+/** Viewer relationship. Unknown until a captured follow_status string maps to it. */
+export type Relationship = 'unknown' | 'none' | 'following' | 'follower' | 'friends' | 'requested';
+
+/**
+ * Captured follow_status values. Leave this empty until Session E records the strings.
+ * Do not guess Clubhouse's names.
+ */
+export const FOLLOW_STATUS: Readonly<Record<string, Exclude<Relationship, 'unknown'>>> = {};
+
+/** Sandbox list keys. Live routes stay absent until a capture records the request body. */
+export type PeopleListKind = 'followers' | 'following' | 'friends';
+
+export const PEOPLE_LIST_ENDPOINTS: Record<PeopleListKind, string> = {
+  followers: 'get_followers',
+  following: 'get_following',
+  friends: 'get_cofollows',
+};
+
+export interface PeopleListPage {
+  users: CHUser[];
+  nextCursor: string | null;
+}
+
+/**
+ * Reads the sandbox people-list body: a `users` array and an optional `next_cursor`.
+ * No captured web response has named this array, so any other shape yields no people.
+ */
+export function readPeopleList(raw: unknown): PeopleListPage {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return { users: [], nextCursor: null };
+  }
+  const record = raw as Record<string, unknown>;
+  const rows = Array.isArray(record.users) ? record.users : [];
+  const users = rows
+    .map((row) => readProfile(row))
+    .filter((user): user is CHUser => user != null);
+  const cursor = record.next_cursor;
+  const nextCursor = typeof cursor === 'string' && cursor.length > 0 ? cursor : null;
+  return { users, nextCursor };
+}
+
+export function relationshipFromStatus(status: string | null | undefined): Relationship {
+  if (typeof status !== 'string' || status.length === 0) return 'unknown';
+  return FOLLOW_STATUS[status] ?? 'unknown';
+}
+
+export function isFriend(user: { follow_status?: string | null }): boolean {
+  return relationshipFromStatus(user.follow_status) === 'friends';
+}
+
+export function profileCountsMissing(user: CHUser): boolean {
+  return user.num_followers == null || user.num_following == null || user.num_cofollows == null;
+}
+
+function numericId(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && /^\d+$/.test(value)) return Number(value);
+  return undefined;
+}
+
+function countOf(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  return undefined;
+}
+
+function flag(value: unknown): boolean | undefined {
+  if (value === true || value === false) return value;
+  return undefined;
+}
+
+/** Reads get_profile fields. Drops is_following; that flag is not the friend marker. */
+export function readProfile(raw: unknown): CHUser | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const record = raw as Record<string, unknown>;
+  const id = numericId(record.user_id);
+  if (id == null) return null;
+  const photo = record.photo_url;
+  const display = record.displayname;
+  const status = record.follow_status;
+  const bio = record.bio;
+  const user: CHUser = {
+    user_id: id,
+    name: typeof record.name === 'string' ? record.name : '',
+    username: typeof record.username === 'string' ? record.username : '',
+    photo_url: typeof photo === 'string' ? photo : null,
+  };
+  if (typeof bio === 'string' && bio.length > 0) user.bio = bio;
+  if (typeof record.share_url === 'string') user.share_url = record.share_url;
+  if (record.twitter === null || typeof record.twitter === 'string') user.twitter = record.twitter;
+  if (record.instagram === null || typeof record.instagram === 'string') user.instagram = record.instagram;
+  const followers = countOf(record.num_followers);
+  const following = countOf(record.num_following);
+  const cofollows = countOf(record.num_cofollows);
+  if (followers != null) user.num_followers = followers;
+  if (following != null) user.num_following = following;
+  if (cofollows != null) user.num_cofollows = cofollows;
+  const followsMe = flag(record.follows_me);
+  if (followsMe != null) user.follows_me = followsMe;
+  if (typeof status === 'string' && status.length > 0) user.follow_status = status;
+  const protectedProfile = flag(record.has_protected_profile);
+  if (protectedProfile != null) user.has_protected_profile = protectedProfile;
+  if (typeof display === 'string' || display === null) user.displayname = display;
+  const speaker = flag(record.is_speaker);
+  const moderator = flag(record.is_moderator);
+  const muted = flag(record.is_muted);
+  const speaking = flag(record.is_speaking);
+  const hand = flag(record.is_hand_raised);
+  const invited = flag(record.is_invited_to_speak);
+  if (speaker != null) user.is_speaker = speaker;
+  if (moderator != null) user.is_moderator = moderator;
+  if (muted != null) user.is_muted = muted;
+  if (speaking != null) user.is_speaking = speaking;
+  if (hand != null) user.is_hand_raised = hand;
+  if (invited != null) user.is_invited_to_speak = invited;
+  return user;
+}
+
+export function mergeProfile(base: CHUser, incoming: CHUser): CHUser {
+  return {
+    ...base,
+    ...incoming,
+    name: incoming.name || base.name,
+    username: incoming.username || base.username,
+    num_followers: incoming.num_followers ?? base.num_followers,
+    num_following: incoming.num_following ?? base.num_following,
+    num_cofollows: incoming.num_cofollows ?? base.num_cofollows,
+    follows_me: incoming.follows_me ?? base.follows_me,
+    follow_status: incoming.follow_status ?? base.follow_status,
+    has_protected_profile: incoming.has_protected_profile ?? base.has_protected_profile,
+    displayname: incoming.displayname !== undefined ? incoming.displayname : base.displayname,
+    bio: incoming.bio ?? base.bio,
+    share_url: incoming.share_url ?? base.share_url,
+  };
+}
+
+/**
+ * Applies a follow response only when it names a status or a profile.
+ * A protected profile keeps its previous friend count until the other person accepts.
+ */
+export function applyFollowResponse(user: CHUser, response: unknown): CHUser {
+  const record = response && typeof response === 'object' && !Array.isArray(response)
+    ? response as Record<string, unknown>
+    : {};
+  const nested = readProfile(record.user_profile);
+  const status = typeof record.follow_status === 'string' && record.follow_status.length > 0
+    ? record.follow_status
+    : undefined;
+  let next = nested ? mergeProfile(user, nested) : { ...user };
+  if (status) next = { ...next, follow_status: status };
+  if (user.has_protected_profile === true) {
+    next = { ...next, num_cofollows: user.num_cofollows, has_protected_profile: true };
+  }
+  return next;
+}

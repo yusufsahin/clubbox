@@ -20,6 +20,9 @@ const CHECKLIST = [
   { id: 'search-user', label: 'Search a user', test: (ctx) => ctx.path.includes('search') && ctx.hasSearchTerm },
   { id: 'house', label: 'Open a house page', test: (ctx) => /social_club|get_club|\/house|get_house/.test(ctx.path) && !/chat|message/.test(ctx.path) },
   { id: 'profile', label: 'Open a profile', test: (ctx) => ctx.path.includes('get_profile') || ctx.path.endsWith('/profile') },
+  { id: 'followers-list', label: 'Open the followers list', test: (ctx) => /follower/.test(ctx.path) && !/request|notification/.test(ctx.path) },
+  { id: 'following-list', label: 'Open the following list', test: (ctx) => /following/.test(ctx.path) && !/request/.test(ctx.path) },
+  { id: 'friends-list', label: 'Open the friends list', test: (ctx) => /cofollow|mutual_follow|\/friends/.test(ctx.path) },
   { id: 'follow', label: 'Follow', test: (ctx) => ctx.path.includes('/follow') && !ctx.path.includes('unfollow') },
   { id: 'unfollow', label: 'Unfollow', test: (ctx) => ctx.path.includes('unfollow') },
   { id: 'preview', label: 'Preview or unmute a room from the hallway', test: (ctx) => /preview|unmute|listen_channel/.test(ctx.path) },
@@ -265,7 +268,7 @@ function startApiRecorder(hooks) {
     const ctx = requestContext(method, pathname, url, body);
     const hints = [];
     for (const item of CHECKLIST) {
-      let matched = false;
+      let matched;
       try {
         matched = !!item.test(ctx);
       } catch {
@@ -494,6 +497,9 @@ function startApiRecorder(hooks) {
 
   win.webContents.on('did-finish-load', () => {
     scheduleOverlay();
+    if (win.webContents.debugger.isAttached()) {
+      void win.webContents.debugger.sendCommand('Network.enable', { maxPostDataSize: 65536 });
+    }
   });
   win.webContents.on('did-navigate-in-page', () => {
     scheduleOverlay();
@@ -502,7 +508,7 @@ function startApiRecorder(hooks) {
     let where;
     try {
       const url = new URL(validatedURL);
-      where = url.origin + url.pathname;
+      where = url.origin + (url.pathname.startsWith('/@') ? '/@profile' : url.pathname);
     } catch {
       where = 'the recorder page';
     }
@@ -528,9 +534,20 @@ function startApiRecorder(hooks) {
     });
     void win.webContents.debugger.sendCommand('Network.enable', { maxPostDataSize: 65536 });
     void win.webContents.debugger.sendCommand('Runtime.addBinding', { name: 'clubboxRecorder' });
+    win.webContents.debugger.on('detach', (_event, reason) => {
+      console.log('[Clubbox] recorder debugger detached', reason);
+      if (win.isDestroyed()) return;
+      try {
+        win.webContents.debugger.attach('1.3');
+        void win.webContents.debugger.sendCommand('Network.enable', { maxPostDataSize: 65536 });
+      } catch (err) {
+        console.error('[Clubbox] Could not reattach the API recorder', err instanceof Error ? err.message : 'error');
+      }
+    });
   } catch (err) {
     console.error('[Clubbox] Could not attach the API recorder', err instanceof Error ? err.message : 'error');
   }
+
 
   void win.loadURL('https://www.clubhouse.com/home');
   return win;

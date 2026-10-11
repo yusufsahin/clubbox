@@ -11,6 +11,7 @@ Legend: **Uygulandı** = code is in the tree. **Canlı doğrulandı** = exercise
 | Order | Task | Status |
 | --- | --- | --- |
 | 1 | **0.7 Review fixes (2026-10-11 #2)** — navigation guard, packaged recorder, clip worklet path, auto-armed clip buffer, 429/visibility, CORS proxy token leak | 🆕 Do first (small, mostly security) |
+| 1b | **0.8 Followers / following / friends lists** — bundle scan + labeled UI hunt; live UI uses only counts + mutual lists | 🆕 |
 | 2 | **0.6 Community Guidelines risk** — hidden reCAPTCHA sign-in, polling, recording, distribution | 🆕 Owner decision needed before shipping |
 | 3 | **0.5 Capture gaps** — labeled sessions, two-party protocol, evidence sync, room smoke test | 🆕 No room captured yet; committed docs are stale |
 | — | 0.1–0.4 Rename, mock data, recorder, web-session regressions | Uygulandı |
@@ -284,6 +285,52 @@ Acceptance:
 - A clip saves from the packaged app in a room where clips are allowed; nothing is buffered when local recording is off.
 - A mocked 429 stops further calls to that endpoint until the backoff expires; no timers fire after 2 minutes minimized (except active_ping in a room).
 - No CORS proxy / base URL fields remain; grep -n "cors-anywhere" src returns nothing.
+```
+
+### Task 0.8 — Followers / following / friends lists: find out what the web client really offers
+
+```
+Situation (2026-10-11): On the clubhouse.com web profile there is no followers/following list and no request is sent when "1 friend" is shown — it is plain text. So get_followers, get_following and get_cofollows are never observed and stay off in live mode (correct). Sandbox lists work only because the data is fake.
+
+Facts from the existing captures (do not re-derive):
+- get_profile (observed) returns: num_followers, num_following, num_cofollows (= friends count), follows_me, mutual_follows_count, mutual_follows[], mutual_cofollows_count, mutual_cofollows[], social_clubs[], recent_photo_urls[].
+- me (observed) returns following_ids, requested_following_ids, blocked_ids — but following_ids was EMPTY in every web capture even for an account with many friends. Arrays are not truncated by the redactor (checked), so the web API really sends it empty.
+- get_create_channel_targets (observed) returns targets[] (empty in captures), clubs[], events[], channel_capabilities for public / social / friend_of_friend / friend / closed / club, and web_listening_default_on.
+- get_group_suggested_invites (observed) returns suggestions[] + next_cursor (empty in captures).
+- Community docs (github.com/hatamiarash7/Clubhouse-API, 2021, MOBILE api clubhouseapi.com) list: GET get_following?user_id&page_size&page, GET get_followers?user_id&page_size&page, POST get_online_friends. "get_cofollows" appears nowhere — it was invented. None of these are web_api evidence.
+
+Rules: do not call an endpoint that no capture has shown. Do not use the mobile API. Do not "probe" guessed paths automatically.
+
+Do:
+1. Static bundle scan (no requests to Clubhouse beyond normal page loads):
+   - In the recorder, on Network.responseReceived for script resources from clubhouse.com (and their CDN), fetch the body with Network.getResponseBody and extract every string matching /\/web_api\/[a-z0-9_]+/ and bare endpoint-like literals next to a web_api helper. Store only the endpoint names + the script URL path (no code) in api-captures/bundle-endpoints.json.
+   - scripts/api-docs.mjs writes docs/api/web-bundle-endpoints.md: every name found, whether it is observed, configured, or neither. Names in the bundle are evidence level "in-bundle" (new value in webApiRoutes.json); canCall() still treats in-bundle as NOT callable.
+   - Answer in the doc: does the web bundle contain get_followers / get_following / get_online_friends / anything with follow|friend|cofollow|mutual in it?
+2. Labeled UI hunt (recorder, solo, each as its own labeled action in the checklist):
+   - open another user's profile and click every count/text (followers, following, friends, mutual)
+   - open my own profile and do the same
+   - Messages → new message / new chat → the friend picker (scroll it)
+   - in a room: share → "invite people" (ping) picker
+   - host a room → choose "friends only" / "friends of friends" → any people picker
+   - Search → people tab and the "add friends" section
+   - Activity → friend requests
+   - House → members list
+   - Messages → the online-friends row
+   Each one that sends a list request becomes "observed"; map it to the list it really returns.
+3. Rename relationship lists to what is proven:
+   - remove "get_cofollows" from capabilities.ts, client.ts, relationship.ts and sandbox; use the observed endpoint name, or none.
+   - Keep sandbox lists, but name the sandbox cases after the observed endpoints.
+4. Live UI with only proven data (until step 1/2 finds a list):
+   - Profile: show counts (followers, following, friends = num_cofollows) as plain text, not buttons.
+   - Show "Mutual: A, B and N others" from mutual_follows / mutual_cofollows (+ *_count) on other users' profiles, each name opens that profile.
+   - Friends view: build "People you talk to" from get_conversations participants (observed), clearly labelled as that — not as the friends list.
+   - One line under the counts: "Full lists are not available on Clubhouse web." (i18n en + tr). No disabled-but-clickable buttons.
+5. If the bundle contains a list endpoint but no UI triggers it: list it in docs as "in-bundle, not observed" and STOP. The owner decides; do not add a probe button.
+
+Acceptance:
+- docs/api/web-bundle-endpoints.md exists and answers the question in step 1.
+- grep -rn "get_cofollows" src electron returns nothing unless a capture observed it.
+- In live mode the profile shows counts + mutual lists only; nothing calls an unobserved list endpoint (verify with the recorder open).
 ```
 
 ### Task 0.6 — Reduce Community Guidelines risk (read before shipping anything)

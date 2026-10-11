@@ -9,7 +9,7 @@ export function friendsView(count: number | null): SafeHtml {
       : t('friendsCount', { count });
   return html`
     <div class="list-page">
-      <h2>${t('friends')}</h2>
+      <h2>${t('suggestions')}</h2>
       <p class="list-empty">${body}</p>
     </div>
   `;

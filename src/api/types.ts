@@ -1,3 +1,12 @@
+export type SearchObjectType = 'UserProfile' | 'LiveChannel' | 'Replay' | 'SocialClub' | 'SegmentTranscription';
+
+export type SearchHit =
+  | { kind: 'user'; user: CHUser; followsMe: boolean }
+  | { kind: 'room'; channel: string; topic: string; speakers: number; listeners: number }
+  | { kind: 'replay'; channel: string; topic: string }
+  | { kind: 'house'; id: number; name: string; photoUrl: string | null; members: number | null; subtitle: string }
+  | { kind: 'conversation'; id: string; title: string; summary: string };
+
 export interface CHUser {
   user_id: number;
   name: string;
@@ -7,15 +16,20 @@ export interface CHUser {
   share_url?: string;
   twitter?: string | null;
   instagram?: string | null;
+  displayname?: string | null;
   num_followers?: number;
   num_following?: number;
+  num_cofollows?: number;
+  follows_me?: boolean;
+  /** Raw get_profile string. Unmapped values stay an unknown relationship. */
+  follow_status?: string;
+  has_protected_profile?: boolean;
   is_speaker?: boolean;
   is_moderator?: boolean;
   is_muted?: boolean;
   is_speaking?: boolean;
   is_hand_raised?: boolean;
   is_invited_to_speak?: boolean;
-  is_following?: boolean;
   time_joined?: string;
   invited_by_user_profile?: {
     user_id: number;
@@ -107,6 +121,35 @@ export interface CHConversation {
   privacy_tooltip: string;
   has_new_segments: boolean;
   time_content_updated: string;
+  can_add_members: boolean;
+  can_invite: boolean;
+  can_delete: boolean;
+  can_leave: boolean;
+}
+
+export interface ConversationSegment {
+  id: string;
+  kind: 'text' | 'voice';
+  author_name: string;
+  text: string;
+}
+
+export interface ConversationMember {
+  name: string;
+  hide_before: number;
+}
+
+export interface ConversationThread {
+  segments: ConversationSegment[];
+  members: ConversationMember[];
+}
+
+export interface PresenceFriend {
+  user_id: number;
+  name: string;
+  username: string;
+  status: 'online' | 'in-room';
+  channel_id: string;
 }
 
 export interface MeSettings {

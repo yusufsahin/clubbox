@@ -1,4 +1,5 @@
 import { t } from '../../i18n';
+import { relationshipFromStatus } from '../../api/relationship';
 import type { CHChannelDetail, CHChatMessage, CHUser } from '../../api/types';
 import { avatarHtml } from '../avatar';
 import { html, type SafeHtml } from '../html';
@@ -71,6 +72,7 @@ export function stageColumn(state: StageState): SafeHtml {
               </div>
               <span style="font-size:12px; color:var(--text-dim);">${state.audioDisconnected ? t('audioDisconnected') : t('roomAudio')}</span>
             </div>
+            ${state.moderator ? html`<button class="btn btn-danger" type="button" data-action="end-room">${t('endRoom')}</button>` : ''}
             ${state.moderator ? html`<p class="list-note">${t('moderatorToolsUnverified')}</p>` : ''}
 
             <div class="speakers-grid">
@@ -80,8 +82,8 @@ export function stageColumn(state: StageState): SafeHtml {
                     ${avatarHtml(speaker, 82, 'avatar-img')}
                     ${speaker.is_moderator ? html`<span class="badge-crown" title="${t('moderator')}">👑</span>` : ''}
                     ${speaker.is_muted ? html`<span class="badge-mute" title="${t('muted')}">🔇</span>` : ''}
-                    ${state.canFollow && speaker.user_id !== state.me?.user_id && !speaker.is_following ? html`
-                      <button class="speaker-follow-btn" type="button" data-action="follow-user" data-user-id="${speaker.user_id}" title="${t('follow')}">+</button>
+                    ${showFollow(speaker, state) ? html`
+                      <button class="speaker-follow-btn" type="button" data-action="follow-user" data-user-id="${speaker.user_id}" title="${t('relationshipNone')}">+</button>
                     ` : ''}
                   </div>
                   <div class="speaker-name">${speaker.name}${state.channel.creator_user_profile_id === speaker.user_id ? html` <span class="host-tag">${t('host')}</span>` : ''}</div>
@@ -161,11 +163,18 @@ function audienceSection(title: string, listeners: CHUser[], state: StageState):
   `;
 }
 
+function showFollow(user: CHUser, state: StageState): boolean {
+  if (!state.canFollow || user.user_id === state.me?.user_id) return false;
+  const relationship = relationshipFromStatus(user.follow_status);
+  return relationship === 'none' || relationship === 'follower';
+}
+
 function audienceSections(listeners: CHUser[], state: StageState): SafeHtml {
   // A house-member section waits until a capture marks membership on each user.
-  const friends = listeners.filter((listener) => listener.is_following);
+  // is_following is not a friend marker. Only a mapped follow_status splits the room.
+  const friends = listeners.filter((listener) => relationshipFromStatus(listener.follow_status) === 'friends');
   if (friends.length === 0) return audienceSection(t('audience'), listeners, state);
-  const others = listeners.filter((listener) => !listener.is_following);
+  const others = listeners.filter((listener) => relationshipFromStatus(listener.follow_status) !== 'friends');
   return html`
     ${audienceSection(t('friendsHere'), friends, state)}
     ${others.length > 0 ? audienceSection(t('audience'), others, state) : ''}

@@ -16,6 +16,21 @@ After each session: `npm run api:docs`. Read `docs/api/*.md` for anything that s
 
 Press Start on the matching checklist row before each step, then Done when that step is finished. Ctrl+Shift+M drops a timestamp marker.
 
+### Session E — profile graph (1 person, web)
+
+Record the request body the web client actually sends. Do not assume `/web_api/follow` or an unfollow path. `get_profile` is already observed. Add a route only after a body shows up in the capture.
+
+1. Your own profile.
+2. A public profile you do not know.
+3. Someone only you have added.
+4. Someone who has only added you.
+5. Someone you have both added.
+6. A private profile. Add them only if the web client offers it, then stop before they accept.
+7. Open the followers list, the following list, and the friends list as three separate steps.
+8. The web client's add, remove, withdraw, accept, and decline controls, each as its own step, and only when that control is on screen.
+
+Write down every `follow_status` string you see. Buttons in Clubbox stay hidden until those strings are in the capture.
+
 ### Session B — you host, friend listens
 
 Your friend may use the phone app. Only your web side is recorded (`--role=host`).
@@ -41,6 +56,21 @@ Leave the recorder open for all of sessions B and C. It should capture websocket
 3. Yalnızken kapalı bir oda aç, sonra bitir.
 
 Her adımdan önce listedeki satırda Start’a, bitince Done’a bas. Ctrl+Shift+M bir zaman damgası bırakır.
+
+### Oturum E — profil grafiği (tek kişi, web)
+
+Web istemcisinin gerçekten gönderdiği gövdeyi kaydet. `/web_api/follow` veya bir takibi-bırak yolu varsayma. `get_profile` zaten görüldü. Bir gövde kayda düşmeden rota ekleme.
+
+1. Kendi profilin.
+2. Tanımadığın herkese açık bir profil.
+3. Yalnızca senin eklediğin biri.
+4. Yalnızca seni eklemiş biri.
+5. İkinizin de eklediği biri.
+6. Özel bir profil. Web istemcisi eklemeyi sunuyorsa ekle, kabulden önce dur.
+7. Takipçi, takip ve arkadaş listelerini üç ayrı adımda aç.
+8. Web’deki ekle, çıkar, geri çek, kabul ve ret kontrolleri. Her biri kendi adımı olsun ve yalnızca ekranda varsa.
+
+Gördüğün her `follow_status` dizgesini yaz. Bu dizgeler kayda girmeden Clubbox düğme göstermez.
 
 ### Oturum B — sen yönetirsin, arkadaşın dinler
 

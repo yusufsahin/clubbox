@@ -8,8 +8,12 @@ export const MOCK_ME: CHUser = {
   bio: 'Fictional account used only by sandbox mode.',
   twitter: null,
   instagram: null,
+  displayname: 'Sandbox',
   num_followers: 1420,
   num_following: 388,
+  num_cofollows: 120,
+  follows_me: false,
+  has_protected_profile: false,
   is_speaker: true,
   is_moderator: true,
   is_muted: false,
@@ -29,7 +33,7 @@ export const INITIAL_MOCK_CHANNELS: CHChannel[] = [
     is_active_trending_topic_channel: true,
     url: 'https://www.clubhouse.com/room/sandbox',
     num_speakers: 4,
-    num_all: 7,
+    num_all: 8,
     users: [
       {
         user_id: 201,
@@ -79,6 +83,13 @@ export const INITIAL_MOCK_CHANNELS: CHChannel[] = [
         name: 'Chloe Davis',
         username: 'chloed',
         photo_url: null,
+        displayname: null,
+        bio: 'Fictional stranger used only in sandbox mode.',
+        num_followers: 12,
+        num_following: 40,
+        num_cofollows: 3,
+        follows_me: false,
+        has_protected_profile: false,
         is_speaker: false,
         is_speaking: false,
       },
@@ -87,15 +98,43 @@ export const INITIAL_MOCK_CHANNELS: CHChannel[] = [
         name: 'David Kim',
         username: 'dkim_dev',
         photo_url: null,
+        displayname: 'Dave',
+        bio: 'Fictional one-way profile used only in sandbox mode.',
+        num_followers: 80,
+        num_following: 20,
+        num_cofollows: 4,
+        follows_me: true,
+        has_protected_profile: false,
         is_speaker: false,
         is_speaking: false,
-        is_following: true,
       },
       {
         user_id: 303,
         name: 'Zack Thorne',
         username: 'zack_t',
         photo_url: null,
+        displayname: 'Zack',
+        bio: 'Fictional mutual profile used only in sandbox mode.',
+        num_followers: 1452,
+        num_following: 845,
+        num_cofollows: 786,
+        follows_me: true,
+        has_protected_profile: false,
+        is_speaker: false,
+        is_speaking: false,
+      },
+      {
+        user_id: 304,
+        name: 'Mina Adler',
+        username: 'mina_a',
+        photo_url: null,
+        displayname: 'Mina',
+        bio: 'Fictional private profile used only in sandbox mode.',
+        num_followers: 4,
+        num_following: 1,
+        num_cofollows: 0,
+        follows_me: false,
+        has_protected_profile: true,
         is_speaker: false,
         is_speaking: false,
       },
@@ -199,4 +238,36 @@ export function sandboxUserIds(): Set<number> {
   }
   for (const message of SANDBOX_CHAT_MESSAGES) ids.add(message.user_id);
   return ids;
+}
+
+function sandboxPerson(id: number): CHUser | null {
+  for (const channel of INITIAL_MOCK_CHANNELS) {
+    const user = channel.users.find((entry) => entry.user_id === id);
+    if (user) return user;
+  }
+  return null;
+}
+
+function sandboxPeoplePages(kind: 'followers' | 'following' | 'friends'): CHUser[][] {
+  const row = (id: number): CHUser[] => {
+    const user = sandboxPerson(id);
+    return user ? [user] : [];
+  };
+  if (kind === 'followers') return [row(301), row(302)];
+  if (kind === 'following') return [row(303)];
+  return [row(304), row(204)];
+}
+
+/** Fictional pages for sandbox only. The second page is addressed by cursor "2". */
+export function sandboxPeoplePage(
+  kind: 'followers' | 'following' | 'friends',
+  cursor: string | undefined,
+  userId?: number,
+): { users: CHUser[]; next_cursor: string | null } {
+  const people = sandboxPeoplePages(kind).flat().filter((user) => user.user_id !== userId);
+  const index = cursor == null ? 0 : cursor === '2' ? 1 : -1;
+  if (index < 0) return { users: [], next_cursor: null };
+  const users = people.slice(index, index + 1);
+  const next_cursor = people.length > index + 1 ? '2' : null;
+  return { users, next_cursor };
 }

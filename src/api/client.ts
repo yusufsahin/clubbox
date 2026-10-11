@@ -1,7 +1,9 @@
 import { canCall, evidenceOf, type Evidence, type Transport } from './capabilities';
+import { PEOPLE_LIST_ENDPOINTS, readPeopleList, readProfile, type PeopleListKind, type PeopleListPage } from './relationship';
 import { businessFailure, classifyHttpFailure, nextBackoffMs, type ApiErrorKind } from './guards';
-import { INITIAL_MOCK_CHANNELS, MOCK_ME, SANDBOX_CHAT_MESSAGES, sandboxUserIds } from './sandboxData';
-import type { CHAuthResponse, CHChannel, CHChannelDetail, CHChatMessage, CHConversation, CHUser, FeedTopic, MeSettings } from './types';
+import { permissionOn } from './roomActions';
+import { INITIAL_MOCK_CHANNELS, MOCK_ME, SANDBOX_CHAT_MESSAGES, sandboxPeoplePage, sandboxUserIds } from './sandboxData';
+import type { CHAuthResponse, CHChannel, CHChannelDetail, CHChatMessage, CHConversation, CHUser, ConversationSegment, ConversationThread, FeedTopic, MeSettings, PresenceFriend, SearchHit, SearchObjectType } from './types';
 
 const REQUEST_TIMEOUT_MS = 20000;
 const OFFICIAL_WEB_API = 'https://www.clubhouse.com/web_api';
@@ -155,6 +157,10 @@ interface SandboxInput {
   audience?: string;
   replayEnabled: boolean;
   chatEnabled: boolean;
+  talkUserId?: number;
+  talkUserName?: string;
+  talkUserUsername?: string;
+  cursor?: string;
 }
 
 function readRequestBody(body: RequestBody | undefined): SandboxInput {
@@ -169,6 +175,10 @@ function readRequestBody(body: RequestBody | undefined): SandboxInput {
     audience: typeof record.audience === 'string' ? record.audience : undefined,
     replayEnabled: record.is_replay_enabled !== false,
     chatEnabled: record.is_chat_enabled !== false,
+    talkUserId: typeof record.talk_user_id === 'number' ? record.talk_user_id : undefined,
+    talkUserName: typeof record.talk_user_name === 'string' ? record.talk_user_name : undefined,
+    talkUserUsername: typeof record.talk_user_username === 'string' ? record.talk_user_username : undefined,
+    cursor: typeof record.next_cursor === 'string' && record.next_cursor.length > 0 ? record.next_cursor : undefined,
   };
 }
 
@@ -195,7 +205,7 @@ function normalizeFeedUser(raw: unknown): Record<string, unknown> | null {
     ? nested as Record<string, unknown>
     : {};
   const name = typeof record.name === 'string' ? record.name : profile.name;
-  return {
+  const user: Record<string, unknown> = {
     ...profile,
     ...record,
     name: typeof name === 'string' ? name : '',
@@ -204,7 +214,90 @@ function normalizeFeedUser(raw: unknown): Record<string, unknown> | null {
     user_id: numericId(record.user_id ?? profile.user_id) ?? record.user_id ?? profile.user_id,
     is_speaker: typeof record.is_speaker === 'boolean' ? record.is_speaker : profile.is_speaker,
     is_moderator: typeof record.is_moderator === 'boolean' ? record.is_moderator : profile.is_moderator,
+    displayname: record.displayname ?? profile.displayname,
+    num_followers: record.num_followers ?? profile.num_followers,
+    num_following: record.num_following ?? profile.num_following,
+    num_cofollows: record.num_cofollows ?? profile.num_cofollows,
+    follows_me: record.follows_me ?? profile.follows_me,
+    follow_status: typeof record.follow_status === 'string' ? record.follow_status : profile.follow_status,
+    has_protected_profile: record.has_protected_profile ?? profile.has_protected_profile,
   };
+  delete user.is_following;
+  return user;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
+function textOf(value: unknown): string {
+  return typeof value === 'string' ? value : '';
+}
+
+function searchUser(raw: Record<string, unknown>): CHUser | null {
+  const normalized = normalizeFeedUser(raw);
+  if (!normalized) return null;
+  return readProfile(normalized);
+}
+
+function hitsFromSearch(data: Record<string, unknown>): SearchHit[] {
+  const items = Array.isArray(data.items) ? data.items : Array.isArray(data.users) ? data.users : [];
+  const hits: SearchHit[] = [];
+  for (const entry of items) {
+    const item = asRecord(entry);
+    if (!item) continue;
+    const channel = asRecord(item.channel);
+    const conversation = asRecord(item.conversation);
+    const user = asRecord(item.user) ?? (numericId(item.user_id) != null ? item : null);
+    const club = asRecord(item.social_club);
+    const replay = asRecord(item.replay);
+    if (channel && typeof channel.channel === 'string') {
+      hits.push({
+        kind: 'room',
+        channel: channel.channel,
+        topic: textOf(channel.topic) || 'Live room',
+        speakers: typeof channel.num_speakers === 'number' ? channel.num_speakers : 0,
+        listeners: typeof channel.num_all === 'number' ? channel.num_all : 0,
+      });
+      continue;
+    }
+    if (conversation && typeof conversation.conversation_id === 'string') {
+      hits.push({
+        kind: 'conversation',
+        id: conversation.conversation_id,
+        title: textOf(conversation.title) || textOf(conversation.short_title),
+        summary: textOf(conversation.summary) || textOf(conversation.preview_segment_text),
+      });
+      continue;
+    }
+    if (user) {
+      const parsed = searchUser(user);
+      if (parsed) hits.push({ kind: 'user', user: parsed, followsMe: user.follows_me === true });
+      continue;
+    }
+    if (club && typeof club.name === 'string') {
+      const id = numericId(club.social_club_id);
+      hits.push({
+        kind: 'house',
+        id: id ?? 0,
+        name: club.name,
+        photoUrl: typeof club.photo_url === 'string' ? club.photo_url : null,
+        members: typeof club.num_members === 'number' ? club.num_members : null,
+        subtitle: textOf(club.subtitle),
+      });
+      continue;
+    }
+    const replayChannel = asRecord(replay?.channel);
+    if (replayChannel && typeof replayChannel.channel === 'string') {
+      hits.push({
+        kind: 'replay',
+        channel: replayChannel.channel,
+        topic: textOf(replayChannel.topic) || 'Replay',
+      });
+    }
+  }
+  return hits;
 }
 
 function feedChannel(item: unknown): Record<string, unknown> | null {
@@ -275,7 +368,14 @@ function normalizeConversations(data: { conversations?: unknown }): CHConversati
       ? raw.creator_user_profile as { name?: unknown }
       : null;
     const permissions = raw.permissions && typeof raw.permissions === 'object'
-      ? raw.permissions as { can_reply?: unknown; cant_reply_reason?: unknown }
+      ? raw.permissions as {
+        can_reply?: unknown;
+        cant_reply_reason?: unknown;
+        can_add_members?: unknown;
+        can_invite?: unknown;
+        can_delete?: unknown;
+        can_leave?: unknown;
+      }
       : null;
     const club = raw.social_club && typeof raw.social_club === 'object'
       ? raw.social_club as { name?: unknown; photo_url?: unknown }
@@ -327,6 +427,10 @@ function normalizeConversations(data: { conversations?: unknown }): CHConversati
       privacy_tooltip: privacy && typeof privacy.tooltip_text === 'string' ? privacy.tooltip_text : '',
       has_new_segments: raw.has_new_segments === true,
       time_content_updated: typeof raw.time_content_updated === 'string' ? raw.time_content_updated : '',
+      can_add_members: permissionOn(permissions?.can_add_members),
+      can_invite: permissionOn(permissions?.can_invite),
+      can_delete: permissionOn(permissions?.can_delete),
+      can_leave: permissionOn(permissions?.can_leave),
     });
   }
   return conversations;
@@ -375,6 +479,8 @@ function assertNoSandboxLeak(value: unknown, ids: Set<number>): void {
 export class ClubhouseApiClient {
   private config: ClubhouseConfig;
   private mockChannels: CHChannel[];
+  private sandboxConversationRecords: Record<string, unknown>[] = [];
+  private sandboxThreads = new Map<string, ConversationThread>();
   private currentChannel: CHChannelDetail | null = null;
   private handRaised: boolean = false;
   private sandboxTick: number = 0;
@@ -409,6 +515,7 @@ export class ClubhouseApiClient {
     }
 
     this.mockChannels = JSON.parse(JSON.stringify(INITIAL_MOCK_CHANNELS));
+    this.seedSandboxInbox();
   }
 
   public supports(endpoint: string): boolean {
@@ -588,6 +695,11 @@ export class ClubhouseApiClient {
     if (endpoint === 'get_conversations') {
       (data as { conversations?: CHConversation[] }).conversations = normalizeConversations(data as { conversations?: unknown });
     }
+    if (endpoint === 'search_users') {
+      const hits = hitsFromSearch(data as unknown as Record<string, unknown>);
+      (data as { hits?: SearchHit[]; users?: CHUser[] }).hits = hits;
+      (data as { users?: CHUser[] }).users = hits.flatMap((hit) => hit.kind === 'user' ? [hit.user] : []);
+    }
     if (import.meta.env.DEV && !this.config.useSandbox) {
       assertNoSandboxLeak(data, sandboxUserIds());
     }
@@ -628,6 +740,7 @@ export class ClubhouseApiClient {
           enable_sound_effect: true,
           anonymous_settings: { is_enabled: false, emoji: '' },
           following_ids: [],
+          requested_following_ids: [304],
           blocked_ids: [],
           default_room_title_options: ['Join the conversation', 'Come hang out', 'Let’s talk'],
         } as T;
@@ -635,7 +748,7 @@ export class ClubhouseApiClient {
       case 'get_channels':
         return {
           success: true,
-          channels: this.mockChannels,
+          channels: [...this.mockChannels],
           available_topics: [
             { key: 'business', display_name: 'Business' },
             { key: 'tech', display_name: 'Tech' },
@@ -681,10 +794,25 @@ export class ClubhouseApiClient {
         return { success: true, ...channelDetail } as T;
       }
 
-      case 'leave_channel':
+      case 'leave_channel': {
+        const channel = this.mockChannels.find((entry) => this.sameChannel(entry, input.channel));
+        if (channel) {
+          channel.users = channel.users.filter((user) => user.user_id !== MOCK_ME.user_id);
+          this.syncChannelCounts(channel);
+          if (!channel.users.some((user) => user.is_moderator)) this.dropMockChannel(channel);
+        }
         this.currentChannel = null;
         this.handRaised = false;
         return { success: true } as T;
+      }
+
+      case 'end_channel': {
+        const channel = this.mockChannels.find((entry) => this.sameChannel(entry, input.channel));
+        if (channel) this.dropMockChannel(channel);
+        this.currentChannel = null;
+        this.handRaised = false;
+        return { success: true } as T;
+      }
 
       case 'active_ping':
         return { success: true } as T;
@@ -753,7 +881,7 @@ export class ClubhouseApiClient {
           channel_id: 'ch-' + Date.now(),
           channel: 'room-' + Date.now(),
           topic: input.topic || 'Untitled Community Stage',
-          club_name: 'Creator Stage',
+          club_name: input.topic?.startsWith('Talk Live') ? 'Talk Live' : 'Creator Stage',
           is_private: false,
           is_social_mode: false,
           privacy_settings: { type: privacyType, display_text: audience, tooltip_text: audience },
@@ -773,6 +901,20 @@ export class ClubhouseApiClient {
             },
           ],
         };
+        if (input.talkUserId) {
+          newChan.users.push({
+            user_id: input.talkUserId,
+            name: input.talkUserName || 'Friend',
+            username: input.talkUserUsername || 'friend',
+            photo_url: null,
+            is_speaker: true,
+            is_moderator: false,
+            is_muted: false,
+            is_speaking: false,
+          });
+          newChan.num_speakers = newChan.users.filter((user) => user.is_speaker).length;
+          newChan.num_all = newChan.users.length;
+        }
         this.mockChannels.unshift(newChan);
         return { success: true, ...newChan } as T;
       }
@@ -786,31 +928,7 @@ export class ClubhouseApiClient {
       case 'get_conversations':
         return {
           success: true,
-          conversations: normalizeConversations({
-            conversations: [
-              {
-                conversation_id: 'sandbox-dm',
-                title: 'Sandbox friend',
-                short_title: 'Sandbox friend',
-                preview_segment_text: 'Sandbox preview',
-                summary: 'Sandbox summary',
-                creator_user_profile: { name: 'Sandbox friend' },
-                social_club: { name: 'Sandbox house' },
-                segments_authors: [{ name: 'Sandbox friend' }, { name: 'Sandbox guest' }],
-                is_subscribed: false,
-                logging_context: { has_listened: false },
-                is_permanent_social_club_conversation: true,
-                preview_segment_type: 'TEXT_TO_SPEECH',
-                is_archived: true,
-                share_url: 'https://www.clubhouse.com/c/sandbox',
-                permissions: { can_reply: false, cant_reply_reason: 'Replies are not available yet' },
-                pending_participants: [{ name: 'Sandbox guest' }],
-                privacy_settings: { display_text: 'private' },
-                has_new_segments: true,
-                time_content_updated: '2026-10-10T12:00:00Z',
-              },
-            ],
-          }),
+          conversations: normalizeConversations({ conversations: this.sandboxConversationRecords }),
           new_dm_requests_count: 1,
         } as T;
 
@@ -825,15 +943,21 @@ export class ClubhouseApiClient {
         } as T;
       }
 
-      case 'follow':
-      case 'unfollow': {
-        const following = endpoint === 'follow';
-        for (const channel of this.mockChannels) {
-          const user = channel.users.find((entry) => entry.user_id === input.userId);
-          if (user) user.is_following = following;
-        }
-        return { success: true } as T;
+      case 'get_followers':
+      case 'get_following':
+      case 'get_cofollows': {
+        const kind: PeopleListKind = endpoint === 'get_followers'
+          ? 'followers'
+          : endpoint === 'get_following'
+            ? 'following'
+            : 'friends';
+        const page = sandboxPeoplePage(kind, input.cursor, input.userId);
+        return { success: true, users: page.users, next_cursor: page.next_cursor } as T;
       }
+
+      case 'follow':
+      case 'unfollow':
+        return { success: true } as T;
 
       case 'search_users':
         return {
@@ -841,11 +965,13 @@ export class ClubhouseApiClient {
           users: this.mockChannels.flatMap((c) => c.users),
         } as T;
 
-      case 'get_channel_messages':
-        return {
-          success: true,
-          messages: SANDBOX_CHAT_MESSAGES.map((message) => ({ ...message })),
-        } as T;
+      case 'get_channel_messages': {
+        const channel = this.mockChannels.find((entry) => this.sameChannel(entry, input.channel));
+        const messages = channel?.is_chat_enabled === false
+          ? []
+          : SANDBOX_CHAT_MESSAGES.map((message) => ({ ...message }));
+        return { success: true, messages } as T;
+      }
 
       default:
         return { success: true } as T;
@@ -983,11 +1109,19 @@ export class ClubhouseApiClient {
       audience?: 'public' | 'friends' | 'friends-of-friends' | 'house';
       replayEnabled?: boolean;
       chatEnabled?: boolean;
+      talkWith?: { userId: number; name: string; username: string };
     } = {}
   ): Promise<CHChannelDetail> {
     const audience = options.audience ?? 'public';
     const replayEnabled = options.replayEnabled !== false;
     const chatEnabled = options.chatEnabled !== false;
+    const privacyLevel = audience === 'friends'
+      ? 'friend'
+      : audience === 'friends-of-friends'
+        ? 'friend_of_friend'
+        : audience === 'house'
+          ? 'house'
+          : 'public';
     const body = {
       topic,
       is_chat_enabled: chatEnabled,
@@ -995,13 +1129,125 @@ export class ClubhouseApiClient {
       is_public_room: audience === 'public',
       is_private: false,
       is_social_mode: false,
+      privacy_level: privacyLevel,
       user_ids: [] as number[],
       topic_ids: [] as number[],
     };
     if (this.config.useSandbox) {
-      return this.handleSandboxRequest('create_channel', { ...body, audience });
+      return this.handleSandboxRequest('create_channel', {
+        ...body,
+        audience,
+        talk_user_id: options.talkWith?.userId,
+        talk_user_name: options.talkWith?.name,
+        talk_user_username: options.talkWith?.username,
+      });
     }
     return this.request('create_channel', body);
+  }
+
+  public async endChannel(channelId: string): Promise<ApiAck> {
+    if (!this.config.useSandbox) {
+      throw new ClubhouseApiError(0, 'end_channel', 'Not captured', 'unknown');
+    }
+    return this.request('end_channel', { channel: channelId });
+  }
+
+  public sandboxPresence(): PresenceFriend[] {
+    if (!this.config.useSandbox) return [];
+    return [
+      {
+        user_id: 201,
+        name: 'Elena Rostova',
+        username: 'elena_ai',
+        status: 'in-room',
+        channel_id: 'ch-tech-deep-dive',
+      },
+      {
+        user_id: 401,
+        name: 'Noah Ellis',
+        username: 'noah_e',
+        status: 'online',
+        channel_id: '',
+      },
+    ];
+  }
+
+  public sandboxThread(conversationId: string): ConversationThread | null {
+    if (!this.config.useSandbox) return null;
+    const thread = this.sandboxThreads.get(conversationId);
+    if (!thread) return null;
+    return {
+      segments: thread.segments.map((segment) => ({ ...segment })),
+      members: thread.members.map((member) => ({ ...member })),
+    };
+  }
+
+  public sandboxAppendSegment(
+    conversationId: string,
+    segment: { kind: 'text' | 'voice'; author_name: string; text: string },
+  ): ConversationSegment | null {
+    if (!this.config.useSandbox) return null;
+    const thread = this.sandboxThreads.get(conversationId);
+    const record = this.sandboxConversationRecords.find((entry) => entry.conversation_id === conversationId);
+    if (!thread || !record) return null;
+    const next: ConversationSegment = {
+      id: `seg-${Date.now()}`,
+      kind: segment.kind,
+      author_name: segment.author_name,
+      text: segment.text,
+    };
+    thread.segments.push(next);
+    record.preview_segment_text = segment.text;
+    record.preview_segment_type = segment.kind === 'voice' ? 'TEXT_TO_SPEECH' : 'TEXT';
+    record.time_content_updated = new Date().toISOString();
+    return next;
+  }
+
+  public sandboxAddMember(conversationId: string, name: string): boolean {
+    if (!this.config.useSandbox) return false;
+    const thread = this.sandboxThreads.get(conversationId);
+    if (!thread || thread.members.some((member) => member.name === name)) return false;
+    thread.members.push({ name, hide_before: thread.segments.length });
+    return true;
+  }
+
+  public sandboxRemoveConversation(conversationId: string): void {
+    if (!this.config.useSandbox) return;
+    this.sandboxConversationRecords = this.sandboxConversationRecords.filter((entry) => entry.conversation_id !== conversationId);
+    this.sandboxThreads.delete(conversationId);
+  }
+
+  public sandboxStartVm(friend: { userId: number; name: string; username: string }): string {
+    const id = `sandbox-vm-${friend.userId}`;
+    if (!this.config.useSandbox) return id;
+    if (!this.sandboxConversationRecords.some((entry) => entry.conversation_id === id)) {
+      this.sandboxConversationRecords.unshift({
+        conversation_id: id,
+        title: friend.name,
+        short_title: friend.name,
+        preview_segment_text: '',
+        summary: '',
+        creator_user_profile: { name: friend.name },
+        segments_authors: [{ name: friend.name }],
+        is_subscribed: true,
+        is_permanent_social_club_conversation: false,
+        preview_segment_type: '',
+        is_archived: false,
+        permissions: {
+          can_reply: true,
+          can_add_members: true,
+          can_invite: true,
+          can_delete: true,
+          can_leave: true,
+          cant_reply_reason: '',
+        },
+        privacy_settings: { display_text: 'Private', tooltip_text: 'Voice message' },
+        has_new_segments: true,
+        time_content_updated: new Date().toISOString(),
+      });
+      this.sandboxThreads.set(id, { segments: [], members: [] });
+    }
+    return id;
   }
 
   public async activePing(channelId: string): Promise<ApiAck> {
@@ -1053,8 +1299,19 @@ export class ClubhouseApiClient {
     });
   }
 
+  public async getPeopleList(kind: PeopleListKind, userId: number, cursor?: string | null): Promise<PeopleListPage> {
+    const endpoint = PEOPLE_LIST_ENDPOINTS[kind];
+    if (!this.supports(endpoint)) return { users: [], nextCursor: null };
+    const body: RequestBody = { user_id: userId };
+    if (cursor) body.next_cursor = cursor;
+    return readPeopleList(await this.request(endpoint, body));
+  }
+
   public async getProfile(userId: number): Promise<{ success: boolean; user_profile: CHUser }> {
-    return this.request('get_profile', { user_id: userId });
+    const res = await this.request<{ success?: boolean; user_profile?: unknown }>('get_profile', { user_id: userId });
+    const user = readProfile(res.user_profile);
+    if (!user) throw new ClubhouseApiError(200, 'get_profile', 'Profile was missing', 'unknown');
+    return { success: res.success !== false, user_profile: user };
   }
 
   public async follow(userId: number): Promise<ApiAck> {
@@ -1065,8 +1322,13 @@ export class ClubhouseApiClient {
     return this.request('unfollow', { user_id: userId });
   }
 
-  public async searchUsers(query: string): Promise<{ success: boolean; users: CHUser[] }> {
-    return this.request('search_users', { query, cofollow_mode: false });
+  public async search(query: string, types: SearchObjectType[]): Promise<{ success: boolean; hits: SearchHit[]; users: CHUser[] }> {
+    const res = await this.request<{ success: boolean; hits?: SearchHit[]; users?: CHUser[] }>('search_users', {
+      query,
+      limit_to_object_types: types,
+    });
+    const hits = res.hits ?? (res.users ?? []).map((user) => ({ kind: 'user' as const, user, followsMe: false }));
+    return { ...res, success: res.success !== false, hits, users: res.users ?? hits.flatMap((hit) => hit.kind === 'user' ? [hit.user] : []) };
   }
 
   public getCurrentChannel(): CHChannelDetail | null {
@@ -1127,12 +1389,113 @@ export class ClubhouseApiClient {
     channel.has_raised_hands = channel.users.some((user) => user.is_hand_raised);
   }
 
+  private sameChannel(entry: CHChannel, channelId: string | undefined): boolean {
+    if (!channelId) return false;
+    return entry.channel === channelId || String(entry.channel_id) === channelId;
+  }
+
+  private dropMockChannel(channel: CHChannel): void {
+    this.mockChannels = this.mockChannels.filter((entry) => !this.sameChannel(entry, channel.channel) && !this.sameChannel(entry, String(channel.channel_id)));
+  }
+
   private findMockChannel(channelId: string | undefined): CHChannel | undefined {
     if (channelId) {
       const found = this.mockChannels.find((channel) => channel.channel_id === channelId || channel.channel === channelId);
       if (found) return found;
     }
     return this.currentChannel ?? undefined;
+  }
+
+  private seedSandboxInbox(): void {
+    this.sandboxConversationRecords = [
+      {
+        conversation_id: 'sandbox-vm',
+        title: 'Noah Ellis',
+        short_title: 'Noah Ellis',
+        preview_segment_text: 'Sandbox voice note',
+        summary: 'Private voice message',
+        creator_user_profile: { name: 'Noah Ellis' },
+        segments_authors: [{ name: 'Noah Ellis' }],
+        is_subscribed: true,
+        logging_context: { has_listened: false },
+        is_permanent_social_club_conversation: false,
+        preview_segment_type: 'TEXT_TO_SPEECH',
+        is_archived: false,
+        permissions: {
+          can_reply: true,
+          can_add_members: true,
+          can_invite: true,
+          can_delete: true,
+          can_leave: true,
+          cant_reply_reason: '',
+        },
+        privacy_settings: { display_text: 'Private', tooltip_text: 'Voice message' },
+        has_new_segments: true,
+        time_content_updated: '2026-10-10T12:00:00Z',
+      },
+      {
+        conversation_id: 'sandbox-house',
+        title: 'House board',
+        short_title: 'House board',
+        preview_segment_text: 'House update',
+        summary: 'House chat',
+        creator_user_profile: { name: 'Sandbox User' },
+        social_club: { name: 'Sandbox house', photo_url: '' },
+        segments_authors: [{ name: 'Sandbox User' }],
+        is_subscribed: true,
+        is_permanent_social_club_conversation: true,
+        preview_segment_type: 'TEXT',
+        is_archived: false,
+        share_url: 'https://www.clubhouse.com/c/sandbox-house',
+        permissions: {
+          can_reply: true,
+          can_add_members: false,
+          can_invite: false,
+          can_delete: false,
+          can_leave: true,
+          cant_reply_reason: '',
+        },
+        privacy_settings: { display_text: 'House', tooltip_text: 'House members' },
+        has_new_segments: false,
+        time_content_updated: '2026-10-09T12:00:00Z',
+      },
+      {
+        conversation_id: 'sandbox-archive',
+        title: 'Old friend chat',
+        short_title: 'Old friend chat',
+        preview_segment_text: 'Archived hallway chat',
+        summary: 'Read-only archive',
+        creator_user_profile: { name: 'Sandbox friend' },
+        segments_authors: [{ name: 'Sandbox friend' }],
+        is_subscribed: false,
+        is_permanent_social_club_conversation: false,
+        preview_segment_type: 'TEXT',
+        is_archived: true,
+        permissions: { can_reply: false, cant_reply_reason: 'Replies are not available yet' },
+        privacy_settings: { display_text: 'Archive', tooltip_text: 'Friend chats are archived' },
+        has_new_segments: false,
+        time_content_updated: '2024-01-01T12:00:00Z',
+      },
+    ];
+    this.sandboxThreads.set('sandbox-vm', {
+      segments: [
+        { id: 'seg-vm-1', kind: 'text', author_name: 'Noah Ellis', text: 'Are you around?' },
+        { id: 'seg-vm-2', kind: 'voice', author_name: 'Noah Ellis', text: 'Sandbox voice note' },
+      ],
+      members: [],
+    });
+    this.sandboxThreads.set('sandbox-house', {
+      segments: [
+        { id: 'seg-house-1', kind: 'text', author_name: 'Sandbox User', text: 'House update' },
+      ],
+      members: [],
+    });
+    this.sandboxThreads.set('sandbox-archive', {
+      segments: [
+        { id: 'seg-archive-1', kind: 'text', author_name: 'Sandbox friend', text: 'Archived hallway chat' },
+      ],
+      members: [],
+    });
   }
 
   private syncChannelCounts(channel: CHChannel): void {

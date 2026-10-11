@@ -20,6 +20,8 @@ export class AudioEngine {
   private mediaRecorder: MediaRecorder | null = null;
   private recordedChunks: Blob[] = [];
   private remoteNodes = new Map<string, { source: MediaStreamAudioSourceNode; gain: GainNode }>();
+  private roomHeard = true;
+  private voiceNote: AudioBufferSourceNode | null = null;
 
   private inputDeviceId = '';
   private outputDeviceId = '';
@@ -244,7 +246,7 @@ export class AudioEngine {
     const ctx = this.initContextIfNeeded();
     const source = ctx.createMediaStreamSource(new MediaStream([track]));
     const gain = ctx.createGain();
-    gain.gain.value = this.getRemoteVolume(key);
+    gain.gain.value = this.heardGain(key);
     source.connect(gain);
     // Local playback and the recording only. Never the send bus.
     gain.connect(this.masterGain!);
@@ -324,7 +326,58 @@ export class AudioEngine {
     this.remoteVolumes.set(key, vol);
     const nodes = this.remoteNodes.get(key);
     if (!nodes || !this.ctx) return;
-    nodes.gain.gain.setTargetAtTime(vol, this.ctx.currentTime, 0.02);
+    nodes.gain.gain.setTargetAtTime(this.heardGain(key), this.ctx.currentTime, 0.02);
+  }
+
+  public setRoomHeard(heard: boolean): void {
+    this.roomHeard = heard;
+    if (!this.ctx) return;
+    for (const [key, nodes] of this.remoteNodes) {
+      nodes.gain.gain.setTargetAtTime(this.heardGain(key), this.ctx.currentTime, 0.02);
+    }
+  }
+
+  public isRoomHeard(): boolean {
+    return this.roomHeard;
+  }
+
+  public playVoiceNote(rate: number): void {
+    this.stopVoiceNote();
+    const ctx = this.initContextIfNeeded();
+    const seconds = 0.7;
+    const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * seconds), ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < data.length; i += 1) {
+      const time = i / ctx.sampleRate;
+      data[i] = Math.sin(2 * Math.PI * 220 * time) * Math.exp(-2.2 * time) * 0.35;
+    }
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.playbackRate.value = rate === 1.5 || rate === 2 ? rate : 1;
+    const gain = ctx.createGain();
+    gain.gain.value = 0.5;
+    source.connect(gain);
+    gain.connect(this.masterGain!);
+    source.start();
+    this.voiceNote = source;
+    source.onended = () => {
+      if (this.voiceNote === source) this.voiceNote = null;
+    };
+  }
+
+  public stopVoiceNote(): void {
+    const note = this.voiceNote;
+    this.voiceNote = null;
+    if (!note) return;
+    try {
+      note.stop();
+    } catch {
+      // Already stopped.
+    }
+  }
+
+  private heardGain(key: string): number {
+    return this.roomHeard ? this.getRemoteVolume(key) : 0;
   }
 
   private releaseMicrophoneGraph(): void {

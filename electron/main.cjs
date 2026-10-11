@@ -1,6 +1,7 @@
 const { app, BrowserWindow, session, ipcMain, globalShortcut, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const { pathToFileURL } = require('url');
 const { isAllowedEndpoint, isPlainPayload, pickHeaders } = require('./ipcGuard.cjs');
 
@@ -13,6 +14,12 @@ app.setName('Clubbox');
 if (process.platform === 'win32') {
   app.setAppUserModelId('app.clubbox.desktop');
 }
+
+// Chromium renames Cache to old_Cache_* on startup. On Windows that rename
+// fails with ACCESS_DENIED (0x5) when another process still has the folder
+// open, and the window then never finishes loading. Keep the cache somewhere
+// that is not the locked user-data Cache directory.
+app.commandLine.appendSwitch('disk-cache-dir', path.join(os.tmpdir(), 'clubbox-disk-cache'));
 
 let mainWindow = null;
 
@@ -348,7 +355,7 @@ function webSessionUrl(pathName, method, body) {
 }
 
 function logResponseShape(endpoint, text) {
-  if (endpoint !== 'join_channel' && endpoint !== 'get_channels') return;
+  if (endpoint !== 'join_channel' && endpoint !== 'get_channels' && endpoint !== 'search_users') return;
   try {
     const parsed = JSON.parse(text);
     const keys = parsed && typeof parsed === 'object' ? Object.keys(parsed) : [];
@@ -448,6 +455,7 @@ ipcMain.handle('ch:request', async (event, payload) => {
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 if (!hasSingleInstanceLock) {
+  console.error('[Electron] Clubbox is already running. Close that window, then start again.');
   app.quit();
 } else {
   app.on('second-instance', (_event, argv) => {
@@ -455,7 +463,10 @@ if (!hasSingleInstanceLock) {
       startRecorderIfAllowed(argv);
       return;
     }
-    if (!mainWindow || mainWindow.isDestroyed()) return;
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      createWindow();
+      return;
+    }
     if (mainWindow.isMinimized()) mainWindow.restore();
     mainWindow.show();
     mainWindow.focus();

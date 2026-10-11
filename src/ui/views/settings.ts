@@ -1,7 +1,41 @@
 import { t } from '../../i18n';
 import type { ClubhouseConfig } from '../../api/client';
+import type { MeSettings } from '../../api/types';
 import { SHORTCUT_ACTIONS, type ShortcutAction, type ShortcutMap } from '../../shortcuts';
 import { html, type SafeHtml } from '../html';
+
+export interface AccountReadout {
+  settings: MeSettings | null;
+  notificationsEnabled: boolean | null;
+  soundEffectsEnabled: boolean | null;
+  anonymousEnabled: boolean | null;
+  blockedCount: number | null;
+  isAdmin: boolean;
+}
+
+function accountSection(account: AccountReadout | null): SafeHtml {
+  if (!account) return html``;
+  const settings = account.settings;
+  return html`
+    <div style="background:var(--bg-card); border:1px solid var(--border-subtle); border-radius:var(--radius-lg); padding:24px; margin-bottom:20px;">
+      <h3 style="font-size:16px; font-weight:700; margin-bottom:16px;">${t('accountSection')}</h3>
+      <div class="profile-settings">
+        ${settings ? settingRow(t('followerRequests'), settings.follower_requests_enabled) : ''}
+        ${settings ? settingRow(t('privateConversations'), settings.private_conversations_enabled) : ''}
+        ${settings ? settingRow(t('contactUpload'), settings.contact_upload_enabled) : ''}
+        ${account.notificationsEnabled == null ? '' : settingRow(t('notifications'), account.notificationsEnabled)}
+        ${account.soundEffectsEnabled == null ? '' : settingRow(t('soundEffectsSetting'), account.soundEffectsEnabled)}
+        ${account.anonymousEnabled == null ? '' : settingRow(t('anonymousMode'), account.anonymousEnabled)}
+        ${account.isAdmin ? html`<div class="profile-setting-row"><span>${t('accountAdmin')}</span><span>${t('settingOn')}</span></div>` : ''}
+        ${account.blockedCount && account.blockedCount > 0 ? html`<div class="profile-setting-row"><span>${t('blocked')}</span><span>${account.blockedCount}</span></div>` : ''}
+      </div>
+    </div>
+  `;
+}
+
+function settingRow(label: string, enabled: boolean): SafeHtml {
+  return html`<div class="profile-setting-row"><span>${label}</span><span>${enabled ? t('settingOn') : t('settingOff')}</span></div>`;
+}
 
 function shortcutLabel(action: ShortcutAction): string {
   if (action === 'mute') return t('shortcutMute');
@@ -9,7 +43,13 @@ function shortcutLabel(action: ShortcutAction): string {
   return t('shortcutPad', { n: action.slice(3) });
 }
 
-export function settingsView(config: ClubhouseConfig, shortcuts: ShortcutMap, recording: ShortcutAction | null): SafeHtml {
+export function settingsView(
+  config: ClubhouseConfig,
+  shortcuts: ShortcutMap,
+  recording: ShortcutAction | null,
+  liveOnly: boolean,
+  account: AccountReadout | null,
+): SafeHtml {
   return html`
     <div style="max-width:780px; margin:0 auto;">
       <h2 style="font-size:22px; font-weight:700; margin-bottom:4px;">${t('settingsTitle')}</h2>
@@ -31,6 +71,8 @@ export function settingsView(config: ClubhouseConfig, shortcuts: ShortcutMap, re
           </div>
         </div>
       </div>
+
+      ${accountSection(account)}
 
       <div style="background:var(--bg-card); border:1px solid var(--border-subtle); border-radius:var(--radius-lg); padding:24px; margin-bottom:20px;">
         <h3 style="font-size:16px; font-weight:700; margin-bottom:16px;">${t('audioDevices')}</h3>
@@ -68,18 +110,20 @@ export function settingsView(config: ClubhouseConfig, shortcuts: ShortcutMap, re
 
       <div style="background:var(--bg-card); border:1px solid var(--border-subtle); border-radius:var(--radius-lg); padding:24px; margin-bottom:20px;">
         <h3 style="font-size:16px; font-weight:700; margin-bottom:16px;">${t('runtimeMode')}</h3>
-        <div style="display:flex; gap:16px; margin-bottom:16px;">
-          <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-            <input type="radio" name="runtime-mode" value="sandbox" ${config.useSandbox ? 'checked' : ''} id="radio-sandbox" />
-            <span><strong>${t('sandboxMode')}</strong> ${t('sandboxModeHelp')}</span>
-          </label>
-        </div>
-        <div style="display:flex; gap:16px;">
-          <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-            <input type="radio" name="runtime-mode" value="live" ${!config.useSandbox ? 'checked' : ''} id="radio-live" />
-            <span><strong>${t('liveMode')}</strong> ${t('liveModeHelp')}</span>
-          </label>
-        </div>
+        ${liveOnly ? html`<p class="list-note">${t('desktopLiveOnly')}</p>` : html`
+          <div style="display:flex; gap:16px; margin-bottom:16px;">
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+              <input type="radio" name="runtime-mode" value="sandbox" ${config.useSandbox ? 'checked' : ''} id="radio-sandbox" />
+              <span><strong>${t('sandboxMode')}</strong> ${t('sandboxModeHelp')}</span>
+            </label>
+          </div>
+          <div style="display:flex; gap:16px;">
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+              <input type="radio" name="runtime-mode" value="live" ${!config.useSandbox ? 'checked' : ''} id="radio-live" />
+              <span><strong>${t('liveMode')}</strong> ${t('liveModeHelp')}</span>
+            </label>
+          </div>
+        `}
         <label style="display:flex; align-items:flex-start; gap:8px; margin-top:16px; cursor:pointer;">
           <input type="checkbox" id="cfg-allow-unverified" ${config.allowUnverified ? 'checked' : ''} />
           <span><strong>${t('allowUnverified')}</strong><br />${t('allowUnverifiedHelp')}</span>

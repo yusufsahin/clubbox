@@ -1,6 +1,8 @@
 import './style.css';
 import { ClubhouseApiError, clubhouseClient } from './api/client';
 import { beginJoin, commitJoin, emptyRoomSession, finishLeave, localClipAllowed, roleSyncDecision, roomAudience } from './api/guards';
+import { leaveClosesRoom, roomHasOthers } from './api/roomActions';
+import { applyFollowResponse, mergeProfile, PEOPLE_LIST_ENDPOINTS, profileCountsMissing, readProfile, relationshipFromStatus, type PeopleListKind } from './api/relationship';
 
 const CHAT_POLL_MS = 15_000;
 const GUIDELINES_KEY = 'clubbox-guidelines-accepted';
@@ -9,19 +11,20 @@ import { audioEngine } from './audio/audioEngine';
 import { readAudioPrefs, writeAudioPrefs, type AudioPrefs } from './audio/audioPrefs';
 import { eventToAccelerator, normalizeShortcuts, readShortcuts, writeShortcuts, type ShortcutAction, type ShortcutMap } from './shortcuts';
 import { agoraVoice } from './audio/agoraVoice';
-import type { CHChannel, CHChannelDetail, CHChatMessage, CHConversation, CHUser, FeedTopic, MeSettings } from './api/types';
+import type { CHChannel, CHChannelDetail, CHChatMessage, CHConversation, CHUser, FeedTopic, MeSettings, SearchHit, SearchObjectType } from './api/types';
 import { setLanguage, t } from './i18n';
 import { avatarHtml, installAvatarFallback } from './ui/avatar';
 import { cockpitBar } from './ui/components/cockpitBar';
 import { mountCreateModal } from './ui/components/createModal';
-import { paintProfileDrawer } from './ui/components/profileDrawer';
+import { paintPersonSheet, selfProfilePage } from './ui/components/profileDrawer';
 import { mountSpeakerInvite } from './ui/components/speakerInvite';
 import { showToast } from './ui/components/toast';
 import { html, markup, safeUrl } from './ui/html';
 import { activityView } from './ui/views/activity';
 import { exploreView } from './ui/views/explore';
 import { friendsView } from './ui/views/friends';
-import { placeholderView } from './ui/views/placeholder';
+import { peopleListView } from './ui/views/peopleList';
+import { discoverView, type DiscoverTab } from './ui/views/discover';
 import { loginView } from './ui/views/login';
 import { messagesView } from './ui/views/messages';
 import { settingsView } from './ui/views/settings';
@@ -64,8 +67,20 @@ class ClubboxApp {
   private feedTopics: FeedTopic[] = [];
   private conversations: CHConversation[] = [];
   private conversationsLoaded = false;
+  private messageFilter: 'all' | 'house' | 'vm' = 'all';
+  private openConversationId: string | null = null;
+  private previewMember: string | null = null;
+  private voiceRate = 1;
+  private privateVoice = false;
+  private privateLines: { userId: number; text: string; voice: boolean }[] = [];
   private activityCount: number | null = null;
   private suggestionsCount: number | null = null;
+  private discoverQuery = '';
+  private discoverTab: DiscoverTab = 'top';
+  private discoverHits: SearchHit[] | null = null;
+  private discoverLoading = false;
+  private discoverTimer: number | null = null;
+  private discoverSeq = 0;
   private me: CHUser | null = null;
   private meSettings: MeSettings | null = null;
   private unreadNotifications = false;
@@ -79,6 +94,7 @@ class ClubboxApp {
   private isCreateModalOpen: boolean = false;
   private isSettingsModalOpen: boolean = false;
   private isProfileDrawerOpen: boolean = false;
+  private selfProfileOpen = false;
   private recordTimerInterval: number | null = null;
   private recordDurationSec: number = 0;
   private pingTimer: number | null = null;
@@ -96,6 +112,14 @@ class ClubboxApp {
   private requestedFollowingCount: number | null = null;
   private dmRequestCount = 0;
   private profileLoading = false;
+  private peopleList: {
+    kind: PeopleListKind;
+    userId: number;
+    users: CHUser[] | null;
+    nextCursor: string | null;
+    loadingMore: boolean;
+  } | null = null;
+  private peopleListSeq = 0;
   private openSpeakerMenuId: number | null = null;
   private speakerInviteVisible = false;
   private dismissedSpeakerInvite = false;
@@ -143,20 +167,27 @@ class ClubboxApp {
       void this.tryAdoptOfficialSession();
     });
 
-    if (!this.guidelinesAccepted() && !clubhouseClient.getConfig().useSandbox) {
+    const desktop = !!electronAPI()?.isElectron;
+    if (desktop) {
+      await clubhouseClient.updateConfig({ useSandbox: false, allowUnverified: true });
+      if (!this.guidelinesAccepted()) {
+        this.pendingLive = true;
+        this.guidelinesOpen = true;
+      } else {
+        await clubhouseClient.adoptWebSession();
+      }
+    } else if (!this.guidelinesAccepted() && !clubhouseClient.getConfig().useSandbox) {
       this.pendingLive = true;
       this.guidelinesOpen = true;
       await clubhouseClient.updateConfig({ useSandbox: true });
     }
-    if (electronAPI()?.isElectron && this.guidelinesAccepted()) {
-      await clubhouseClient.adoptWebSession();
-    }
-    await this.refreshMe();
-
-    try {
-      await this.reloadChannels();
-    } catch (err) {
-      this.reportApiError(err);
+    if (!(desktop && !this.guidelinesAccepted())) {
+      await this.refreshMe();
+      try {
+        await this.reloadChannels();
+      } catch (err) {
+        this.reportApiError(err);
+      }
     }
 
     // Hook audio engine callbacks
@@ -218,7 +249,7 @@ class ClubboxApp {
     const before = this.accountStamp();
     try {
       const res = await clubhouseClient.getMe();
-      this.me = res.user_profile ?? null;
+      this.me = readProfile(res.user_profile);
       const settings = res.user_settings;
       this.meSettings = settings ? {
         contact_upload_enabled: settings.contact_upload_enabled === true,
@@ -241,8 +272,15 @@ class ClubboxApp {
       this.roomTitleOptions = Array.isArray(res.default_room_title_options)
         ? res.default_room_title_options.filter((title): title is string => typeof title === 'string' && title.trim().length > 0).slice(0, 16)
         : [];
-      if (this.me && this.me.num_following == null && Array.isArray(res.following_ids)) {
-        this.me = { ...this.me, num_following: res.following_ids.length };
+      if (this.me && profileCountsMissing(this.me)) {
+        try {
+          const full = await clubhouseClient.getProfile(this.me.user_id);
+          if (this.me?.user_id === full.user_profile.user_id) {
+            this.me = mergeProfile(this.me, full.user_profile);
+          }
+        } catch (err) {
+          if (!options?.quiet) this.reportApiError(err);
+        }
       }
       if (this.me && !clubhouseClient.getConfig().useSandbox) {
         clubhouseClient.updateConfig({ userId: this.me.user_id });
@@ -432,7 +470,13 @@ class ClubboxApp {
     const goLive = this.pendingLive;
     this.pendingLive = false;
     this.render();
-    if (goLive) void this.switchRuntimeMode(false);
+    if (goLive) void this.startLiveAfterGuidelines();
+  }
+
+  private async startLiveAfterGuidelines(): Promise<void> {
+    await this.switchRuntimeMode(false);
+    if (electronAPI()?.isElectron) await clubhouseClient.adoptWebSession();
+    await this.finishSignIn();
   }
 
   private declineGuidelines(): void {
@@ -456,7 +500,7 @@ class ClubboxApp {
         <p>${t('guidelinesBody')}</p>
         <div class="guidelines-actions">
           <button class="btn btn-primary" type="button" data-action="accept-guidelines">${t('guidelinesAccept')}</button>
-          <button class="btn btn-secondary" type="button" data-action="decline-guidelines">${t('guidelinesDecline')}</button>
+          ${electronAPI()?.isElectron ? '' : html`<button class="btn btn-secondary" type="button" data-action="decline-guidelines">${t('guidelinesDecline')}</button>`}
         </div>
       </div>
     `);
@@ -639,7 +683,7 @@ class ClubboxApp {
     if (typeof mine?.is_hand_raised === 'boolean') clubhouseClient.setHandRaised(mine.is_hand_raised);
 
     if (this.isProfileDrawerOpen) this.renderProfileDrawer();
-    if (this.currentTab !== 'stage') return;
+    if (this.selfProfileOpen || this.currentTab !== 'stage') return;
     this.renderStage();
     this.renderCockpit();
   }
@@ -824,11 +868,18 @@ class ClubboxApp {
   }
 
   private ensureProfileDrawer(): HTMLElement {
+    if (!document.getElementById('profile-scrim')) {
+      const scrim = document.createElement('div');
+      scrim.id = 'profile-scrim';
+      scrim.className = 'profile-scrim';
+      scrim.dataset.action = 'close-profile';
+      document.body.appendChild(scrim);
+    }
     const existing = document.getElementById('profile-drawer');
     if (existing) return existing;
     const drawer = document.createElement('div');
     drawer.id = 'profile-drawer';
-    drawer.className = 'profile-drawer';
+    drawer.className = 'profile-drawer person-sheet';
     document.body.appendChild(drawer);
     return drawer;
   }
@@ -921,6 +972,11 @@ class ClubboxApp {
         this.sendChatMessage();
         return;
       }
+      if (target?.id === 'discover-query' && e.key === 'Enter') {
+        e.preventDefault();
+        void this.runDiscoverSearch();
+        return;
+      }
       if (target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) {
         return;
       }
@@ -955,6 +1011,9 @@ class ClubboxApp {
       if (e.key === 'Escape') {
         if (this.isProfileDrawerOpen) {
           this.closeProfileDrawer();
+        } else if (this.selfProfileOpen) {
+          this.selfProfileOpen = false;
+          this.render();
         } else if (this.isCreateModalOpen) {
           this.closeCreateModal();
         } else if (this.speakerInviteVisible) {
@@ -1253,9 +1312,14 @@ class ClubboxApp {
     if (!ok) this.showToast(t('audioTokenGap'), '🔇');
   }
 
-  private async releaseRoomLocally(): Promise<void> {
+  private async releaseRoomLocally(options: { skipServer?: boolean } = {}): Promise<void> {
     const channel = this.currentChannel;
     const channelId = channel ? this.channelApiId(channel) : null;
+    this.privateVoice = false;
+    this.privateLines = [];
+    this.closeProfileDrawer();
+    audioEngine.setRoomHeard(true);
+    audioEngine.stopVoiceNote();
     this.roomSession = finishLeave(this.roomSession);
     this.joinInFlight = false;
     this.agoraRoleSyncing = false;
@@ -1277,7 +1341,7 @@ class ClubboxApp {
     } catch {
       // Local publishing still stops below if leave throws.
     }
-    if (!channelId || !clubhouseClient.supports('leave_channel')) return;
+    if (options.skipServer || !channelId || !clubhouseClient.supports('leave_channel')) return;
     try {
       await clubhouseClient.leaveChannel(channelId);
     } catch (err) {
@@ -1285,43 +1349,251 @@ class ClubboxApp {
     }
   }
 
-  private async leaveRoom(options: { silent?: boolean } = {}) {
-    const hadRoom = !!this.currentChannel;
+  private async leaveRoom(options: { silent?: boolean; end?: boolean } = {}) {
+    const channel = this.currentChannel;
+    const hadRoom = !!channel;
     if (!hadRoom && !this.joinInFlight && !agoraVoice.getIsJoined() && !audioEngine.getIsRecording()) return;
+    const myId = this.me?.user_id ?? clubhouseClient.getCurrentUserId();
+    const closes = !!channel && myId != null && leaveClosesRoom(channel.users, myId);
+    const sandbox = clubhouseClient.getConfig().useSandbox;
+    let end = options.end === true;
+    if (!options.silent && !options.end && closes) {
+      if (!window.confirm(t('leaveEndsRoomConfirm'))) return;
+      end = true;
+    } else if (!options.silent && !options.end && hadRoom) {
+      if (!window.confirm(t('leaveRoomConfirm'))) return;
+    } else if (options.silent && !options.end && closes && sandbox) {
+      end = true;
+    }
+    if (end && channel) {
+      if (!sandbox) {
+        this.showToast(t('unverifiedAction'), '🔒');
+        return;
+      }
+      try {
+        await clubhouseClient.endChannel(this.channelApiId(channel));
+      } catch (err) {
+        this.reportApiError(err);
+        return;
+      }
+      await this.releaseRoomLocally({ skipServer: true });
+      this.afterRoomExit(hadRoom, options.silent === true, true);
+      return;
+    }
     await this.releaseRoomLocally();
+    this.afterRoomExit(hadRoom, options.silent === true, false);
+  }
+
+  private afterRoomExit(hadRoom: boolean, silent: boolean, ended: boolean): void {
     this.currentTab = 'explore';
     this.chatOpen = true;
     this.render();
-    if (hadRoom && !options.silent) this.showToast(t('leftRoom'), '👋');
+    if (hadRoom && !silent) this.showToast(ended ? t('endedRoom') : t('leftRoom'), ended ? '⏹' : '👋');
+    if (!hadRoom) return;
+    void this.reloadChannels().then(() => {
+      if (this.currentTab === 'explore') this.render();
+    }).catch((err) => this.reportApiError(err));
+  }
+
+  private async endRoom(): Promise<void> {
+    const channel = this.currentChannel;
+    const myId = this.me?.user_id ?? clubhouseClient.getCurrentUserId();
+    if (!channel || !this.isMeModerator() || myId == null) return;
+    if (roomHasOthers(channel.users, myId) && !window.confirm(t('endRoomConfirm'))) return;
+    await this.leaveRoom({ silent: true, end: true });
+  }
+
+  private liveMessageBlocked(): boolean {
+    if (clubhouseClient.getConfig().useSandbox) return false;
+    this.showToast(t('unverifiedAction'), '🔒');
+    return true;
+  }
+
+  private sendThreadSegment(conversationId: string | undefined, kind: 'text' | 'voice'): void {
+    if (!conversationId) return;
+    const item = this.conversations.find((entry) => entry.conversation_id === conversationId);
+    if (!item?.can_reply) return;
+    if (this.liveMessageBlocked()) return;
+    const input = document.getElementById('thread-input') as HTMLInputElement | null;
+    const text = kind === 'voice' ? t('voicePreview') : (input?.value.trim() ?? '');
+    if (!text) return;
+    clubhouseClient.sandboxAppendSegment(conversationId, {
+      kind,
+      author_name: this.me?.name || 'Sandbox User',
+      text,
+    });
+    if (kind === 'voice') audioEngine.playVoiceNote(this.voiceRate);
+    void this.loadConversations();
+  }
+
+  private addThreadMember(conversationId: string | undefined): void {
+    if (!conversationId) return;
+    const item = this.conversations.find((entry) => entry.conversation_id === conversationId);
+    if (!item?.can_add_members) return;
+    if (this.liveMessageBlocked()) return;
+    const count = (clubhouseClient.sandboxThread(conversationId)?.members.length ?? 0) + 1;
+    const name = `New member ${count}`;
+    if (!clubhouseClient.sandboxAddMember(conversationId, name)) return;
+    this.showToast(t('memberAdded', { name }), '➕');
+    this.render();
+  }
+
+  private runThreadPermission(conversationId: string | undefined, permission: string | undefined): void {
+    if (!conversationId) return;
+    const item = this.conversations.find((entry) => entry.conversation_id === conversationId);
+    if (!item) return;
+    const allowed = (permission === 'invite' && item.can_invite)
+      || (permission === 'delete' && item.can_delete)
+      || (permission === 'leave' && item.can_leave);
+    if (!allowed) return;
+    if (this.liveMessageBlocked()) return;
+    if (permission === 'invite') {
+      this.showToast(t('inviteMember'), '✉️');
+      return;
+    }
+    clubhouseClient.sandboxRemoveConversation(conversationId);
+    if (this.openConversationId === conversationId) {
+      this.openConversationId = null;
+      this.previewMember = null;
+    }
+    void this.loadConversations();
+  }
+
+  // Capture before any live route: Talk Live on an online friend, send a VM, open a conversation, reply to a segment.
+  private async talkLive(userId: string | undefined, name: string | undefined, username: string | undefined): Promise<void> {
+    if (!clubhouseClient.getConfig().useSandbox) {
+      this.showToast(t('unverifiedAction'), '🔒');
+      return;
+    }
+    const id = Number(userId);
+    if (!name || !username || !Number.isFinite(id)) return;
+    try {
+      const created = await clubhouseClient.createChannel(`Talk Live · ${name}`, {
+        audience: 'friends',
+        replayEnabled: false,
+        chatEnabled: false,
+        talkWith: { userId: id, name, username },
+      });
+      this.showToast(t('talkLiveStarted'), '🎙');
+      await this.joinRoom(created.channel || String(created.channel_id));
+    } catch (err) {
+      this.reportApiError(err);
+    }
+  }
+
+  private async sendVm(userId: string | undefined, name: string | undefined, username: string | undefined): Promise<void> {
+    if (this.liveMessageBlocked()) return;
+    const id = Number(userId);
+    if (!name || !username || !Number.isFinite(id)) return;
+    this.openConversationId = clubhouseClient.sandboxStartVm({ userId: id, name, username });
+    this.messageFilter = 'vm';
+    this.previewMember = null;
+    this.currentTab = 'messages';
+    await this.loadConversations();
+  }
+
+  private sendPrivateMessage(voice: boolean): void {
+    const profile = this.selectedProfile;
+    if (!profile || !this.currentChannel) return;
+    if (this.liveMessageBlocked()) return;
+    const input = document.getElementById('private-message-input') as HTMLInputElement | null;
+    const text = voice ? t('voicePreview') : (input?.value.trim() ?? '');
+    if (!text) return;
+    this.privateLines.push({ userId: profile.user_id, text, voice });
+    this.showToast(t('privateSent'), '✉️');
+    this.renderProfileDrawer();
   }
 
   private inspectProfile(user: CHUser) {
+    this.clearPeopleList();
     this.selectedProfile = { ...user };
     this.profileLoading = true;
-    this.isProfileDrawerOpen = true;
-    this.renderProfileDrawer();
+    const isSelf = user.user_id === this.me?.user_id;
+    if (isSelf) {
+      this.closeProfileDrawer();
+      this.selfProfileOpen = true;
+      this.render();
+    } else {
+      this.isProfileDrawerOpen = true;
+      this.render();
+    }
     void this.loadFullProfile(user.user_id);
   }
 
   private async loadFullProfile(userId: number): Promise<void> {
     try {
       const res = await clubhouseClient.getProfile(userId);
-      if (this.selectedProfile?.user_id !== userId) return;
-      this.selectedProfile = { ...this.selectedProfile, ...res.user_profile };
+      const current = this.selectedProfile;
+      if (!current || current.user_id !== userId) return;
+      this.selectedProfile = mergeProfile(current, res.user_profile);
     } catch (err) {
       this.reportApiError(err);
     } finally {
       if (this.selectedProfile?.user_id === userId) {
         this.profileLoading = false;
-        this.renderProfileDrawer();
+        if (this.selfProfileOpen && userId === this.me?.user_id) this.renderView();
+        else if (this.isProfileDrawerOpen) this.renderProfileDrawer();
       }
     }
   }
 
+  private clearPeopleList(): void {
+    this.peopleList = null;
+    this.peopleListSeq += 1;
+  }
+
+  private async openPeopleList(kind: PeopleListKind, userId: number, cursor: string | null): Promise<void> {
+    const endpoint = PEOPLE_LIST_ENDPOINTS[kind];
+    if (!clubhouseClient.supports(endpoint)) return;
+    const seq = ++this.peopleListSeq;
+    const appending = cursor != null && this.peopleList?.kind === kind && this.peopleList.userId === userId;
+    const previous = appending ? this.peopleList?.users ?? [] : null;
+    this.peopleList = {
+      kind,
+      userId,
+      users: previous,
+      nextCursor: appending ? this.peopleList?.nextCursor ?? null : null,
+      loadingMore: appending,
+    };
+    this.paintPeopleList();
+    try {
+      const page = await clubhouseClient.getPeopleList(kind, userId, cursor);
+      if (seq !== this.peopleListSeq) return;
+      const prior = previous ?? [];
+      this.peopleList = {
+        kind,
+        userId,
+        users: [...prior, ...page.users],
+        nextCursor: page.nextCursor,
+        loadingMore: false,
+      };
+    } catch (err) {
+      if (seq !== this.peopleListSeq) return;
+      this.reportApiError(err);
+      this.peopleList = {
+        kind,
+        userId,
+        users: previous ?? [],
+        nextCursor: null,
+        loadingMore: false,
+      };
+    }
+    this.paintPeopleList();
+  }
+
+  private paintPeopleList(): void {
+    if (this.peopleList && this.selfProfileOpen && this.peopleList.userId === this.me?.user_id) {
+      this.render();
+      return;
+    }
+    if (this.isProfileDrawerOpen) this.renderProfileDrawer();
+  }
+
   private closeProfileDrawer() {
+    this.clearPeopleList();
     this.isProfileDrawerOpen = false;
-    const drawer = document.getElementById('profile-drawer');
-    if (drawer) drawer.classList.remove('open');
+    document.getElementById('profile-drawer')?.classList.remove('open');
+    document.getElementById('profile-scrim')?.classList.remove('open');
   }
 
   private openCreateModal() {
@@ -1533,7 +1805,7 @@ class ClubboxApp {
               🔔
               ${this.unreadNotifications ? html`<span class="nav-dot"></span>` : ''}
             </button>
-            <button class="top-avatar-btn" type="button" data-action="sidebar-user" title="${this.me ? this.me.name : t('signIn')}">
+            <button class="top-avatar-btn ${this.selfProfileOpen ? 'active' : ''}" type="button" data-action="sidebar-user" title="${this.me ? this.me.name : t('signIn')}">
               ${this.me ? avatarHtml(this.me, 36, 'top-avatar') : html`<span class="sidebar-user-placeholder">?</span>`}
             </button>
             ${this.currentChannel ? html`
@@ -1558,7 +1830,7 @@ class ClubboxApp {
   }
 
   public renderStage(): void {
-    if (this.currentTab !== 'stage') return;
+    if (this.selfProfileOpen || this.currentTab !== 'stage') return;
     const column = document.getElementById('stage-column');
     if (!column) {
       this.renderView();
@@ -1568,7 +1840,7 @@ class ClubboxApp {
   }
 
   public renderChat(): void {
-    if (this.currentTab !== 'stage' || !this.currentChannel) return;
+    if (this.selfProfileOpen || this.currentTab !== 'stage' || !this.currentChannel) return;
     const scroll = document.getElementById('chat-scroll');
     if (!scroll) {
       this.renderView();
@@ -1649,6 +1921,11 @@ class ClubboxApp {
   }
 
   private sectionTitle(): string {
+    if (this.selfProfileOpen) return t('yourProfile');
+    return this.placeTitle();
+  }
+
+  private placeTitle(): string {
     if (this.currentTab === 'discover') return t('discover');
     if (this.currentTab === 'friends') return t('friends');
     if (this.currentTab === 'messages') return t('messages');
@@ -1674,7 +1951,7 @@ class ClubboxApp {
     }
 
     return html`
-      <div class="sidebar-user" data-action="sidebar-user">
+      <div class="sidebar-user ${this.selfProfileOpen ? 'active' : ''}" data-action="sidebar-user">
         ${avatarHtml(this.me, 38, 'sidebar-user-avatar')}
         <div class="sidebar-user-info">
           <div class="sidebar-user-name">${this.me.name}</div>
@@ -1685,6 +1962,13 @@ class ClubboxApp {
   }
 
   private renderCurrentView(): ReturnType<typeof html> {
+    if (this.selfProfileOpen && this.me) {
+      if (this.peopleList && this.peopleList.userId === this.me.user_id) {
+        return peopleListView(this.peopleList);
+      }
+      const self = this.selectedProfile?.user_id === this.me.user_id ? this.selectedProfile : this.me;
+      return selfProfilePage(this.profileState(self));
+    }
     if (this.currentTab === 'login') {
       return this.renderLoginView();
     } else if (this.currentTab === 'stage') {
@@ -1692,11 +1976,20 @@ class ClubboxApp {
     } else if (this.currentTab === 'explore') {
       return this.renderExploreView();
     } else if (this.currentTab === 'discover') {
-      return placeholderView(t('discover'), t('discoverEmpty'));
+      return discoverView(this.discoverQuery, this.discoverTab, this.discoverHits, this.discoverLoading);
     } else if (this.currentTab === 'friends') {
       return friendsView(this.suggestionsCount);
     } else if (this.currentTab === 'messages') {
-      return this.conversationsLoaded ? messagesView(this.conversations, this.dmRequestCount) : messagesView(null, 0);
+      return messagesView({
+        items: this.conversationsLoaded ? this.conversations : null,
+        dmRequests: this.dmRequestCount,
+        filter: this.messageFilter,
+        openId: this.openConversationId,
+        thread: this.openConversationId ? clubhouseClient.sandboxThread(this.openConversationId) : null,
+        previewMember: this.previewMember,
+        playbackRate: this.voiceRate,
+        presence: clubhouseClient.sandboxPresence(),
+      });
     } else if (this.currentTab === 'activity') {
       return activityView(this.activityCount);
     } else if (this.currentTab === 'soundboard') {
@@ -1731,7 +2024,7 @@ class ClubboxApp {
       canMod: clubhouseClient.supports('make_moderator'),
       canMoveToAudience: clubhouseClient.supports('uninvite_speaker'),
       canInvite: clubhouseClient.supports('invite_speaker'),
-      canFollow: clubhouseClient.supports('follow'),
+      canFollow: clubhouseClient.evidence('follow') === 'observed',
     });
   }
 
@@ -1740,24 +2033,39 @@ class ClubboxApp {
   }
 
   private latestChatLine(): string {
+    if (this.currentChannel?.is_chat_enabled === false) return '';
     const last = this.chatMessages[this.chatMessages.length - 1];
     if (!last) return '';
     return `${last.name}: ${last.message}`;
   }
 
   private async followUser(userId: number): Promise<void> {
-    if (!this.allowAction('follow')) return;
-    const user = this.currentChannel?.users.find((entry) => entry.user_id === userId);
-    if (!user || user.is_following || user.user_id === this.me?.user_id) return;
+    if (clubhouseClient.evidence('follow') !== 'observed') {
+      this.allowAction('follow');
+      return;
+    }
+    const roomUser = this.currentChannel?.users.find((entry) => entry.user_id === userId);
+    const hit = this.discoverHits?.find((entry) => entry.kind === 'user' && entry.user.user_id === userId);
+    const user = roomUser ?? (hit?.kind === 'user' ? hit.user : undefined);
+    const rel = relationshipFromStatus(user?.follow_status);
+    if (!user || user.user_id === this.me?.user_id || rel === 'unknown' || rel === 'following' || rel === 'friends' || rel === 'requested') return;
     try {
-      await clubhouseClient.follow(userId);
-      user.is_following = true;
+      const res = await clubhouseClient.follow(userId);
+      const next = applyFollowResponse(user, res);
+      if (roomUser) Object.assign(roomUser, next);
       if (this.selectedProfile?.user_id === userId) {
-        this.selectedProfile = { ...this.selectedProfile, is_following: true };
+        this.selectedProfile = mergeProfile(this.selectedProfile, next);
         this.renderProfileDrawer();
       }
-      this.renderStage();
-      this.showToast(t('nowFollowing', { username: user.username }), '🤝');
+      if (roomUser) this.renderStage();
+      if (hit?.kind === 'user') {
+        hit.user = next;
+        if (this.currentTab === 'discover') this.render();
+      }
+      const after = relationshipFromStatus(next.follow_status);
+      if (after !== rel && after !== 'unknown') {
+        this.showToast(t('nowFollowing', { username: user.username }), '🤝');
+      }
     } catch (err) {
       this.reportApiError(err);
     }
@@ -1815,7 +2123,14 @@ class ClubboxApp {
   }
 
   private renderSettingsView(): ReturnType<typeof html> {
-    return settingsView(clubhouseClient.getConfig(), this.shortcuts, this.recordingShortcut);
+    return settingsView(clubhouseClient.getConfig(), this.shortcuts, this.recordingShortcut, !!electronAPI()?.isElectron, this.me ? {
+      settings: this.meSettings,
+      notificationsEnabled: this.notificationsEnabled,
+      soundEffectsEnabled: this.soundEffectsEnabled,
+      anonymousEnabled: this.anonymousEnabled,
+      blockedCount: this.blockedCount,
+      isAdmin: this.isAdmin,
+    } : null);
   }
 
   private renderCockpitBar(): ReturnType<typeof html> {
@@ -1846,44 +2161,126 @@ class ClubboxApp {
     });
   }
 
+  private profileState(profile: CHUser) {
+    const isSelf = profile.user_id === this.me?.user_id;
+    return {
+      profile,
+      canChangeRelationship: clubhouseClient.evidence('follow') === 'observed',
+      canInvite: !isSelf && this.isMeModerator() && clubhouseClient.supports('invite_speaker') && !!this.currentChannel && !profile.is_speaker,
+      loading: this.profileLoading && profile.user_id === this.selectedProfile?.user_id,
+      showVolume: !isSelf && !!this.currentChannel?.users.some((user) => user.user_id === profile.user_id),
+      remoteVolume: audioEngine.getRemoteVolume(profile.user_id),
+      requestedFollowingCount: isSelf ? this.requestedFollowingCount : null,
+      placeLabel: this.placeTitle(),
+      canMessage: !isSelf && !!this.currentChannel,
+      voiceMode: this.privateVoice,
+      privateLines: this.privateLines.filter((line) => line.userId === profile.user_id),
+      listEnabled: {
+        followers: clubhouseClient.supports(PEOPLE_LIST_ENDPOINTS.followers),
+        following: clubhouseClient.supports(PEOPLE_LIST_ENDPOINTS.following),
+        friends: clubhouseClient.supports(PEOPLE_LIST_ENDPOINTS.friends),
+      },
+    };
+  }
+
   private renderProfileDrawer() {
     const drawer = this.ensureProfileDrawer();
     const profile = this.selectedProfile;
-    if (!profile) return;
-    paintProfileDrawer(drawer, {
-      profile,
-      isSelf: profile.user_id === this.me?.user_id,
-      canUnfollow: clubhouseClient.supports('unfollow'),
-      canInvite: this.isMeModerator() && clubhouseClient.supports('invite_speaker') && !!this.currentChannel && !profile.is_speaker && profile.user_id !== this.me?.user_id,
-      loading: this.profileLoading,
-      showVolume: profile.user_id !== this.me?.user_id && !!this.currentChannel?.users.some((user) => user.user_id === profile.user_id),
-      remoteVolume: audioEngine.getRemoteVolume(profile.user_id),
-      settings: profile.user_id === this.me?.user_id ? this.meSettings : null,
-      notificationsEnabled: profile.user_id === this.me?.user_id ? this.notificationsEnabled : null,
-      soundEffectsEnabled: profile.user_id === this.me?.user_id ? this.soundEffectsEnabled : null,
-      anonymousEnabled: profile.user_id === this.me?.user_id ? this.anonymousEnabled : null,
-      blockedCount: profile.user_id === this.me?.user_id ? this.blockedCount : null,
-      isAdmin: profile.user_id === this.me?.user_id && this.isAdmin,
-      requestedFollowingCount: profile.user_id === this.me?.user_id ? this.requestedFollowingCount : null,
-    });
+    if (!profile || profile.user_id === this.me?.user_id) return;
+    if (this.peopleList && this.peopleList.userId === profile.user_id) {
+      drawer.innerHTML = markup(peopleListView(this.peopleList));
+      drawer.classList.add('open');
+      document.getElementById('profile-scrim')?.classList.add('open');
+      return;
+    }
+    paintPersonSheet(drawer, this.selfProfileOpen
+      ? { ...this.profileState(profile), placeLabel: t('yourProfile') }
+      : this.profileState(profile));
+    document.getElementById('profile-scrim')?.classList.add('open');
   }
 
   private renderCreateModal() {
     document.body.appendChild(mountCreateModal(this.roomTitleOptions));
   }
 
+  private discoverTypes(): SearchObjectType[] {
+    if (this.discoverTab === 'people') return ['UserProfile'];
+    if (this.discoverTab === 'rooms') return ['LiveChannel', 'Replay'];
+    if (this.discoverTab === 'houses') return ['SocialClub'];
+    return ['LiveChannel', 'Replay', 'SegmentTranscription', 'SocialClub', 'UserProfile'];
+  }
+
+  private scheduleDiscoverSearch(): void {
+    if (this.discoverTimer != null) window.clearTimeout(this.discoverTimer);
+    const input = document.getElementById('discover-query') as HTMLInputElement | null;
+    this.discoverQuery = input?.value ?? this.discoverQuery;
+    if (!this.discoverQuery.trim()) {
+      this.discoverSeq += 1;
+      this.discoverHits = null;
+      this.discoverLoading = false;
+      this.render();
+      return;
+    }
+    this.discoverTimer = window.setTimeout(() => {
+      this.discoverTimer = null;
+      void this.runDiscoverSearch();
+    }, 250);
+  }
+
+  private async runDiscoverSearch(): Promise<void> {
+    if (this.discoverTimer != null) {
+      window.clearTimeout(this.discoverTimer);
+      this.discoverTimer = null;
+    }
+    const query = this.discoverQuery.trim();
+    if (!query) {
+      this.discoverHits = null;
+      this.discoverLoading = false;
+      this.render();
+      return;
+    }
+    const seq = ++this.discoverSeq;
+    this.discoverLoading = true;
+    try {
+      const res = await clubhouseClient.search(query, this.discoverTypes());
+      if (seq !== this.discoverSeq) return;
+      this.discoverHits = res.hits ?? [];
+    } catch (err) {
+      if (seq !== this.discoverSeq) return;
+      this.discoverHits = [];
+      this.reportApiError(err);
+    } finally {
+      if (seq === this.discoverSeq) {
+        this.discoverLoading = false;
+        this.render();
+        const field = document.getElementById('discover-query') as HTMLInputElement | null;
+        field?.focus();
+        if (field) field.setSelectionRange(field.value.length, field.value.length);
+      }
+    }
+  }
+
   private async toggleFollow(): Promise<void> {
     const profile = this.selectedProfile;
-    if (!profile) return;
-    const next = !profile.is_following;
-    if (!this.allowAction(next ? 'follow' : 'unfollow')) return;
+    if (!profile || profile.user_id === this.me?.user_id) return;
+    const rel = relationshipFromStatus(profile.follow_status);
+    if (rel !== 'none' && rel !== 'follower') return;
+    if (clubhouseClient.evidence('follow') !== 'observed') {
+      this.allowAction('follow');
+      return;
+    }
     try {
-      if (next) await clubhouseClient.follow(profile.user_id);
-      else await clubhouseClient.unfollow(profile.user_id);
+      const res = await clubhouseClient.follow(profile.user_id);
       if (this.selectedProfile?.user_id !== profile.user_id) return;
-      this.selectedProfile = { ...profile, is_following: next };
+      const next = applyFollowResponse(profile, res);
+      this.selectedProfile = next;
+      const roomUser = this.currentChannel?.users.find((entry) => entry.user_id === profile.user_id);
+      if (roomUser) Object.assign(roomUser, next);
       this.renderProfileDrawer();
-      this.showToast(next ? t('nowFollowing', { username: profile.username }) : t('unfollowedUser', { username: profile.username }), '🤝');
+      const after = relationshipFromStatus(next.follow_status);
+      if (after !== rel && after !== 'unknown') {
+        this.showToast(t('nowFollowing', { username: profile.username }), '🤝');
+      }
     } catch (err) {
       this.reportApiError(err);
     }
@@ -1936,6 +2333,10 @@ class ClubboxApp {
     document.addEventListener('input', (event) => {
       const target = event.target as HTMLInputElement | null;
       if (!target) return;
+      if (target.id === 'discover-query') {
+        this.scheduleDiscoverSearch();
+        return;
+      }
       if (target.id === 'soundpad-vol-slider') {
         const val = parseFloat(target.value);
         audioEngine.setSoundpadVolume(val);
@@ -1991,6 +2392,8 @@ class ClubboxApp {
   private handleAction(action: string, el: HTMLElement): void {
     const tab = el.dataset.tab;
     if (action === 'nav' && (tab === 'stage' || tab === 'explore' || tab === 'discover' || tab === 'friends' || tab === 'messages' || tab === 'activity' || tab === 'soundboard' || tab === 'settings' || tab === 'login')) {
+      this.selfProfileOpen = false;
+      this.closeProfileDrawer();
       if (tab === 'explore') {
         this.currentTab = 'explore';
         this.render();
@@ -2012,6 +2415,17 @@ class ClubboxApp {
       return;
     }
     switch (action) {
+      case 'profile-settings':
+        this.selfProfileOpen = false;
+        this.closeProfileDrawer();
+        this.currentTab = 'settings';
+        this.render();
+        break;
+      case 'close-self-profile':
+        this.clearPeopleList();
+        this.selfProfileOpen = false;
+        this.render();
+        break;
       case 'sidebar-user':
         if (!this.me) {
           this.currentTab = 'login';
@@ -2056,6 +2470,72 @@ class ClubboxApp {
         break;
       case 'leave-room':
         void this.leaveRoom();
+        break;
+      case 'end-room':
+        void this.endRoom();
+        break;
+      case 'messages-filter': {
+        const filter = el.dataset.filter;
+        if (filter === 'all' || filter === 'house' || filter === 'vm') {
+          this.messageFilter = filter;
+          this.render();
+        }
+        break;
+      }
+      case 'open-conversation':
+        this.openConversationId = el.dataset.conversationId || null;
+        this.previewMember = null;
+        this.render();
+        break;
+      case 'close-conversation':
+        this.openConversationId = null;
+        this.previewMember = null;
+        this.render();
+        break;
+      case 'thread-speed': {
+        const rate = Number(el.dataset.rate);
+        if (rate === 1 || rate === 1.5 || rate === 2) this.voiceRate = rate;
+        this.render();
+        break;
+      }
+      case 'play-thread-voice':
+        audioEngine.playVoiceNote(this.voiceRate);
+        break;
+      case 'send-thread-text':
+        this.sendThreadSegment(el.dataset.conversationId, 'text');
+        break;
+      case 'send-thread-voice':
+        this.sendThreadSegment(el.dataset.conversationId, 'voice');
+        break;
+      case 'add-thread-member':
+        this.addThreadMember(el.dataset.conversationId);
+        break;
+      case 'thread-permission':
+        this.runThreadPermission(el.dataset.conversationId, el.dataset.permission);
+        break;
+      case 'preview-member':
+        this.previewMember = el.dataset.member || null;
+        this.render();
+        break;
+      case 'presence-join':
+        if (el.dataset.channelId) void this.joinRoom(el.dataset.channelId);
+        break;
+      case 'presence-talk':
+        void this.talkLive(el.dataset.userId, el.dataset.name, el.dataset.username);
+        break;
+      case 'presence-vm':
+        void this.sendVm(el.dataset.userId, el.dataset.name, el.dataset.username);
+        break;
+      case 'talk-live':
+        this.showToast(t('unverifiedAction'), '🔒');
+        break;
+      case 'private-mode':
+        this.privateVoice = el.dataset.mode === 'voice';
+        audioEngine.setRoomHeard(!this.privateVoice);
+        this.renderProfileDrawer();
+        break;
+      case 'private-send':
+        this.sendPrivateMessage(el.dataset.voice === '1');
         break;
       case 'copy-room-link': {
         const id = el.dataset.channelId;
@@ -2181,12 +2661,50 @@ class ClubboxApp {
         if (Number.isFinite(uid)) void this.followUser(uid);
         break;
       }
+      case 'discover-clear':
+        this.discoverQuery = '';
+        this.discoverHits = null;
+        this.discoverSeq += 1;
+        this.render();
+        break;
+      case 'discover-tab': {
+        const next = el.dataset.discover;
+        if (next === 'top' || next === 'people' || next === 'rooms' || next === 'houses') {
+          this.discoverTab = next;
+          void this.runDiscoverSearch();
+        }
+        break;
+      }
+      case 'search-discover':
+        void this.runDiscoverSearch();
+        break;
       case 'open-profile': {
         const uid = el.dataset.userId;
-        const user = this.currentChannel?.users.find((entry) => entry.user_id.toString() === uid);
+        const hit = this.discoverHits?.find((entry) => entry.kind === 'user' && entry.user.user_id.toString() === uid);
+        const listed = this.peopleList?.users?.find((entry) => entry.user_id.toString() === uid);
+        const user = this.currentChannel?.users.find((entry) => entry.user_id.toString() === uid)
+          ?? (hit?.kind === 'user' ? hit.user : undefined)
+          ?? listed;
         if (user) this.inspectProfile(user);
         break;
       }
+      case 'open-people-list': {
+        const kind = el.dataset.list;
+        const userId = Number(el.dataset.userId);
+        if ((kind === 'followers' || kind === 'following' || kind === 'friends') && Number.isFinite(userId)) {
+          void this.openPeopleList(kind, userId, null);
+        }
+        break;
+      }
+      case 'close-people-list':
+        this.clearPeopleList();
+        if (this.selfProfileOpen || this.isProfileDrawerOpen) this.render();
+        break;
+      case 'people-list-more':
+        if (this.peopleList?.nextCursor) {
+          void this.openPeopleList(this.peopleList.kind, this.peopleList.userId, this.peopleList.nextCursor);
+        }
+        break;
       case 'invite-stage':
       case 'profile-invite': {
         const uid = Number(el.dataset.userId || this.selectedProfile?.user_id);
@@ -2224,6 +2742,7 @@ class ClubboxApp {
         break;
       case 'close-profile':
         this.closeProfileDrawer();
+        if (this.selfProfileOpen) this.render();
         break;
       case 'toggle-follow':
         void this.toggleFollow();
@@ -2246,6 +2765,7 @@ class ClubboxApp {
   }
 
   private async switchRuntimeMode(useSandbox: boolean): Promise<void> {
+    if (electronAPI()?.isElectron && useSandbox) return;
     if (!useSandbox && !this.guidelinesAccepted()) {
       this.pendingLive = true;
       this.guidelinesOpen = true;
@@ -2264,7 +2784,9 @@ class ClubboxApp {
     const appBuild = (document.getElementById('cfg-app-build') as HTMLInputElement)?.value;
     const appVersion = (document.getElementById('cfg-app-version') as HTMLInputElement)?.value;
     const agoraAppId = (document.getElementById('cfg-agora-app-id') as HTMLInputElement)?.value;
-    const isSandbox = (document.getElementById('radio-sandbox') as HTMLInputElement)?.checked;
+    const isSandbox = electronAPI()?.isElectron
+      ? false
+      : (document.getElementById('radio-sandbox') as HTMLInputElement)?.checked === true;
     const allowUnverified = (document.getElementById('cfg-allow-unverified') as HTMLInputElement | null)?.checked === true;
     const allowLocalRecording = (document.getElementById('cfg-allow-recording') as HTMLInputElement | null)?.checked === true;
     const languageValue = (document.getElementById('cfg-language') as HTMLSelectElement | null)?.value;
