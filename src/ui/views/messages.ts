@@ -193,6 +193,22 @@ function emptyThreadPane(): SafeHtml {
   `;
 }
 
+function pendingThreadPane(): SafeHtml {
+  return html`
+    <section class="thread-panel">
+      <div class="thread-head">
+        <div class="thread-head-copy">
+          <h3>${t('messages')}</h3>
+        </div>
+        <button class="top-icon-btn" type="button" data-action="close-conversation" title="${t('close')}">✕</button>
+      </div>
+      <div class="thread-scroll">
+        <p class="list-note">${t('threadLoading')}</p>
+      </div>
+    </section>
+  `;
+}
+
 export function messagesView(state: MessagesState): SafeHtml {
   const items = state.items;
   const archive = items?.filter((item) => conversationKind(item) === 'archive') ?? [];
@@ -204,6 +220,8 @@ export function messagesView(state: MessagesState): SafeHtml {
     ?? (state.filter === 'all' ? archive.find((item) => item.conversation_id === state.openId) : undefined)
     ?? null;
   const open = openInFilter;
+  const pendingOpen = !open && !!state.openId;
+  const threadPane = open ? threadPanel(open, state) : (pendingOpen ? pendingThreadPane() : emptyThreadPane());
 
   return html`
     <div class="messages-page">
@@ -254,8 +272,15 @@ export function messagesView(state: MessagesState): SafeHtml {
         </button>
       </div>
 
-      ${items == null ? html`<p class="list-empty">${t('listLoading')}</p>` : html`
-        <div class="messages-layout ${open ? 'has-thread' : 'no-thread'}">
+      ${items == null ? html`
+        <div class="messages-layout ${pendingOpen ? 'has-thread' : 'no-thread'}">
+          <div class="messages-list-pane">
+            <p class="list-empty">${t('listLoading')}</p>
+          </div>
+          ${pendingOpen ? pendingThreadPane() : emptyThreadPane()}
+        </div>
+      ` : html`
+        <div class="messages-layout ${open || pendingOpen ? 'has-thread' : 'no-thread'}">
           <div class="messages-list-pane">
             ${shown.length === 0 ? html`<p class="list-empty">${t('messagesEmpty')}</p>` : html`
               <div class="conversation-list">${shown.map((item) => conversationRow(item, state.openId))}</div>
@@ -265,7 +290,7 @@ export function messagesView(state: MessagesState): SafeHtml {
               <div class="conversation-list">${archive.map((item) => conversationRow(item, state.openId))}</div>
             ` : ''}
           </div>
-          ${open ? threadPanel(open, state) : emptyThreadPane()}
+          ${threadPane}
         </div>
       `}
     </div>
