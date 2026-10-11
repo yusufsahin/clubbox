@@ -112,7 +112,7 @@ export const tr: Record<MessageKey, string> = {
   peopleYouTalkTo: 'Konuştuğun kişiler',
   peopleYouTalkToHelp: 'Sohbetlerindeki kişiler. Bu, arkadaş listen değil.',
   peopleYouTalkToEmpty: 'Sohbetlerden henüz kimse yok.',
-  followsYou: 'Seni ekledi',
+  followsYou: 'Seni takip ediyor',
   relationshipNone: 'Ekle',
   relationshipFollowing: 'Takipte',
   relationshipFriends: 'Arkadaş',

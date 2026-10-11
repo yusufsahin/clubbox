@@ -2,6 +2,7 @@
   "name": "clubbox",
   "productName": "Clubbox",
   "description": "Unofficial desktop studio for Clubhouse",
+  "author": "Clubbox",
   "private": true,
   "version": "2.0.0",
   "type": "module",
