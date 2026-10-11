@@ -6,7 +6,7 @@ dist
 dist-ssr
 .vite
 
-# electron-builder output
+# electron-builder output (also written to ../clubdeck-app/release)
 release
 
 # TypeScript

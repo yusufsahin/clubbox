@@ -193,7 +193,7 @@ test.describe('packaged', () => {
   test.skip(process.platform !== 'win32', 'packaged smoke is Windows-only');
 
   test('win-unpacked starts', async () => {
-    const unpacked = path.join(process.cwd(), 'release/win-unpacked');
+    const unpacked = path.join(process.cwd(), '../clubdeck-app/release/win-unpacked');
     const exe = path.join(unpacked, 'Clubbox.exe');
     const asar = path.join(unpacked, 'resources/app.asar');
     expect(fs.existsSync(asar)).toBe(true);

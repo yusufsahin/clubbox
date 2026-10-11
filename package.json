@@ -39,7 +39,7 @@
     "productName": "Clubbox",
     "copyright": "Unofficial desktop studio. Not affiliated with Clubhouse.",
     "directories": {
-      "output": "release"
+      "output": "../clubdeck-app/release"
     },
     "files": [
       "dist/**/*",
