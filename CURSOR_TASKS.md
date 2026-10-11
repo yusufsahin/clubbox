@@ -4,13 +4,12 @@ Each task below is a self-contained prompt. Paste one task at a time into Cursor
 
 _Last reviewed: 2026-10-11. “Uygulandı” means the code is in the tree. “Canlı doğrulandı” means it was exercised against the official Clubhouse web session. This pass is implemented; the live room, hand, invite, and chat capture is still outstanding._
 
-### Next run (owner instruction, 2026-10-11 #2)
+### Next run (owner instruction, 2026-10-11 #3)
 
-The capture wait is over: request bodies for 60 web-client methods are documented in `docs/api/web-client-methods.md` (extracted from the web bundle's own API module). Do these, tick them, then continue:
-- [x] Commit `docs/api/web-client-methods.md` and the new scenarios in features/ (room_host RH-7/RH-12/SO-6, messages rename/delete/pagination, hallway pagination/@username, replays by chunk path).
-- [x] Task 12.1 — promote and bind every documented method; record the final decisions (topic chips local, unfollow/moderation not in web client).
-- [x] Task 12.2 — live verification by normal use (request log + in-app triage); remove recorder steps from the workflow.
-- [x] Then finish any remaining Autonomous plan items and run 11.8 in strict mode.
+Hallway filter fixed by the owner session in 9bd6525. Do Phase 13 (13.1 → 13.2 → 13.3) now; fix every bug it surfaces with a failing test first; commit per item; then stop and write the summary.
+- [ ] 13.1 type checking back on for src/app/*
+- [ ] 13.2 fixtures from real captures + shape test
+- [ ] 13.3 BDD steps call real code + guard test
 ### Last autonomous run (2026-10-11)
 
 - Done: Re-ran checklist + `api:triage` → NO NEW FAILURES. Confirmed unused bundle rows (`talk/*`, AI questions, friend-zone, guest/reCAPTCHA, phone invite joins) stay Won't / out of scope — not product backlog.
@@ -1022,4 +1021,43 @@ The owner will not run the recorder. Verification comes from normal use of Clubb
 3. `npm run api:triage` (Cursor) reads that file and turns failures into tests, as in 10.5.
 4. Remove "0.9 S1–S3" and "capture-first" wording from the Status table; replace with "Verified by use: <list of endpoints promoted to observed by the request log>".
 Acceptance: after the owner uses Clubbox normally, `npm run api:triage` either promotes routes or produces failing tests — no recorder step anywhere in the workflow.
+```
+
+---
+
+## Phase 13 — Test fidelity: make "green" mean "works"
+
+Found on 2026-10-11 while fixing the hallway filter (commit 9bd6525): every test was green, yet topic chips emptied the hallway in the real app. Three causes, one task each. TDD and the rules in `.cursor/rules/clubbox.mdc` apply. Do 13.1 first: it will surface real bugs; fix each with a failing test first.
+
+### Task 13.1 — Turn type checking back on for the app layer
+
+```
+All 8 controller files start with // @ts-nocheck: src/app/clubboxApp.ts, activityCtl.ts, hallwayCtl.ts, messagesCtl.ts, profileCtl.ts, roomCtl.ts, settingsCtl.ts, studioCtl.ts. So "tsc clean" says nothing about ~4,000 lines of UI/controller code.
+1. Give ClubboxApp a real type for the methods the controllers attach: declare them on the class (e.g. `declare setHallwayShowNsfw: typeof setHallwayShowNsfw;`) or via `interface ClubboxApp extends HallwayCtlMethods, ...` declaration merging. Make the fields the controllers use non-private (or expose typed accessors).
+2. Remove @ts-nocheck one file at a time (smallest first). Fix every error properly; no `any`, no new @ts-ignore/@ts-expect-error. If a type error reveals a bug, write a failing test for it first.
+3. Add a lint rule (or scripts/check-nocheck.mjs in npm test) that fails if @ts-nocheck / @ts-ignore appear under src/ or electron/.
+4. Delete scripts/extract-ctl-methods.mjs if it was only used for the split.
+Acceptance: grep -rn "@ts-nocheck\|@ts-ignore" src electron returns nothing; tsc, lint, npm test, build green; every bug found has a test.
+```
+
+### Task 13.2 — Fixtures from real captures, not hand-written
+
+```
+features/fixtures/*.json are hand-written. get_channels.json has topic_key: "tech" on rooms; real get_feed_v3 rooms always have logging_context.topic_key = null. Other fixtures (create_channel, join_channel, me, get_profile, search_users, get_conversations) may differ from reality too.
+1. scripts/make-fixtures.mjs: build each fixture from the newest redacted capture or userData/api-log record for that endpoint (shape and representative values, placeholders only), keeping the request/response exactly as the client receives it after redaction. Where no capture exists (bundle/community routes), build from docs/api/web-client-methods.md keys and mark the fixture "synthetic": true.
+2. A unit test compares every non-synthetic fixture's key structure with the latest capture shape and fails when they drift (run in npm test).
+3. Scenarios that need special data (e.g. a tagged topic) set it explicitly in a Given step, never by editing the shared fixture.
+4. outputHasLeak() over every generated fixture.
+Acceptance: fixtures regenerate with one command; the shape test is green; no fixture contains a value that real responses never have (like topic_key on feed rooms).
+```
+
+### Task 13.3 — BDD steps must exercise the app's real code
+
+```
+features/support/world.ts re-implements app logic (filteredHallway(), applyHallwayDisplay(), and similar helpers), and steps assert against those copies. A scenario can pass while the app is broken.
+1. Inventory every world/step helper that computes what the app should compute (filtering, sorting, capability gating, role/state transitions, chat/presence handling, recording/clip rules, unread counts). List them in reports/bdd-audit.md.
+2. Replace each with a call into the real module (src/hallway/*, src/domain/*, src/api/*, controllers via a thin harness). Steps may only set up inputs and assert outputs.
+3. Where a controller is too DOM-bound to call, extract the logic into a pure module first (with unit tests), then call it from both the controller and the step.
+4. Add a guard: a test that fails if features/support or features/steps import nothing from src/ for a feature file that has non-@local scenarios, or if world.ts defines functions matching /^(filter|sort|apply|compute|derive|prepare)/.
+Acceptance: reports/bdd-audit.md shows every helper replaced; the guard test is green; npm test green. Re-run the hallway topic bug (fixture with topic_key null + chip selected) against the old code to prove the suite now catches it.
 ```
