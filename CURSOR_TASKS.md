@@ -12,6 +12,7 @@ Legend: **Uygulandı** = code is in the tree. **Canlı doğrulandı** = exercise
 | --- | --- | --- |
 | 1 | **0.7 Review fixes (2026-10-11 #2)** — navigation guard, packaged recorder, clip worklet path, auto-armed clip buffer, 429/visibility, CORS proxy token leak | Uygulandı |
 | 1b | **0.8 Followers / following / friends lists** — bundle scan + labeled UI hunt; live UI uses only counts + mutual lists | Uygulandı for counts, mutual names, and chat people. The public web bundle does not contain get_followers, get_following, or get_online_friends. get_friend_zone_match and get_social_club_members are in-bundle and not called. The labeled click-through still needs a signed-in session. |
+| 1c | **0.9 Real room capture** — recorder misses clubhouse.pubnubapi.com, bundle scan saw 1 chunk, corrected smoke test (replays ON) | 🆕 Do next |
 | 2 | **0.6 Community Guidelines risk** — hidden reCAPTCHA sign-in, polling, recording, distribution | Uygulandı (code). Sign-in is a visible clubhouse.com window, polling pauses when the window is hidden, recording is opt-in, and there is no publish config. A public release is still your decision. |
 | 3 | **0.5 Capture gaps** — labeled sessions, two-party protocol, evidence sync, room smoke test | `create_channel` is observed for a friends-of-friends room with chat and replays off (`source` 14). Join, leave, ping, and room chat are still not in a capture. |
 | — | 0.1–0.4 Rename, mock data, recorder, web-session regressions | Uygulandı |
@@ -331,6 +332,44 @@ Acceptance:
 - docs/api/web-bundle-endpoints.md exists and answers the question in step 1.
 - grep -rn "get_cofollows" src electron returns nothing unless a capture observed it.
 - In live mode the profile shows counts + mutual lists only; nothing calls an unobserved list endpoint (verify with the recorder open).
+```
+
+### Task 0.9 — Get a real room capture: fix recorder blind spots, mine the bundle, run a corrected smoke test
+
+```
+What the last capture (api-captures/2026-10-11T09-56-29-495Z-solo.jsonl) already proves — read it, do not re-derive:
+- The "smoke-open" step did not join someone else's room; it CREATED a room on the web: POST /web_api/create_channel 200, body
+  {is_chat_enabled:false, is_public_room:false, is_replay_enabled:false, is_private:false, is_social_mode:false, user_ids:[], topic_ids:[], source:14, topic, privacy_level:"friend_of_friend"}.
+- The create_channel response already contains everything needed to be in the room: token (Agora RTC), rtm_token (Agora RTM signalling), pubnub_token, pubnub_origin "clubhouse.pubnubapi.com", pubnub_heartbeat_value 20, pubnub_heartbeat_interval 9, pubnub_time_token, pubnub_enable, agora_native_mute, is_web_listening_enabled:true, users[] (with is_web_listener), and user_capabilities {can_end_room, can_mute_speakers, can_remove_speakers, can_edit_handraise_queue, can_edit_room_title, can_disable_room_chat, can_change_enable_web_listening, can_speak, can_post_to_chat, …}. No Agora app id is in the response.
+- After create, NO join_channel, active_ping, PubNub or Agora traffic was recorded.
+- Bundle scan covered ONE script (/_next/static/chunks/2g12grilkkngb.js, 57 names). It contains join_channel, leave_channel, active_ping, audience_reply, become_speaker, get_channel_messages, send_channel_message, emoji_reaction, gif_reaction, set_channel_title, web_listener_join / web_listener_leave / web_listener_active_ping, guest_join_channel / guest_leave_channel / guest_active_ping, get_replay_channel(_chunk). It does NOT contain get_channel, invite_speaker, mute_speaker, make_moderator, uninvite_speaker, end_channel — but room pages are Next.js lazy chunks that were never loaded, so "absent" is not proof yet.
+- Background (Engadget/9to5mac, Jan 2022): official web listening = listen-only, for live rooms WITH REPLAYS ENABLED (and replays), launched in the US first, no login needed. Help Center 2026: replays are ON by default.
+
+Do:
+1. Recorder blind spots (electron/apiRecorder.cjs):
+   a. classify(): treat any host containing "pubnub" (e.g. clubhouse.pubnubapi.com) as pubnub. Today only pubnub.com / pndsn.com match, so the room's realtime traffic would be dropped.
+   b. Agora: also match *.agoraio.cn, *.agora.io subdomains used by RTM (wss), and *.sd-rtn.com; record URL + websocket frame TYPES/sizes only (no payloads) for Agora.
+   c. PubNub frames/requests: record channel names (redacted to placeholders), message "type"/"action" keys and key shapes only.
+   d. Keep the bundle scanner running for EVERY script loaded during the session (room pages load lazy chunks). Merge results into bundle-endpoints.json with the page path that loaded them.
+   e. Overlay: add an "Open clubhouse.com link" field (only https://www.clubhouse.com/… accepted) so a room/replay share link can be opened inside the instrumented window.
+2. Bundle mining (no extra requests):
+   a. For each endpoint name, store a ≤400-char minified snippet around its call site in api-captures/bundle-callsites.json (code only; run the redactor over it anyway). From it, document the request body keys in docs/api/bundle-callsites.md for: join_channel, web_listener_join, guest_join_channel, active_ping, web_listener_active_ping, leave_channel, audience_reply, become_speaker, send_channel_message, get_channel_messages, emoji_reaction, set_channel_title.
+   b. Find how the web client configures Agora: the createClient({mode, codec}) options and the app id source (a 32-hex literal or a config fetch). Write the finding to docs/api/realtime.md ("Agora app id: found in <chunk path>" — do not paste the value into docs; put it in config only if it differs from the current default and say why in a code comment).
+   c. Find the PubNub subscribe channel naming and the message types the room UI handles (e.g. join/leave, hand raise, speaker changes, chat). Document names and shapes only.
+   d. Evidence: bundle findings stay "in-bundle" (not callable). They only tell us what to capture.
+3. Corrected smoke test in docs/api/capture-protocol.md (Turkish + English) and as overlay checklist items:
+   S1 "Host on web" (solo): Host a room on the web with replays ON and chat ON (friends of friends is fine) → stay 90 s (to catch active_ping/heartbeat and PubNub) → send one room chat message → change the room title → end the room (or leave if there is no end button). Label each step.
+   S2 "Listen on web" (solo): in the hallway pick a PUBLIC room that shows replays on (or open a room share link via the new field) → wait 60 s → send a reaction if offered → leave. Expect web_listener_join or join_channel — record which one.
+   S3 "Replay" (solo): open one replay from a profile/house → play 30 s.
+   Two-party sessions B/C stay as written in Task 0.5.
+   Note in the protocol: if the web page shows "open in the app" for a room, write that down as the result — it is a valid finding.
+4. After S1–S3: npm run api:docs; update webApiRoutes.json evidence automatically; for endpoints that remain absent from ALL scanned chunks after S1–S3 (e.g. invite_speaker, mute_speaker, make_moderator, uninvite_speaker, end_channel), set evidence "unsupported" for web-session and hide those controls in web-session mode (show "Available in the Clubhouse app" instead of "Not verified yet").
+5. Wiring rule: wire only calls the capture shows. For audio, Clubbox may reuse the token from the observed create_channel / join response together with the app id found in step 2b; do not request tokens from any unobserved endpoint.
+
+Acceptance:
+- A capture of S1 contains create_channel plus the following room traffic (ping/heartbeat and/or PubNub/Agora URLs) — or the docs state precisely that none was sent and what the page showed.
+- docs/api/bundle-callsites.md lists body keys for the endpoints in 2a; docs/api/realtime.md states the Agora mode/app-id source and PubNub channel/message shapes.
+- Moderator controls in web-session mode show either "Not verified yet" (in a scanned chunk, not captured) or "Available in the Clubhouse app" (in no scanned chunk) — never a silent no-op.
 ```
 
 ### Task 0.6 — Reduce Community Guidelines risk (read before shipping anything)
