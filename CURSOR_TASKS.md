@@ -10,6 +10,7 @@ Soundboard and in-room settings belong in the room (owner review). Do Phase 18 a
 - [ ] 18.1 room bar + Sounds panel + Reactions popover; remove the Soundboard place
 - [ ] 18.2 Room details: About · Audio · Moderation · Audience search; clean the stage page
 - [ ] 18.3 Settings › Sounds; remove voice effect / spatial audio from Settings; NAV-1 + NAV-9 (four places)
+- [ ] 18.4 room bar layout + emoji icons (owner screenshot: lone "F", clipped right side, two-line labels, faded disabled buttons, invisible ➕ on Start a room) — tests at 4 widths first
 - [ ] npm run test:e2e green + fresh light/dark screenshots (UI phases are only done with both); commit per item; summary; stop
 ### Last autonomous run (2026-10-11)
 
@@ -1243,3 +1244,27 @@ Owner review 2026-10-12: Soundboard is a sidebar place although pads only matter
 3. NAV-1 / NAV-9: sidebar Hallway, Discover, Messages, Activity; badges only on Messages and Activity.
 Acceptance (Phase 18): room_controls.feature and navigation.feature green; npm run test:e2e green with the new room bar; fresh light/dark screenshots of the room page, Sounds panel, Reactions popover, Room details (all sections) and Settings › Sounds.
 ```
+
+### Task 18.4 — Room bar layout and button bugs (owner screenshot 2026-10-12)
+
+```
+Seen in the current (pre-18) room bar at ~1490 px wide, light mode:
+- A lone "F" at the left: .room-bar-title shrinks to one character (flex child with no min-width).
+- The right side is cut off (the chat button is half visible): .cockpit-bar has a fixed 76 px height, space-between and no overflow strategy; 5 pads + Hear myself + Music Mode do not fit.
+- Labels break onto two lines ("Hear myself", "Music Mode", "Bell Ding", "Laugh Track", "Raise Hand"): buttons shrink and have no white-space: nowrap.
+- "Raise Hand", "Clip", "REC" are 45 % opacity with no reason shown; Raise Hand is meaningless while I am a speaker.
+- Mic cluster stacks "MUTED", the VU meter and a gain slider in a tiny box.
+- Top-bar "Start a room": the ➕ emoji ignores the theme and is invisible on the purple button (the SVG icon pass in 15.2 missed it). Same check for every remaining emoji used as a button icon.
+
+Rules for the new room bar (18.1) — enforce them, do not just restyle:
+1. Room bar items are compact icon buttons (SVG, currentColor) with the label in a tooltip and aria-label; text labels only from ≥ 1600 px. One line, white-space: nowrap everywhere.
+2. Room title: min-width 120 px, max-width 260 px, ellipsis, full title in the tooltip.
+3. Never overflow: at widths < 1200 px the less-used items (Record/Clip, Chat ticker) fold into a "⋯" menu. No horizontal scroll, no clipping.
+4. Hide what does not apply instead of disabling it: no Hand while I am a speaker; no Clip/Record when the room does not allow them. If a control must stay disabled, show why in its tooltip.
+5. Mic: one round button with the VU level as a ring around it and the mute state in the icon; the gain slider moves to Room details › Audio.
+6. Replace every emoji used as a button/icon in the top bar, room bar, room details and Start-a-room with the SVG icon set; emoji stay only for user content and soundpad icons.
+
+Tests (write first):
+- e2e at 1024, 1280, 1490 and 1920 px, light and dark: for the room bar and the top bar assert scrollWidth <= clientWidth, every button's text is one line (height of label ≤ line-height), the room title shows ≥ 10 characters when the title is longer, and axe colour-contrast passes (disabled controls included).
+- A unit/lint check that no `data-action` button template contains an emoji as its only icon (allow-list soundpad icons).
+Acceptance: screenshots of the room bar at the four widths in both themes in reports/theme/.
