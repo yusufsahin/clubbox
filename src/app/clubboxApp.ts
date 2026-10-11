@@ -2,7 +2,7 @@
 import { ClubhouseApiError, clubhouseClient } from '../api/client';
 import { beginJoin, commitJoin, emptyRoomSession, finishLeave, localClipAllowed, roleSyncDecision, roomAudience } from '../api/guards';
 import type { CreateChannelTargets } from '../api/createComposer';
-import { leaveClosesRoom, roomHasOthers } from '../api/roomActions';
+import { conversationKind, leaveClosesRoom, roomHasOthers } from '../api/roomActions';
 import { applyFollowResponse, mergeProfile, PEOPLE_LIST_ENDPOINTS, profileCountsMissing, readProfile, relationshipFromStatus, talkPartners, type PeopleListKind } from '../api/relationship';
 
 const CHAT_POLL_MS = 15_000;
@@ -1322,6 +1322,21 @@ export class ClubboxApp {
         const filter = el.dataset.filter;
         if (filter === 'all' || filter === 'house' || filter === 'vm') {
           this.messageFilter = filter;
+          if (this.openConversationId) {
+            const openItem = this.conversations.find((entry) => entry.conversation_id === this.openConversationId);
+            const kind = openItem ? conversationKind(openItem) : null;
+            const visible = !!openItem && (
+              filter === 'all'
+                ? kind !== null
+                : kind === filter
+            );
+            if (!visible) {
+              this.openConversationId = null;
+              this.openConversationThreadData = null;
+              this.threadLiveNote = '';
+              this.previewMember = null;
+            }
+          }
           this.render();
         }
         break;
@@ -1662,8 +1677,20 @@ export class ClubboxApp {
       }
       case 'open-profile': {
         const uid = el.dataset.userId;
-        const user = uid ? this.findKnownUser(uid) : undefined;
-        if (user) this.inspectProfile(user);
+        const known = uid ? this.findKnownUser(uid) : undefined;
+        if (known) {
+          this.inspectProfile(known);
+          break;
+        }
+        const numericId = Number(uid);
+        if (Number.isFinite(numericId)) {
+          this.inspectProfile({
+            user_id: numericId,
+            name: el.dataset.userName || el.dataset.name || '',
+            username: el.dataset.username || String(numericId),
+            photo_url: null,
+          });
+        }
         break;
       }
       case 'open-people-list': {

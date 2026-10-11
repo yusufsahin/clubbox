@@ -105,7 +105,7 @@ export function exploreView(
           const friendSpeaker = channelHasFriendSpeaker(ch.users);
           const runningFor = formatRunningFor(ch.time_created);
           return html`
-          <div class="room-card ${ch.visited ? 'is-visited' : ''}" ${access.canJoin ? html`data-action="join-room" data-channel-id="${channelId}"` : ''}>
+          <div class="room-card ${ch.visited ? 'is-visited' : ''} ${access.canJoin ? '' : 'is-static'}" ${access.canJoin ? html`data-action="join-room" data-channel-id="${channelId}"` : ''}>
             <div>
               <div class="room-card-header">
                 <span class="room-card-club">${housePhoto(ch)} ${ch.club_name || 'Clubhouse'}</span>

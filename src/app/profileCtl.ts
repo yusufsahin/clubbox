@@ -301,11 +301,23 @@ export function findKnownUser(this: ClubboxApp, uid: string) : CHUser | undefine
       ...(this.selectedProfile?.mutual_follows ?? []),
       ...(this.selectedProfile?.mutual_cofollows ?? []),
     ];
+    const activityUser = this.activityItems?.find((entry) => entry.user?.user_id.toString() === uid)?.user;
+    const houseMember = this.houseMembers?.find((entry) => entry.userId.toString() === uid);
+    const fromHouse = houseMember
+      ? {
+        user_id: houseMember.userId,
+        name: houseMember.name,
+        username: houseMember.username,
+        photo_url: houseMember.photoUrl,
+      } satisfies CHUser
+      : undefined;
     return this.currentChannel?.users.find((entry) => entry.user_id.toString() === uid)
       ?? (hit?.kind === 'user' ? hit.user : undefined)
       ?? this.peopleList?.users?.find((entry) => entry.user_id.toString() === uid)
       ?? talkPartners(this.conversations, null).find((entry) => entry.user_id.toString() === uid)
-      ?? mutual.find((entry) => entry.user_id.toString() === uid);
+      ?? mutual.find((entry) => entry.user_id.toString() === uid)
+      ?? activityUser
+      ?? fromHouse;
   }
 
 export function wireProfileCtl(proto: ClubboxApp): void {

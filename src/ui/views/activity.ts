@@ -40,7 +40,7 @@ function activityRow(item: ActivityItem): SafeHtml {
       ${item.isPing && item.channel ? html`
         <button class="btn btn-primary" type="button" data-action="activity-join" data-channel-id="${item.channel}">${t('join')}</button>
       ` : item.user && item.user.user_id ? html`
-        <button class="btn btn-secondary" type="button" data-action="open-profile" data-user-id="${item.user.user_id}">${t('viewProfile')}</button>
+        <button class="btn btn-secondary" type="button" data-action="open-profile" data-user-id="${item.user.user_id}" data-user-name="${item.user.name || ''}" data-username="${item.user.username || ''}">${t('viewProfile')}</button>
       ` : ''}
     </div>
   `;

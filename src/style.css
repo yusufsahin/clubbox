@@ -905,6 +905,17 @@ body {
   box-shadow: var(--shadow-md);
 }
 
+.room-card.is-static {
+  cursor: default;
+}
+
+.room-card.is-static:hover {
+  border-color: var(--border-subtle);
+  background: var(--bg-card);
+  transform: none;
+  box-shadow: none;
+}
+
 .room-card-header {
   display: flex;
   align-items: center;

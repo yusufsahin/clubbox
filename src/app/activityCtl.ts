@@ -78,10 +78,13 @@ export async function openHouse(this: ClubboxApp, slug: string | undefined): Pro
     this.houseChatCanPost = false;
     this.houseMembersOpen = false;
     this.houseMembers = null;
+    this.selectedHouse = null;
+    this.render();
     try {
       const res = await clubhouseClient.getSocialClub(slug);
       this.selectedHouse = readHouseDetail(res);
     } catch (err) {
+      this.selectedHouse = null;
       this.reportApiError(err);
     }
     this.render();

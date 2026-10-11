@@ -56,7 +56,7 @@ export function stageView(column: SafeHtml, messages: SafeHtml, chatOpen: boolea
         <aside class="stage-chat-panel">
           <div class="chat-panel-header">
             <span>${t('roomChat')}</span>
-            <button class="top-icon-btn" type="button" data-action="toggle-chat" title="${t('chat')}">✕</button>
+            <button class="top-icon-btn" type="button" data-action="toggle-chat" title="${t('close')}">✕</button>
           </div>
           <div class="chat-messages-scroll" id="chat-scroll">
             ${messages}

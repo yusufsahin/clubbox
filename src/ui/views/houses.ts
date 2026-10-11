@@ -77,7 +77,7 @@ export function housesView(state: HousesViewState): SafeHtml {
               ` : html`
                 <div class="conversation-list">
                   ${state.members.map((member) => html`
-                    <button class="discover-row discover-main" type="button" data-action="open-profile" data-user-id="${member.userId}">
+                    <button class="discover-row discover-main" type="button" data-action="open-profile" data-user-id="${member.userId}" data-user-name="${member.name}" data-username="${member.username}">
                       <span class="discover-copy">
                         <strong>${member.name}</strong>
                         <span class="list-empty">@${member.username}</span>
