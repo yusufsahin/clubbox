@@ -4,13 +4,13 @@ Each task below is a self-contained prompt. Paste one task at a time into Cursor
 
 _Last reviewed: 2026-10-11. “Uygulandı” means the code is in the tree. “Canlı doğrulandı” means it was exercised against the official Clubhouse web session. This pass is implemented; the live room, hand, invite, and chat capture is still outstanding._
 
-### Next run (owner instruction, 2026-10-11 #4)
+### Next run (owner instruction, 2026-10-11 #5)
 
-The owner session committed realtime fixes (bbd3369 production Agora/PubNub keys, 4700857 real PubNub channels + action payloads). Re-read docs/api/realtime.md. Then:
-- [x] Task 14.1 — remote mute state from Agora (TDD + BDD scenario)
-- [x] Task 14.2 — sync DESIGN/PRD with the owner fixes
-- [x] Run `npm run api:triage`; turn any new live failure or unknown realtime action into a failing test, then fix
-- [x] Commit per item, write the summary, stop
+Light mode is broken and dark mode has contrast failures (owner screenshot + audit). Do Phase 15 at the end of this file:
+- [ ] 15.3 first: contrast test, theme-audit script, e2e axe checks for light and dark (they must fail at first)
+- [ ] 15.1 semantic tokens for both themes; replace the 70 hard-coded colours and 3 undefined variables
+- [ ] 15.2 system-theme listener + nativeTheme, remove/fix the overlapping "Start a Room" FAB, SVG icons in the top bar, HOST label contrast
+- [ ] Attach light/dark screenshots (reports/theme/) in the summary; commit per item; stop
 ### Last autonomous run (2026-10-11)
 
 - Done: Next run #4 already complete. Re-checked `npm run api:triage` → NO NEW FAILURES. No new owner checklist.
