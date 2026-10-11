@@ -898,13 +898,18 @@ export async function sendChatMessage(this: ClubboxApp) {
 
 export async function confirmCreateRoom(this: ClubboxApp) : Promise<void> {
     const topic = (document.getElementById('new-room-topic') as HTMLInputElement | null)?.value.trim();
-    const privacy = (document.getElementById('new-room-privacy') as HTMLSelectElement | null)?.value;
+    const privacy = (document.getElementById('new-room-privacy') as HTMLInputElement | HTMLSelectElement | null)?.value;
     const audience = privacy === 'friends' || privacy === 'friends-of-friends' || privacy === 'house'
       || privacy === 'social' || privacy === 'closed' ? privacy : 'public';
-    const clubSelect = document.getElementById('new-room-house') as HTMLSelectElement | null;
-    const socialClubId = audience === 'house' && clubSelect?.value ? Number(clubSelect.value) : undefined;
+    const clubField = document.getElementById('new-room-house') as HTMLInputElement | HTMLSelectElement | null;
+    const socialClubId = audience === 'house' && clubField?.value ? Number(clubField.value) : undefined;
+    const disableReplay = document.getElementById('new-room-disable-replay') as HTMLInputElement | null;
     const replaysEl = document.getElementById('new-room-replays') as HTMLInputElement | null;
-    const replayEnabled = replaysEl ? replaysEl.checked : false;
+    const replayEnabled = disableReplay
+      ? !disableReplay.checked
+      : replaysEl
+        ? (replaysEl.type === 'checkbox' ? replaysEl.checked : replaysEl.value !== '0')
+        : true;
     const chatEnabled = (document.getElementById('new-room-chat') as HTMLInputElement | null)?.checked !== false;
     const handraiseRaw = (document.getElementById('new-room-handraise') as HTMLSelectElement | null)?.value;
     const handraisePermission = handraiseRaw === '2' ? 2 : handraiseRaw === '1' ? 1 : undefined;

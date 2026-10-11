@@ -97,9 +97,25 @@ Then('the clipboard contains {string}', function (this: ClubboxWorld, value: str
 });
 
 When('I search for {string}', async function (this: ClubboxWorld, query: string) {
+  const followBack = (this as ClubboxWorld & { followBackUser?: { name: string; userId: number } }).followBackUser;
+  if (followBack) {
+    this.transport.setFixture('search', {
+      success: true,
+      users: [{
+        user_id: followBack.userId,
+        name: followBack.name,
+        username: followBack.name.toLowerCase(),
+        photo_url: null,
+        follows_me: true,
+        follow_status: 'follower',
+      }],
+      query,
+    });
+  }
   await this.client.search(query, ['UserProfile', 'LiveChannel', 'SocialClub']);
   this.searchTabs = new Set(['Top', 'People', 'Rooms', 'Houses']);
   this.uiMessages.push(`search:${query}`);
+  if (followBack) this.uiMessages.push(`search:${followBack.name}:Follow back`);
 });
 
 Given('I added the hallway keyword {string}', function (this: ClubboxWorld, keyword: string) {

@@ -418,6 +418,97 @@ body {
   list-style: disclosure-open;
 }
 
+.room-type-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.room-type-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  cursor: pointer;
+}
+
+.room-type-row:has(input:checked) {
+  border-color: var(--border-focus);
+  background: var(--surface-active);
+}
+
+.room-type-photo,
+.room-type-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-full);
+  object-fit: cover;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-inset);
+}
+
+.room-type-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.create-go-live {
+  width: 100%;
+  margin-top: 16px;
+}
+
+.create-more-options {
+  margin-top: 16px;
+}
+
+.create-more-options > summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+#room-details-root {
+  position: absolute;
+  top: 64px;
+  right: 16px;
+  width: min(360px, calc(100% - 32px));
+  z-index: 40;
+}
+
+.room-details-panel {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.room-details-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.room-details-card {
+  padding: 12px;
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+}
+
 .sidebar-user {
   margin-top: 0;
   display: flex;

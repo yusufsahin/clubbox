@@ -28,6 +28,7 @@ import { installAvatarFallback } from '../ui/avatar';
 import { cockpitBar } from '../ui/components/cockpitBar';
 import { mountCreateModal } from '../ui/components/createModal';
 import { selfProfilePage } from '../ui/components/profileDrawer';
+import { roomDetailsPanel } from '../ui/components/roomDetailsPanel';
 import { showToast } from '../ui/components/toast';
 import { html, markup, safeUrl } from '../ui/html';
 import { renderSidebarChrome } from '../ui/shellChrome';
@@ -47,6 +48,7 @@ import type { RecordingChapter } from '../studio/recordingChapters';
 export class ClubboxApp {
   currentTab: 'stage' | 'explore' | 'discover' | 'friends' | 'messages' | 'activity' | 'houses' | 'events' | 'replay' | 'soundboard' | 'settings' | 'login' = 'explore';
   viewStack: ViewSnapshot[] = [];
+  roomDetailsOpen = false;
   housesList: HouseListItem[] | null = null;
   selectedHouse: HouseListItem | null = null;
   houseChatOpen = false;
@@ -605,6 +607,30 @@ export class ClubboxApp {
     this.syncRecBanner();
     this.renderGuidelines();
     if (this.isProfileDrawerOpen) this.renderProfileDrawer();
+    this.renderRoomDetails();
+  }
+
+  renderRoomDetails(): void {
+    const existing = document.getElementById('room-details-root');
+    if (!this.roomDetailsOpen || !this.currentChannel) {
+      existing?.remove();
+      return;
+    }
+    let root = existing;
+    if (!root) {
+      root = document.createElement('div');
+      root.id = 'room-details-root';
+      document.querySelector('.studio-main')?.appendChild(root);
+    }
+    const music = audioEngine.getIsMusicMode();
+    root.innerHTML = markup(roomDetailsPanel({
+      topic: this.currentChannel.topic,
+      replaysOn: this.currentChannel.is_replay_enabled !== false,
+      audioQuality: music ? 'music' : 'normal',
+      canMuteAll: this.isMeModerator() && clubhouseClient.getConfig().experimentalActions === true,
+      canShare: !!safeUrl(this.currentChannel.url),
+      helpUrl: 'https://support.clubhouse.com/hc/en-us/articles/360059385913',
+    }));
   }
 
   ensureShell(): void {
@@ -670,6 +696,11 @@ export class ClubboxApp {
   }
 
   goBack(): void {
+    if (this.roomDetailsOpen) {
+      this.roomDetailsOpen = false;
+      this.render();
+      return;
+    }
     if (this.isProfileDrawerOpen) {
       this.closeProfileDrawer();
       return;
@@ -741,8 +772,8 @@ export class ClubboxApp {
 
           <div class="top-actions">
             ${onRoomPage ? html`
+              <button class="btn btn-secondary" type="button" data-action="open-room-details">${t('roomDetails')}</button>
               <button class="btn btn-secondary" type="button" data-action="minimize-room">${t('minimize')}</button>
-              <button class="btn btn-secondary" data-action="share-room">🔗 ${t('link')}</button>
               <button class="btn btn-danger" data-action="leave-room">${t('leaveQuietly')}</button>
             ` : html`
               ${clubhouseClient.supports('create_channel') ? html`
@@ -1215,6 +1246,14 @@ export class ClubboxApp {
     switch (action) {
       case 'nav-back':
         this.goBack();
+        break;
+      case 'open-room-details':
+        this.roomDetailsOpen = true;
+        this.render();
+        break;
+      case 'close-room-details':
+        this.roomDetailsOpen = false;
+        this.render();
         break;
       case 'open-settings':
       case 'profile-settings':

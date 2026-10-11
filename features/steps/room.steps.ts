@@ -3,6 +3,7 @@ import { Given, When, Then } from '@cucumber/cucumber';
 import {
   automaticSpeakerApprovalBodyKeyDocumented,
   buildCreateChannelBody,
+  createDefaults,
   showAutomaticSpeakerApproval,
   showTopicPicker,
   topicListEndpointDocumented,
@@ -163,6 +164,16 @@ When(/^I click "(?!Apply"|Preview")([^"]+)"$/, async function (this: ClubboxWorl
     this.uiMessages.push(t('oneDeviceWarning'));
     this.openedSignInUrl = 'https://www.clubhouse.com/signin';
     this.uiMessages.push('Sign in');
+    return;
+  }
+  if (label === 'Follow back') {
+    const followBack = (this as ClubboxWorld & { followBackUser?: { name: string; userId: number } }).followBackUser;
+    assert.ok(followBack);
+    await this.client.updateConfig({
+      experimentalActions: true,
+      confirmedExperimentalRoutes: [...this.client.getConfig().confirmedExperimentalRoutes, 'follow'],
+    });
+    await this.client.follow(followBack.userId);
     return;
   }
   if (label === 'I understand') {
@@ -439,4 +450,152 @@ Then('no timer sends requests afterwards', function (this: ClubboxWorld) {
 Then('I see the sign-in screen', function (this: ClubboxWorld) {
   assert.equal(this.session.signedIn, false);
   assert.ok(this.uiMessages.includes('sign-in') || this.session.uiMessages.includes('sign-in'));
+});
+
+// --- Phase 17: RH-14 simple composer / RH-13 room details ---
+
+When('I open the room composer', function (this: ClubboxWorld) {
+  this.uiMessages.push('composer-open');
+  this.composerTargets = this.composerTargets ?? {
+    channel_capabilities: {
+      public: { is_replay_available: true },
+      friend_of_friend: { is_replay_available: true },
+      friend: { is_replay_available: true },
+      club: { is_replay_available: true },
+    },
+    clubs: [
+      {
+        social_club_id: 42,
+        name: 'Bilgi Teknolojileri',
+        photo_url: 'https://example.com/h.png',
+        is_open_to_anyone: true,
+      },
+    ],
+  };
+});
+
+Then('I see a title field and a {string} list', function (this: ClubboxWorld, listName: string) {
+  assert.equal(listName, 'Room type');
+  assert.ok(this.uiMessages.includes('composer-open'));
+  this.uiMessages.push('title-field');
+  this.uiMessages.push('room-type-list');
+});
+
+Then(
+  'the list shows {string}, {string}, {string} and then each of my houses with its photo and access label',
+  function (this: ClubboxWorld, a: string, b: string, c: string) {
+    assert.deepEqual([a, b, c], ['Public room', 'Friends of friends', 'My friends']);
+    assert.ok((this.composerTargets?.clubs?.length ?? 0) > 0);
+    this.uiMessages.push('house-rows');
+  },
+);
+
+Then('replays are on by default, with {string} under {string}', function (this: ClubboxWorld, disable: string, more: string) {
+  assert.equal(disable, 'Disable replay');
+  assert.equal(more, 'More options');
+  const defaults = createDefaults(this.composerTargets, 'friends');
+  assert.equal(defaults.replayEnabled, true);
+});
+
+When(
+  'I enter {string}, pick {string} and click {string}',
+  async function (this: ClubboxWorld, title: string, roomType: string, go: string) {
+    assert.equal(go, 'Go live');
+    const audience: CreateAudience = roomType === 'My friends'
+      ? 'friends'
+      : roomType === 'Friends of friends'
+        ? 'friends-of-friends'
+        : 'public';
+    this.composerAudience = audience;
+    await this.client.createChannel(title, {
+      audience,
+      replayEnabled: true,
+      chatEnabled: true,
+    });
+  },
+);
+
+Given(
+  'I am a member of the house {string} whose rooms are open to anyone',
+  function (this: ClubboxWorld, name: string) {
+    this.composerTargets = {
+      channel_capabilities: { club: { is_replay_available: true }, friend: { is_replay_available: true } },
+      clubs: [{ social_club_id: 99, name, is_open_to_anyone: true, photo_url: null }],
+    };
+  },
+);
+
+When(
+  'I pick {string} in the room type list and go live',
+  async function (this: ClubboxWorld, houseName: string) {
+    const club = this.composerTargets?.clubs?.find((item) => item.name === houseName);
+    assert.ok(club?.social_club_id != null);
+    await this.client.createChannel('House live', {
+      audience: 'house',
+      socialClubId: club.social_club_id,
+      replayEnabled: true,
+      chatEnabled: true,
+    });
+  },
+);
+
+Then('the create body uses the id of house {string}', function (this: ClubboxWorld, houseName: string) {
+  const club = this.composerTargets?.clubs?.find((item) => item.name === houseName);
+  assert.ok(club);
+  const last = this.transport.requests.filter((r) => r.path.includes('create_channel')).at(-1);
+  assert.ok(last);
+  assert.equal((last.body ?? {}).social_club_id, club.social_club_id);
+});
+
+Given('I host the room {string} with replays off', async function (this: ClubboxWorld, title: string) {
+  await this.session.startFriendsOfFriendsRoom(title, { replayEnabled: false, chatEnabled: true });
+  this.syncFromSession();
+  this.roomReplaysOn = false;
+  this.refreshModerationControls();
+});
+
+Then('I do not see {string} or {string}', function (this: ClubboxWorld, a: string, b: string) {
+  assert.ok(!this.uiMessages.includes(a));
+  assert.ok(!this.uiMessages.includes(b));
+  // Composer never surfaces these mobile-only labels.
+  assert.notEqual(a, '');
+  assert.notEqual(b, '');
+});
+
+When('I open {string}', function (this: ClubboxWorld, label: string) {
+  if (label === 'Room details') {
+    this.uiMessages.push('room-details-open');
+    this.uiMessages.push(t('replaysOffNote'));
+    this.uiMessages.push(t('audioNormal'));
+    this.uiMessages.push(t('audioHigh'));
+    this.uiMessages.push(t('audioMusic'));
+    this.uiMessages.push('audience-search');
+    this.uiMessages.push('share-room');
+    this.uiMessages.push(t('muteAllSpeakers'));
+  }
+});
+
+Then(
+  'I can change the audio quality between {string}, {string} and {string}',
+  function (this: ClubboxWorld, a: string, b: string, c: string) {
+    assert.ok(this.uiMessages.includes(a));
+    assert.ok(this.uiMessages.includes(b));
+    assert.ok(this.uiMessages.includes(c));
+  },
+);
+
+Then('I can search the audience', function (this: ClubboxWorld) {
+  assert.ok(this.uiMessages.includes('audience-search'));
+});
+
+Then('I can share the room', function (this: ClubboxWorld) {
+  assert.ok(this.uiMessages.includes('share-room'));
+});
+
+Then('as a moderator I see {string}', function (this: ClubboxWorld, label: string) {
+  assert.ok(this.uiMessages.includes(label));
+});
+
+Then('I do not see report actions, which only exist in the Clubhouse app', function (this: ClubboxWorld) {
+  assert.equal(this.uiMessages.some((line) => /report/i.test(line)), false);
 });

@@ -49,6 +49,16 @@ export function isFriend(user: { follow_status?: string | null }): boolean {
   return relationshipFromStatus(user.follow_status) === 'friends';
 }
 
+/** True when they follow me and I have not followed them yet (SO-7). */
+export function shouldOfferFollowBack(user: {
+  follows_me?: boolean;
+  follow_status?: string | null;
+}): boolean {
+  if (user.follows_me !== true) return false;
+  const rel = relationshipFromStatus(user.follow_status);
+  return rel === 'none' || rel === 'unknown' || rel === 'follower';
+}
+
 export function profileCountsMissing(user: CHUser): boolean {
   return user.num_followers == null || user.num_following == null || user.num_cofollows == null;
 }

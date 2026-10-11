@@ -129,8 +129,8 @@ Legend — Today: ✅ works live · ✅* wired (live verification pending) · �
 | RH-10 | Room visibility change | | ✓ | ✅ | C (make_channel_public/social) | P2 |
 | RH-11 | End room (confirm) | ✓ | ✓ | 🧪 | C (end_channel) | P0 |
 | RH-12 | Pinned link | ✓ | ✓ | ✅ | B (create_channel.link) | P2 |
-| RH-13 | Room details panel (mobile "live details"): replay status + note, audio quality, audience search, mute all other speakers (mod), share | ✓ | ✓ | ❌ | B/C | P1 |
-| RH-14 | Simple composer like the mobile app: title → room type list (public, friends of friends, my friends, each of my houses with photo and access label) → go live; replays ON by default with "disable replay" under More options | ✓ | ✓ | 🧪 form with many fields | O | P1 |
+| RH-13 | Room details panel (mobile "live details"): replay status + note, audio quality, audience search, mute all other speakers (mod), share | ✓ | ✓ | 🧪 | B/C | P1 |
+| RH-14 | Simple composer like the mobile app: title → room type list (public, friends of friends, my friends, each of my houses with photo and access label) → go live; replays ON by default with "disable replay" under More options | ✓ | ✓ | 🧪 | O | P1 |
 
 ### 4.5 Studio (Clubbox's reason to exist)
 
@@ -156,7 +156,7 @@ Legend — Today: ✅ works live · ✅* wired (live verification pending) · �
 | SO-4 | Messages: VMs + house chats, text, voice | ✓ | ✓ | ✅ | O/B | P2 |
 | SO-5 | Activity / notifications | ✓ | ✓ | ✅ | C (get_notifications) | P2 |
 | SO-6 | Houses: list, page, members, join | ✓ | | ✅ | B (get_social_club*) | P2 |
-| SO-7 | "Follow back" button when someone follows me and I do not follow them (search results, profile) | ✓ | | ❌ | O (follows_me) | P2 |
+| SO-7 | "Follow back" button when someone follows me and I do not follow them (search results, profile) | ✓ | | 🧪 | O (follows_me) | P2 |
 
 ### 4.8 Capabilities discovered in API responses (decided)
 

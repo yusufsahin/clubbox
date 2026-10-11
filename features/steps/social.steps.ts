@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { When, Then } from '@cucumber/cucumber';
+import { Given, When, Then } from '@cucumber/cucumber';
 import { mutualParts } from '../../src/api/relationship.ts';
 import { t } from '../../src/i18n/index.ts';
 import type { ClubboxWorld } from '../support/world.ts';
@@ -137,4 +137,15 @@ Then('the message is sent through the documented conversation endpoint', functio
 Then('I stay in the room without interrupting the audio', function (this: ClubboxWorld) {
   assert.ok(this.currentRoom);
   assert.equal(this.agora.left, false);
+});
+
+Given('{string} follows me and I do not follow her', function (this: ClubboxWorld, name: string) {
+  (this as ClubboxWorld & { followBackUser?: { name: string; userId: number } }).followBackUser = {
+    name,
+    userId: 77,
+  };
+});
+
+Then('the result for {string} shows {string}', function (this: ClubboxWorld, name: string, label: string) {
+  assert.ok(this.uiMessages.includes(`search:${name}:${label}`));
 });

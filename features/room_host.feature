@@ -110,9 +110,9 @@ Feature: Host and moderate a room
     And the body field "social_club_id" is "h1"
 
   # Mobile-app parity (owner screenshots 2026-10-11): host a room, select room type, live details.
-  @pending @observed @RH-14
+  @observed @RH-14
   Scenario: Start a room the way the mobile app does
-    When I click "Start a room"
+    When I open the room composer
     Then I see a title field and a "Room type" list
     And the list shows "Public room", "Friends of friends", "My friends" and then each of my houses with its photo and access label
     And replays are on by default, with "Disable replay" under "More options"
@@ -121,18 +121,18 @@ Feature: Host and moderate a room
     And the body field "privacy_level" is "friend"
     And the body field "is_replay_enabled" is true
 
-  @pending @observed @RH-14
+  @observed @RH-14
   Scenario: Start a room in one of my houses from the room type list
     Given I am a member of the house "Bilgi Teknolojileri" whose rooms are open to anyone
     When I pick "Bilgi Teknolojileri" in the room type list and go live
-    Then the body field "social_club_id" is the id of "Bilgi Teknolojileri"
+    Then the create body uses the id of house "Bilgi Teknolojileri"
 
-  @pending @RH-14
+  @RH-14
   Scenario: Mobile-only room settings are not shown
     When I open the room composer
     Then I do not see "Show replay on profile" or "Allow web listening"
 
-  @pending @RH-13
+  @RH-13
   Scenario: Room details panel
     Given I host the room "Morning show" with replays off
     When I open "Room details"

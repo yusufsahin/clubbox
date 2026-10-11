@@ -47,7 +47,7 @@ Feature: Profiles, follows, activity and private chat
     Then the message is sent through the documented conversation endpoint
     And I stay in the room without interrupting the audio
 
-  @pending @observed @SO-7
+  @observed @SO-7
   Scenario: Follow back from search results
     Given "Arzu" follows me and I do not follow her
     When I search for "A"

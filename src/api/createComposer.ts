@@ -24,7 +24,13 @@ export type CreateChannelTargets = {
   channel_capabilities?: Record<string, ChannelCapability>;
   channel_chat_default_on?: boolean;
   web_listening_default_on?: boolean;
-  clubs?: Array<{ social_club_id?: number; name?: string }>;
+  clubs?: Array<{
+    social_club_id?: number;
+    name?: string;
+    photo_url?: string | null;
+    is_open_to_anyone?: boolean;
+    access_label?: string;
+  }>;
   events?: unknown[];
   targets?: unknown[];
   /** Topic catalog when a dedicated list endpoint is ever bound; unused today. */
@@ -145,7 +151,8 @@ export function createDefaults(
   const chatDefault = targets?.channel_chat_default_on !== false;
   return {
     chatEnabled: chatDefault,
-    replayEnabled: cap?.is_replay_available === true,
+    // Mobile parity (RH-14): replays on by default when the capability allows them.
+    replayEnabled: cap?.is_replay_available !== false,
   };
 }
 

@@ -1,5 +1,6 @@
 import { t } from '../../i18n';
 import type { HouseListItem } from '../../api/communityLists';
+import { shouldOfferFollowBack } from '../../api/relationship';
 import type { CHUser, SearchHit } from '../../api/types';
 import { avatarHtml } from '../avatar';
 import { html, safeUrl, type SafeHtml } from '../html';
@@ -24,6 +25,10 @@ function tabLabel(tab: DiscoverTab): string {
 function hitRow(hit: SearchHit): SafeHtml {
   if (hit.kind === 'user') {
     const user = hit.user;
+    const followBack = shouldOfferFollowBack({
+      follows_me: hit.followsMe || user.follows_me,
+      follow_status: user.follow_status,
+    });
     return html`
       <div class="discover-row">
         <button class="discover-main" type="button" data-action="open-profile" data-user-id="${user.user_id}">
@@ -31,10 +36,13 @@ function hitRow(hit: SearchHit): SafeHtml {
           <span class="discover-copy">
             <strong>${user.name || user.username}</strong>
             <span class="list-empty">@${user.username}</span>
-            ${hit.followsMe ? html`<span class="list-empty">${t('followsYou')}</span>` : ''}
+            ${hit.followsMe && !followBack ? html`<span class="list-empty">${t('followsYou')}</span>` : ''}
             ${user.bio ? html`<span class="discover-bio">${user.bio}</span>` : ''}
           </span>
         </button>
+        ${followBack ? html`
+          <button class="btn btn-primary" type="button" data-action="follow-user" data-user-id="${user.user_id}" data-follow-back="1">${t('followBack')}</button>
+        ` : ''}
       </div>
     `;
   }
