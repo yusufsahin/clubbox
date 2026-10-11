@@ -218,7 +218,7 @@ Severity: **S1** blocks a P0 flow · **S2** wrong/unsafe behaviour · **S3** mis
 | G-11 | Composer ignores `get_create_channel_targets` (capabilities, defaults, house targets, events to start) | createModal | S3 | Drive composer from capabilities (11.3) |
 | G-12 | Houses, events, notifications, replays absent | — | S3 | 11.5–11.7 |
 | G-13 | Mutation flags wrong for all in-bundle routes | webApiRoutes.json | S2 | Closed in 0fcb781 (10.2) |
-| G-14 | Sandbox implemented as if-branches + public `sandbox*` methods in the live client | client.ts (~1,140 lines) | S4 | Closed pending (11.1) |
+| G-14 | Sandbox implemented as if-branches + public `sandbox*` methods in the live client | client.ts (~1,140 lines) | S4 | Closed in 500df0a (11.1) |
 | G-15 | `main.ts` ~2,300 lines mixes state, timers, API calls, rendering | main.ts | S4 | Controllers + RoomSession (11.1, 11.2) |
 | G-16 | No log out | — | S3 | Closed in 66c8c22 (10.3 / ACC-3) |
 | G-17 | Discovery depends on the owner browsing; only 1 chunk scanned | recorder | S2 (process) | Closed in aab24e4 (11.0 bundle crawler) |
