@@ -4,12 +4,13 @@ Each task below is a self-contained prompt. Paste one task at a time into Cursor
 
 _Last reviewed: 2026-10-11. “Uygulandı” means the code is in the tree. “Canlı doğrulandı” means it was exercised against the official Clubhouse web session. This pass is implemented; the live room, hand, invite, and chat capture is still outstanding._
 
-### Next run (owner instruction, 2026-10-11 #3)
+### Next run (owner instruction, 2026-10-11 #4)
 
-Hallway filter fixed by the owner session in 9bd6525. Do Phase 13 (13.1 → 13.2 → 13.3) now; fix every bug it surfaces with a failing test first; commit per item; then stop and write the summary.
-- [x] 13.1 type checking back on for src/app/*
-- [x] 13.2 fixtures from real captures + shape test
-- [x] 13.3 BDD steps call real code + guard test
+The owner session committed realtime fixes (bbd3369 production Agora/PubNub keys, 4700857 real PubNub channels + action payloads). Re-read docs/api/realtime.md. Then:
+- [ ] Task 14.1 — remote mute state from Agora (TDD + BDD scenario)
+- [ ] Task 14.2 — sync DESIGN/PRD with the owner fixes
+- [ ] Run `npm run api:triage`; turn any new live failure or unknown realtime action into a failing test, then fix
+- [ ] Commit per item, write the summary, stop
 ### Last autonomous run (2026-10-11)
 
 - Done: Phase 13 already complete; force-tracked `reports/bdd-audit.md` (gitignored `reports/` otherwise). `npm run api:triage` → NO NEW FAILURES.
@@ -1057,4 +1058,28 @@ features/support/world.ts re-implements app logic (filteredHallway(), applyHallw
 3. Where a controller is too DOM-bound to call, extract the logic into a pure module first (with unit tests), then call it from both the controller and the step.
 4. Add a guard: a test that fails if features/support or features/steps import nothing from src/ for a feature file that has non-@local scenarios, or if world.ts defines functions matching /^(filter|sort|apply|compute|derive|prepare)/.
 Acceptance: reports/bdd-audit.md shows every helper replaced; the guard test is green; npm test green. Re-run the hallway topic bug (fixture with topic_key null + chip selected) against the old code to prove the suite now catches it.
+```
+
+---
+
+## Phase 14 — Live realtime follow-ups (after commits bbd3369 and 4700857)
+
+The owner session fixed: production Agora/PubNub keys (bundle's live config block), PubNub room channels (users.*, channel_user.*, channel_all.*, channel_speakers.*), v2 subscribe parsing, and real Clubhouse `action` payloads matched by user_id. Read `docs/api/realtime.md` ("Room channels and actions") before touching realtime code.
+
+### Task 14.1 — Remote mute state from Agora
+
+```
+Mute is not sent over PubNub; the official clients take it from Agora. agoraVoice.ts only handles 'volume-indicator' (speaking), so other people's mute badges never change in live rooms.
+1. Handle Agora 'user-info-updated' (msg 'mute-audio' / 'unmute-audio') and audio 'user-published' / 'user-unpublished' to set is_muted for that uid on the current room's users (uid = Clubhouse user_id). Expose it through the existing room update path, not a new store.
+2. Respect agora_native_mute from the join/create response for my own mute (already in DESIGN §5.2).
+3. TDD: extend the fake Agora facade with these events; add a BDD scenario in room_realtime.feature (@community @RL-4): "When Agora reports that "Ayse" muted her microphone / Then "Ayse" shows the muted badge" and the unmute counterpart.
+Acceptance: scenario green; no PubNub change needed.
+```
+
+### Task 14.2 — Keep docs and catalog in sync with the owner fixes
+
+```
+1. DESIGN §8: mark G-03 (live updates) and G-06 (Agora app id) "Closed in 4700857 / bbd3369"; update §5.1/§5.2 to the real channels, v2 format and production-key selection.
+2. PRD catalog "Today" for RL-4 and RH-2: wired (live verification pending).
+3. Remove any remaining references to the guessed realtime names (user_joined, hand_raised, speaker_added, speaker_removed, moderator_added) outside src/api/realtimeEvents.ts internals.
 ```
