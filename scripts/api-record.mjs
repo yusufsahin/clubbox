@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { cleanElectronEnv } from './electronEnv.mjs';
 
 const require = createRequire(import.meta.url);
 const electronPath = require('electron');
@@ -11,7 +12,7 @@ const extra = process.argv.slice(2).filter((arg) => arg.startsWith('--role=') ||
 const child = spawn(electronPath, ['.', '--api-recorder', ...extra], {
   cwd: root,
   stdio: 'inherit',
-  env: { ...process.env, CLUBBOX_API_RECORDER: '1' },
+  env: cleanElectronEnv({ ...process.env, CLUBBOX_API_RECORDER: '1' }),
 });
 
 child.on('exit', (code) => {

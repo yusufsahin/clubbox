@@ -7,6 +7,9 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
+// Does not spawn Electron today; still clear the Cursor/VS Code trap so any
+// future Electron child (or nested tool) inherits a safe env.
+delete process.env.ELECTRON_RUN_AS_NODE;
 
 const require = createRequire(import.meta.url);
 const { createBundleCrawler } = require('../electron/bundleCrawler.cjs');
