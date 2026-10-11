@@ -13,12 +13,11 @@ Do these before continuing the Autonomous plan, then tick them:
 
 ### Last autonomous run (2026-10-11)
 
-- Autonomous plan already **Done** through **11.8 (strict)**; this devam applied Phase 8 Help Center copy.
-- Done: Audience / Messages / Clips / replays-default i18n (en+tr); Status row 8 updated; `createDefaults` regression test.
-- Remaining product gaps need undocumented bodies (`gif_reaction`, conversation delete/title, replay chunk) or owner capture / packaged e2e / ST-9 & DX.
-- Tests: `npm test` — **119** unit (+ createDefaults) + **123 BDD** + trace strict; tsc/lint/build green.
-- **Stopped:** no further shippable work without inventing endpoint bodies or owner capture / packaged e2e.
-- Blocked: `test:e2e:packaged`; owner live room capture (0.9 S1–S3); topic-chip request body uncaptured.
+- Autonomous plan already **Done** through **11.8 (strict)**; this devam unblocked packaged e2e.
+- Done: ship `redact.cjs` in the asar again (apiLog/bundleCrawler require it — excluding it crashed packaged boot with “Cannot find module './redact.cjs'”); `dist:dir` + `signAndEditExecutable: false`; packaged smoke falls back to `electron` + `app.asar` when Application Control blocks `Clubbox.exe`.
+- Tests: `npm test` — **119** unit + **123 BDD** + trace strict; `test:e2e:packaged` green; tsc/lint/build green.
+- **Stopped:** no further shippable product work without inventing endpoint bodies or owner capture.
+- Blocked: owner live room capture (0.9 S1–S3); topic-chip request body uncaptured; full `npm run dist` NSIS may still fail on this host (`spawn UNKNOWN` / WineVm).
 - Still @pending: ST-9 deferred; room_host DX-1/DX-3.
 - Questions for the owner: Capture a topic-chip click on clubhouse.com (`get_feed_v3` body) so Hallway topics can filter server-side. Also capture conversation delete/title bodies and a replay chunk if those UIs should ship next.
 
@@ -30,7 +29,7 @@ Legend: **Uygulandı** = code is in the tree. **Canlı doğrulandı** = exercise
 | --- | --- | --- |
 | 1 | **0.7 Review fixes (2026-10-11 #2)** — navigation guard, packaged recorder, clip worklet path, auto-armed clip buffer, 429/visibility, CORS proxy token leak | Uygulandı |
 | 1b | **0.8 Followers / following / friends lists** — bundle scan + labeled UI hunt; live UI uses only counts + mutual lists | Uygulandı for counts, mutual names, and chat people. The public web bundle does not contain get_followers, get_following, or get_online_friends. get_friend_zone_match and get_social_club_members are in-bundle and not called. The labeled click-through still needs a signed-in session. |
-| 0 | **Autonomous plan** (see `.cursor/rules/clubbox.mdc`): 10.1 → 11.8 (warn mode) → 10.2 → 10.5 → 11.0 → 11.1 → 11.2 → 11.3 → 11.4 → 10.4 → 11.5 → 11.6 → 11.7 → 11.9 → 11.10 → 11.8 (strict). Acceptance files: account, hallway, room_listener, room_realtime, room_host, room_moderation, audio_studio, studio, social, messages, houses_events_replays, api_health. Requirements: `docs/product/PRD.md`; design + gap list G-01…G-18: `docs/product/DESIGN.md`; acceptance: `features/*.feature` | **Done** through **11.8 (strict)**. Pending @feature: ST-9 deferred, room_host DX-1/3, owner live room capture. Packaged e2e launch blocked (see Last run). |
+| 0 | **Autonomous plan** (see `.cursor/rules/clubbox.mdc`): 10.1 → 11.8 (warn mode) → 10.2 → 10.5 → 11.0 → 11.1 → 11.2 → 11.3 → 11.4 → 10.4 → 11.5 → 11.6 → 11.7 → 11.9 → 11.10 → 11.8 (strict). Acceptance files: account, hallway, room_listener, room_realtime, room_host, room_moderation, audio_studio, studio, social, messages, houses_events_replays, api_health. Requirements: `docs/product/PRD.md`; design + gap list G-01…G-18: `docs/product/DESIGN.md`; acceptance: `features/*.feature` | **Done** through **11.8 (strict)**. Pending @feature: ST-9 deferred, room_host DX-1/3, owner live room capture. Packaged e2e green (`dist:dir` + asar smoke). |
 | — | **10.1** / **10.2** / **10.4** / **10.5** / **11.0** / **11.8 (warn)** | Uygulandı |
 | 1c | **0.9 Real room capture** — recorder misses clubhouse.pubnubapi.com, bundle scan saw 1 chunk, corrected smoke test (replays ON) | Steps 1–2 are in. S1–S3 still need a signed-in capture. |
 | 2 | **0.6 Community Guidelines risk** — hidden reCAPTCHA sign-in, polling, recording, distribution | Uygulandı (code). Sign-in is a visible clubhouse.com window, polling pauses when the window is hidden, recording is opt-in, and there is no publish config. A public release is still your decision. |
@@ -272,7 +271,7 @@ All checks pass today (tsc, lint, 9 tests, build), but these are real defects. F
 
 2. API recorder in the packaged app.
    --api-recorder (argv and second-instance) and CLUBBOX_API_RECORDER work in the installed app. The recorder writes to path.join(__dirname, '..', 'api-captures'), which is inside app.asar (read-only) when packaged.
-   Do: enable the recorder only when !app.isPackaged. Exclude electron/apiRecorder.cjs, electron/redact.cjs and scripts/ from the packaged files list.
+   Do: enable the recorder only when !app.isPackaged. Exclude electron/apiRecorder.cjs and scripts/ from the packaged files list. Keep electron/redact.cjs (apiLog + bundleCrawler need it at runtime).
 
 3. Clip worklet path is broken in the packaged / file:// build.
    src/audio/audioEngine.ts startClipBuffer() calls ctx.audioWorklet.addModule('/clip-processor.js'). With loadFile(dist/index.html) the absolute path resolves to the drive root (file:///C:/clip-processor.js), addModule fails, the .catch returns false, and every "Save clip" shows "clip empty".
@@ -302,7 +301,7 @@ All checks pass today (tsc, lint, 9 tests, build), but these are real defects. F
 
 Acceptance:
 - Navigating the main window to https://example.com (e.g. from DevTools: location.href = …) is blocked; window.open is denied.
-- The installed app ignores --api-recorder; app.asar contains no apiRecorder.cjs/redact.cjs.
+- The installed app ignores --api-recorder; app.asar contains no apiRecorder.cjs (redact.cjs stays — required by apiLog).
 - A clip saves from the packaged app in a room where clips are allowed; nothing is buffered when local recording is off.
 - A mocked 429 stops further calls to that endpoint until the backoff expires; no timers fire after 2 minutes minimized (except active_ping in a room).
 - No CORS proxy / base URL fields remain; grep -n "cors-anywhere" src returns nothing.

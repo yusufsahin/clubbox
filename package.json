@@ -21,12 +21,13 @@
     "test:bdd": "node --import tsx ./node_modules/@cucumber/cucumber/bin/cucumber.js --tags \"not @pending\"",
     "test:trace": "node scripts/trace.mjs",
     "test:e2e": "npm run build && playwright test -g \"sandbox dev\"",
-    "test:e2e:packaged": "npm run dist && playwright test -g \"win-unpacked\"",
+    "test:e2e:packaged": "npm run dist:dir && playwright test -g \"win-unpacked\"",
     "test": "npm run test:unit && npm run test:bdd && npm run test:trace",
     "test:redact": "npm run test:unit",
     "lint": "eslint . && npm run api:check",
     "icons": "node scripts/make-icons.mjs",
-    "dist": "npm run build && electron-builder"
+    "dist": "npm run build && electron-builder",
+    "dist:dir": "npm run build && electron-builder --dir"
   },
   "build": {
     "appId": "app.clubbox.desktop",
@@ -40,7 +41,6 @@
       "electron/**/*",
       "!electron/**/*.test.cjs",
       "!electron/apiRecorder.cjs",
-      "!electron/redact.cjs",
       "!scripts/**",
       "package.json"
     ],
@@ -48,6 +48,7 @@
     "electronDist": "node_modules/electron/dist",
     "win": {
       "icon": "build/icon.ico",
+      "signAndEditExecutable": false,
       "target": [
         "nsis",
         "portable"
