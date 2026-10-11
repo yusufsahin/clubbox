@@ -77,9 +77,12 @@ export interface CHChannel {
   pubnub_heartbeat_interval?: number;
 }
 
+export type UserCapabilities = Record<string, boolean | undefined>;
+
 export interface CHChannelDetail extends CHChannel {
   description?: string;
   agora_native_mute?: boolean;
+  user_capabilities?: UserCapabilities;
 }
 
 export interface CHAuthResponse {

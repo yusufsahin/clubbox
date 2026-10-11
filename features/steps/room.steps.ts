@@ -38,7 +38,7 @@ Given('a moderator invited me to speak', function (this: ClubboxWorld) {
 Given('I host the room {string}', async function (this: ClubboxWorld, title: string) {
   await this.session.startFriendsOfFriendsRoom(title, { replayEnabled: true, chatEnabled: true });
   this.syncFromSession();
-  this.refreshHostControls();
+  this.refreshModerationControls();
 });
 
 Given('I host the room {string} with {int} other unmuted speakers', async function (this: ClubboxWorld, title: string, count: number) {
@@ -50,7 +50,7 @@ Given('I host the room {string} with {int} other unmuted speakers', async functi
     userId,
   }));
   this.syncFromSession();
-  this.refreshHostControls();
+  this.refreshModerationControls();
 });
 
 Given('my microphone is muted', function (this: ClubboxWorld) {
@@ -198,7 +198,7 @@ When('I start a room titled {string} for {string} with replays on and chat on', 
     chatEnabled: true,
   });
   this.syncFromSession();
-  this.refreshHostControls();
+  this.refreshModerationControls();
 });
 
 When('I play the soundboard pad {string}', function (this: ClubboxWorld, _pad: string) {

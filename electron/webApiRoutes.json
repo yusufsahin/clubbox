@@ -53,7 +53,7 @@
     "evidence": "observed",
     "mutation": false
   },
-  "accept_speaker_invite": {
+  "become_speaker": {
     "path": "/web_api/become_speaker",
     "method": "POST",
     "evidence": "bundle",

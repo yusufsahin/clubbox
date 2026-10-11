@@ -16,6 +16,7 @@ export interface StageState {
   canInvite: boolean;
   canEnd: boolean;
   canMuteEveryone: boolean;
+  canBlock: boolean;
   canFollow: boolean;
 }
 
@@ -94,14 +95,15 @@ export function stageColumn(state: StageState): SafeHtml {
                   </div>
                   <div class="speaker-name">${speaker.name}${state.channel.creator_user_profile_id === speaker.user_id ? html` <span class="host-tag">${t('host')}</span>` : ''}</div>
                   ${speaker.username ? html`<div class="speaker-handle">@${speaker.username}</div>` : ''}
-                  ${state.moderator && speaker.user_id !== state.me?.user_id && !(state.canMute || state.canMod || state.canMoveToAudience) ? unverifiedAction() : ''}
-                  ${state.moderator && speaker.user_id !== state.me?.user_id && (state.canMute || state.canMod || state.canMoveToAudience) ? html`
+                  ${state.moderator && speaker.user_id !== state.me?.user_id && !(state.canMute || state.canMod || state.canMoveToAudience || state.canBlock) ? unverifiedAction() : ''}
+                  ${state.moderator && speaker.user_id !== state.me?.user_id && (state.canMute || state.canMod || state.canMoveToAudience || state.canBlock) ? html`
                     <button class="speaker-menu-btn" data-action="speaker-menu" data-user-id="${speaker.user_id}" title="${t('speakerActions')}">⋯</button>
                     ${state.openSpeakerMenuId === speaker.user_id ? html`
                       <div class="speaker-menu">
                         ${state.canMute && !speaker.is_muted ? html`<button type="button" data-action="moderate" data-mod-action="mute" data-user-id="${speaker.user_id}">${t('mute')}</button>` : ''}
                         ${state.canMod && !speaker.is_moderator ? html`<button type="button" data-action="moderate" data-mod-action="moderator" data-user-id="${speaker.user_id}">${t('makeModerator')}</button>` : ''}
                         ${state.canMoveToAudience ? html`<button type="button" data-action="moderate" data-mod-action="audience" data-user-id="${speaker.user_id}">${t('moveToAudience')}</button>` : ''}
+                        ${state.canBlock ? html`<button type="button" data-action="moderate" data-mod-action="block" data-user-id="${speaker.user_id}">${t('blockFromRoom')}</button>` : ''}
                       </div>
                     ` : ''}
                   ` : ''}

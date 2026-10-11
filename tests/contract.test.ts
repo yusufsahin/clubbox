@@ -5,7 +5,7 @@ import { contractBodyKeys, CONTRACT_ENDPOINTS, getEndpoint } from '../src/api/re
 import { FakeTransport } from '../features/support/fakeTransport.ts';
 
 type ContractCall = {
-  /** Display name in test output (e.g. become_speaker for accept_speaker_invite). */
+  /** Display name in test output. */
   name: string;
   endpoint: (typeof CONTRACT_ENDPOINTS)[number];
   call: (client: ClubhouseApiClient) => Promise<unknown>;
@@ -27,7 +27,7 @@ const CONTRACT_CALLS: ContractCall[] = [
   { name: 'audience_reply', endpoint: 'audience_reply', call: (client) => client.raiseHand('abc123', true) },
   {
     name: 'become_speaker',
-    endpoint: 'accept_speaker_invite',
+    endpoint: 'become_speaker',
     call: (client) => client.becomeSpeaker('abc123'),
   },
   {

@@ -1,3 +1,6 @@
+import type { CreateAudience } from './createComposer';
+import { buildCreateChannelBody } from './createComposer';
+
 export type ConversationKind = 'archive' | 'house' | 'vm';
 
 export function conversationKind(row: { is_archived: boolean; permanent_house_chat: boolean }): ConversationKind {
@@ -10,36 +13,45 @@ export function permissionOn(value: unknown): boolean {
   return value === true;
 }
 
-/**
- * Documented create_channel body for friends-of-friends (observed shape / PRD §2 keys).
- * Replay and chat flags follow the composer; other audiences stay unsent until captured.
- */
+/** Documented create_channel body for any privacy level allowed by the composer. */
 export function createChannelBody(
   topic: string,
-  options: { audience?: string; replayEnabled?: boolean; chatEnabled?: boolean },
-): Record<string, unknown> | null {
-  if (options.audience !== 'friends-of-friends') return null;
-  return {
-    topic,
-    is_chat_enabled: options.chatEnabled !== false,
-    is_public_room: false,
-    is_replay_enabled: options.replayEnabled !== false,
-    is_private: false,
-    is_social_mode: false,
-    privacy_level: 'friend_of_friend',
-    user_ids: [],
-    topic_ids: [],
-    source: 14,
-  };
+  options: {
+    audience?: CreateAudience | string;
+    replayEnabled?: boolean;
+    chatEnabled?: boolean;
+    socialClubId?: number;
+    topicIds?: number[];
+    userIds?: number[];
+  },
+): Record<string, unknown> {
+  const audience = normalizeAudience(options.audience);
+  return buildCreateChannelBody(topic, {
+    audience,
+    replayEnabled: options.replayEnabled,
+    chatEnabled: options.chatEnabled,
+    socialClubId: options.socialClubId,
+    topicIds: options.topicIds,
+    userIds: options.userIds,
+  });
 }
 
-/** @deprecated Use createChannelBody — kept for older tests that assert the capture defaults. */
+function normalizeAudience(raw: CreateAudience | string | undefined): CreateAudience {
+  if (raw === 'friends' || raw === 'friends-of-friends' || raw === 'house' || raw === 'public'
+    || raw === 'social' || raw === 'closed') {
+    return raw;
+  }
+  return 'public';
+}
+
+/** @deprecated Use createChannelBody — kept for tests that assert the original capture defaults. */
 export function capturedCreateBody(
   topic: string,
   options: { audience?: string; replayEnabled?: boolean; chatEnabled?: boolean },
 ): Record<string, unknown> | null {
   if (options.replayEnabled !== false) return null;
   if (options.chatEnabled !== false) return null;
+  if (options.audience !== 'friends-of-friends') return null;
   return createChannelBody(topic, options);
 }
 

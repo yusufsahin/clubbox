@@ -5,6 +5,14 @@
   "token": "agora_create_token_fixture",
   "rtm_token": "rtm_token_fixture",
   "pubnub_token": "pubnub_token_fixture",
+  "user_capabilities": {
+    "can_end_room": true,
+    "can_mute_speakers": true,
+    "can_remove_speakers": true,
+    "can_invite": true,
+    "can_edit_room_title": true,
+    "can_post_to_chat": true
+  },
   "users": [
     {
       "user_id": 42,

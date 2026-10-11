@@ -26,6 +26,8 @@ export const tr: Record<MessageKey, string> = {
   mute: 'Sessize al',
   makeModerator: 'Moderatör yap',
   moveToAudience: 'Dinleyici yap',
+  blockFromRoom: 'Odadan engelle',
+  blockFromRoomConfirm: 'Bu kişiyi odadan engellemek istiyor musun? Odadan çıkarılır ve tekrar giremez.',
   raisedHands: 'Kalkan eller',
   invited: 'Davet edildi',
   inviteToStage: 'Sahneye davet et',

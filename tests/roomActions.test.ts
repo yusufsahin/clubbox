@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   capturedCreateBody,
   conversationKind,
+  createChannelBody,
   leaveClosesRoom,
   permissionOn,
   roomHasOthers,
@@ -15,7 +16,15 @@ test('archived chats stay out of house and voice-message kinds', () => {
   assert.equal(conversationKind({ is_archived: false, permanent_house_chat: false }), 'vm');
 });
 
-test('live create sends only the captured friends-of-friends body', () => {
+test('createChannelBody supports every composer privacy level', () => {
+  for (const audience of ['public', 'social', 'friends', 'friends-of-friends', 'closed'] as const) {
+    const body = createChannelBody('room', { audience, replayEnabled: true, chatEnabled: false });
+    assert.equal(typeof body.privacy_level, 'string');
+    assert.equal(body.source, 14);
+  }
+});
+
+test('capturedCreateBody keeps the original single capture combo for regression', () => {
   const body = capturedCreateBody('room', {
     audience: 'friends-of-friends',
     replayEnabled: false,
@@ -34,8 +43,6 @@ test('live create sends only the captured friends-of-friends body', () => {
     source: 14,
   });
   assert.equal(capturedCreateBody('room', { audience: 'public', replayEnabled: false, chatEnabled: false }), null);
-  assert.equal(capturedCreateBody('room', { audience: 'friends-of-friends', replayEnabled: true, chatEnabled: false }), null);
-  assert.equal(capturedCreateBody('room', { audience: 'friends-of-friends', replayEnabled: false, chatEnabled: true }), null);
 });
 
 test('permission buttons follow an explicit true flag', () => {

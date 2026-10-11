@@ -9,14 +9,14 @@ Feature: Moderation extras
     And experimental actions are on
     And I host the room "Morning show"
 
-  @pending @RH-6
+  @RH-6
   Scenario: Controls follow user_capabilities
     Given my user_capabilities have "can_mute_speakers" false
     Then I do not see "Mute" on speaker cards
     Given my user_capabilities have "can_end_room" false
     Then I do not see "End room"
 
-  @pending @community @RH-6
+  @community @RH-6
   Scenario Outline: Speaker actions
     Given "Ayse" is on stage
     When I choose "<action>" for "Ayse"
@@ -28,9 +28,10 @@ Feature: Moderation extras
       | Move to audience   | uninvite_speaker  |
       | Block from room    | block_from_channel |
 
-  @pending @community @RH-6
+  @community @RH-6
   Scenario: Blocking asks for confirmation
-    When I choose "Block from room" for "Ayse"
+    Given "Ayse" is on stage
+    When I start blocking "Ayse"
     Then I see a confirmation before any request is sent
 
   @pending @bundle @RH-8

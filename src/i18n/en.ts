@@ -24,6 +24,8 @@ export const en = {
   mute: 'Mute',
   makeModerator: 'Make Moderator',
   moveToAudience: 'Move to Audience',
+  blockFromRoom: 'Block from room',
+  blockFromRoomConfirm: 'Block this person from the room? They will be removed and cannot rejoin.',
   raisedHands: 'Raised Hands',
   invited: 'Invited',
   inviteToStage: 'Invite to Stage',

@@ -1,6 +1,7 @@
 import webApiRoutes from '../../electron/webApiRoutes.json' with { type: 'json' };
 import type { Evidence } from './capabilities';
 import type { RequestBody } from './client';
+import type { CreateAudience } from './createComposer';
 import { createChannelBody } from './roomActions';
 
 type RouteJson = {
@@ -51,32 +52,20 @@ function requireNumber(params: RequestBody, key: string): number {
   return value;
 }
 
-function audiencePrivacyLevel(audience: string): string {
-  if (audience === 'friends') return 'friend';
-  if (audience === 'friends-of-friends') return 'friend_of_friend';
-  if (audience === 'house') return 'house';
-  return 'public';
-}
-
 /** Request builders for contract-tested and common call sites. */
 const REQUEST_BUILDERS: Partial<Record<string, (params: RequestBody) => RequestBody>> = {
   create_channel: (params) => {
     const topic = requireString(params, 'topic');
-    const audience = typeof params.audience === 'string' ? params.audience : 'public';
+    const audience = typeof params.audience === 'string' ? params.audience as CreateAudience : 'public';
     const replayEnabled = params.replayEnabled !== false;
     const chatEnabled = params.chatEnabled !== false;
-    const captured = createChannelBody(topic, { audience, replayEnabled, chatEnabled });
-    const body: RequestBody = captured ?? {
-      topic,
-      is_chat_enabled: chatEnabled,
-      is_replay_enabled: replayEnabled,
-      is_public_room: audience === 'public',
-      is_private: false,
-      is_social_mode: false,
-      privacy_level: audiencePrivacyLevel(audience),
-      user_ids: [],
-      topic_ids: [],
-    };
+    const socialClubId = typeof params.socialClubId === 'number' ? params.socialClubId : undefined;
+    const body: RequestBody = createChannelBody(topic, {
+      audience,
+      replayEnabled,
+      chatEnabled,
+      socialClubId,
+    });
     if (params._sandbox === true) {
       if (typeof params.audience === 'string') body.audience = params.audience;
       if (typeof params.talk_user_id === 'number') body.talk_user_id = params.talk_user_id;
@@ -96,7 +85,7 @@ const REQUEST_BUILDERS: Partial<Record<string, (params: RequestBody) => RequestB
       unraise_hands: !raise,
     };
   },
-  accept_speaker_invite: (params) => {
+  become_speaker: (params) => {
     const body: RequestBody = { channel: requireString(params, 'channel') };
     if (typeof params.user_id === 'number') body.user_id = params.user_id;
     return body;
@@ -205,7 +194,7 @@ export const CONTRACT_ENDPOINTS = [
   'leave_channel',
   'active_ping',
   'audience_reply',
-  'accept_speaker_invite',
+  'become_speaker',
   'send_channel_message',
   'get_channel_messages',
   'emoji_reaction',
@@ -241,7 +230,7 @@ export const CONTRACT_SAMPLE_PARAMS: Record<ContractEndpointName, RequestBody> =
   leave_channel: { channel: 'abc123' },
   active_ping: { channel: 'abc123' },
   audience_reply: { channel: 'abc123', raise: true },
-  accept_speaker_invite: { channel: 'abc123' },
+  become_speaker: { channel: 'abc123' },
   send_channel_message: { channel: 'abc123', message: 'hello' },
   get_channel_messages: { channel: 'abc123' },
   emoji_reaction: { channel: 'abc123', emoji: '🔥' },

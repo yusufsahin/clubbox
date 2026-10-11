@@ -299,7 +299,7 @@ export class SandboxBackend {
         return { success: true } as T;
       }
 
-      case 'accept_speaker_invite': {
+      case 'become_speaker': {
         const channel = this.findMockChannel(input.channel);
         const user = channel?.users.find((entry) => entry.user_id === (input.userId ?? MOCK_ME.user_id));
         if (user) {

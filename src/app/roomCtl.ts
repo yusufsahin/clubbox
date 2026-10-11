@@ -2,7 +2,8 @@
 export { RoomEffectRunner, type RoomEffectDeps } from './roomEffectRunner.ts';
 import { ClubhouseApiError, clubhouseClient } from '../api/client.ts';
 import { beginJoin, commitJoin, finishLeave, localClipAllowed, roleSyncDecision, roomAudience } from '../api/guards.ts';
-import { capturedCreateBody, leaveClosesRoom, roomHasOthers } from '../api/roomActions.ts';
+import { leaveClosesRoom, roomHasOthers } from '../api/roomActions.ts';
+import { readUserCapabilities, roomControlFlags } from '../api/roomControls.ts';
 import { applyFollowResponse, mergeProfile, PEOPLE_LIST_ENDPOINTS, profileCountsMissing, readProfile, relationshipFromStatus, talkPartners, type PeopleListKind } from '../api/relationship.ts';
 import { PubNubRoomSource } from '../api/pubnubRoomSource.ts';
 import { roomSync } from '../api/roomSync.ts';
@@ -254,14 +255,19 @@ export async function inviteToStage(this: ClubboxApp, userId: number) : Promise<
     }
   }
 
-export async function moderateSpeaker(this: ClubboxApp, userId: number, action: 'mute' | 'moderator' | 'audience') : Promise<void> {
+export async function moderateSpeaker(this: ClubboxApp, userId: number, action: 'mute' | 'moderator' | 'audience' | 'block') : Promise<void> {
     if (!this.currentChannel || !this.isMeModerator()) return;
     const channelId = this.channelApiId(this.currentChannel);
-    const endpoint = action === 'mute' ? 'mute_speaker' : action === 'moderator' ? 'make_moderator' : 'uninvite_speaker';
+    const endpoint = action === 'mute' ? 'mute_speaker'
+      : action === 'moderator' ? 'make_moderator'
+        : action === 'block' ? 'block_from_channel'
+          : 'uninvite_speaker';
     if (!this.allowAction(endpoint)) return;
+    if (action === 'block' && !window.confirm(t('blockFromRoomConfirm'))) return;
     try {
       if (action === 'mute') await clubhouseClient.muteSpeaker(channelId, userId);
       else if (action === 'moderator') await clubhouseClient.makeModerator(channelId, userId);
+      else if (action === 'block') await clubhouseClient.blockFromChannel(channelId, userId);
       else await clubhouseClient.uninviteSpeaker(channelId, userId);
       this.openSpeakerMenuId = null;
       await this.refreshCurrentRoom();
@@ -294,7 +300,7 @@ export function closeSpeakerInvite(this: ClubboxApp, dismiss = true) : void {
 
 export async function acceptSpeakerInvite(this: ClubboxApp) : Promise<void> {
     if (!this.currentChannel || !this.me) return;
-    if (!this.allowAction('accept_speaker_invite')) return;
+    if (!this.allowAction('become_speaker')) return;
     const acceptBtn = document.getElementById('accept-speak-btn') as HTMLButtonElement | null;
     if (acceptBtn) acceptBtn.disabled = true;
     try {
@@ -336,6 +342,7 @@ export async function muteEveryone(this: ClubboxApp) : Promise<void> {
     for (const speaker of speakers) {
       try {
         await clubhouseClient.muteSpeaker(this.channelApiId(this.currentChannel), speaker.user_id);
+        await new Promise((resolve) => window.setTimeout(resolve, 300));
       } catch (err) {
         this.reportApiError(err);
       }
@@ -716,8 +723,12 @@ export async function sendChatMessage(this: ClubboxApp) {
 export async function confirmCreateRoom(this: ClubboxApp) : Promise<void> {
     const topic = (document.getElementById('new-room-topic') as HTMLInputElement | null)?.value.trim();
     const privacy = (document.getElementById('new-room-privacy') as HTMLSelectElement | null)?.value;
-    const audience = privacy === 'friends' || privacy === 'friends-of-friends' || privacy === 'house' ? privacy : 'public';
-    const replayEnabled = (document.getElementById('new-room-replays') as HTMLInputElement | null)?.checked !== false;
+    const audience = privacy === 'friends' || privacy === 'friends-of-friends' || privacy === 'house'
+      || privacy === 'social' || privacy === 'closed' ? privacy : 'public';
+    const clubSelect = document.getElementById('new-room-house') as HTMLSelectElement | null;
+    const socialClubId = audience === 'house' && clubSelect?.value ? Number(clubSelect.value) : undefined;
+    const replaysEl = document.getElementById('new-room-replays') as HTMLInputElement | null;
+    const replayEnabled = replaysEl ? replaysEl.checked : false;
     const chatEnabled = (document.getElementById('new-room-chat') as HTMLInputElement | null)?.checked !== false;
     const confirmBtn = document.querySelector('[data-action="confirm-create"]') as HTMLButtonElement | null;
     if (!topic) {
@@ -725,10 +736,6 @@ export async function confirmCreateRoom(this: ClubboxApp) : Promise<void> {
       return;
     }
     if (!this.allowAction('create_channel')) return;
-    if (!clubhouseClient.getConfig().useSandbox && !capturedCreateBody(topic, { audience, replayEnabled, chatEnabled })) {
-      this.showToast(t('createOnlyCaptured'), '≡ƒöÆ');
-      return;
-    }
     if (confirmBtn) {
       confirmBtn.disabled = true;
       confirmBtn.textContent = t('starting');
@@ -738,6 +745,7 @@ export async function confirmCreateRoom(this: ClubboxApp) : Promise<void> {
         audience,
         replayEnabled,
         chatEnabled,
+        ...(typeof socialClubId === 'number' && Number.isFinite(socialClubId) ? { socialClubId } : {}),
       });
       this.channelsList.unshift(newChan);
       this.closeCreateModal();
@@ -750,6 +758,13 @@ export async function confirmCreateRoom(this: ClubboxApp) : Promise<void> {
       }
     }
   }
+
+export function stageControlFlags(app: ClubboxApp) {
+  return roomControlFlags(
+    readUserCapabilities(app.currentChannel),
+    (endpoint) => clubhouseClient.supports(endpoint),
+  );
+}
 
 export function wireRoomCtl(proto: ClubboxApp): void {
   proto.handleBeforeUnload = handleBeforeUnload;

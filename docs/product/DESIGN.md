@@ -73,7 +73,7 @@ Legend — Evidence: O observed · B bundle call site · C community · ? to dis
 | Endpoint | Method | Request | Response → domain | Evid. | Today | Used by |
 | --- | --- | --- | --- | --- | --- | --- |
 | get_feed_v3 | POST | {} (+ topic id?) | items[].channel, available_topics | O | ✅ | HallwayCtl |
-| get_create_channel_targets | POST | {} | channel_capabilities per privacy type, clubs[], events[], web_listening_default_on, channel_chat_default_on | O | ✅ read, ❌ not used to drive the composer | Composer |
+| get_create_channel_targets | POST | {} | channel_capabilities per privacy type, clubs[], events[], web_listening_default_on, channel_chat_default_on | O | ✅ drives composer (G-11 closed) | Composer |
 | get_edge_stories | GET | – | activities | O | ✅ | ActivityCtl |
 | get_group_suggested_invites | POST | {} | suggestions, next_cursor | O | ✅ | Ping picker |
 | hide_channel | POST | channel, hide | ack | C | ❌ | HallwayCtl |
@@ -85,12 +85,12 @@ Legend — Evidence: O observed · B bundle call site · C community · ? to dis
 
 | Endpoint | Method | Request | Response → domain | Evid. | Today | Used by |
 | --- | --- | --- | --- | --- | --- | --- |
-| create_channel | POST | topic, privacy_level, is_public_room, is_private, is_social_mode, is_replay_enabled, is_chat_enabled, user_ids, topic_ids, source (+ club id for house: ?) | full channel incl. token, rtm_token, pubnub_*, users, user_capabilities | O | 🟡 only one combo allowed (G-01) | RoomCtl |
+| create_channel | POST | topic, privacy_level, is_public_room, is_private, is_social_mode, is_replay_enabled, is_chat_enabled, user_ids, topic_ids, source (+ club id for house: ?) | full channel incl. token, rtm_token, pubnub_*, users, user_capabilities | O | ✅ any privacy from composer (G-01 closed) | RoomCtl |
 | join_channel | POST | channel | channel detail incl. token, pubnub_* (assumed same shape as create) | B | 🟡 blocked as unverified | RoomCtl |
 | leave_channel | POST | channel | ack | B | 🟡 | RoomCtl |
 | active_ping | POST | channel | ack | B | 🟡 | RoomSession |
 | audience_reply | POST | channel, raise_hands, unraise_hands | ack | B | 🟡 | RoomCtl |
-| become_speaker | POST | channel | ack | B | 🟡 (mapped as accept_speaker_invite) | RoomCtl |
+| become_speaker | POST | channel | ack | B | ✅ registry key `become_speaker` (G-08 closed) | RoomCtl |
 | reject_speaker_invite | POST | channel, user_id | ack | C | ❌ | RoomCtl |
 | send_channel_message | POST | channel, message | ack | B | 🟡 | ChatStream |
 | get_channel_messages | GET | channel | messages[] | B | 🟡 | ChatStream (fallback) |
@@ -100,7 +100,7 @@ Legend — Evidence: O observed · B bundle call site · C community · ? to dis
 | invite_speaker / uninvite_speaker / mute_speaker / make_moderator / block_from_channel | POST | channel, user_id | ack | C | 🟡 | RoomCtl (mod) |
 | invite_to_existing_channel | POST | channel, user_id | ack | C | ❌ | Ping |
 | change_handraise_settings | POST | channel, is_enabled, handraise_permission | ack | C | ❌ | RoomCtl (mod) |
-| end_channel | POST | channel, channel_id | ack | C | 🟡 throws in live (G-04) | RoomCtl |
+| end_channel | POST | channel, channel_id | ack | C | ✅ experimental + capabilities (G-04 closed) | RoomCtl |
 | make_channel_public / make_channel_social | POST | channel, channel_id | ack | C | ❌ | RoomCtl (mod) |
 | get_channel | POST | channel | channel detail | C (not in web bundle) | 🟡 used by RoomSync but not callable on web (G-03) | — replace with PubNub |
 | get_replay_channel / _chunk | POST | ? | replay meta / audio chunks | B (no body yet) | ❌ | Replays (R4) |
@@ -205,17 +205,17 @@ Severity: **S1** blocks a P0 flow · **S2** wrong/unsafe behaviour · **S3** mis
 
 | ID | Gap | Where | Sev. | Fix (task) |
 | --- | --- | --- | --- | --- |
-| G-01 | Live `create_channel` only accepts friends-of-friends + replays off + chat off; any other choice throws "Not captured". All body keys are observed — only values vary. | `src/api/roomActions.ts capturedCreateBody` | S1 | Build the body from the composer for privacy_level ∈ capabilities keys from get_create_channel_targets (public, social, friend_of_friend, friend, closed); `club` needs the club id key (discover) (11.3) |
+| G-01 | Live `create_channel` only accepts friends-of-friends + replays off + chat off; any other choice throws "Not captured". All body keys are observed — only values vary. | `src/api/roomActions.ts capturedCreateBody` | S1 | Closed in f2e2f4c — `createComposer` + registry body for all privacy levels; house uses `social_club_id` when clubs[] present |
 | G-02 | `join_channel`, `leave_channel`, `active_ping`, `audience_reply`, `become_speaker`, chat send/read are blocked as "configured-unverified" though the bundle gives exact bodies | capabilities / routes | S1 | Closed in 0fcb781 (10.2 evidence `bundle`) |
 | G-03 | RoomSync polls `get_channel`, which the web bundle does not contain → stage never updates on web | `src/api/roomSync.ts` | S1 | PubNub hub (11.4); partial in 11.2 — `roomCtl` prefers PubNub + chat poll, `get_channel` poll only when no token |
-| G-04 | `endChannel` throws in live mode; hosts cannot end rooms | `client.ts endChannel` | S1 | community `end_channel {channel, channel_id}` behind experimental; leave as fallback (11.3) |
+| G-04 | `endChannel` throws in live mode; hosts cannot end rooms | `client.ts endChannel` | S1 | Closed in f2e2f4c — registry `end_channel` + experimental + `user_capabilities.can_end_room` |
 | G-05 | Messages: thread, send text/voice, add member, start VM are sandbox-only (`sandboxThread`, `sandboxAppendSegment`, `sandboxStartVm`…); live users see an empty thread | `client.ts`, `main.ts` | S1 (R4) / S3 | get_conversation (O) + mark listened (O) live; add_conversation_segment/create_conversation after crawler gives bodies (11.6) |
 | G-06 | Agora app id is a code constant; it must follow the bundle value `NEXT_PUBLIC_AGORA_KEY` per Clubhouse build | `agoraVoice.ts`, `client.ts` | S1 | Read from crawler output at sign-in (11.4) |
 | G-07 | Presence (online friends, "in a room → join") is sandbox-only | `client.sandboxPresence` | S3 | get_online_friends (C) experimental, or PubNub presence if discovered (11.5) |
-| G-08 | `acceptSpeakerInvite` maps to `/web_api/become_speaker` with `{channel}` but the name/route mixes app and web semantics; decline missing | `client.ts`, routes | S2 | Registry entries `become_speaker` (B) and `reject_speaker_invite` (C) (11.3) |
+| G-08 | `acceptSpeakerInvite` maps to `/web_api/become_speaker` with `{channel}` but the name/route mixes app and web semantics; decline missing | `client.ts`, routes | S2 | Closed in f2e2f4c — route key `become_speaker` (B) + `reject_speaker_invite` (C) |
 | G-09 | Mute is only a local gain ramp; others never see my mute state; `agora_native_mute` ignored | `agoraVoice.setMuted` | S2 | Honour agora_native_mute (track mute) (11.4) |
-| G-10 | No `emoji_reaction`, `set_channel_title`, `change_handraise_settings`, `invite_to_existing_channel`, `hide_channel` | client | S3 | Registry + UI (11.3, 11.5) |
-| G-11 | Composer ignores `get_create_channel_targets` (capabilities, defaults, house targets, events to start) | createModal | S3 | Drive composer from capabilities (11.3) |
+| G-10 | No `emoji_reaction`, `set_channel_title`, `change_handraise_settings`, `invite_to_existing_channel`, `hide_channel` | client | S3 | Room routes closed in f2e2f4c; hallway ping/hide UI remains 11.5 |
+| G-11 | Composer ignores `get_create_channel_targets` (capabilities, defaults, house targets, events to start) | createModal | S3 | Closed in f2e2f4c — composer driven by targets; events-to-start still 11.7 |
 | G-12 | Houses, events, notifications, replays absent | — | S3 | 11.5–11.7 |
 | G-13 | Mutation flags wrong for all in-bundle routes | webApiRoutes.json | S2 | Closed in 0fcb781 (10.2) |
 | G-14 | Sandbox implemented as if-branches + public `sandbox*` methods in the live client | client.ts (~1,140 lines) | S4 | Closed in 500df0a (11.1) |

@@ -1,7 +1,36 @@
+import type { CreateAudience, CreateChannelTargets } from '../../api/createComposer';
+import {
+  capabilityForAudience,
+  composerPrivacyOptions,
+  createDefaults,
+} from '../../api/createComposer';
 import { t } from '../../i18n';
 import { html, markup } from '../html';
 
-export function mountCreateModal(titles: string[]): HTMLElement {
+export type CreateModalConfig = {
+  titleSuggestions: string[];
+  targets: CreateChannelTargets | null;
+};
+
+function privacyLabel(audience: CreateAudience): string {
+  if (audience === 'social') return t('privacySocial');
+  if (audience === 'friends') return t('privacyFriends');
+  if (audience === 'friends-of-friends') return t('privacyFof');
+  if (audience === 'closed') return t('privacyPrivate');
+  if (audience === 'house') return t('privacyHouse');
+  return t('privacyPublic');
+}
+
+export function mountCreateModal(config: CreateModalConfig): HTMLElement {
+  const audiences = composerPrivacyOptions(config.targets ?? {});
+  const initialAudience = audiences[0] ?? 'public';
+  const defaults = createDefaults(config.targets, initialAudience);
+  const initialCap = capabilityForAudience(config.targets, initialAudience);
+  const showReplays = initialCap?.is_replay_available === true;
+  const clubs = (config.targets?.clubs ?? []).filter(
+    (club) => typeof club.social_club_id === 'number' && typeof club.name === 'string',
+  );
+
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.id = 'create-modal-overlay';
@@ -15,9 +44,9 @@ export function mountCreateModal(titles: string[]): HTMLElement {
       <div class="form-group">
         <label class="form-label">${t('roomTopic')}</label>
         <input class="form-input" id="new-room-topic" placeholder="e.g. 🎧 Sound Design Workshop & Live AMA" />
-        ${titles.length > 0 ? html`
+        ${config.titleSuggestions.length > 0 ? html`
           <div class="topic-chips room-title-ideas">
-            ${titles.map((title) => html`<button class="topic-chip" type="button" data-action="pick-room-title" data-title="${title}">${title}</button>`)}
+            ${config.titleSuggestions.map((title) => html`<button class="topic-chip" type="button" data-action="pick-room-title" data-title="${title}">${title}</button>`)}
           </div>
         ` : ''}
       </div>
@@ -25,25 +54,33 @@ export function mountCreateModal(titles: string[]): HTMLElement {
       <div class="form-group">
         <label class="form-label">${t('roomPrivacy')}</label>
         <select class="form-input" id="new-room-privacy">
-          <option value="public">${t('privacyPublic')}</option>
-          <option value="friends">${t('privacyFriends')}</option>
-          <option value="friends-of-friends">${t('privacyFof')}</option>
-          <option value="house">${t('privacyHouse')}</option>
+          ${audiences.map((audience) => html`<option value="${audience}">${privacyLabel(audience)}</option>`)}
         </select>
         <p class="list-note">${t('createAudienceNote')}</p>
       </div>
 
-      <div class="form-group">
-        <label class="form-label">
-          <input type="checkbox" id="new-room-replays" checked />
-          ${t('replaysAtCreate')}
-        </label>
-        <p class="list-note">${t('replaysAtCreateHelp')}</p>
-      </div>
+      ${audiences.includes('house') && clubs.length > 0 ? html`
+        <div class="form-group" id="new-room-house-group">
+          <label class="form-label">${t('privacyHouse')}</label>
+          <select class="form-input" id="new-room-house">
+            ${clubs.map((club) => html`<option value="${club.social_club_id}">${club.name}</option>`)}
+          </select>
+        </div>
+      ` : ''}
+
+      ${showReplays ? html`
+        <div class="form-group" id="new-room-replays-group">
+          <label class="form-label">
+            <input type="checkbox" id="new-room-replays" ${defaults.replayEnabled ? 'checked' : ''} />
+            ${t('replaysAtCreate')}
+          </label>
+          <p class="list-note">${t('replaysAtCreateHelp')}</p>
+        </div>
+      ` : ''}
 
       <div class="form-group">
         <label class="form-label">
-          <input type="checkbox" id="new-room-chat" checked />
+          <input type="checkbox" id="new-room-chat" ${defaults.chatEnabled ? 'checked' : ''} />
           ${t('chatAtCreate')}
         </label>
       </div>

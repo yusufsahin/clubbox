@@ -1,6 +1,8 @@
+import assert from 'node:assert/strict';
 import { World, setWorldConstructor, type IWorldOptions } from '@cucumber/cucumber';
 import { JSDOM } from 'jsdom';
 import { ClubhouseApiClient } from '../../src/api/client.ts';
+import { roomControlFlags, type UserCapabilities } from '../../src/api/roomControls.ts';
 import { RoomSessionController } from '../../src/api/roomSession.ts';
 import { readAudioPrefs, writeAudioPrefs } from '../../src/audio/audioPrefs.ts';
 import { setLanguage, type Language } from '../../src/i18n/index.ts';
@@ -100,6 +102,10 @@ export class ClubboxWorld extends World {
   redactedLog: Array<{ endpoint: string; status: number }> = [];
   uiMessages: string[] = [];
   visibleControls = new Set<string>();
+  userCapabilityOverrides: UserCapabilities = {};
+  speakerMuteVisible = true;
+  pendingBlockConfirm = false;
+  onStageUsers: Array<{ name: string; userId: number }> = [];
   chapterLines: string[] = [];
   chaptersSaved = false;
   recording = false;
@@ -182,18 +188,51 @@ export class ClubboxWorld extends World {
     }
   }
 
+  effectiveUserCapabilities(): UserCapabilities {
+    return {
+      can_mute_speakers: true,
+      can_end_room: true,
+      can_remove_speakers: true,
+      can_invite: true,
+      can_edit_room_title: true,
+      ...this.userCapabilityOverrides,
+    };
+  }
+
+  refreshModerationControls(): void {
+    this.refreshHostControls();
+    const flags = roomControlFlags(
+      this.effectiveUserCapabilities(),
+      (endpoint) => this.client.supports(endpoint),
+    );
+    this.speakerMuteVisible = flags.canMute;
+  }
+
   refreshHostControls(): void {
     this.visibleControls.delete('Mute everyone');
     this.visibleControls.delete('End room');
     this.visibleControls.delete('Invite to stage');
     this.visibleControls.add('Rename');
     if (this.session.experimentalControlsVisible()) {
-      this.visibleControls.add('Mute everyone');
-      this.visibleControls.add('End room');
-      this.visibleControls.add('Invite to stage');
+      const flags = roomControlFlags(
+        this.effectiveUserCapabilities(),
+        (endpoint) => this.client.supports(endpoint),
+      );
+      if (flags.canMuteEveryone) this.visibleControls.add('Mute everyone');
+      if (flags.canEnd) this.visibleControls.add('End room');
+      if (flags.canInvite) this.visibleControls.add('Invite to stage');
     } else {
       this.uiMessages.push('Available in the Clubhouse app');
     }
+  }
+
+  async chooseModeration(action: string, name: string): Promise<void> {
+    const userId = this.onStageUsers.find((entry) => entry.name === name)?.userId ?? 99;
+    const channel = this.session.channelId ?? 'morning-show';
+    if (action === 'Make moderator') await this.client.makeModerator(channel, userId);
+    else if (action === 'Move to audience') await this.client.uninviteSpeaker(channel, userId);
+    else if (action === 'Block from room') await this.client.blockFromChannel(channel, userId);
+    else assert.fail(`unknown moderation action ${action}`);
   }
 
   setVisibility(state: DocumentVisibilityState): void {

@@ -1,7 +1,8 @@
 ﻿// @ts-nocheck
 import { ClubhouseApiError, clubhouseClient } from '../api/client';
 import { beginJoin, commitJoin, emptyRoomSession, finishLeave, localClipAllowed, roleSyncDecision, roomAudience } from '../api/guards';
-import { capturedCreateBody, leaveClosesRoom, roomHasOthers } from '../api/roomActions';
+import type { CreateChannelTargets } from '../api/createComposer';
+import { leaveClosesRoom, roomHasOthers } from '../api/roomActions';
 import { applyFollowResponse, mergeProfile, PEOPLE_LIST_ENDPOINTS, profileCountsMissing, readProfile, relationshipFromStatus, talkPartners, type PeopleListKind } from '../api/relationship';
 
 const CHAT_POLL_MS = 15_000;
@@ -114,6 +115,7 @@ export class ClubboxApp {
   private chatTimer: number | null = null;
   private activityTimer: number | null = null;
   private roomTitleOptions: string[] = [];
+  private createChannelTargets: CreateChannelTargets | null = null;
   private notificationsEnabled: boolean | null = null;
   private soundEffectsEnabled: boolean | null = null;
   private anonymousEnabled: boolean | null = null;
@@ -847,18 +849,14 @@ export class ClubboxApp {
 
   private stageColumn(): ReturnType<typeof html> {
     if (!this.currentChannel) return html``;
+    const controls = stageControlFlags(this);
     return stageColumn({
       channel: this.currentChannel,
       me: this.me,
       openSpeakerMenuId: this.openSpeakerMenuId,
       audioDisconnected: this.audioConnected === false,
       moderator: this.isMeModerator(),
-      canMute: clubhouseClient.supports('mute_speaker'),
-      canMod: clubhouseClient.supports('make_moderator'),
-      canMoveToAudience: clubhouseClient.supports('uninvite_speaker'),
-      canInvite: clubhouseClient.supports('invite_speaker'),
-      canEnd: clubhouseClient.supports('end_channel'),
-      canMuteEveryone: clubhouseClient.supports('mute_speaker'),
+      ...controls,
       canFollow: clubhouseClient.evidence('follow') === 'observed',
     });
   }
@@ -944,7 +942,10 @@ export class ClubboxApp {
 
 
   private renderCreateModal() {
-    document.body.appendChild(mountCreateModal(this.roomTitleOptions));
+    document.body.appendChild(mountCreateModal({
+      titleSuggestions: this.roomTitleOptions,
+      targets: this.createChannelTargets,
+    }));
   }
 
 
@@ -1378,7 +1379,7 @@ export class ClubboxApp {
       case 'moderate': {
         const uid = Number(el.dataset.userId);
         const kind = el.dataset.modAction;
-        if (!Number.isFinite(uid) || (kind !== 'mute' && kind !== 'moderator' && kind !== 'audience')) return;
+        if (!Number.isFinite(uid) || (kind !== 'mute' && kind !== 'moderator' && kind !== 'audience' && kind !== 'block')) return;
         void this.moderateSpeaker(uid, kind);
         break;
       }
@@ -1440,7 +1441,7 @@ export class ClubboxApp {
 }
 
 
-import { wireRoomCtl } from './roomCtl.ts';
+import { stageControlFlags, wireRoomCtl } from './roomCtl.ts';
 import { wireHallwayCtl } from './hallwayCtl.ts';
 import { wireMessagesCtl } from './messagesCtl.ts';
 import { wireProfileCtl } from './profileCtl.ts';

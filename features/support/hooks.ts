@@ -27,6 +27,10 @@ Before(function (this: ClubboxWorld) {
   this.listeners = [];
   this.speakerUserIds = [];
   this.visibleControls.clear();
+  this.userCapabilityOverrides = {};
+  this.speakerMuteVisible = true;
+  this.pendingBlockConfirm = false;
+  this.onStageUsers = [];
   this.invitedToSpeak = false;
   this.chatPanelOpen = false;
   this.micMuted = false;

@@ -269,6 +269,11 @@ export async function refreshMe(this: ClubboxApp, options?: { quiet?: boolean })
       this.roomTitleOptions = Array.isArray(res.default_room_title_options)
         ? res.default_room_title_options.filter((title): title is string => typeof title === 'string' && title.trim().length > 0).slice(0, 16)
         : [];
+      try {
+        this.createChannelTargets = await clubhouseClient.getCreateChannelTargets();
+      } catch {
+        this.createChannelTargets = null;
+      }
       if (this.me && profileCountsMissing(this.me)) {
         try {
           const full = await clubhouseClient.getProfile(this.me.user_id);

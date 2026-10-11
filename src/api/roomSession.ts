@@ -265,6 +265,7 @@ export class RoomSessionController {
     for (const userId of speakerIds) {
       if (userId === this.myUserId) continue;
       await this.client.muteSpeaker(this.channelId, userId);
+      await new Promise((resolve) => setTimeout(resolve, 300));
     }
   }
 

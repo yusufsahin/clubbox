@@ -3,7 +3,7 @@ import { canCall, evidenceOf, routeMethod, routePath, type Evidence, type Transp
 import { PEOPLE_LIST_ENDPOINTS, readPeopleList, readProfile, type PeopleListKind, type PeopleListPage } from './relationship';
 import { businessFailure, classifyHttpFailure, nextBackoffMs, type ApiErrorKind } from './guards';
 import { getEndpoint } from './registry';
-import { createChannelBody, permissionOn } from './roomActions';
+import { permissionOn } from './roomActions';
 import { SandboxBackend, SandboxTransport } from './sandboxTransport';
 import { MOCK_ME, sandboxUserIds } from './sandboxData';
 import type { CHAuthResponse, CHChannel, CHChannelDetail, CHChatMessage, CHConversation, CHUser, FeedTopic, MeSettings, SearchHit, SearchObjectType } from './types';
@@ -1058,32 +1058,31 @@ export class ClubhouseApiClient {
   public async createChannel(
     topic: string,
     options: {
-      audience?: 'public' | 'friends' | 'friends-of-friends' | 'house';
+      audience?: 'public' | 'social' | 'friends' | 'friends-of-friends' | 'closed' | 'house';
       replayEnabled?: boolean;
       chatEnabled?: boolean;
+      socialClubId?: number;
       talkWith?: { userId: number; name: string; username: string };
     } = {}
   ): Promise<CHChannelDetail> {
     const audience = options.audience ?? 'public';
     const replayEnabled = options.replayEnabled !== false;
     const chatEnabled = options.chatEnabled !== false;
-    if (this.getSandbox()) {
-      return this.call('create_channel', {
-        _sandbox: true,
-        topic,
-        audience,
-        replayEnabled,
-        chatEnabled,
-        talk_user_id: options.talkWith?.userId,
-        talk_user_name: options.talkWith?.name,
-        talk_user_username: options.talkWith?.username,
-      });
-    }
-    const proven = createChannelBody(topic, { audience, replayEnabled, chatEnabled });
-    if (!proven) {
-      throw new ClubhouseApiError(0, 'create_channel', 'Not captured', 'unknown');
-    }
-    return this.request('create_channel', proven);
+    return this.call('create_channel', {
+      _sandbox: this.getSandbox() ? true : undefined,
+      topic,
+      audience,
+      replayEnabled,
+      chatEnabled,
+      socialClubId: options.socialClubId,
+      talk_user_id: options.talkWith?.userId,
+      talk_user_name: options.talkWith?.name,
+      talk_user_username: options.talkWith?.username,
+    });
+  }
+
+  public async getCreateChannelTargets(): Promise<import('./createComposer').CreateChannelTargets & { success?: boolean }> {
+    return this.request('get_create_channel_targets', {});
   }
 
   public async endChannel(channelId: string): Promise<ApiAck> {
@@ -1099,7 +1098,7 @@ export class ClubhouseApiClient {
   }
 
   public async becomeSpeaker(channelId: string): Promise<ApiAck> {
-    return this.call('accept_speaker_invite', { channel: channelId });
+    return this.call('become_speaker', { channel: channelId });
   }
 
   public async rejectSpeakerInvite(channelId: string, userId: number): Promise<ApiAck> {
@@ -1160,7 +1159,7 @@ export class ClubhouseApiClient {
   }
 
   public async acceptSpeakerInvite(channelId: string, userId: number): Promise<ApiAck> {
-    return this.call('accept_speaker_invite', this.config.webSession
+    return this.call('become_speaker', this.config.webSession
       ? { channel: channelId }
       : { channel: channelId, user_id: userId });
   }

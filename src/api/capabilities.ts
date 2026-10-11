@@ -22,7 +22,7 @@ const SANDBOX_ENDPOINTS = new Set([
   'leave_channel',
   'active_ping',
   'audience_reply',
-  'accept_speaker_invite',
+  'become_speaker',
   'invite_speaker',
   'mute_speaker',
   'make_moderator',
