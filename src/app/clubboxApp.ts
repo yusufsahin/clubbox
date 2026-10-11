@@ -1019,7 +1019,7 @@ export class ClubboxApp {
       clubhouseClient.getApiHealth(),
       readAppPrefs(),
       this.audioPrefs.spatialAudioEnabled === true,
-      audioEngine.getVoiceEffectState().selected,
+      audioEngine.getBroadcastEffect(),
     );
   }
 

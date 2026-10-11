@@ -1007,6 +1007,7 @@ body {
   color: var(--text-main);
   border-radius: 999px;
   padding: 6px 12px;
+  font: inherit;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -1015,10 +1016,6 @@ body {
 .topic-chip.active {
   border-color: rgba(121, 82, 245, 0.7);
   background: rgba(121, 82, 245, 0.18);
-}
-
-span.topic-chip {
-  cursor: default;
 }
 
 .house-photo {

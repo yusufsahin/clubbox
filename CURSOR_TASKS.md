@@ -14,7 +14,7 @@ Do these before continuing the Autonomous plan, then tick them:
 ### Last autonomous run (2026-10-11)
 
 - Autonomous plan already **Done** through **11.8 (strict)**; triage **NO NEW FAILURES**.
-- Done: TR `followsYou` → “Seni takip ediyor”; `package.json` `author` for electron-builder.
+- Done: Settings voice-effect dropdown shows **applied** broadcast effect (not draft selected); topic-chip button font inherit.
 - **Stopped:** no further shippable product work without inventing endpoint bodies or owner capture.
 - Blocked: owner live room capture (0.9 S1–S3); topic-chip **server** `get_feed_v3` body; conversation delete/title + unread-summary body; replay chunk; `gif_reaction` body; unfollow undocumented.
 - Still @pending: ST-9 deferred; room_host DX-1/DX-3.
