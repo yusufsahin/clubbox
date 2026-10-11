@@ -13,11 +13,11 @@ Do these before continuing the Autonomous plan, then tick them:
 
 ### Last autonomous run (2026-10-11)
 
-- Autonomous plan already **Done** through **11.8 (strict)**; triage clean; this devam: voice-effect persistence + fuller sandbox e2e.
-- Done: persist `voiceEffectApplied` in audioPrefs; expand Playwright smoke (join → hand/pad/chat → leave → Messages → theme/lang + no live hosts).
-- Tests: `npm test` — **127** unit + **123 BDD** + trace strict; `test:e2e` sandbox green; tsc/lint green.
-- **Stopped:** no further shippable product work without inventing endpoint bodies or owner capture.
-- Blocked: owner live room capture (0.9 S1–S3); topic-chip **server** `get_feed_v3` body; conversation delete/title + unread-summary body; replay chunk; `gif_reaction` body. Unfollow stays undocumented.
+- Autonomous plan already **Done** through **11.8 (strict)**; triage **NO NEW FAILURES**; re-audit found **no shippable code** under Hard rules.
+- Done this devam: none (no inventable product path left after 8c062e3).
+- Tests: last green was **127** unit + **123 BDD** + trace strict + sandbox e2e (unchanged).
+- **Stopped:** Hard rule — remaining gaps need owner capture or undocumented bodies.
+- Blocked: owner live room capture (0.9 S1–S3); topic-chip **server** `get_feed_v3` body; conversation delete/title + unread-summary body; replay chunk; `gif_reaction` body; unfollow undocumented.
 - Still @pending: ST-9 deferred; room_host DX-1/DX-3.
 - Questions for the owner: Capture a topic-chip click (`get_feed_v3` body) for server-side Hallway filter; capture `get_conversation_unread_summary` body (or confirm per-thread only); conversation delete/title and a replay chunk if those UIs should ship next.
 
