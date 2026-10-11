@@ -221,7 +221,7 @@ Severity: **S1** blocks a P0 flow · **S2** wrong/unsafe behaviour · **S3** mis
 | G-14 | Sandbox implemented as if-branches + public `sandbox*` methods in the live client | client.ts (~1,140 lines) | S4 | SandboxTransport (11.1) |
 | G-15 | `main.ts` ~2,300 lines mixes state, timers, API calls, rendering | main.ts | S4 | Controllers + RoomSession (11.1, 11.2) |
 | G-16 | No log out | — | S3 | Closed in 66c8c22 (10.3 / ACC-3) |
-| G-17 | Discovery depends on the owner browsing; only 1 chunk scanned | recorder | S2 (process) | Closed in pending (11.0 bundle crawler) |
+| G-17 | Discovery depends on the owner browsing; only 1 chunk scanned | recorder | S2 (process) | Closed in aab24e4 (11.0 bundle crawler) |
 | G-18 | Clubdeck-level studio features missing: chapters, paste link, audience search, keyword filters, mute everyone, ping multi-select | — | S3 | 10.4, 11.5 |
 
 ---
