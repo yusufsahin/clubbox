@@ -1,0 +1,28 @@
+---
+description: Clubbox project rules, evidence policy and autonomous TDD workflow
+alwaysApply: true
+---
+
+# Clubbox — always-on rules
+
+Clubbox is an unofficial Electron desktop studio for Clubhouse (personal, non-commercial). Product spec: `docs/product/PRD.md`. Acceptance criteria: `features/*.feature`. Backlog and status: `CURSOR_TASKS.md` (Status table at the top decides the order).
+
+## Stack
+Electron 44, Vite 8, TypeScript 6, vanilla DOM (no React/Vue/state library), agora-rtc-sdk-ng, Web Audio API. Tests: `npm test` (= unit + contract + Cucumber BDD). Also `npx tsc --noEmit`, `npm run lint`, `npm run build`.
+
+## Hard rules
+- Never call clubhouseapi.com (mobile API). Never automate reCAPTCHA. Never automate actions on the live Clubhouse service (no scripted joins, posts, follows, pings) — Community Guidelines forbid bots/scripts/browser automation. Live traffic happens only when the owner uses the app.
+- Never ask for, print, store or commit phone numbers, SMS codes, tokens, cookies or emails. Raw captures and request logs stay local and gitignored.
+- Evidence policy (PRD §2): observed/bundle callable; community only with Experimental actions on; unsupported/in-bundle never. Never invent an endpoint that is in none of: captures, bundle call sites, community clients listed in the PRD.
+- Do not edit `features/*.feature` to make a test pass. If a scenario looks wrong, stop and write the question under "Questions for the owner" at the end of `CURSOR_TASKS.md`.
+- Escape every API-controlled string (the `html` tagged template in src/ui/html.ts), URLs through `safeUrl()`. Every user-facing string in `src/i18n/en.ts` and `src/i18n/tr.ts`.
+- No background polling while the window is hidden > 2 min (except active_ping in a room); respect 429 backoff.
+
+## Autonomous workflow (no owner involvement needed)
+1. Follow the "Autonomous plan" row in the Status table; pick the first task in that order that is not done. Requirements: `docs/product/PRD.md`; architecture, API binding map and gap list G-01…G-18: `docs/product/DESIGN.md`. When a gap closes, mark its DESIGN §8 row "Closed in <commit>".
+2. TDD: write the failing test or remove `@pending` from the scenario first, then implement until it passes.
+3. Run `npm test`, `npx tsc --noEmit`, `npm run lint`, `npm run build`. Fix until all pass. If the same failure survives 3 attempts, record it under "Blocked" in `CURSOR_TASKS.md` and move to the next task.
+4. Commit with a clear message (one commit per numbered item or scenario group). Update the Status table and the PRD catalog "Today" column.
+5. Run triage (`npm run api:triage`, once Task 10.5 exists): every new live failure in the local request log becomes a failing test, then a fix, then a commit.
+6. Continue with the next task. Stop only when every task in the Status table is done or blocked, or when a Hard rule would be broken.
+7. At the end, write a short summary at the top of `CURSOR_TASKS.md` under "Last autonomous run": tasks done, tests count, blocked items, questions for the owner.
