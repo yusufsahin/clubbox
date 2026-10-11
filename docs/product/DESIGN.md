@@ -76,8 +76,8 @@ Legend — Evidence: O observed · B bundle call site · C community · ? to dis
 | get_create_channel_targets | POST | {} | channel_capabilities per privacy type, clubs[], events[], web_listening_default_on, channel_chat_default_on | O | ✅ drives composer (G-11 closed) | Composer |
 | get_edge_stories | GET | – | activities | O | ✅ | ActivityCtl |
 | get_group_suggested_invites | POST | {} | suggestions, next_cursor | O | ✅ | Ping picker |
-| hide_channel | POST | channel, hide | ack | C | ❌ | HallwayCtl |
-| get_events | GET | is_filtered, page_size, page | events | C | ❌ | Events |
+| hide_channel | POST | channel, hide | ack | C | ✅ hallway hide | HallwayCtl |
+| get_events | GET | is_filtered, page_size, page | events | C | ✅ experimental Events tab | Events |
 | get_notifications | GET | page_size, page | notifications | C | ✅ experimental merge into Activity | ActivityCtl |
 | get_online_friends | POST | {} | users + current channel | C | 🧪 | Presence |
 
@@ -117,14 +117,14 @@ Legend — Evidence: O observed · B bundle call site · C community · ? to dis
 | create_conversation | POST | ? | conversation | B (no body) | 🧪 | New VM |
 | send_conversation_emoji_reaction | POST | ? (400 observed) | ack | O-error | ❌ | Thread |
 | update_conversation_title / delete_conversation / delete_conversation_segment | POST | ? | ack | B (no body) | ❌ | Thread menu |
-| get_conversation_unread_summary | POST | ? | counts | B | ❌ | Badge |
+| get_conversation_unread_summary | POST | ? | counts | B | ✅ badge via readUnreadSummary (falls back to me) | Badge |
 
 ### 3.5 Houses
 
 | Endpoint | Method | Request | Evid. | Today |
 | --- | --- | --- | --- | --- |
-| get_user_social_clubs | POST | ? | B | ❌ |
-| get_social_club / get_social_club_members | POST | ? | B | ❌ |
+| get_user_social_clubs | POST | ? | B | ✅ Houses tab |
+| get_social_club / get_social_club_members | POST | ? | B | ✅ detail + members toast |
 | get_social_club_messages / _message_thread / send_social_club_message (+ threaded, emoji) / update_last_read_social_club_message | POST | ? | B | ❌ |
 
 "?" bodies are filled automatically by the bundle crawler (§6) before implementation.

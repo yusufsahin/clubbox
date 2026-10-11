@@ -28,6 +28,7 @@ interface SandboxInput {
   talkUserName?: string;
   talkUserUsername?: string;
   cursor?: string;
+  socialClubSlug?: string;
 }
 
 function readRequestBody(body: RequestBody | undefined): SandboxInput {
@@ -46,6 +47,7 @@ function readRequestBody(body: RequestBody | undefined): SandboxInput {
     talkUserName: typeof record.talk_user_name === 'string' ? record.talk_user_name : undefined,
     talkUserUsername: typeof record.talk_user_username === 'string' ? record.talk_user_username : undefined,
     cursor: typeof record.next_cursor === 'string' && record.next_cursor.length > 0 ? record.next_cursor : undefined,
+    socialClubSlug: typeof record.social_club_slug === 'string' ? record.social_club_slug : undefined,
   };
 }
 
@@ -447,6 +449,62 @@ export class SandboxBackend {
             },
           ],
         } as T;
+
+      case 'get_conversation_unread_summary':
+        return { success: true, unread_count: 2 } as T;
+
+      case 'get_events':
+        return {
+          success: true,
+          events: [{
+            event_id: 'ev-1',
+            name: 'Sandbox Town Hall',
+            time_start: new Date(Date.now() + 86400_000).toISOString(),
+            time_end: new Date(Date.now() + 90000_000).toISOString(),
+            url: 'https://www.clubhouse.com/event/sandbox-town-hall',
+            social_club: { name: 'Sandbox House' },
+          }],
+        } as T;
+
+      case 'get_user_social_clubs':
+        return {
+          success: true,
+          social_clubs: [{
+            social_club_id: '1',
+            slug: 'h1',
+            name: 'Sandbox House',
+            description: 'A house for sandbox demos',
+            photo_url: null,
+            num_members: 42,
+            is_member: true,
+          }],
+        } as T;
+
+      case 'get_social_club':
+        return {
+          success: true,
+          social_club: {
+            social_club_id: '1',
+            slug: input.socialClubSlug || 'h1',
+            name: 'Sandbox House',
+            description: 'A house for sandbox demos',
+            photo_url: null,
+            num_members: 42,
+            is_member: true,
+          },
+        } as T;
+
+      case 'get_social_club_members':
+        return {
+          success: true,
+          members: [
+            { user_id: 10, name: 'Ayse', username: 'ayse', photo_url: null },
+            { user_id: 11, name: 'Ali', username: 'ali', photo_url: null },
+          ],
+        } as T;
+
+      case 'hide_channel':
+        return { success: true } as T;
 
       case 'get_conversations':
         return {

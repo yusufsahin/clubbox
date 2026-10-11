@@ -4,6 +4,7 @@ import { beginJoin, commitJoin, finishLeave, localClipAllowed, roleSyncDecision,
 import { applyThemeToDocument, readAppPrefs, writeAppPrefs } from './appPrefs.ts';
 import { capturedCreateBody, leaveClosesRoom, roomHasOthers } from '../api/roomActions.ts';
 import { applyFollowResponse, mergeProfile, PEOPLE_LIST_ENDPOINTS, profileCountsMissing, readProfile, relationshipFromStatus, talkPartners, type PeopleListKind } from '../api/relationship.ts';
+import { readUnreadSummary } from '../api/unreadSummary.ts';
 import { PubNubRoomSource } from '../api/pubnubRoomSource.ts';
 import { roomSync } from '../api/roomSync.ts';
 import { audioEngine } from '../audio/audioEngine.ts';
@@ -267,6 +268,15 @@ export async function refreshMe(this: ClubboxApp, options?: { quiet?: boolean })
       } : null;
       this.unreadNotifications = res.has_unread_notifications === true;
       this.unreadConversations = typeof res.unread_conversations_count === 'number' ? res.unread_conversations_count : 0;
+      if (clubhouseClient.supports('get_conversation_unread_summary')) {
+        try {
+          const summary = await clubhouseClient.getConversationUnreadSummary();
+          const fromSummary = readUnreadSummary(summary);
+          if (fromSummary != null) this.unreadConversations = fromSummary;
+        } catch {
+          /* keep me.unread_conversations_count */
+        }
+      }
       this.notificationsEnabled = typeof res.notifications_enabled === 'boolean' ? res.notifications_enabled : null;
       this.soundEffectsEnabled = typeof res.enable_sound_effect === 'boolean' ? res.enable_sound_effect : null;
       this.anonymousEnabled = res.anonymous_settings && typeof res.anonymous_settings.is_enabled === 'boolean'

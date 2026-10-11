@@ -15,7 +15,10 @@ import { applyThemeToDocument, readAppPrefs, writeAppPrefs, zoomFactorFromPercen
 import { eventToAccelerator, normalizeShortcuts, readShortcuts, writeShortcuts, type ShortcutAction, type ShortcutMap } from '../shortcuts';
 import { agoraVoice } from '../audio/agoraVoice';
 import type { ActivityItem } from '../api/activityFeed';
+import type { EventListItem, HouseListItem } from '../api/communityLists';
 import type { CHChannel, CHChannelDetail, CHChatMessage, CHConversation, ConversationThread, CHUser, FeedTopic, MeSettings, SearchHit, SearchObjectType } from '../api/types';
+import { eventsView } from '../ui/views/events';
+import { housesView } from '../ui/views/houses';
 import { setLanguage, t } from '../i18n';
 import { avatarHtml, installAvatarFallback } from '../ui/avatar';
 import { cockpitBar } from '../ui/components/cockpitBar';
@@ -84,7 +87,10 @@ function electronAPI(): ElectronAPI | null {
 }
 
 export class ClubboxApp {
-  private currentTab: 'stage' | 'explore' | 'discover' | 'friends' | 'messages' | 'activity' | 'soundboard' | 'settings' | 'login' = 'stage';
+  private currentTab: 'stage' | 'explore' | 'discover' | 'friends' | 'messages' | 'activity' | 'houses' | 'events' | 'soundboard' | 'settings' | 'login' = 'stage';
+  housesList: HouseListItem[] | null = null;
+  selectedHouse: HouseListItem | null = null;
+  eventsList: EventListItem[] | null = null;
   private currentChannel: CHChannelDetail | null = null;
   private channelsList: CHChannel[] = [];
   private feedTopics: FeedTopic[] = [];
@@ -630,6 +636,16 @@ export class ClubboxApp {
             <span>${t('friends')}</span>
           </div>
 
+          <div class="nav-item ${this.currentTab === 'houses' ? 'active' : ''}" data-action="nav" data-tab="houses">
+            <span class="icon">🏛</span>
+            <span>${t('houses')}</span>
+          </div>
+
+          <div class="nav-item ${this.currentTab === 'events' ? 'active' : ''}" data-action="nav" data-tab="events">
+            <span class="icon">📅</span>
+            <span>${t('events')}</span>
+          </div>
+
           <div class="nav-item ${this.currentTab === 'messages' ? 'active' : ''}" data-action="nav" data-tab="messages">
             <span class="icon">💬</span>
             <span>${t('messages')}</span>
@@ -799,6 +815,8 @@ export class ClubboxApp {
   private placeTitle(): string {
     if (this.currentTab === 'discover') return t('discover');
     if (this.currentTab === 'friends') return t('friends');
+    if (this.currentTab === 'houses') return t('houses');
+    if (this.currentTab === 'events') return t('events');
     if (this.currentTab === 'messages') return t('messages');
     if (this.currentTab === 'activity') return t('activity');
     if (this.currentTab === 'soundboard') return t('soundboard');
@@ -871,6 +889,18 @@ export class ClubboxApp {
         unread: this.unreadNotifications,
         experimentalOn: clubhouseClient.getConfig().experimentalActions === true,
         notificationsSupported: clubhouseClient.supports('get_notifications'),
+      });
+    } else if (this.currentTab === 'houses') {
+      return housesView({
+        items: this.housesList,
+        open: this.selectedHouse,
+        canHost: clubhouseClient.supports('create_channel'),
+      });
+    } else if (this.currentTab === 'events') {
+      return eventsView({
+        items: this.eventsList,
+        experimentalOn: clubhouseClient.getConfig().experimentalActions === true,
+        supported: clubhouseClient.supports('get_events'),
       });
     } else if (this.currentTab === 'soundboard') {
       return this.renderSoundboardView();
@@ -1095,7 +1125,7 @@ export class ClubboxApp {
 
   private handleAction(action: string, el: HTMLElement): void {
     const tab = el.dataset.tab;
-    if (action === 'nav' && (tab === 'stage' || tab === 'explore' || tab === 'discover' || tab === 'friends' || tab === 'messages' || tab === 'activity' || tab === 'soundboard' || tab === 'settings' || tab === 'login')) {
+    if (action === 'nav' && (tab === 'stage' || tab === 'explore' || tab === 'discover' || tab === 'friends' || tab === 'messages' || tab === 'activity' || tab === 'houses' || tab === 'events' || tab === 'soundboard' || tab === 'settings' || tab === 'login')) {
       this.selfProfileOpen = false;
       this.closeProfileDrawer();
       if (tab === 'explore') {
@@ -1118,6 +1148,8 @@ export class ClubboxApp {
           void this.loadSuggestions();
           void this.loadConversations();
         }
+        if (tab === 'houses') void this.loadHouses();
+        if (tab === 'events') void this.loadEvents();
       }
       return;
     }
@@ -1235,6 +1267,54 @@ export class ClubboxApp {
         break;
       case 'activity-join':
         if (el.dataset.channelId) void this.joinRoom(el.dataset.channelId);
+        break;
+      case 'refresh-houses':
+        void this.loadHouses();
+        break;
+      case 'open-house':
+        void this.openHouse(el.dataset.houseSlug);
+        break;
+      case 'open-house-members':
+        if (el.dataset.houseId && clubhouseClient.supports('get_social_club_members')) {
+          void clubhouseClient.getSocialClubMembers(Number(el.dataset.houseId)).then(() => {
+            this.showToast(t('houseViewMembers'), '🏛');
+          }).catch((err) => this.reportApiError(err));
+        }
+        break;
+      case 'host-house-room': {
+        const houseId = Number(el.dataset.houseId);
+        if (!Number.isFinite(houseId) || !clubhouseClient.supports('create_channel')) {
+          this.showToast(t('unverifiedAction'), '🔒');
+          break;
+        }
+        void clubhouseClient.createChannel(t('hostInHouse'), {
+          audience: 'house',
+          socialClubId: houseId,
+          replayEnabled: true,
+          chatEnabled: true,
+        }).then((created) => this.joinRoom(created.channel || String(created.channel_id)))
+          .catch((err) => this.reportApiError(err));
+        break;
+      }
+      case 'refresh-events':
+        void this.loadEvents();
+        break;
+      case 'copy-event-link': {
+        const link = el.dataset.eventUrl;
+        if (!link) break;
+        void navigator.clipboard.writeText(link).then(() => this.showToast(t('copiedLink'), '🔗'))
+          .catch(() => this.showToast(t('somethingWrong'), '⚠️'));
+        break;
+      }
+      case 'add-event-calendar':
+        this.downloadEventIcs({
+          id: el.dataset.eventId || 'event',
+          title: el.dataset.eventTitle || t('events'),
+          timeStart: el.dataset.eventStart || '',
+          timeEnd: el.dataset.eventEnd || '',
+          url: el.dataset.eventUrl || '',
+          houseName: el.dataset.eventHouse || '',
+        });
         break;
       case 'send-thread-text':
         this.sendThreadSegment(el.dataset.conversationId, 'text');

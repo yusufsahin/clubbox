@@ -7,7 +7,15 @@ import {
   readNotificationsPayload,
   type ActivityItem,
 } from '../api/activityFeed.ts';
+import {
+  buildEventIcs,
+  readEventsPayload,
+  readHouseDetail,
+  readHousesPayload,
+  type EventListItem,
+} from '../api/communityLists.ts';
 import { roomSync } from '../api/roomSync.ts';
+import { t } from '../i18n/index.ts';
 import type { ClubboxApp } from './clubboxApp.ts';
 
 export async function loadActivity(this: ClubboxApp): Promise<void> {
@@ -42,6 +50,61 @@ export async function loadSuggestions(this: ClubboxApp) : Promise<void> {
       this.reportApiError(err);
     }
     if (this.currentTab === 'friends') this.render();
+  }
+
+export async function loadHouses(this: ClubboxApp): Promise<void> {
+    if (!clubhouseClient.supports('get_user_social_clubs')) {
+      this.housesList = [];
+      if (this.currentTab === 'houses') this.render();
+      return;
+    }
+    try {
+      const res = await clubhouseClient.getUserSocialClubs();
+      this.housesList = readHousesPayload(res);
+    } catch (err) {
+      this.housesList = [];
+      this.reportApiError(err);
+    }
+    if (this.currentTab === 'houses') this.render();
+  }
+
+export async function openHouse(this: ClubboxApp, slug: string | undefined): Promise<void> {
+    if (!slug || !clubhouseClient.supports('get_social_club')) return;
+    try {
+      const res = await clubhouseClient.getSocialClub(slug);
+      this.selectedHouse = readHouseDetail(res);
+    } catch (err) {
+      this.reportApiError(err);
+    }
+    if (this.currentTab === 'houses') this.render();
+  }
+
+export async function loadEvents(this: ClubboxApp): Promise<void> {
+    if (!clubhouseClient.supports('get_events')) {
+      this.eventsList = [];
+      if (this.currentTab === 'events') this.render();
+      return;
+    }
+    try {
+      const res = await clubhouseClient.getEvents(1, 20, false);
+      this.eventsList = readEventsPayload(res);
+    } catch (err) {
+      this.eventsList = [];
+      this.reportApiError(err);
+    }
+    if (this.currentTab === 'events') this.render();
+  }
+
+export function downloadEventIcs(this: ClubboxApp, event: EventListItem): void {
+    const ics = buildEventIcs(event);
+    const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${event.title.replace(/[^\w]+/g, '-').slice(0, 40) || 'event'}.ics`;
+    a.click();
+    URL.revokeObjectURL(url);
+    this.showToast(t('calendarSaved'), '📋');
   }
 
 export function startActivityRefresh(this: ClubboxApp) : void {
@@ -111,6 +174,10 @@ export function resumePolls(this: ClubboxApp) : void {
 export function wireActivityCtl(proto: ClubboxApp): void {
   proto.loadActivity = loadActivity;
   proto.loadSuggestions = loadSuggestions;
+  proto.loadHouses = loadHouses;
+  proto.openHouse = openHouse;
+  proto.loadEvents = loadEvents;
+  proto.downloadEventIcs = downloadEventIcs;
   proto.startActivityRefresh = startActivityRefresh;
   proto.stopActivityRefresh = stopActivityRefresh;
   proto.onVisibilityChange = onVisibilityChange;

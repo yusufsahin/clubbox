@@ -13,9 +13,9 @@ Do these before continuing the Autonomous plan, then tick them:
 
 ### Last autonomous run (2026-10-11)
 
-- Autonomous plan already **Done** through **11.8 (strict)**; this devam shipped follow-ups and triage.
-- Done: Messages live thread (`readConversationThread`) + messenger UI; Activity feed (edge stories + experimental `get_notifications`) with Join; select `color-scheme` + mojibake emoji restore; `api:triage` promoted join/leave/active_ping/chat routes to **observed**.
-- Tests: `npm test` — **108** unit + **123 BDD** + trace strict; tsc/lint/build after commits.
+- Autonomous plan already **Done** through **11.8 (strict)**; this devam shipped Houses/Events UI + unread badge.
+- Done: Houses tab (`get_user_social_clubs` / detail / host room); Events tab + `.ics` + copy link (experimental `get_events`); Messages unread badge prefers `get_conversation_unread_summary` with `me` fallback; DESIGN Today columns updated.
+- Tests: `npm test` — **111** unit + **123 BDD** + trace strict; tsc/lint/build green.
 - Blocked: `test:e2e:packaged`; owner live room capture (0.9 S1–S3); topic-chip request body uncaptured.
 - Still @pending: ST-9 deferred; room_host DX-1/DX-3.
 - Questions for the owner: Capture a topic-chip click on clubhouse.com (`get_feed_v3` body) so Hallway topics can filter server-side.
@@ -32,7 +32,7 @@ Legend: **Uygulandı** = code is in the tree. **Canlı doğrulandı** = exercise
 | — | **10.1** / **10.2** / **10.4** / **10.5** / **11.0** / **11.8 (warn)** | Uygulandı |
 | 1c | **0.9 Real room capture** — recorder misses clubhouse.pubnubapi.com, bundle scan saw 1 chunk, corrected smoke test (replays ON) | Steps 1–2 are in. S1–S3 still need a signed-in capture. |
 | 2 | **0.6 Community Guidelines risk** — hidden reCAPTCHA sign-in, polling, recording, distribution | Uygulandı (code). Sign-in is a visible clubhouse.com window, polling pauses when the window is hidden, recording is opt-in, and there is no publish config. A public release is still your decision. |
-| 3 | **0.5 Capture gaps** — labeled sessions, two-party protocol, evidence sync, room smoke test | `create_channel` is observed for a friends-of-friends room with chat and replays off (`source` 14). Join, leave, ping, and room chat are still not in a capture. |
+| 3 | **0.5 Capture gaps** — labeled sessions, two-party protocol, evidence sync, room smoke test | `create_channel` observed (FoF, chat/replays off). Join/leave/active_ping/chat promoted to **observed** via triage. Room smoke / labeled S1–S3 still need a signed-in capture. |
 | — | 0.1–0.4 Rename, mock data, recorder, web-session regressions | Uygulandı |
 | — | 1–4 Audio, live API, identity, UI wiring | Uygulandı; live room parts not verified |
 | — | 5 / 7 Security and review bugs | Uygulandı; see 0.7 for what is still open |
