@@ -12,10 +12,9 @@ Hallway filter fixed by the owner session in 9bd6525. Do Phase 13 (13.1 → 13.2
 - [x] 13.3 BDD steps call real code + guard test
 ### Last autonomous run (2026-10-11)
 
-- Done: Phase 13 complete — 13.1 typecheck, 13.2 capture fixtures, 13.3 BDD uses `prepareHallwayChannels` + fidelity guard + `reports/bdd-audit.md`.
-- Tests: unit 141 + BDD 138 + trace strict; lint/build green.
-- Still @pending: ST-9 deferred only.
-- Questions for the owner: none.
+- Done: Phase 13 already complete; force-tracked `reports/bdd-audit.md` (gitignored `reports/` otherwise). `npm run api:triage` → NO NEW FAILURES.
+- Still @pending: ST-9 deferred only. Autonomous plan + Next run #3 exhausted — stopped.
+- Questions for the owner: none. Schedule ST-9 or use the app (triage promotions) for more work.
 
 ## Status
 
