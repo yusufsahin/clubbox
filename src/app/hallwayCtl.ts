@@ -1,4 +1,4 @@
-import { clubhouseClient } from '../api/client.ts';
+import { ClubhouseApiError, clubhouseClient } from '../api/client.ts';
 import { isLiveUpdatesUnavailable } from '../api/liveUpdates.ts';
 import type { CHChannel, FeedTopic, SearchObjectType } from '../api/types.ts';
 import { t } from '../i18n/index.ts';
@@ -46,9 +46,11 @@ export async function reloadChannels(this: ClubboxApp) : Promise<void> {
       : [];
   }
 
-export async function loadMoreChannels(this: ClubboxApp): Promise<void> {
-    if (!this.feedNextCursor || this.feedLoadingMore) return;
+/** Append the next feed page. Returns false when there is nothing to load or the request failed. */
+export async function loadMoreChannels(this: ClubboxApp): Promise<boolean> {
+    if (!this.feedNextCursor || this.feedLoadingMore) return false;
     this.feedLoadingMore = true;
+    if (this.currentTab === 'explore') this.render();
     try {
       const res = await clubhouseClient.getChannelsPage({ nextCursor: this.feedNextCursor });
       const merged = new Map<string, CHChannel>();
@@ -59,12 +61,17 @@ export async function loadMoreChannels(this: ClubboxApp): Promise<void> {
       this.channelsList = [...merged.values()];
       this.feedNextCursor = res.next_cursor ?? null;
       this.feedPagesLoaded += 1;
-      if (this.currentTab === 'explore') this.render();
+      return true;
     } catch (err) {
       this.reportApiError(err);
-      this.feedNextCursor = null;
+      // Keep the cursor so the user can retry; only drop it on rate-limit (client already backs off).
+      if (err instanceof ClubhouseApiError && err.kind === 'rate-limit') {
+        this.feedNextCursor = null;
+      }
+      return false;
     } finally {
       this.feedLoadingMore = false;
+      if (this.currentTab === 'explore') this.render();
     }
   }
 
@@ -79,8 +86,8 @@ export async function ensureSparsePrivacyLoaded(this: ClubboxApp): Promise<void>
       maxPages: FEED_MAX_PAGES,
     })) {
       const before = this.feedNextCursor;
-      await this.loadMoreChannels();
-      if (!this.feedNextCursor || this.feedNextCursor === before) break;
+      const ok = await this.loadMoreChannels();
+      if (!ok || !this.feedNextCursor || this.feedNextCursor === before) break;
     }
   }
 

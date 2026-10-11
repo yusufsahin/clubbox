@@ -80,6 +80,10 @@ test.describe('theme contrast (sandbox)', () => {
         await page.locator(place('explore')).click({ force: true });
         await expect(page.locator('[data-privacy-chips]')).toBeVisible({ timeout: 10_000 });
         await expect(page.locator('[data-room-type]').first()).toBeVisible({ timeout: 10_000 });
+        await expect(page.locator('[data-action="load-more-hallway"]')).toBeVisible({ timeout: 5_000 });
+        await page.locator('[data-action="load-more-hallway"]').click({ force: true });
+        await expect(page.locator('[data-action="load-more-hallway"]')).toHaveCount(0, { timeout: 5_000 });
+        await expect(page.locator('.room-card')).toHaveCount(3, { timeout: 5_000 });
         await page.screenshot({ path: path.join(shotDir, `${theme}-hallway.png`), fullPage: true });
         await assertNoContrastViolations(page, `${theme} hallway`);
 

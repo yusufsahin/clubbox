@@ -249,16 +249,31 @@ export class SandboxBackend {
           default_room_title_options: ['Join the conversation', 'Come hang out', 'Let’s talk'],
         } as T;
 
-      case 'get_channels':
+      case 'get_channels': {
+        // Paginate like live get_feed_v3 so "Load more rooms" is exercisable in sandbox.
+        // Page size 2: first page has house + public; second page has friends-of-friends.
+        const pageSize = 2;
+        const start = (() => {
+          if (!input.cursor) return 0;
+          const parsed = Number.parseInt(input.cursor, 10);
+          return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+        })();
+        const slice = this.mockChannels.slice(start, start + pageSize);
+        const nextStart = start + pageSize;
+        const next_cursor = nextStart < this.mockChannels.length ? String(nextStart) : null;
         return {
           success: true,
-          channels: [...this.mockChannels],
-          available_topics: [
-            { key: 'business', display_name: 'Business' },
-            { key: 'tech', display_name: 'Tech' },
-          ],
+          channels: slice.map((channel) => ({ ...channel, users: channel.users.map((user) => ({ ...user })) })),
+          available_topics: start === 0
+            ? [
+              { key: 'business', display_name: 'Business' },
+              { key: 'tech', display_name: 'Tech' },
+            ]
+            : [],
+          next_cursor,
           events: [],
         } as T;
+      }
 
       case 'get_channel': {
         const found = this.mockChannels.find((c) => c.channel_id === input.channel || c.channel === input.channel);
