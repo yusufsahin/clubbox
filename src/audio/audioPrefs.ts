@@ -5,6 +5,7 @@ export interface AudioPrefs {
   outputDeviceId: string;
   micVolume: number;
   monitorEnabled: boolean;
+  spatialAudioEnabled: boolean;
   remoteVolumes: Record<string, number>;
 }
 
@@ -13,6 +14,7 @@ const DEFAULT_PREFS: AudioPrefs = {
   outputDeviceId: '',
   micVolume: 1,
   monitorEnabled: false,
+  spatialAudioEnabled: false,
   remoteVolumes: {},
 };
 
@@ -38,6 +40,7 @@ export function readAudioPrefs(): AudioPrefs {
       outputDeviceId: typeof parsed.outputDeviceId === 'string' ? parsed.outputDeviceId : '',
       micVolume: clampVolume(parsed.micVolume),
       monitorEnabled: parsed.monitorEnabled === true,
+      spatialAudioEnabled: parsed.spatialAudioEnabled === true,
       remoteVolumes,
     };
   } catch {

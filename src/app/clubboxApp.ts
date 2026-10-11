@@ -1018,6 +1018,8 @@ export class ClubboxApp {
       } : null,
       clubhouseClient.getApiHealth(),
       readAppPrefs(),
+      this.audioPrefs.spatialAudioEnabled === true,
+      audioEngine.getVoiceEffectState().selected,
     );
   }
 
@@ -1144,6 +1146,23 @@ export class ClubboxApp {
       }
       if (action === 'toggle-ping-select' && target instanceof HTMLInputElement) {
         this.togglePingSelect(target.dataset.userId);
+        return;
+      }
+      if (action === 'toggle-spatial-audio' && target instanceof HTMLInputElement) {
+        this.audioPrefs.spatialAudioEnabled = target.checked === true;
+        audioEngine.setSpatialAudioEnabled(this.audioPrefs.spatialAudioEnabled);
+        this.saveAudioPrefs();
+        this.showToast(
+          this.audioPrefs.spatialAudioEnabled ? t('spatialAudioOn') : t('spatialAudioOff'),
+          '🎧',
+        );
+        return;
+      }
+      if (action === 'pick-voice-effect' && target instanceof HTMLSelectElement) {
+        const value = target.value;
+        if (value === 'none' || value === 'radio' || value === 'deep' || value === 'robot' || value === 'echo') {
+          audioEngine.pickVoiceEffect(value);
+        }
         return;
       }
       if (target.id === 'radio-sandbox' || target.id === 'radio-live') {
@@ -1489,6 +1508,41 @@ export class ClubboxApp {
         audioEngine.setMonitorEnabled(this.audioPrefs.monitorEnabled);
         this.saveAudioPrefs();
         this.renderCockpit();
+        break;
+      case 'toggle-spatial-audio': {
+        const box = el as HTMLInputElement;
+        this.audioPrefs.spatialAudioEnabled = box.checked === true;
+        audioEngine.setSpatialAudioEnabled(this.audioPrefs.spatialAudioEnabled);
+        this.saveAudioPrefs();
+        this.showToast(
+          this.audioPrefs.spatialAudioEnabled ? t('spatialAudioOn') : t('spatialAudioOff'),
+          '🎧',
+        );
+        break;
+      }
+      case 'pick-voice-effect': {
+        const select = el as HTMLSelectElement;
+        const value = select.value;
+        if (value === 'none' || value === 'radio' || value === 'deep' || value === 'robot' || value === 'echo') {
+          audioEngine.pickVoiceEffect(value);
+        }
+        break;
+      }
+      case 'preview-voice-effect':
+        audioEngine.previewVoiceEffect();
+        void audioEngine.ensureMicrophone().then(() => {
+          if (!this.audioPrefs.monitorEnabled) {
+            this.audioPrefs.monitorEnabled = true;
+            audioEngine.setMonitorEnabled(true);
+            this.saveAudioPrefs();
+          }
+          this.showToast(t('voiceEffectPreview'), '🎧');
+          this.renderCockpit();
+        });
+        break;
+      case 'apply-voice-effect':
+        audioEngine.applyVoiceEffect();
+        this.showToast(t('voiceEffectApply'), '🎙️');
         break;
       case 'retry-audio':
         void this.connectRoomAudio(this.roomSession.generation).then(() => {

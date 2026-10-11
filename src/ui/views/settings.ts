@@ -63,6 +63,8 @@ export function settingsView(
   account: AccountReadout | null,
   apiHealth: ApiHealthRow[] = [],
   appPrefs: AppPrefs | null = null,
+  spatialAudio = false,
+  voiceEffect: 'none' | 'radio' | 'deep' | 'robot' | 'echo' = 'none',
 ): SafeHtml {
   return html`
     <div style="max-width:780px; margin:0 auto;">
@@ -103,6 +105,25 @@ export function settingsView(
             <option value="">${t('systemDefault')}</option>
           </select>
           <p id="output-device-note" hidden style="font-size:12px; color:var(--text-dim); margin-top:8px;">${t('outputUnsupported')}</p>
+        </div>
+        <label style="display:flex; align-items:flex-start; gap:8px; margin-top:16px; cursor:pointer;">
+          <input type="checkbox" id="cfg-spatial-audio" data-action="toggle-spatial-audio" ${spatialAudio ? 'checked' : ''} />
+          <span><strong>${t('spatialAudio')}</strong><br />${t('spatialAudioHelp')}</span>
+        </label>
+        <div class="form-group" style="margin-top:16px;">
+          <label class="form-label" for="cfg-voice-effect">${t('voiceEffects')}</label>
+          <select class="form-input" id="cfg-voice-effect" data-action="pick-voice-effect">
+            <option value="none" ${voiceEffect === 'none' ? 'selected' : ''}>${t('voiceEffectNone')}</option>
+            <option value="radio" ${voiceEffect === 'radio' ? 'selected' : ''}>${t('voiceEffectRadio')}</option>
+            <option value="deep" ${voiceEffect === 'deep' ? 'selected' : ''}>${t('voiceEffectDeep')}</option>
+            <option value="robot" ${voiceEffect === 'robot' ? 'selected' : ''}>${t('voiceEffectRobot')}</option>
+            <option value="echo" ${voiceEffect === 'echo' ? 'selected' : ''}>${t('voiceEffectEcho')}</option>
+          </select>
+          <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
+            <button class="btn btn-secondary" type="button" data-action="preview-voice-effect">${t('voiceEffectPreview')}</button>
+            <button class="btn btn-primary" type="button" data-action="apply-voice-effect">${t('voiceEffectApply')}</button>
+          </div>
+          <p style="font-size:12px; color:var(--text-muted); margin-top:8px;">${t('voiceEffectsHelp')}</p>
         </div>
       </div>
 

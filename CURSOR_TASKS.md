@@ -13,11 +13,11 @@ Do these before continuing the Autonomous plan, then tick them:
 
 ### Last autonomous run (2026-10-11)
 
-- Autonomous plan already **Done** through **11.8 (strict)**; triage clean; this devam: room refresh + Messages note + PRD honesty.
-- Done: `refreshCurrentRoom` resubscribes PubNub on web (no silent no-op); optimistic mute/mod/audience/block/invite patches; `threadLiveNote` when `get_conversation` fails/unsupported; PRD ST-7 / RL-11 → 🧪 (domain only, no UI); DESIGN presence/messages/Agora rows synced.
-- Tests: `npm test` — **124** unit + **123 BDD** + trace strict; tsc/lint/build green.
+- Autonomous plan already **Done** through **11.8 (strict)**; triage clean; this devam: ST-7 voice effects + RL-11 spatial audio.
+- Done: Web Audio effect chains (preview = monitor, apply = broadcast); spatial pan on remotes (local only); Settings UI + prefs; PRD ST-7 / RL-11 → ✅.
+- Tests: `npm test` — **126** unit + **123 BDD** + trace strict; tsc/lint/build green.
 - **Stopped:** no further shippable product work without inventing endpoint bodies or owner capture.
-- Blocked: owner live room capture (0.9 S1–S3); topic-chip **server** `get_feed_v3` body; conversation delete/title + unread-summary body; replay chunk; `gif_reaction` body. Unfollow stays undocumented. ST-7/RL-11 need audioEngine UI wiring if they should be ✅.
+- Blocked: owner live room capture (0.9 S1–S3); topic-chip **server** `get_feed_v3` body; conversation delete/title + unread-summary body; replay chunk; `gif_reaction` body. Unfollow stays undocumented.
 - Still @pending: ST-9 deferred; room_host DX-1/DX-3.
 - Questions for the owner: Capture a topic-chip click (`get_feed_v3` body) for server-side Hallway filter; capture `get_conversation_unread_summary` body (or confirm per-thread only); conversation delete/title and a replay chunk if those UIs should ship next.
 

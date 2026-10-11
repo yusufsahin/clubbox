@@ -1,6 +1,22 @@
 import type { SoundEffectItem } from '../api/types';
+import { createVoiceEffectChain, panForUid, type EffectChain } from './effectChain';
 import { deleteStoredSound, PAD_HOTKEYS, readStoredSounds, writeStoredSound, type StoredSound } from './soundLibrary';
+import {
+  applyEffect,
+  defaultVoiceEffectState,
+  monitorUsesEffect,
+  pickEffect,
+  startPreview,
+  type VoiceEffectId,
+  type VoiceEffectState,
+} from './voiceEffects';
 import { encodeStereoWav } from './wav';
+
+type RemoteAudioNodes = {
+  source: MediaStreamAudioSourceNode;
+  gain: GainNode;
+  panner: StereoPannerNode | null;
+};
 
 export class AudioEngine {
   private ctx: AudioContext | null = null;
@@ -14,14 +30,18 @@ export class AudioEngine {
   private broadcastDest: MediaStreamAudioDestinationNode | null = null;
   private recorderDest: MediaStreamAudioDestinationNode | null = null;
   private recordMix: GainNode | null = null;
+  private broadcastEffect: EffectChain | null = null;
+  private monitorEffect: EffectChain | null = null;
   private clipNode: AudioWorkletNode | null = null;
   private clipReady: Promise<boolean> | null = null;
   private clipArmed = false;
   private mediaRecorder: MediaRecorder | null = null;
   private recordedChunks: Blob[] = [];
-  private remoteNodes = new Map<string, { source: MediaStreamAudioSourceNode; gain: GainNode }>();
+  private remoteNodes = new Map<string, RemoteAudioNodes>();
   private roomHeard = true;
   private voiceNote: AudioBufferSourceNode | null = null;
+  private voiceEffects: VoiceEffectState = defaultVoiceEffectState();
+  private spatialAudioEnabled = false;
 
   private inputDeviceId = '';
   private outputDeviceId = '';
@@ -144,19 +164,11 @@ export class AudioEngine {
 
       this.micGain = ctx.createGain();
       this.micGain.gain.value = this.isMuted ? 0 : this.micVolume;
-
-      // Mic stays off the speakers. It feeds the meter, the send bus, and the recorder.
       this.micSource.connect(this.micGain);
-      this.micGain.connect(this.analyser!);
-      this.micGain.connect(this.broadcastDest!);
-      this.micGain.connect(this.recordMix!);
 
       this.monitorGain = ctx.createGain();
       this.monitorGain.gain.value = 1;
-      this.micGain.connect(this.monitorGain);
-      if (this.monitorEnabled && this.masterGain) {
-        this.monitorGain.connect(this.masterGain);
-      }
+      this.wireMicEffects();
 
       this.startMeterLoop();
       const liveTracks = this.micStream?.getAudioTracks().filter((track) => track.readyState === 'live').length ?? 0;
@@ -252,10 +264,18 @@ export class AudioEngine {
     const gain = ctx.createGain();
     gain.gain.value = this.heardGain(key);
     source.connect(gain);
-    // Local playback and the recording only. Never the send bus.
-    gain.connect(this.masterGain!);
+    // Recording stays unpanned; local speakers may get spatial pan (RL-11).
     gain.connect(this.recordMix!);
-    this.remoteNodes.set(key, { source, gain });
+    let panner: StereoPannerNode | null = null;
+    if (this.spatialAudioEnabled && typeof ctx.createStereoPanner === 'function') {
+      panner = ctx.createStereoPanner();
+      panner.pan.value = panForUid(key);
+      gain.connect(panner);
+      panner.connect(this.masterGain!);
+    } else {
+      gain.connect(this.masterGain!);
+    }
+    this.remoteNodes.set(key, { source, gain, panner });
   }
 
   public removeRemoteTrack(uid: string | number): void {
@@ -264,6 +284,7 @@ export class AudioEngine {
     if (!nodes) return;
     this.safeDisconnect(nodes.source);
     this.safeDisconnect(nodes.gain);
+    this.safeDisconnect(nodes.panner);
     this.remoteNodes.delete(key);
   }
 
@@ -389,12 +410,87 @@ export class AudioEngine {
       this.micStream.getTracks().forEach((track) => track.stop());
       this.micStream = null;
     }
+    this.disposeMicEffects();
     this.safeDisconnect(this.micSource);
     this.safeDisconnect(this.micGain);
     this.safeDisconnect(this.monitorGain);
     this.micSource = null;
     this.micGain = null;
     this.monitorGain = null;
+  }
+
+  private disposeMicEffects(): void {
+    this.broadcastEffect?.dispose();
+    this.monitorEffect?.dispose();
+    this.broadcastEffect = null;
+    this.monitorEffect = null;
+  }
+
+  /** Mic → applied effect → send/record/meter; mic → monitor effect → headphones when enabled. */
+  private wireMicEffects(): void {
+    if (!this.ctx || !this.micGain || !this.monitorGain || !this.analyser || !this.broadcastDest || !this.recordMix) return;
+    this.disposeMicEffects();
+    this.safeDisconnect(this.micGain);
+    this.safeDisconnect(this.monitorGain);
+
+    const broadcastId = this.voiceEffects.applied;
+    const monitorId = monitorUsesEffect(this.voiceEffects);
+    this.broadcastEffect = createVoiceEffectChain(this.ctx, broadcastId);
+    this.monitorEffect = createVoiceEffectChain(this.ctx, monitorId);
+
+    this.micGain.connect(this.broadcastEffect.input);
+    this.broadcastEffect.output.connect(this.analyser);
+    this.broadcastEffect.output.connect(this.broadcastDest);
+    this.broadcastEffect.output.connect(this.recordMix);
+
+    this.micGain.connect(this.monitorEffect.input);
+    this.monitorEffect.output.connect(this.monitorGain);
+    if (this.monitorEnabled && this.masterGain) {
+      this.monitorGain.connect(this.masterGain);
+    }
+  }
+
+  public pickVoiceEffect(effect: VoiceEffectId): void {
+    this.voiceEffects = pickEffect(this.voiceEffects, effect);
+    if (this.micGain) this.wireMicEffects();
+  }
+
+  public previewVoiceEffect(): void {
+    this.voiceEffects = startPreview(this.voiceEffects);
+    if (this.micGain) this.wireMicEffects();
+  }
+
+  public applyVoiceEffect(): void {
+    this.voiceEffects = applyEffect(this.voiceEffects);
+    if (this.micGain) this.wireMicEffects();
+  }
+
+  public getVoiceEffectState(): VoiceEffectState {
+    return { ...this.voiceEffects };
+  }
+
+  public getMonitorEffect(): VoiceEffectId {
+    return monitorUsesEffect(this.voiceEffects);
+  }
+
+  public getBroadcastEffect(): VoiceEffectId {
+    return this.voiceEffects.applied;
+  }
+
+  public setSpatialAudioEnabled(enabled: boolean): void {
+    if (this.spatialAudioEnabled === enabled) return;
+    this.spatialAudioEnabled = enabled;
+    const snapshot = [...this.remoteNodes.entries()].map(([uid, nodes]) => {
+      const tracks = nodes.source.mediaStream.getAudioTracks();
+      return { uid, track: tracks[0] };
+    });
+    for (const { uid, track } of snapshot) {
+      if (track) this.addRemoteTrack(uid, track);
+    }
+  }
+
+  public getSpatialAudioEnabled(): boolean {
+    return this.spatialAudioEnabled;
   }
 
   private safeDisconnect(node: AudioNode | null): void {
