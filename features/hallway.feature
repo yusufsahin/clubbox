@@ -77,3 +77,14 @@ Feature: Hallway and discovery
     And friends in a room show the room title and a "Join" button
     When I click "Join" next to "Ayse"
     Then the room join flow starts for her room
+
+  @pending @bundle @HAL-1
+  Scenario: Load more rooms
+    Given the hallway returned a next_cursor
+    When I scroll to the end of the hallway
+    Then a "POST /web_api/get_feed_v3" request is sent with body keys "next_cursor"
+
+  @pending @bundle @HAL-7
+  Scenario: Open a profile from a pasted @username link
+    When I paste "https://www.clubhouse.com/@someone" into search and press Enter
+    Then a "POST /web_api/get_profile" request is sent with body keys "username"

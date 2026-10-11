@@ -89,3 +89,22 @@ Feature: Host and moderate a room
     Given get_create_channel_targets says automatic speaker approval is available for "friend_of_friend"
     When I open the room composer and choose "friends of friends"
     Then I see "Approve speakers automatically" only when its create body key is documented
+
+  @pending @bundle @RH-7
+  Scenario: Choose the hand-raise setting when starting a room
+    When I start a room titled "Morning show" for "friends of friends" with hand raises limited to "friends of speakers"
+    Then a "POST /web_api/create_channel" request is sent
+    And the body field "handraise_permission" is set from the composer choice
+
+  @pending @bundle @RH-12
+  Scenario: Pin a link when starting a room
+    When I start a room titled "Morning show" with the link "https://example.com/agenda"
+    Then a "POST /web_api/create_channel" request is sent
+    And the body field "link" is "https://example.com/agenda"
+
+  @pending @bundle @SO-6
+  Scenario: Start a room in a house
+    Given I am an admin of the house "h1"
+    When I start a room titled "House night" in the house "h1"
+    Then a "POST /web_api/create_channel" request is sent
+    And the body field "social_club_id" is "h1"

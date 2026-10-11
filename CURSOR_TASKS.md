@@ -4,13 +4,13 @@ Each task below is a self-contained prompt. Paste one task at a time into Cursor
 
 _Last reviewed: 2026-10-11. “Uygulandı” means the code is in the tree. “Canlı doğrulandı” means it was exercised against the official Clubhouse web session. This pass is implemented; the live room, hand, invite, and chat capture is still outstanding._
 
-### Next run (owner instruction, 2026-10-11)
+### Next run (owner instruction, 2026-10-11 #2)
 
-Do these before continuing the Autonomous plan, then tick them:
-- [x] Regression guards before the 11.1/11.2 refactor: un-pend and make green ST-1, ST-2, ST-3 (`features/audio_studio.feature`), HAL-1, HAL-2, HAL-5 (`features/hallway.feature`), SO-1 (`features/social.feature`), ACC-1, ACC-2, ACC-6 (`features/account.feature`). These features already exist in the app; the tests must describe today's behaviour, not new behaviour.
-- [x] Update the PRD catalog "Today" column for everything done so far (ACC-3 is done but still shows ❌).
-- [x] Then continue the Autonomous plan at 11.0 and do not stop until the plan is done or a Hard rule would be broken.
-
+The capture wait is over: request bodies for 60 web-client methods are documented in `docs/api/web-client-methods.md` (extracted from the web bundle's own API module). Do these, tick them, then continue:
+- [ ] Commit `docs/api/web-client-methods.md` and the new scenarios in features/ (room_host RH-7/RH-12/SO-6, messages rename/delete/pagination, hallway pagination/@username, replays by chunk path).
+- [ ] Task 12.1 — promote and bind every documented method; record the final decisions (topic chips local, unfollow/moderation not in web client).
+- [ ] Task 12.2 — live verification by normal use (request log + in-app triage); remove recorder steps from the workflow.
+- [ ] Then finish any remaining Autonomous plan items and run 11.8 in strict mode.
 ### Last autonomous run (2026-10-11)
 
 - Autonomous plan already **Done** through **11.8 (strict)**; triage **NO NEW FAILURES**.
@@ -979,4 +979,48 @@ BDD runs on controllers; this catches wiring/render bugs in the real window with
 4. Also run against the packaged build (npm run dist → launch release/win-unpacked/Clubbox.exe) for: app starts, clip worklet loads (clip-processor path), recorder flag ignored.
 5. Script "test:e2e"; include it in the autonomous Definition of Done (not in plain npm test, because it needs a build).
 Acceptance: test:e2e green on sandbox and packaged builds.
+```
+
+
+---
+
+## Phase 12 — Bind everything the web client's own API module documents
+
+**New source of truth for bodies:** `docs/api/web-client-methods.md`. It was extracted from the API module of the public clubhouse.com bundle (`api-captures/bundle-src/`): 60 client methods with HTTP verb, path and body keys. Every row is evidence **bundle** with a documented body — this satisfies the Hard rule "never invent a body". Do not wait for captures for these rows.
+
+### Task 12.1 — Promote and bind the documented methods
+
+```
+1. scripts/api-docs.mjs (or a new scripts/api-methods.mjs run by api:docs): parse docs/api/web-client-methods.md (or regenerate it from api-captures/bundle-src with the same extraction) and set evidence "bundle" + body keys + method + path in electron/webApiRoutes.json for every row. Never downgrade "observed". Path-param routes get a "pathParams" array; ch:request builds the URL from them (encodeURIComponent each segment) and sends no body for GET.
+2. Fix route shapes that are wrong today:
+   - get_replay_channel = GET /web_api/get_replay_channel/{channel}; get_replay_channel_chunk = GET /web_api/get_replay_channel_chunk/{channel}/{chunk}; get_highlight = GET /web_api/get_highlight/{id}/ (no JSON bodies).
+   - get_profile accepts {user_id} or {username}.
+   - follow body = {user_id, source}; find the source value the web client passes at its follow call sites in bundle-src and use the same constant (document it in web-client-methods.md "Notes").
+   - get_conversations {is_private_only, next_cursor}; get_feed_v3 {next_cursor}; get_edge_stories GET {next_cursor}; get_group_suggested_invites {query, social_club_id}; get_conversation_unread_summary {conversation_id} (one call per conversation, only for visible rows, max 10, never on a timer while hidden).
+   - create_channel adds optional social_club_id, handraise_permission, link.
+3. Implement and un-pend (scenarios added 2026-10-11 in room_host, messages, hallway, houses_events_replays):
+   - pagination: hallway, conversations, edge stories (infinite scroll, stop at null next_cursor);
+   - rename + delete conversation (confirm before delete); unread badge via unread summary;
+   - house room creation (social_club_id), hand-raise setting and pinned link at creation (handraise_permission, link — values from get_create_channel_targets options);
+   - replay playback by chunk path; highlight playback;
+   - paste @username link → get_profile {username} (HAL-7);
+   - house thread read/post, house message reaction, update_last_read_social_club_message.
+   - gif_reaction {channel, giphy_id}: P3 — only if a Giphy picker can be built without a new third-party API key; otherwise leave hidden and note it.
+4. Record final decisions (no capture needed, write them in DESIGN §8 and PRD "Today"):
+   - Topic chips: web has no server-side topic filter (getFeed takes only next_cursor) → local filtering is the final behaviour. Close the item.
+   - Unfollow, end_channel, invite/uninvite/mute speaker, make_moderator, block_from_channel, change_handraise_settings (mid-room), hide_channel, get_online_friends, get_events, get_notifications, get_channel: not in the web client → stay "community" (experimental) or "unsupported". Unfollow renders a non-clickable "Following" in live mode (final). Close these as "decided", not "blocked".
+   - Clubhouse "Talk" endpoints (talk/*, paid advisor calls) are out of scope (payments) — add PRD DX-15 "Won't".
+5. Contract tests for every row of web-client-methods.md; trace gate stays green.
+Acceptance: every scenario that only waited for a body is green; CURSOR_TASKS "Blocked" contains only items that need a real response to verify (not a body).
+```
+
+### Task 12.2 — Live verification without the recorder
+
+```
+The owner will not run the recorder. Verification comes from normal use of Clubbox with the request log (Task 10.5).
+1. Make sure the request log is on by default in live mode and survives app updates; show "Evidence log: on" in Settings → API Health.
+2. On every app start, run the triage logic in-process (not only via npm): new 2xx promote evidence locally; new failures appear in API Health and in userData/api-log/triage-pending.json.
+3. `npm run api:triage` (Cursor) reads that file and turns failures into tests, as in 10.5.
+4. Remove "0.9 S1–S3" and "capture-first" wording from the Status table; replace with "Verified by use: <list of endpoints promoted to observed by the request log>".
+Acceptance: after the owner uses Clubbox normally, `npm run api:triage` either promotes routes or produces failing tests — no recorder step anywhere in the workflow.
 ```

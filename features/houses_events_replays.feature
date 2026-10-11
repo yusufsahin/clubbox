@@ -53,3 +53,11 @@ Feature: Houses, events and replays
   Scenario: Highlights play like replays
     When I open a highlight
     Then a "POST /web_api/get_highlight" request is sent with the documented body keys
+
+  @pending @bundle @RL-12
+  Scenario: Replay audio is fetched in chunks by path
+    Given a saved replay "r1" with 3 chunks
+    When I play the replay "r1"
+    Then a "GET /web_api/get_replay_channel/r1" request is sent
+    And a "GET /web_api/get_replay_channel_chunk/r1/0" request is sent
+    And no body is sent with these requests

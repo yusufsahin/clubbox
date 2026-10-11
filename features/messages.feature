@@ -55,3 +55,16 @@ Feature: Messages (VMs and house chats)
   @bundle @SO-4
   Scenario: Unread badge
     Then the Messages badge uses "get_conversation_unread_summary" when documented, otherwise "unread_conversations_count" from me
+
+  @pending @bundle @SO-4
+  Scenario: Rename and delete a conversation
+    When I rename the conversation "c1" to "Weekend plans"
+    Then a "POST /web_api/update_conversation_title" request is sent with body keys "conversation_id, title"
+    When I delete the conversation "c1" and confirm
+    Then a "POST /web_api/delete_conversation" request is sent with body keys "conversation_id"
+
+  @pending @bundle @SO-4
+  Scenario: Load older conversations
+    Given the conversation list returned a next_cursor
+    When I scroll to the end of the list
+    Then a "POST /web_api/get_conversations" request is sent with body keys "is_private_only, next_cursor"
