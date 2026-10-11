@@ -30,7 +30,9 @@ async function refreshVisibleUnreadSummaries(app: ClubboxApp): Promise<void> {
         next[id] = count;
       }
     } catch (err) {
-      app.reportApiError(err);
+      // Some conversation ids 404 on this route; skip quietly (triage fixture).
+      const status = err && typeof err === 'object' && 'status' in err ? Number((err as { status: number }).status) : 0;
+      if (status !== 404) app.reportApiError(err);
     }
   }));
   app.conversationUnreadById = next;

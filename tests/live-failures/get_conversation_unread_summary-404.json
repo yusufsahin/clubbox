@@ -1,0 +1,9 @@
+{
+  "endpoint": "get_conversation_unread_summary",
+  "status": 404,
+  "bodyKeys": [
+    "conversation_id"
+  ],
+  "error": "Not found.",
+  "evidence": "bundle"
+}
