@@ -155,7 +155,7 @@ export const tr: Record<MessageKey, string> = {
   liveAccount: 'Canlı Clubhouse hesabı',
   onAir: 'YAYINDA',
   publicStage: 'Açık sahne',
-  liveUpdatesNote: 'Web girişinde canlı güncelleme yok',
+  liveUpdatesNote: 'Canlı güncelleme yok — bu odada PubNub jetonu yok ve get_channel web’de yok',
   recording: 'Kayıt',
   exploreActive: 'Açık sahneler',
   link: 'Bağlantı',

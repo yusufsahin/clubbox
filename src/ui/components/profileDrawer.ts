@@ -191,7 +191,8 @@ function relationshipControl(relationship: Relationship, canChange: boolean): Sa
   if (canChange && (relationship === 'none' || relationship === 'follower')) {
     return html`<button class="btn btn-primary" type="button" data-action="toggle-follow">${label}</button>`;
   }
-  return html`<div class="profile-relationship">${label}</div>`;
+  const title = relationship === 'following' ? t('unfollowUnavailable') : '';
+  return html`<div class="profile-relationship" title="${title}">${label}</div>`;
 }
 
 function shareButton(profile: CHUser): SafeHtml {

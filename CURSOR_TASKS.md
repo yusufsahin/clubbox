@@ -13,11 +13,11 @@ Do these before continuing the Autonomous plan, then tick them:
 
 ### Last autonomous run (2026-10-11)
 
-- Autonomous plan already **Done** through **11.8 (strict)**; this devam: triage + hallway/follow UI catch-up.
-- Done: stop calling `get_conversation_unread_summary` with `{}` (live 400 needs `conversation_id`); keep badge on `me.unread_conversations_count`; promote `get_user_social_clubs` → observed; wire topic chips to client-side `topic_key` filter; follow via `supports`/`allowAction` (community + Experimental); hallway cards show replays/clips on|off + running time; include `tests/live-failures` in `test:unit`.
-- Tests: `npm test` — **121** unit (+ live-failure) + **123 BDD** + trace strict; tsc/lint/build green.
+- Autonomous plan already **Done** through **11.8 (strict)**; triage clean; this devam fixed false “live updates unavailable”.
+- Done: banner keys off PubNub token (not missing `get_channel`); Following tooltip uses `unfollowUnavailable`; DESIGN `get_channel` row aligned with G-03.
+- Tests: `npm test` — **124** unit + **123 BDD** + trace strict; tsc/lint/build green.
 - **Stopped:** no further shippable product work without inventing endpoint bodies or owner capture.
-- Blocked: owner live room capture (0.9 S1–S3); topic-chip **server** `get_feed_v3` body; conversation delete/title + unread-summary body; replay chunk; `gif_reaction` body.
+- Blocked: owner live room capture (0.9 S1–S3); topic-chip **server** `get_feed_v3` body; conversation delete/title + unread-summary body; replay chunk; `gif_reaction` body. Unfollow stays undocumented (static Following).
 - Still @pending: ST-9 deferred; room_host DX-1/DX-3.
 - Questions for the owner: Capture a topic-chip click (`get_feed_v3` body) for server-side Hallway filter; capture `get_conversation_unread_summary` body (or confirm per-thread only); conversation delete/title and a replay chunk if those UIs should ship next.
 

@@ -1,5 +1,6 @@
 // @ts-nocheck — extracted controller; imports trimmed over time.
 import { ClubhouseApiError, clubhouseClient } from '../api/client.ts';
+import { isLiveUpdatesUnavailable } from '../api/liveUpdates.ts';
 import { beginJoin, commitJoin, finishLeave, localClipAllowed, roleSyncDecision, roomAudience } from '../api/guards.ts';
 import { capturedCreateBody, leaveClosesRoom, roomHasOthers } from '../api/roomActions.ts';
 import { applyFollowResponse, mergeProfile, PEOPLE_LIST_ENDPOINTS, profileCountsMissing, readProfile, relationshipFromStatus, talkPartners, type PeopleListKind } from '../api/relationship.ts';
@@ -95,7 +96,12 @@ export async function refreshExplore(this: ClubboxApp) : Promise<void> {
 
 export function liveUpdatesUnavailable(this: ClubboxApp) : boolean {
     const config = clubhouseClient.getConfig();
-    return config.webSession && !clubhouseClient.supports('get_channel');
+    return isLiveUpdatesUnavailable({
+      webSession: !!config.webSession,
+      inRoom: !!this.currentChannel,
+      hasPubnubToken: !!this.currentChannel?.pubnub_token,
+      supportsGetChannel: clubhouseClient.supports('get_channel'),
+    });
   }
 
 export async function refreshCurrentRoom(this: ClubboxApp) : Promise<void> {

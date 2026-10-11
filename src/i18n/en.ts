@@ -153,7 +153,7 @@ export const en = {
   liveAccount: 'Live Clubhouse account',
   onAir: 'ON AIR',
   publicStage: 'Public Stage',
-  liveUpdatesNote: 'Live updates unavailable in web sign-in',
+  liveUpdatesNote: 'Live updates unavailable — this room has no PubNub token and get_channel is not on web',
   recording: 'Recording',
   exploreActive: 'Explore Active Stages',
   link: 'Link',
