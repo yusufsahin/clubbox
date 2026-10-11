@@ -7,11 +7,30 @@ const { BrowserWindow } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const { createRedactor, outputHasLeak } = require('./redact.cjs');
-const { extractBundleEndpoints, isBundleScript, scriptPath } = require('./bundleScan.cjs');
+const {
+  extractBundleEndpoints,
+  extractCallSites,
+  extractEndpointCalls,
+  isBundleScript,
+  keyShape,
+  mineRealtime,
+  scriptPath,
+  trafficKind,
+} = require('./bundleScan.cjs');
 
 const PAGE_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
 const CHECKLIST = [
+  { id: 's1-host', group: 'S1 Host on web', label: 'Host a room with replays on and chat on', test: (ctx) => ctx.creating && ctx.replay === true && ctx.chatEnabled === true },
+  { id: 's1-wait', group: 'S1 Host on web', label: 'Stay 90 seconds', test: () => false },
+  { id: 's1-chat', group: 'S1 Host on web', label: 'Send one room chat message', test: (ctx) => ctx.path.includes('send_channel_message') },
+  { id: 's1-title', group: 'S1 Host on web', label: 'Change the room title', test: (ctx) => ctx.path.includes('set_channel_title') },
+  { id: 's1-end', group: 'S1 Host on web', label: 'End the room, or leave if there is no end button', test: (ctx) => /end_channel|leave_channel|web_listener_leave/.test(ctx.path) },
+  { id: 's2-listen', group: 'S2 Listen on web', label: 'Open a public room with replays on', test: (ctx) => /join_channel|web_listener_join|guest_join/.test(ctx.path) },
+  { id: 's2-wait', group: 'S2 Listen on web', label: 'Wait 60 seconds', test: () => false },
+  { id: 's2-react', group: 'S2 Listen on web', label: 'Send a reaction if the page offers one', test: (ctx) => /emoji_reaction|gif_reaction/.test(ctx.path) },
+  { id: 's2-leave', group: 'S2 Listen on web', label: 'Leave the room', test: (ctx) => /leave_channel|web_listener_leave|guest_leave/.test(ctx.path) },
+  { id: 's3-replay', group: 'S3 Replay', label: 'Open one replay and play it for 30 seconds', test: (ctx) => /replay/.test(ctx.path) },
   { id: 'smoke-open', group: 'Room smoke test', label: 'Open a public room from the web hallway', test: (ctx) => ctx.path.includes('join_channel') },
   { id: 'smoke-listen', group: 'Room smoke test', label: 'Listen for 30 seconds', test: () => false },
   { id: 'smoke-leave', group: 'Room smoke test', label: 'Leave the room', test: (ctx) => ctx.path.includes('leave_channel') },
@@ -92,15 +111,29 @@ function startApiRecorder(hooks) {
   const bundlePending = new Map();
   const bundleScripts = new Map();
   const bundlePath = path.join(dir, 'bundle-endpoints.json');
+  const callsitePath = path.join(dir, 'bundle-callsites.json');
+  const callsiteScripts = new Map();
   try {
     const existing = JSON.parse(fs.readFileSync(bundlePath, 'utf8'));
     const scripts = Array.isArray(existing?.scripts) ? existing.scripts : [];
     for (const script of scripts) {
       if (typeof script?.path !== 'string' || !Array.isArray(script.endpoints)) continue;
-      bundleScripts.set(script.path, new Set(script.endpoints.filter((name) => typeof name === 'string')));
+      bundleScripts.set(script.path, {
+        endpoints: new Set(script.endpoints.filter((name) => typeof name === 'string')),
+        page: typeof script.page === 'string' ? script.page : '',
+      });
     }
   } catch {
     // The first scan creates the file.
+  }
+  try {
+    const existing = JSON.parse(fs.readFileSync(callsitePath, 'utf8'));
+    const scripts = Array.isArray(existing?.scripts) ? existing.scripts : [];
+    for (const script of scripts) {
+      if (typeof script?.path === 'string') callsiteScripts.set(script.path, script);
+    }
+  } catch {
+    // Call sites are filled as scripts load.
   }
   const done = new Set();
   const hinted = new Set();
@@ -166,6 +199,18 @@ function startApiRecorder(hooks) {
       return;
     }
     if (!message || typeof message !== 'object') return;
+    if (message.type === 'open-link' && typeof message.url === 'string') {
+      let target;
+      try {
+        target = new URL(message.url.trim());
+      } catch {
+        return;
+      }
+      const host = target.hostname.toLowerCase();
+      if (target.protocol !== 'https:' || (host !== 'www.clubhouse.com' && host !== 'clubhouse.com')) return;
+      void win.loadURL(target.href);
+      return;
+    }
     if (message.type === 'select' && CHECKLIST.some((item) => item.id === message.id)) {
       selectedId = message.id;
     }
@@ -227,6 +272,22 @@ function startApiRecorder(hooks) {
       file.textContent = state.fileName;
       file.style.cssText = 'margin-bottom:8px;color:#8ea0c0;word-break:break-all;';
       panel.append(title, help, file);
+      const opener = document.createElement('form');
+      opener.style.cssText = 'display:flex;gap:6px;margin-bottom:8px;';
+      const link = document.createElement('input');
+      link.type = 'url';
+      link.placeholder = 'https://www.clubhouse.com/...';
+      link.style.cssText = 'flex:1;min-width:0;background:#0c0e14;color:#f4f6fb;border:1px solid #2a3142;border-radius:8px;padding:6px;';
+      const open = document.createElement('button');
+      open.type = 'submit';
+      open.textContent = 'Open';
+      open.style.cssText = 'border:0;border-radius:8px;background:#2a3142;color:#fff;padding:6px 8px;cursor:pointer;';
+      opener.append(link, open);
+      opener.addEventListener('submit', (event) => {
+        event.preventDefault();
+        send({ type: 'open-link', url: link.value });
+      });
+      panel.append(opener);
       const banner = document.createElement('div');
       const current = state.items.find((item) => item.id === state.activeId);
       banner.textContent = current ? ('Recording: ' + current.label) : 'Not recording a labeled action';
@@ -334,16 +395,62 @@ function startApiRecorder(hooks) {
   }
 
   function rememberBundle(urlString, source) {
-    const found = extractBundleEndpoints(source);
     const where = scriptPath(urlString);
-    if (!where || found.length === 0) return;
-    const current = bundleScripts.get(where) || new Set();
-    for (const name of found) current.add(name);
-    bundleScripts.set(where, current);
-    const scripts = [...bundleScripts.entries()]
-      .sort(([left], [right]) => left.localeCompare(right))
-      .map(([script, endpoints]) => ({ path: script, endpoints: [...endpoints].sort() }));
-    fs.writeFileSync(bundlePath, JSON.stringify({ scripts }, null, 2));
+    if (!where) return;
+    const page = scriptPath(win.webContents.getURL()) || '/';
+    const found = extractBundleEndpoints(source);
+    if (found.length > 0) {
+      const current = bundleScripts.get(where) || { endpoints: new Set(), page: '' };
+      for (const name of found) current.endpoints.add(name);
+      if (page) current.page = page;
+      bundleScripts.set(where, current);
+      const scripts = [...bundleScripts.entries()]
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([script, entry]) => ({
+          path: script,
+          page: entry.page,
+          endpoints: [...entry.endpoints].sort(),
+        }));
+      fs.writeFileSync(bundlePath, JSON.stringify({ scripts }, null, 2));
+    }
+    const calls = extractEndpointCalls(source);
+    const sites = extractCallSites(source);
+    const mined = mineRealtime(source);
+    if (calls.length === 0 && sites.length === 0 && !mined.appIdLiteral && !mined.pubnubOrigin && mined.createClient.length === 0) return;
+    callsiteScripts.set(where, {
+      path: where,
+      page,
+      calls,
+      sites,
+      realtime: {
+        createClient: mined.createClient,
+        appIdLiteral: mined.appIdLiteral,
+        appIdEnv: mined.appIdEnv,
+        pubnubOrigin: mined.pubnubOrigin,
+        messageTypes: mined.messageTypes,
+      },
+    });
+    const mergedRealtime = {
+      createClient: [],
+      appIdFoundIn: '',
+      appIdEnv: false,
+      pubnubOrigin: null,
+      messageTypes: [],
+    };
+    for (const script of callsiteScripts.values()) {
+      const realtime = script.realtime || {};
+      if (Array.isArray(realtime.createClient)) mergedRealtime.createClient.push(...realtime.createClient);
+      if (realtime.appIdLiteral) mergedRealtime.appIdFoundIn = script.path;
+      if (realtime.appIdEnv) mergedRealtime.appIdEnv = true;
+      if (realtime.pubnubOrigin) mergedRealtime.pubnubOrigin = realtime.pubnubOrigin;
+      for (const kind of realtime.messageTypes || []) {
+        if (!mergedRealtime.messageTypes.includes(kind)) mergedRealtime.messageTypes.push(kind);
+      }
+    }
+    fs.writeFileSync(callsitePath, JSON.stringify({
+      scripts: [...callsiteScripts.values()].sort((left, right) => left.path.localeCompare(right.path)),
+      realtime: mergedRealtime,
+    }, null, 2));
   }
 
   async function scanBundleScript(requestId, urlString) {
@@ -380,21 +487,13 @@ function startApiRecorder(hooks) {
   }
 
   function classify(urlString) {
-    let url;
+    const kind = trafficKind(urlString);
+    if (!kind) return null;
     try {
-      url = new URL(urlString);
+      return { url: new URL(urlString), kind };
     } catch {
       return null;
     }
-    const host = url.hostname.toLowerCase();
-    if (url.pathname.includes('/web_api/')) return { url, kind: 'web_api' };
-    if (host === 'pubnub.com' || host.endsWith('.pubnub.com') || host === 'pndsn.com' || host.endsWith('.pndsn.com')) {
-      return { url, kind: 'pubnub' };
-    }
-    if (host === 'agora.io' || host.endsWith('.agora.io') || host === 'sd-rtn.com' || host.endsWith('.sd-rtn.com')) {
-      return { url, kind: 'agora' };
-    }
-    return null;
   }
 
   async function onDebug(method, params) {
@@ -467,7 +566,20 @@ function startApiRecorder(hooks) {
 
     if (method === 'Network.webSocketFrameReceived' || method === 'Network.webSocketFrameSent') {
       const socket = sockets.get(params.requestId);
-      if (!socket || socket.kind === 'agora') return;
+      if (!socket) return;
+      const sent = method === 'Network.webSocketFrameSent';
+      if (socket.kind === 'agora') {
+        const payload = params.response?.payloadData;
+        writeRecord({
+          type: 'websocket',
+          event: sent ? 'sent' : 'received',
+          url: socket.url ? `${socket.url.origin}${socket.url.pathname}` : null,
+          hostKind: 'agora',
+          opcode: params.response?.opcode ?? null,
+          bytes: typeof payload === 'string' ? payload.length : 0,
+        });
+        return;
+      }
       if (params.response?.opcode === 2) {
         writeRecord({
           type: 'websocket',
@@ -485,13 +597,15 @@ function startApiRecorder(hooks) {
       } catch {
         // Keep the truncated text and redact it as a string.
       }
-      writeRecord({
+      const record = {
         type: 'websocket',
-        event: method === 'Network.webSocketFrameSent' ? 'sent' : 'received',
+        event: sent ? 'sent' : 'received',
         url: socket.url ? `${socket.url.origin}${socket.url.pathname}` : null,
         opcode: params.response?.opcode,
-        payload: parsed,
-      });
+      };
+      if (socket.kind === 'pubnub') record.shape = keyShape(parsed);
+      else record.payload = parsed;
+      writeRecord(record);
     }
   }
 
@@ -517,10 +631,10 @@ function startApiRecorder(hooks) {
       type: entry.kind === 'pubnub' ? 'pubnub' : 'http',
       method: entry.method,
       path: entry.url.pathname,
-      query,
-      request: entry.body,
+      query: entry.kind === 'pubnub' ? keyShape(query) : query,
+      request: entry.kind === 'pubnub' ? keyShape(entry.body) : entry.body,
       status: entry.status ?? null,
-      response,
+      response: entry.kind === 'pubnub' ? keyShape(response) : response,
       timingMs: entry.started != null && finishedAt != null ? Math.round((finishedAt - entry.started) * 1000) : null,
       hints,
     };
@@ -586,16 +700,6 @@ function startApiRecorder(hooks) {
     });
     void win.webContents.debugger.sendCommand('Network.enable', { maxPostDataSize: 65536 });
     void win.webContents.debugger.sendCommand('Runtime.addBinding', { name: 'clubboxRecorder' });
-    win.webContents.debugger.on('detach', (_event, reason) => {
-      console.log('[Clubbox] recorder debugger detached', reason);
-      if (win.isDestroyed()) return;
-      try {
-        win.webContents.debugger.attach('1.3');
-        void win.webContents.debugger.sendCommand('Network.enable', { maxPostDataSize: 65536 });
-      } catch (err) {
-        console.error('[Clubbox] Could not reattach the API recorder', err instanceof Error ? err.message : 'error');
-      }
-    });
   } catch (err) {
     console.error('[Clubbox] Could not attach the API recorder', err instanceof Error ? err.message : 'error');
   }

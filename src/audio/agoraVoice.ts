@@ -24,9 +24,8 @@ export class AgoraVoiceEngine {
   private onSpeakerVolumeCallbacks: ((speakers: { uid: string | number; level: number }[]) => void)[] = [];
   private sdkPromise: Promise<AgoraSdk> | null = null;
 
-  // Same default as ClubhouseConfig.agoraAppId. The join_channel field that
-  // should replace it is documented in docs/api/web-api.md after a capture.
-  public appId: string = '938de3e8055e42b281bb8c6f69c21f78';
+  // Same default as ClubhouseConfig.agoraAppId. See docs/api/realtime.md.
+  public appId: string = '3489b00d5d104a45a00513316a32d3e4';
 
   private loadSdk(): Promise<AgoraSdk> {
     if (!this.sdkPromise) {

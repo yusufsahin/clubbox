@@ -1075,9 +1075,140 @@ Not observed in a capture yet. No request or response example is included, becau
 
 ## POST /web_api/search
 
-App endpoint key: `search_users`.
+Seen when: smoke-open.
 
-Not observed in a capture yet. No request or response example is included, because none was recorded.
+Hint match (not proof): Open search; Search a user; Search: people tab and the add-friends section.
+
+### Request
+
+- `query`: string
+- `limit_to_object_types`: array<string>
+
+```json
+{
+  "query": "yu",
+  "limit_to_object_types": [
+    "LiveChannel",
+    "Replay",
+    "SegmentTranscription",
+    "SocialClub",
+    "UserProfile"
+  ]
+}
+```
+
+### Response
+
+- `success`: boolean
+- `items`: array<object>
+  - `logging_context`: object
+    - `query`: string
+    - `search_rank`: number
+    - `query_id`: string
+    - `entity`: string
+    - `entity_id`: string
+    - `result_object_id`: string
+    - `type`: number
+    - `other_user_id`: string
+    - `search_tab`: number
+  - `user`: object
+    - `user_id`: string
+    - `name`: string
+    - `photo_url`: string
+    - `username`: string
+    - `bio`: string
+    - `twitter`: null
+    - `follows_me`: boolean
+    - `can_wave`: boolean
+
+```json
+{
+  "success": true,
+  "items": [
+    {
+      "logging_context": {
+        "query": "yu",
+        "search_rank": 0,
+        "query_id": "<redacted>",
+        "entity": "user",
+        "entity_id": "<id>",
+        "result_object_id": "UserProfile-<redacted>",
+        "type": 2,
+        "other_user_id": "<id>",
+        "search_tab": -1
+      },
+      "user": {
+        "user_id": "<id>",
+        "name": "user_1",
+        "photo_url": "user_3",
+        "username": "user_2",
+        "bio": "Deneyen,Girişimci,IT Danışmanı ve Eğitmen\n—\nDene,Hata yap,Öğren,İlerle\n—\nVolunta…",
+        "twitter": null,
+        "follows_me": true,
+        "can_wave": true
+      }
+    },
+    {
+      "logging_context": {
+        "query": "yu",
+        "search_rank": 1,
+        "query_id": "<redacted>",
+        "entity": "channel",
+        "entity_id": "<id>",
+        "result_object_id": "LiveChannel-56997353",
+        "type": 2,
+        "channel_id": "<id>",
+        "search_tab": -1,
+        "is_replay": false
+      },
+      "channel": {
+        "creator_user_profile_id": "<id>",
+        "channel_id": "<id>",
+        "channel": "M85LKEDm",
+        "language": null,
+        "topic": "Yuting's live room",
+        "show_lock": false,
+        "url": "https://www.clubhouse.com/room/M85LKEDm?utm_medium=ch_room_t&utm_campaign=nuBblL0zLJaRQmEljazl7A-2511489&chs=p7wCwqOZoJ%3AvdywmOKFY0jymA5rdTtX3uu_IUh-D1Oew1pYfSsoUxQ",
+        "feature_flags": [
+          "AGORA_AUDIO_PROFILE_MUSIC_STANDARD_STEREO",
+          "MUSIC_STANDARD_STEREO"
+        ],
+        "club": null,
+        "num_speakers": 1,
+        "num_all": 1,
+        "is_nsfw": false,
+        "users": [
+          {
+            "user_id": "<id>",
+            "name": "user_672",
+            "photo_url": "user_673",
+            "is_speaker": true,
+            "is_moderator": true,
+            "time_joined_as_speaker": "<redacted>T09:08:54.100572+00:00"
+          }
+        ],
+        "is_handraise_enabled": false,
+        "is_handraise_available": false,
+        "is_topics_available": false,
+        "is_automatic_speaker_approval_available": true,
+        "handraise_permission": 0,
+        "is_private": false,
+        "is_social_mode": false,
+        "welcome_for_user_profile": null,
+        "is_club_member": false,
+        "is_club_admin": false,
+        "is_club_follower": false,
+        "is_club_pending_accept": false,
+        "is_pending_accept_club_rules": false
+      }
+    }
+  ]
+}
+```
+
+Status codes seen: 200.
+
+App endpoint key: `search_users`. Configured method: POST.
 
 ## POST /web_api/become_speaker
 
@@ -1105,7 +1236,7 @@ Not observed in a capture yet. No request or response example is included, becau
 
 ## GET /web_api/get_edge_stories
 
-Seen in a capture. The checklist did not label the click.
+Seen when: smoke-open.
 
 ### Request
 
@@ -1356,9 +1487,9 @@ App endpoint key: `get_conversations`. Configured method: POST.
 
 ## POST /web_api/get_group_suggested_invites
 
-Seen in a capture. The checklist did not label the click.
+Seen when: smoke-open.
 
-Hint match (not proof): Invite a listener.
+Hint match (not proof): Invite a listener; Messages: new message, then scroll the friend picker; In a room: share, then invite people.
 
 ### Request
 
@@ -1390,7 +1521,7 @@ App endpoint key: `get_group_suggested_invites`. Configured method: POST.
 
 ## POST /web_api/get_conversation
 
-Seen in a capture. The checklist did not label the click.
+Seen when: smoke-open.
 
 Hint match (not proof): Open a DM.
 
@@ -2133,6 +2264,36 @@ Status codes seen: 200.
 
 App endpoint key: `get_feed_v3`. Configured method: POST.
 
+## POST /web_api/mark_conversation_segment_listened
+
+Seen when: smoke-open.
+
+### Request
+
+- `conversation_id`: string
+- `segment_id`: string
+
+```json
+{
+  "conversation_id": "eff8a79c-dedb-4897-be8a-f3cb39396bfd",
+  "segment_id": "<redacted>#<redacted>"
+}
+```
+
+### Response
+
+- `success`: boolean
+
+```json
+{
+  "success": true
+}
+```
+
+Status codes seen: 200.
+
+App endpoint key: `mark_conversation_segment_listened`. Configured method: POST.
+
 ## Captured paths the app does not call yet
 
 ## POST /web_api/send_conversation_emoji_reaction
@@ -2177,4 +2338,4 @@ Status codes seen: 400.
 
 ## Checklist coverage
 
-- `smoke-open`: POST /web_api/create_channel (200); POST /web_api/get_conversations (200); POST /web_api/get_create_channel_targets (200); POST /web_api/get_feed_v3 (200); POST /web_api/me (200); POST /web_api/record_action_trails (200)
+- `smoke-open`: GET /web_api/get_edge_stories (200); POST /web_api/create_channel (200); POST /web_api/get_conversation (200); POST /web_api/get_conversations (200); POST /web_api/get_create_channel_targets (200); POST /web_api/get_feed_v3 (200); POST /web_api/get_group_suggested_invites (200); POST /web_api/mark_conversation_segment_listened (200); POST /web_api/me (200); POST /web_api/record_action_trails (200); POST /web_api/search (200)

@@ -55,12 +55,12 @@ If a list name is only `in-bundle, not observed`, leave it. Do not add a button 
 - `guest_leave_channel` — in-bundle, not observed
 - `join_channel` — configured
 - `leave_channel` — configured
-- `mark_conversation_segment_listened` — in-bundle, not observed
+- `mark_conversation_segment_listened` — observed
 - `me` — observed
 - `record_action_trails` — in-bundle, not observed
 - `record_guest_action_trails` — in-bundle, not observed
 - `resend_phone_number_auth` — in-bundle, not observed
-- `search` — configured
+- `search` — observed
 - `send_channel_message` — configured
 - `send_conversation_emoji_reaction` — in-bundle, not observed
 - `send_social_club_message` — in-bundle, not observed

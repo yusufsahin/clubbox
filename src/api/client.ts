@@ -79,10 +79,9 @@ const DEFAULT_CONFIG: ClubhouseConfig = {
   deviceId: 'clubbox-' + Math.random().toString(36).substring(2, 12),
   appBuild: '1038754',
   appVersion: '26.10.01',
-  // Public Agora app id used by the Clubhouse clients. Confirm the response field
-  // in docs/api/web-api.md (join_channel → Agora) after `npm run api:record`.
-  // Until a capture names that field, this stays a default and settings can override it.
-  agoraAppId: '938de3e8055e42b281bb8c6f69c21f78',
+  // Web bundle agora.key in /_next/static/chunks/2g12grilkkngb.js, the fallback
+  // after NEXT_PUBLIC_AGORA_KEY. The previous default was not that literal.
+  agoraAppId: '3489b00d5d104a45a00513316a32d3e4',
   useSandbox: true, // Default to sandbox so user can explore right away
   webSession: false,
   language: 'en',
@@ -93,7 +92,10 @@ const DEFAULT_CONFIG: ClubhouseConfig = {
 
 const CONFIG_KEY = 'clubbox_config';
 const LEGACY_CONFIG_KEY = 'clubdeck_config';
-const STALE_AGORA_APP_ID = '938d3d95b5764796b3204b67d233436e';
+const STALE_AGORA_APP_IDS = new Set([
+  '938d3d95b5764796b3204b67d233436e',
+  '938de3e8055e42b281bb8c6f69c21f78',
+]);
 
 function readStorage(key: string): string | null {
   try {
@@ -523,13 +525,13 @@ export class ClubhouseApiClient {
       ...parsedSaved,
       ...customConfig,
     };
-    if (this.config.agoraAppId === STALE_AGORA_APP_ID) {
+    if (STALE_AGORA_APP_IDS.has(this.config.agoraAppId)) {
       this.config.agoraAppId = DEFAULT_CONFIG.agoraAppId;
     }
     if (this.config.language !== 'en' && this.config.language !== 'tr') {
       this.config.language = 'en';
     }
-    if ((parsedSaved.appBuild && !clientIsCurrent) || parsedSaved.agoraAppId === STALE_AGORA_APP_ID) {
+    if ((parsedSaved.appBuild && !clientIsCurrent) || STALE_AGORA_APP_IDS.has(parsedSaved.agoraAppId ?? '')) {
       writeConfig(this.config);
     }
 

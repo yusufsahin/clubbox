@@ -15,3 +15,19 @@ No PubNub HTTP calls captured yet.
 No Agora token-refresh endpoint was captured. The app does not invent one. When live audio fails to connect, it says so and asks you to leave and join again after that request is recorded.
 
 No Agora URLs captured yet. The app id, channel, and uid keys are recorded on `join_channel` in `web-api.md` when that response includes them.
+
+## From the web bundle
+
+This section is the homepage scripts only. Room pages load more chunks later. Nothing here is a captured request.
+
+Agora `createClient({mode, codec})` was not in the scanned scripts. The SDK chunk is not on the homepage.
+
+Agora app id: found in `/_next/static/chunks/2g12grilkkngb.js` (`NEXT_PUBLIC_AGORA_KEY`, falling back to the `agora.key` literal). The value is not copied into this file.
+
+PubNub origin in the bundle: `clubhouse.pubnubapi.com`. Publish and subscribe key names are present; the key values are not copied here.
+
+PubNub message types the room UI parses: `channel_message`, `channel_reaction`.
+
+- `channel_message` keys read by the ticker: `message_id`, `from_user_id`, `from_name`, `from_photo_url`, `message`, `message_type`, `time_received`.
+- `channel_reaction` keys read by the ticker: `message_id`, `action_user_profile` (`id`, `name`, `photo_url`), `message`, `message_type`, `time_received`, `reaction`, `target_user_profile`.
+- The subscribe channel name is not in the homepage scripts.

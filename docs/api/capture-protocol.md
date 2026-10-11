@@ -16,6 +16,20 @@ After each session: `npm run api:docs`. Read `docs/api/*.md` for anything that s
 
 Press Start on the matching checklist row before each step, then Done when that step is finished. Ctrl+Shift+M drops a timestamp marker.
 
+### S1 — Host on web (solo)
+
+Host a room on the web with replays on and chat on. Friends of friends is fine. Stay 90 seconds so a ping or PubNub heartbeat can appear. Send one room chat message. Change the room title. End the room, or leave if there is no end button. Label each step in the overlay (S1).
+
+### S2 — Listen on web (solo)
+
+In the hallway, open a public room that shows replays on, or paste a room link into “Open” (only `https://www.clubhouse.com/...`). Wait 60 seconds. Send a reaction if the page offers one. Leave. The interesting result is whether the page calls `web_listener_join` or `join_channel`.
+
+### S3 — Replay (solo)
+
+Open one replay from a profile or a house and play it for 30 seconds.
+
+If the page says to open the room in the Clubhouse app, write that down. That is a valid result. Sessions B and C stay as written below.
+
 ### Session E — profile graph (1 person, web)
 
 Record the request body the web client actually sends. Do not assume `/web_api/follow` or an unfollow path. `get_profile` is already observed. Add a route only after a body shows up in the capture.
@@ -56,6 +70,20 @@ Leave the recorder open for all of sessions B and C. It should capture websocket
 3. Yalnızken kapalı bir oda aç, sonra bitir.
 
 Her adımdan önce listedeki satırda Start’a, bitince Done’a bas. Ctrl+Shift+M bir zaman damgası bırakır.
+
+### S1 — Web’de oda aç (tek kişi)
+
+Tekrarlar ve sohbet açık bir oda aç. Arkadaşların arkadaşları yeterli. Ping veya PubNub kalp atışı görünsün diye 90 saniye kal. Bir oda sohbeti gönder. Oda başlığını değiştir. Odayı bitir; bitirme yoksa çık. Her adımı kaplamadaki S1 satırında işaretle.
+
+### S2 — Web’de dinle (tek kişi)
+
+Koridorda tekrarları açık görünen herkese açık bir oda aç, ya da oda bağlantısını “Open” alanına yapıştır (yalnızca `https://www.clubhouse.com/...`). 60 saniye bekle. Sayfa tepki sunuyorsa bir tepki gönder. Çık. Önemli olan sayfanın `web_listener_join` mi yoksa `join_channel` mi çağırdığı.
+
+### S3 — Tekrar (tek kişi)
+
+Bir profil veya kulüpten bir tekrar aç ve 30 saniye oynat.
+
+Sayfa odayı Clubhouse uygulamasında açmanı söylüyorsa bunu yaz. Bu da geçerli bir sonuçtur. B ve C oturumları aşağıdaki gibi durur.
 
 ### Oturum E — profil grafiği (tek kişi, web)
 

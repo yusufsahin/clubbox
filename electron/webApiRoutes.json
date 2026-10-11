@@ -50,7 +50,7 @@
   "search_users": {
     "path": "/web_api/search",
     "method": "POST",
-    "evidence": "configured-unverified",
+    "evidence": "observed",
     "mutation": false
   },
   "accept_speaker_invite": {
@@ -107,6 +107,11 @@
   },
   "get_feed_v3": {
     "path": "/web_api/get_feed_v3",
+    "method": "POST",
+    "evidence": "observed"
+  },
+  "mark_conversation_segment_listened": {
+    "path": "/web_api/mark_conversation_segment_listened",
     "method": "POST",
     "evidence": "observed"
   },
@@ -222,11 +227,6 @@
   },
   "guest_leave_channel": {
     "path": "/web_api/guest_leave_channel",
-    "method": "POST",
-    "evidence": "in-bundle"
-  },
-  "mark_conversation_segment_listened": {
-    "path": "/web_api/mark_conversation_segment_listened",
     "method": "POST",
     "evidence": "in-bundle"
   },
