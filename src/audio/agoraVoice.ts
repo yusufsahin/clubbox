@@ -26,7 +26,7 @@ export class AgoraVoiceEngine {
   private nativeMuteSignalling = false;
 
   // Same default as ClubhouseConfig.agoraAppId. See docs/api/realtime.md.
-  public appId: string = '3489b00d5d104a45a00513316a32d3e4';
+  public appId: string = '938de3e8055e42b281bb8c6f69c21f78';
 
   private loadSdk(): Promise<AgoraSdk> {
     if (!this.sdkPromise) {

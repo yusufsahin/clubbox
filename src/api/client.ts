@@ -100,7 +100,8 @@ const DEFAULT_CONFIG: ClubhouseConfig = {
   appVersion: '26.10.01',
   // Web bundle agora.key in /_next/static/chunks/2g12grilkkngb.js, the fallback
   // after NEXT_PUBLIC_AGORA_KEY. The previous default was not that literal.
-  agoraAppId: '3489b00d5d104a45a00513316a32d3e4',
+  // Production key from the clubhouse.com bundle (config block with a live Stripe key). Room tokens are issued for it.
+  agoraAppId: '938de3e8055e42b281bb8c6f69c21f78',
   useSandbox: true, // Default to sandbox so user can explore right away
   webSession: false,
   language: 'en',
@@ -118,7 +119,8 @@ const CONFIG_KEY = 'clubbox_config';
 const LEGACY_CONFIG_KEY = 'clubdeck_config';
 const STALE_AGORA_APP_IDS = new Set([
   '938d3d95b5764796b3204b67d233436e',
-  '938de3e8055e42b281bb8c6f69c21f78',
+  // Dev/staging key from the same bundle; it was picked by mistake because it is the first config block.
+  '3489b00d5d104a45a00513316a32d3e4',
 ]);
 
 function readStorage(key: string): string | null {

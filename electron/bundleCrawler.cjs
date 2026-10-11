@@ -13,6 +13,10 @@ const {
 } = require('./bundleScan.cjs');
 const { outputHasLeak } = require('./redact.cjs');
 
+// Bump when extraction logic changes so an existing cache for the same Clubhouse build is re-analyzed.
+// 2: production config block (live Stripe key) instead of the first (dev) block for Agora/PubNub keys.
+const EXTRACTOR_VERSION = 2;
+
 const PAGE_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 const MAX_CHUNKS = 200;
 const MIN_GAP_MS = 1000;
@@ -220,7 +224,7 @@ function createBundleCrawler(options) {
     }
 
     const meta = readJson(metaPath, {});
-    if (meta.buildId === buildId && meta.complete && !input.force) {
+    if (meta.buildId === buildId && meta.complete && meta.extractorVersion === EXTRACTOR_VERSION && !input.force) {
       return { ok: true, reason: 'cache_hit', buildId, chunks: meta.chunks || 0 };
     }
 
@@ -284,7 +288,7 @@ function createBundleCrawler(options) {
     const realtime = aggregateRealtime(scripts);
     const payload = { scripts, realtime, buildId, crawledAt: new Date(now()).toISOString() };
     writeJsonChecked(callsitePath, payload);
-    writeJsonChecked(metaPath, { buildId, complete: true, chunks: chunkPaths.length });
+    writeJsonChecked(metaPath, { buildId, complete: true, chunks: chunkPaths.length, extractorVersion: EXTRACTOR_VERSION });
     promoteRoutesWithBodies(routesPath, scripts);
 
     const report = discoveryReport(scripts, realtime);

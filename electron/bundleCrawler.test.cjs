@@ -91,6 +91,55 @@ test('secret values never land outside realtime-config.json', async () => {
   assert.match(reportDoc, /PubNub channel templates/);
 });
 
+test('a cache written by an older extractor is re-crawled for the same build', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'clubbox-crawl-ver-'));
+  const userData = path.join(root, 'userData');
+  const projectRoot = path.join(root, 'project');
+  fs.mkdirSync(path.join(projectRoot, 'electron'), { recursive: true });
+  fs.mkdirSync(path.join(projectRoot, 'api-captures'), { recursive: true });
+  fs.writeFileSync(path.join(projectRoot, 'electron', 'webApiRoutes.json'), '{}\n');
+  fs.mkdirSync(path.join(userData, 'bundle-cache'), { recursive: true });
+  // Same build id, but written before extractorVersion existed (it picked the dev keys).
+  fs.writeFileSync(path.join(userData, 'bundle-cache', 'meta.json'), JSON.stringify({ buildId: 'buildAbc123XYZ', complete: true, chunks: 2 }));
+
+  const files = new Map([
+    ['https://www.clubhouse.com/', homeHtml],
+    ['https://www.clubhouse.com/_next/static/buildAbc123XYZ/_buildManifest.js', manifest],
+    ['https://www.clubhouse.com/_next/static/chunks/fixture-room.js', roomChunk],
+    ['https://www.clubhouse.com/_next/static/chunks/webpack.js', 'console.log("webpack");'],
+  ]);
+  const crawler = createBundleCrawler({
+    userDataPath: userData,
+    projectRoot,
+    sleepFn: async () => {},
+    fetchFn: async (url) => {
+      const body = files.get(url);
+      if (body == null) return { ok: false, status: 404, text: async () => '' };
+      return { ok: true, status: 200, text: async () => body };
+    },
+  });
+  const first = await crawler.crawl();
+  assert.equal(first.reason, 'crawled');
+  const second = await crawler.crawl();
+  assert.equal(second.reason, 'cache_hit');
+});
+
+test('extractSecrets picks the production config block, not the first (dev) one', () => {
+  // The clubhouse.com bundle ships dev, staging and production config objects in that order.
+  // Production is the block with a live Stripe key; .match() alone returns the dev block.
+  const block = (stripe, pub, sub, agora) =>
+    `stripe:{publishableKey:"${stripe}"},pubnub:{origin:"clubhouse.pubnubapi.com",publish:"${pub}",subscribe:"${sub}"},agora:{key:"${agora}"},giphy:{apiKey:"x"}`;
+  const chunk = [
+    block('pk_test_dev', 'pub-c-dev-0001', 'sub-c-dev-0001', '11111111111111111111111111111111'),
+    block('pk_test_stage', 'pub-c-stage-0001', 'sub-c-stage-0001', '22222222222222222222222222222222'),
+    block('pk_live_prod', 'pub-c-prod-0001', 'sub-c-prod-0001', '33333333333333333333333333333333'),
+  ].join(',');
+  const secrets = extractSecrets(chunk);
+  assert.equal(secrets.agoraAppId, '33333333333333333333333333333333');
+  assert.equal(secrets.pubnubPublishKey, 'pub-c-prod-0001');
+  assert.equal(secrets.pubnubSubscribeKey, 'sub-c-prod-0001');
+});
+
 test('extractSecrets reports env key names without writing them', () => {
   const secrets = extractSecrets(roomChunk);
   assert.ok(secrets.envKeys.includes('NEXT_PUBLIC_AGORA_KEY'));

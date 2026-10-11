@@ -180,9 +180,28 @@ function extractPubNubTemplates(source) {
  * Secret and env values pulled from a chunk. Callers must write values only to
  * userData/realtime-config.json — never to docs, logs, or git-tracked files.
  */
+/**
+ * The clubhouse.com bundle ships one config object per environment (dev, staging, production), in that
+ * order. Production is the block whose Stripe key is live; take the PubNub/Agora values from that block.
+ */
+function productionConfigBlock(text) {
+  const blocks = [...text.matchAll(/stripe:\{publishableKey:"(pk_(?:live|test)_[^"]*)"\},pubnub:\{origin:"[^"]*",publish:"(pub-c-[A-Za-z0-9-]+)",subscribe:"(sub-c-[A-Za-z0-9-]+)"\},agora:\{key:"([A-Fa-f0-9]{32})"\}/g)];
+  const live = blocks.find((block) => block[1].startsWith('pk_live_'));
+  return live ? { publish: live[2], subscribe: live[3], agora: live[4] } : null;
+}
+
 function extractSecrets(source) {
   const text = typeof source === 'string' ? source : '';
   const envKeys = [...new Set([...text.matchAll(/\b(NEXT_PUBLIC_[A-Z0-9_]+)\b/g)].map((m) => m[1]))].sort();
+  const production = productionConfigBlock(text);
+  if (production) {
+    return {
+      envKeys,
+      agoraAppId: production.agora,
+      pubnubPublishKey: production.publish,
+      pubnubSubscribeKey: production.subscribe,
+    };
+  }
   const agora = text.match(/NEXT_PUBLIC_AGORA_KEY["'\s:=]+["']([A-Fa-f0-9]{32})["']/)
     || text.match(/agora\s*[:=]\s*\{\s*key\s*:\s*["']([A-Fa-f0-9]{32})["']/);
   const pub = text.match(/(?:publishKey|publish_key|PUBLISH_KEY)["'\s:=]+["'](pub-c-[A-Za-z0-9-]+)["']/i)
