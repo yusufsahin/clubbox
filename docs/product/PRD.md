@@ -177,6 +177,25 @@ These appear in `create_channel` / `me` responses (`user_capabilities`, `channel
 | DX-14 | Highlights (`get_highlight`, `are_highlights_enabled`) | Play like replays (GET path `{id}`) | P3 |
 | DX-15 | Clubhouse Talk (`talk/*` paid advisor calls) | Out of scope (payments) | Won't |
 
+### 4.9 Navigation (see NAVIGATION.md)
+
+| ID | Feature | HC | CD | Today | Evidence | Priority |
+| --- | --- | --- | --- | --- | --- | --- |
+| NAV-1 | Sidebar with only the agreed sections (Hallway, Discover, Messages, Activity, Soundboard, Recordings) | | | ❌ | — | P1 |
+| NAV-2 | Friends/Houses/Events/API&Config moved to Discover, Activity and Settings | | | ❌ | — | P1 |
+| NAV-3 | One "Start a room" entry (top bar) + Ctrl+N | | | ❌ | — | P1 |
+| NAV-4 | Room is a context: header keeps the current page; cockpit + "Now in" card | | | ❌ | — | P1 |
+| NAV-5 | Minimize returns to the previous page | | | ❌ | — | P1 |
+| NAV-6 | Router with Back/Forward (Alt+←/→, mouse buttons), breadcrumbs, Esc closes top layer | | | ❌ | — | P1 |
+| NAV-7 | Exactly one active indicator (avatar for profile/settings) | | | ❌ | — | P1 |
+| NAV-8 | Per-section state kept (scroll, tab, open item) | | | ❌ | — | P2 |
+| NAV-9 | Badges only for attention (unread, live) | | | ❌ | — | P1 |
+| NAV-10 | Settings split: General, Audio, Shortcuts, Account, Privacy & recording, Advanced | | | ❌ | — | P1 |
+| NAV-11 | Global search + paste clubhouse.com link (Ctrl+K) | | | ❌ | — | P1 |
+| NAV-12 | Section shortcuts Ctrl+1…5, Ctrl+, | | | ❌ | — | P2 |
+| NAV-13 | No duplicated page titles | | | ❌ | — | P2 |
+| NAV-14 | No placeholder "??" toast icons | | | ❌ | — | P1 |
+
 ### 4.7 Won't do (and why)
 
 | Item | Reason |

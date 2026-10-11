@@ -16,7 +16,7 @@ export function parsePrdCatalog(text) {
   const items = new Map();
   for (const line of text.split(/\r?\n/)) {
     const match = line.match(
-      /^\|\s*((?:ACC|HAL|RL|RH|ST|SO|DX)-\d+)\s*\|\s*([^|]+)\|\s*([^|]*)\|\s*([^|]*)\|\s*([^|]*)\|\s*([^|]*)\|\s*([^|]+)\|/,
+      /^\|\s*((?:ACC|HAL|RL|RH|ST|SO|DX|NAV)-\d+)\s*\|\s*([^|]+)\|\s*([^|]*)\|\s*([^|]*)\|\s*([^|]*)\|\s*([^|]*)\|\s*([^|]+)\|/,
     );
     if (match) {
       // Standard 7-column catalog rows (HC, CD, Today, Evidence, Priority)
@@ -65,7 +65,7 @@ export function parseFeatureScenarios(featuresDir) {
       const ids = [];
       for (const tag of tags) {
         const id = tag.replace(/^@/, '');
-        if (/^(?:ACC|HAL|RL|RH|ST|SO|DX)-\d+$/.test(id)) ids.push(id);
+        if (/^(?:ACC|HAL|RL|RH|ST|SO|DX|NAV)-\d+$/.test(id)) ids.push(id);
       }
       for (const id of ids) {
         const list = byId.get(id) ?? [];
