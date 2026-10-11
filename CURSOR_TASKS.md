@@ -6,7 +6,7 @@ _Last reviewed: 2026-10-11. “Uygulandı” means the code is in the tree. “C
 
 ### Next run (owner instruction, 2026-10-12 #7)
 
-Soundboard and in-room settings belong in the room (owner review). Do Phase 18 at the end of this file:
+All checklist items below are done. No open Status-table task remains except ST-9 (deferred).
 - [x] 18.1 room bar + Sounds panel + Reactions popover; remove the Soundboard place
 - [x] 18.2 Room details: About · Audio · Moderation · Audience search; clean the stage page
 - [x] 18.3 Settings › Sounds; remove voice effect / spatial audio from Settings; NAV-1 + NAV-9 (four places)
@@ -15,13 +15,14 @@ Soundboard and in-room settings belong in the room (owner review). Do Phase 18 a
 - [x] Phase 19 — profiles: actions (Message any time, Talk live, follow labels, Share) and sections (houses, recently chatting, links, in a room now, mutual lists, private profile)
 - [x] Phase 21 — live reliability FIRST after Phase 19: crawler for signed-in users + no writes into the app (21.1), no silent realtime/audio failures + Connection status (21.2), unread-summary 400 + housekeeping (21.3)
 - [x] Phase 20 — external audio into the room (second input, system audio on Windows, auto-duck), no virtual cable needed
+- [x] api:triage (no new failures); PRD Today column synced for Phases 18–20
+
 ### Last autonomous run (2026-10-12)
 
-- Done: Phase 20 — external audio (ST-11). Phase 21 was already done earlier this day.
-- 20.1 External channel in AudioEngine (no AEC/NS/AGC, broadcast + record, monitor opt-in); Room details › Audio UI; music-quality offer; copyright reminder; prefs persist device.
-- 20.2 Auto-duck envelope (−12 dB, ~80 ms / ~500 ms); Windows loopback via setDisplayMediaRequestHandler; echo guard; Settings › Audio virtual-cable guide.
-- Tests: npm test 193 scenarios / 1118 steps (+ unit); e2e 12/12 (External audio section visible for speaker). Still @pending: ST-9 deferred only.
-- Questions for the owner: none.
+- Done: Autonomous plan idle — Status table complete through Phase 21; triage clean; PRD catalog Today synced (RH-13…15, ST-10, NAV-*, SO-7).
+- Blocked / deferred: ST-9 Restream RTMP (`@pending @deferred` in audio_studio.feature) until the owner schedules it.
+- Tests: last green run 193 scenarios / 1118 steps; e2e 12/12 (Phase 20).
+- Questions for the owner: none. Schedule ST-9 or add a new phase when you want more work.
 
 
 ## Status
@@ -32,7 +33,7 @@ Legend: **Uygulandı** = code is in the tree. **Canlı doğrulandı** = exercise
 | --- | --- | --- |
 | 1 | **0.7 Review fixes (2026-10-11 #2)** — navigation guard, packaged recorder, clip worklet path, auto-armed clip buffer, 429/visibility, CORS proxy token leak | Uygulandı |
 | 1b | **0.8 Followers / following / friends lists** — bundle scan + labeled UI hunt; live UI uses only counts + mutual lists | Uygulandı for counts, mutual names, and chat people. The public web bundle does not contain get_followers, get_following, or get_online_friends. get_friend_zone_match and get_social_club_members are in-bundle and not called. The labeled click-through still needs a signed-in session. |
-| 0 | **Autonomous plan** (see `.cursor/rules/clubbox.mdc`): 10.1 → 11.8 (warn mode) → 10.2 → 10.5 → 11.0 → 11.1 → 11.2 → 11.3 → 11.4 → 10.4 → 11.5 → 11.6 → 11.7 → 11.9 → 11.10 → 11.8 (strict). Acceptance files: account, hallway, room_listener, room_realtime, room_host, room_moderation, audio_studio, studio, social, messages, houses_events_replays, api_health. Requirements: `docs/product/PRD.md`; design + gap list G-01…G-18: `docs/product/DESIGN.md`; acceptance: `features/*.feature` | **Done** through Phase 12–**21** (Phase 20 ST-11 external audio). Pending @feature: ST-9 deferred only. |
+| 0 | **Autonomous plan** (see `.cursor/rules/clubbox.mdc`): 10.1 → 11.8 (warn mode) → 10.2 → 10.5 → 11.0 → 11.1 → 11.2 → 11.3 → 11.4 → 10.4 → 11.5 → 11.6 → 11.7 → 11.9 → 11.10 → 11.8 (strict). Acceptance files: account, hallway, room_listener, room_realtime, room_host, room_moderation, audio_studio, studio, social, messages, houses_events_replays, api_health. Requirements: `docs/product/PRD.md`; design + gap list G-01…G-18: `docs/product/DESIGN.md`; acceptance: `features/*.feature` | **Idle** — Phases 12–21 done. Only ST-9 Restream remains `@deferred`. |
 | — | **10.1** / **10.2** / **10.4** / **10.5** / **11.0** / **11.8 (warn)** | Uygulandı |
 | 1c | **0.9 / 12.2 Verified by use** — request log + in-app triage (no recorder) | Uygulandı. Verified by use: endpoints the owner exercises become `observed` via userData `api-log` + startup triage / `npm run api:triage` (list grows with normal use). |
 | 2 | **0.6 Community Guidelines risk** — hidden reCAPTCHA sign-in, polling, recording, distribution | Uygulandı (code). Sign-in is a visible clubhouse.com window, polling pauses when the window is hidden, recording is opt-in, and there is no publish config. A public release is still your decision. |
