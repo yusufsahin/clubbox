@@ -1,0 +1,9 @@
+{
+  "success": true,
+  "user_profile": {
+    "user_id": 42,
+    "name": "Test User",
+    "username": "testuser",
+    "photo_url": null
+  }
+}

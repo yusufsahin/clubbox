@@ -1,0 +1,19 @@
+{
+  "success": true,
+  "channel": "abc123",
+  "topic": "Tech Talk",
+  "token": "agora_rtc_token_fixture",
+  "pubnub_token": "pubnub_token_fixture",
+  "pubnub_origin": "clubhouse.pubnubapi.com",
+  "users": [
+    {
+      "user_id": 1,
+      "name": "Host",
+      "username": "host",
+      "is_speaker": true,
+      "is_moderator": true
+    }
+  ],
+  "num_speakers": 1,
+  "num_all": 1
+}

@@ -12,7 +12,7 @@ Legend: **Uygulandı** = code is in the tree. **Canlı doğrulandı** = exercise
 | --- | --- | --- |
 | 1 | **0.7 Review fixes (2026-10-11 #2)** — navigation guard, packaged recorder, clip worklet path, auto-armed clip buffer, 429/visibility, CORS proxy token leak | Uygulandı |
 | 1b | **0.8 Followers / following / friends lists** — bundle scan + labeled UI hunt; live UI uses only counts + mutual lists | Uygulandı for counts, mutual names, and chat people. The public web bundle does not contain get_followers, get_following, or get_online_friends. get_friend_zone_match and get_social_club_members are in-bundle and not called. The labeled click-through still needs a signed-in session. |
-| 0 | **Phase 10 Hybrid evidence + BDD/TDD + R1** — PRD in docs/product/PRD.md, acceptance in features/*.feature. Order 10.1 → 10.2 → 10.3 → 10.4 | 🆕 Do next. Bundle/community routes no longer wait for a capture |
+| 0 | **Autonomous plan** (see `.cursor/rules/clubbox.mdc`): 10.1 → 10.2 → 10.5 → 11.0 → 11.1 → 11.2 → 11.3 → 11.4 → 10.4 → 11.5 → 11.6 → 11.7. Requirements: `docs/product/PRD.md`; design + gap list G-01…G-18: `docs/product/DESIGN.md`; acceptance: `features/*.feature` | 🆕 Do next. Task 10.3 is superseded by 11.2–11.4 |
 | 1c | **0.9 Real room capture** — recorder misses clubhouse.pubnubapi.com, bundle scan saw 1 chunk, corrected smoke test (replays ON) | Steps 1–2 are in. S1–S3 still need a signed-in capture. |
 | 2 | **0.6 Community Guidelines risk** — hidden reCAPTCHA sign-in, polling, recording, distribution | Uygulandı (code). Sign-in is a visible clubhouse.com window, polling pauses when the window is hidden, recording is opt-in, and there is no publish config. A public release is still your decision. |
 | 3 | **0.5 Capture gaps** — labeled sessions, two-party protocol, evidence sync, room smoke test | `create_channel` is observed for a friends-of-friends room with chat and replays off (`source` 14). Join, leave, ping, and room chat are still not in a capture. |
@@ -26,7 +26,7 @@ Legend: **Uygulandı** = code is in the tree. **Canlı doğrulandı** = exercise
 
 ```
 Project: Clubbox (formerly "Clubdeck Next-Gen") — unofficial Clubhouse desktop studio. Not affiliated with Clubhouse or with the separate clubdeck.app product. Personal, non-commercial use until the owner decides otherwise (see Task 0.6).
-Stack: Electron 44, Vite 8, TypeScript 6, vanilla DOM (no framework), agora-rtc-sdk-ng 4.x, Web Audio API, electron-builder. Tests: node --test (npm run test:redact). Lint: npm run lint.
+Stack: Electron 44, Vite 8, TypeScript 6, vanilla DOM (no framework), agora-rtc-sdk-ng 4.x, Web Audio API, electron-builder. Tests: npm test (= test:unit + test:bdd). Lint: npm run lint.
 Key files:
   - src/main.ts                 — ClubboxApp controller (~2300 lines): state, timers, event delegation (data-action), hotkeys, login flow
   - src/ui/views/*.ts, src/ui/components/*.ts — render functions; src/ui/html.ts (html`` escaping, safeUrl), src/ui/avatar.ts
@@ -51,7 +51,7 @@ Rules:
   - Escape every API-controlled string (html``); URLs through safeUrl().
   - Never ask the user for phone numbers, SMS codes or tokens; never write them to files, logs or commits.
   - Respect rate limits; no background polling while the window is hidden (see 0.6/0.7).
-  - npx tsc --noEmit, npm run lint, npm run test:redact and npm run build must pass. Commit after each task.
+  - npx tsc --noEmit, npm run lint, npm test and npm run build must pass. Commit after each task.
 ```
 
 ---
@@ -795,4 +795,125 @@ Make features/studio.feature green.
 5. Hallway keyword filters + highlight + "rooms with friends first" + NSFW toggle (HAL-4), client-side only, persisted in localStorage (try/catch).
 6. Update the PRD catalog "Today" column for every item you finish.
 Acceptance: studio.feature green; the FakeTransport records no new network calls for these features.
+```
+
+
+### Task 10.5 — Self-healing loop: live failures become tests without the owner
+
+```
+Goal: the owner only uses the app. No copying reports, no running the recorder, no pasting into chat.
+
+1. Request log ON by default (Settings toggle stays, default on): every live web_api request writes one redacted JSONL record (endpoint, method, path, status, body KEYS and shapes, response shape, error message, evidence level, app version, timestamp) to <userData>/api-log/YYYY-MM-DD.jsonl. Reuse electron/redact.cjs; run outputHasLeak() before every write and drop the record if it fails. Never store values of tokens, ids, names, phone, email, message text.
+   Rotate: keep 14 days, max 20 MB.
+2. Also log realtime: PubNub message type + key shapes for unknown types; Agora join result (ok/error code only).
+3. `npm run api:triage` (scripts/api-triage.mjs):
+   - reads the api-log folder (path from Electron's userData for app name "Clubbox"; allow CLUBBOX_API_LOG override),
+   - groups failures by endpoint+status+error,
+   - for each NEW group writes tests/live-failures/<endpoint>-<status>.test.ts (a failing contract/behaviour test reproducing the request shape and the failure handling the PRD expects) and a fixture with the redacted response,
+   - for 2xx on bundle/community routes: promotes evidence to observed in electron/webApiRoutes.json and regenerates docs (api:docs),
+   - for unknown PubNub types: appends them to docs/api/realtime.md under "Seen live, not handled",
+   - writes reports/triage.md (gitignored) with a summary; prints "NO NEW FAILURES" when nothing changed.
+   Idempotent: running it twice creates nothing new.
+4. Wire it into the workflow: `npm run api:triage` runs at the start of every autonomous run (see .cursor/rules/clubbox.mdc step 5). Generated tests that are red are fixed like any other TDD item.
+5. Unit tests for the triage script with a fixture log (including a record that contains a fake phone/token to prove it is dropped).
+6. Docs: README section "How live failures are fixed" (one paragraph).
+Acceptance: with the fixture log, api:triage creates the expected test files and promotions, then a second run reports NO NEW FAILURES; no secret ever appears in api-log or generated files.
+```
+
+
+---
+
+## Phase 11 — Design-driven implementation (closes gaps G-01 … G-18)
+
+**Source of truth:** `docs/product/DESIGN.md` (architecture §2, API binding map §3, room state machine §4, realtime §5, crawler §6, error model §7, gap list §8) + `docs/product/PRD.md` + `features/*.feature`. Each task names the gaps it closes; when a gap is closed, change its row in DESIGN.md §8 to "Closed in <commit>". TDD and the rules in `.cursor/rules/clubbox.mdc` apply. Task 10.3 is superseded by 11.2–11.4 (keep its acceptance criteria).
+
+### Task 11.0 — Bundle crawler (G-17)
+
+```
+Implement DESIGN §6 in the main process (electron/bundleCrawler.cjs), reusing electron/bundleScan.cjs.
+1. Read the Next.js build id from the already-loaded clubhouse.com page (or fetch / once), fetch /_next/static/<buildId>/_buildManifest.js, then every chunk it lists. Max 1 request/second, User-Agent of the sign-in window, abort after 200 chunks, cache by build id in userData/bundle-cache/.
+2. Extract per chunk: web_api call sites (name, method, body keys, query keys), PubNub channel name templates and message type strings, Agora createClient options, env key names (NEXT_PUBLIC_*), and the values of NEXT_PUBLIC_AGORA_KEY and the PubNub subscribe/publish keys (values go ONLY to userData/realtime-config.json, never to docs, logs or git).
+3. Merge into api-captures/bundle-callsites.json; api:docs regenerates docs/api/bundle-callsites.md and realtime.md; routes with body keys get evidence "bundle" (never downgrade "observed").
+4. Triggers: after sign-in when the build id differs from the cached one; `npm run api:discover` (runs Electron headless-free with the existing session, or prints "sign in once first").
+5. Unit tests on fixture chunks: call-site extraction, PubNub template extraction, secret values never written outside realtime-config.json (assert with outputHasLeak on all generated files).
+Acceptance: after one run, bundle-callsites.md documents bodies for get_conversation, add_conversation_segment, create_conversation, get_social_club*, get_replay_channel, plus PubNub channel templates — or states precisely which were not found.
+```
+
+### Task 11.1 — Endpoint registry and SandboxTransport (G-14, part of G-15)
+
+```
+DESIGN D1 + D2.
+1. src/api/registry.ts: one typed entry per endpoint {name, path, method, evidence, mutation, buildRequest(params) (validates required keys), map(json) → domain type}. Generate path/method/evidence/mutation from electron/webApiRoutes.json; request/response code lives in the registry.
+2. ApiClient.call(name, params): canCall → breaker/backoff → Transport → map. Keep the existing public methods as thin wrappers for now; delete them in 11.2.
+3. Transports: WebSessionTransport (IPC ch:request), SandboxTransport (answers by endpoint name from sandboxData.ts — move every sandbox* method and if(useSandbox) branch into it), FakeTransport (tests, already from 10.1).
+4. Contract tests now iterate the registry.
+Acceptance: grep -n "useSandbox" src/api/client.ts returns at most the transport selection; all sandbox* public methods are gone; npm test green.
+```
+
+### Task 11.2 — RoomSession state machine + controllers (G-15, G-03 partial)
+
+```
+DESIGN §4 and D5.
+1. src/domain/roomSession.ts: pure next(state, event) → {state, effects}. States: Idle, Joining, Listening, HandRaised, Invited, Speaking, Hosting, Leaving. Events: CREATE_OK, JOIN_OK, JOIN_FAIL, RAISE, LOWER, INVITED, ACCEPT, DECLINE, ROLE_CHANGED, LEAVE, ENDED, AUTH_EXPIRED, TICK. Effects: agoraJoin/role/leave, pubnubSubscribe/unsubscribe, ping start/stop, recording stop/save, api calls.
+   Exhaustive unit tests (table-driven) for every transition, including stale generation handling (existing guards.ts logic moves here).
+2. Effect runner in src/app/roomCtl.ts executes effects via ApiClient, AgoraFacade, RealtimeHub, AudioEngine.
+3. Split main.ts into src/app/{hallwayCtl,roomCtl,messagesCtl,profileCtl,activityCtl,studioCtl,settingsCtl}.ts; ClubboxApp becomes a thin shell (state store + router + render loop). Views stay pure.
+4. room_listener.feature and room_host.feature run against RoomSession + FakeTransport.
+Acceptance: main.ts < 600 lines; all room scenarios that do not need realtime are green.
+```
+
+### Task 11.3 — Room API bindings (G-01, G-02, G-04, G-08, G-10 room part, G-11)
+
+```
+Using the registry:
+1. Composer driven by get_create_channel_targets: privacy options = channel_capabilities keys (public, social, friend_of_friend, friend, closed; club only when the crawler found the club id key), defaults from channel_chat_default_on / is_replay_available / handraise_queue_default; per-type toggles shown only when available. Remove capturedCreateBody's single-combo restriction: build {topic, privacy_level, is_public_room, is_private, is_social_mode, is_replay_enabled, is_chat_enabled, user_ids, topic_ids, source:14} for any allowed choice. Contract test per privacy type.
+2. join_channel / leave_channel / active_ping / audience_reply / become_speaker / send_channel_message / get_channel_messages / emoji_reaction / set_channel_title as bundle routes.
+3. Community (experimental): reject_speaker_invite, invite_speaker, uninvite_speaker, mute_speaker (+ "Mute everyone" = loop excluding me, 1 request/300 ms), make_moderator, block_from_channel, change_handraise_settings, end_channel {channel, channel_id}, make_channel_public/social, invite_to_existing_channel.
+4. Controls render from user_capabilities in the create/join response (can_end_room, can_mute_speakers, can_remove_speakers, can_edit_handraise_queue, can_edit_room_title, can_disable_room_chat, can_post_to_chat, can_invite, can_speak) AND canCall(); hidden when either is false.
+5. Remove @pending from the matching scenarios.
+Acceptance: room_host.feature and room_listener.feature (non-realtime scenarios) green; every control maps to exactly one registry entry.
+```
+
+### Task 11.4 — Realtime hub: PubNub + Agora (G-03, G-06, G-09)
+
+```
+DESIGN §5.
+1. Main-process PubNubClient (REST long-poll subscribe with auth = pubnub_token, origin from the response, heartbeat from pubnub_heartbeat_value/interval, timetoken from pubnub_time_token); IPC events to the renderer; reconnect with backoff; stop on room leave and when the window is hidden > 2 min outside a room.
+2. Channel names and message types from docs/api/realtime.md (crawler, 11.0). Map known types to RoomSession events (chat, reaction, join/leave, hand raise, invite, role change, room ended). Unknown types → API Health (type + key shape only).
+3. ChatStream: PubNub channel_message first; get_channel_messages polling (≥ 15 s, panel open only) when PubNub is unavailable.
+4. Agora: app id from userData/realtime-config.json (crawler) with the code constant only as last fallback + API Health warning; honour agora_native_mute (track mute signalling) in addition to the local gain; lazy-load the SDK.
+5. "Refresh" button (Ctrl+P) re-subscribes and re-reads chat.
+6. FakePubNub in the BDD world; realtime scenarios lose @pending.
+Acceptance: all room scenarios green; with a fixture realtime stream the stage updates without polling get_channel; get_channel is removed from RoomSync.
+```
+
+### Task 11.5 — Hallway, presence, ping, moderation extras (G-07, G-10 rest, G-18 part)
+
+```
+1. hide_channel (community) on room cards; get_online_friends (community) → presence row and "join their room"; ping multi-select picker using get_group_suggested_invites (O) + search, sending invite_to_existing_channel (community).
+2. Hallway keyword filters/highlight, friends-first, NSFW toggle (if not done in 10.4).
+3. Audience search Ctrl+S (if not done in 10.4).
+4. Feature file: features/hallway.feature (write it first: hide room, presence join, ping 3 people, keyword highlight).
+Acceptance: hallway.feature green.
+```
+
+### Task 11.6 — Messages live (G-05)
+
+```
+1. Thread view live: get_conversation (O) → segments with transcription and reactions; mark_conversation_segment_listened (O) when a voice segment finishes.
+2. After 11.0 provides bodies: add_conversation_segment (text and voice), create_conversation (new VM with selected friends), send_conversation_emoji_reaction (fix the 400 with the crawler's body), update_conversation_title, delete_conversation(_segment), get_conversation_unread_summary for the badge.
+3. Voice segments recorded from the broadcast bus (mic processing + optional soundboard), max length per crawler/limits.
+4. features/messages.feature first (open thread, play + mark listened, send text, send voice, react, new VM).
+Acceptance: messages.feature green; no sandbox* calls remain in messagesCtl.
+```
+
+### Task 11.7 — Houses, events, notifications, replays (G-12)
+
+```
+1. Houses (bundle, bodies from 11.0): my houses (get_user_social_clubs), house page (get_social_club), members (get_social_club_members), house chat (get_social_club_messages / thread / send / react / mark read), host a room in a house (create_channel privacy club with the discovered club id key).
+2. Events (community get_events): list, notify, .ics export, copy link; start my event from the composer.
+3. Notifications (community get_notifications) merged with get_edge_stories in Activity; unread badge from me.has_unread_notifications.
+4. Replays (bundle get_replay_channel / _chunk): play saved replays with 1x/1.5x/2x and skip 15 s.
+5. Feature files first: houses.feature, events.feature, activity.feature, replays.feature.
+Acceptance: the four feature files green; PRD catalog rows updated.
 ```

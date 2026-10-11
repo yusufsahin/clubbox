@@ -1,3 +1,4 @@
+import webApiRoutes from '../../electron/webApiRoutes.json' with { type: 'json' };
 import { canCall, evidenceOf, type Evidence, type Transport } from './capabilities';
 import { PEOPLE_LIST_ENDPOINTS, readPeopleList, readProfile, type PeopleListKind, type PeopleListPage } from './relationship';
 import { businessFailure, classifyHttpFailure, nextBackoffMs, type ApiErrorKind } from './guards';
@@ -7,6 +8,40 @@ import type { CHAuthResponse, CHChannel, CHChannelDetail, CHChatMessage, CHConve
 
 const REQUEST_TIMEOUT_MS = 20000;
 const OFFICIAL_WEB_API = 'https://www.clubhouse.com/web_api';
+
+type RouteMeta = { path?: string; method?: string };
+
+/** PRD §2 community routes not yet in webApiRoutes.json (added in Task 10.2). */
+const PRD_ROUTE_FALLBACKS: Record<string, { method: string; path: string }> = {
+  invite_speaker: { method: 'POST', path: '/web_api/invite_speaker' },
+  uninvite_speaker: { method: 'POST', path: '/web_api/uninvite_speaker' },
+  mute_speaker: { method: 'POST', path: '/web_api/mute_speaker' },
+  make_moderator: { method: 'POST', path: '/web_api/make_moderator' },
+  block_from_channel: { method: 'POST', path: '/web_api/block_from_channel' },
+  reject_speaker_invite: { method: 'POST', path: '/web_api/reject_speaker_invite' },
+  invite_to_existing_channel: { method: 'POST', path: '/web_api/invite_to_existing_channel' },
+  end_channel: { method: 'POST', path: '/web_api/end_channel' },
+  make_channel_public: { method: 'POST', path: '/web_api/make_channel_public' },
+  make_channel_social: { method: 'POST', path: '/web_api/make_channel_social' },
+  change_handraise_settings: { method: 'POST', path: '/web_api/change_handraise_settings' },
+  hide_channel: { method: 'POST', path: '/web_api/hide_channel' },
+  get_online_friends: { method: 'POST', path: '/web_api/get_online_friends' },
+  get_notifications: { method: 'GET', path: '/web_api/get_notifications' },
+  get_events: { method: 'GET', path: '/web_api/get_events' },
+};
+
+function routeMeta(endpoint: string): { method: string; path: string } {
+  const route = (webApiRoutes as Record<string, RouteMeta>)[endpoint];
+  if (route?.path && route?.method) {
+    return { method: route.method, path: route.path };
+  }
+  const fallback = PRD_ROUTE_FALLBACKS[endpoint];
+  if (fallback) return fallback;
+  return {
+    method: route?.method ?? 'POST',
+    path: route?.path ?? `/web_api/${endpoint}`,
+  };
+}
 
 function isWebAuthEndpoint(endpoint: string): boolean {
   const name = endpoint.replace(/^\//, '');
@@ -147,6 +182,21 @@ function readSavedConfig(): Partial<ClubhouseConfig> {
 
 export interface RequestBody {
   [key: string]: unknown;
+}
+
+/** Injected HTTP seam for BDD / contract tests — not used in production. */
+export interface ApiTransport {
+  request(input: {
+    endpoint: string;
+    method: string;
+    path: string;
+    body?: RequestBody | null;
+    headers: Record<string, string>;
+  }): Promise<{ ok: boolean; status: number; body: string }>;
+}
+
+export type ClubhouseClientOptions = Partial<ClubhouseConfig> & {
+  transport?: ApiTransport;
 }
 
 interface SandboxInput {
@@ -510,8 +560,11 @@ export class ClubhouseApiClient {
   private suppressAuthExpired = false;
   private backoffMs = new Map<string, number>();
   private blockedUntil = new Map<string, number>();
+  private customTransport: ApiTransport | null = null;
 
-  constructor(customConfig?: Partial<ClubhouseConfig>) {
+  constructor(customConfig?: ClubhouseClientOptions) {
+    const { transport, ...configOverrides } = customConfig ?? {};
+    this.customTransport = transport ?? null;
     const parsedSaved = readSavedConfig();
     const savedBuild = Number(parsedSaved.appBuild);
     const clientIsCurrent = Number.isFinite(savedBuild) && savedBuild >= 1_000_000;
@@ -523,7 +576,7 @@ export class ClubhouseApiClient {
     this.config = {
       ...DEFAULT_CONFIG,
       ...parsedSaved,
-      ...customConfig,
+      ...configOverrides,
     };
     if (STALE_AGORA_APP_IDS.has(this.config.agoraAppId)) {
       this.config.agoraAppId = DEFAULT_CONFIG.agoraAppId;
@@ -537,6 +590,11 @@ export class ClubhouseApiClient {
 
     this.mockChannels = JSON.parse(JSON.stringify(INITIAL_MOCK_CHANNELS));
     this.seedSandboxInbox();
+  }
+
+  /** Harness / contract-test seam: send a named endpoint through the normal request path. */
+  public async callEndpoint<T = unknown>(endpoint: string, body?: RequestBody): Promise<T> {
+    return this.request<T>(endpoint, body);
   }
 
   public supports(endpoint: string): boolean {
@@ -613,6 +671,9 @@ export class ClubhouseApiClient {
   }
 
   private async request<T>(endpoint: string, body?: RequestBody, forceLive = false): Promise<T> {
+    if (this.customTransport) {
+      return this.requestViaTransport<T>(endpoint, body);
+    }
     if (this.config.useSandbox && !forceLive) {
       return this.handleSandboxRequest<T>(endpoint, body);
     }
@@ -629,15 +690,17 @@ export class ClubhouseApiClient {
       headers['CH-Web-AppVersion'] = this.config.appVersion;
       headers['CH-Web-Version'] = this.config.appVersion;
     }
-    const desktopRequest = (window as Window & {
-      electronAPI?: {
-        request?: (
-          endpoint: string,
-          body: unknown,
-          headers: Record<string, string>
-        ) => Promise<{ ok: boolean; status: number; body: string }>;
-      };
-    }).electronAPI?.request;
+    const desktopRequest = (typeof window !== 'undefined'
+      ? (window as Window & {
+        electronAPI?: {
+          request?: (
+            endpoint: string,
+            body: unknown,
+            headers: Record<string, string>
+          ) => Promise<{ ok: boolean; status: number; body: string }>;
+        };
+      }).electronAPI?.request
+      : undefined);
 
     try {
       if (desktopRequest) {
@@ -662,6 +725,25 @@ export class ClubhouseApiClient {
       const message = err instanceof Error ? err.message : 'Network error';
       throw new ClubhouseApiError(0, endpoint, message, 'network');
     }
+  }
+
+  private async requestViaTransport<T>(endpoint: string, body?: RequestBody): Promise<T> {
+    if (this.rateLimitRemaining(endpoint) > 0) {
+      throw new ClubhouseApiError(429, endpoint, 'Too many requests', 'rate-limit');
+    }
+    const headers = this.getHeaders();
+    const meta = routeMeta(endpoint);
+    const result = await withTimeout(
+      this.customTransport!.request({
+        endpoint,
+        method: meta.method,
+        path: meta.path,
+        body: body ?? null,
+        headers,
+      }),
+      endpoint,
+    );
+    return this.parseLiveResponse<T>(endpoint, result.status, result.body, result.ok);
   }
 
   private parseLiveResponse<T>(endpoint: string, status: number, text: string, ok: boolean): T {
@@ -721,7 +803,7 @@ export class ClubhouseApiClient {
       (data as { hits?: SearchHit[]; users?: CHUser[] }).hits = hits;
       (data as { users?: CHUser[] }).users = hits.flatMap((hit) => hit.kind === 'user' ? [hit.user] : []);
     }
-    if (import.meta.env.DEV && !this.config.useSandbox) {
+    if (import.meta.env?.DEV && !this.config.useSandbox) {
       assertNoSandboxLeak(data, sandboxUserIds());
     }
     return data;
@@ -1149,7 +1231,7 @@ export class ClubhouseApiClient {
       user_ids: [] as number[],
       topic_ids: [] as number[],
     };
-    if (this.config.useSandbox) {
+    if (this.config.useSandbox && !this.customTransport) {
       return this.handleSandboxRequest('create_channel', {
         ...body,
         audience,
@@ -1166,10 +1248,69 @@ export class ClubhouseApiClient {
   }
 
   public async endChannel(channelId: string): Promise<ApiAck> {
-    if (!this.config.useSandbox) {
+    if (!this.config.useSandbox && !this.customTransport) {
       throw new ClubhouseApiError(0, 'end_channel', 'Not captured', 'unknown');
     }
-    return this.request('end_channel', { channel: channelId });
+    return this.request('end_channel', { channel: channelId, channel_id: channelId });
+  }
+
+  public async setChannelTitle(channelId: string, title: string): Promise<ApiAck> {
+    return this.request('set_channel_title', { channel: channelId, title });
+  }
+
+  public async emojiReaction(channelId: string, emoji: string): Promise<ApiAck> {
+    return this.request('emoji_reaction', { channel: channelId, emoji });
+  }
+
+  public async becomeSpeaker(channelId: string): Promise<ApiAck> {
+    return this.request('accept_speaker_invite', { channel: channelId });
+  }
+
+  public async rejectSpeakerInvite(channelId: string, userId: number): Promise<ApiAck> {
+    return this.request('reject_speaker_invite', { channel: channelId, user_id: userId });
+  }
+
+  public async blockFromChannel(channelId: string, userId: number): Promise<ApiAck> {
+    return this.request('block_from_channel', { channel: channelId, user_id: userId });
+  }
+
+  public async inviteToExistingChannel(channelId: string, userId: number): Promise<ApiAck> {
+    return this.request('invite_to_existing_channel', { channel: channelId, user_id: userId });
+  }
+
+  public async changeHandraiseSettings(
+    channelId: string,
+    options: { isEnabled: boolean; handraisePermission: string },
+  ): Promise<ApiAck> {
+    return this.request('change_handraise_settings', {
+      channel: channelId,
+      is_enabled: options.isEnabled,
+      handraise_permission: options.handraisePermission,
+    });
+  }
+
+  public async hideChannel(channelId: string, hide: boolean): Promise<ApiAck> {
+    return this.request('hide_channel', { channel: channelId, hide });
+  }
+
+  public async makeChannelPublic(channelId: string): Promise<ApiAck> {
+    return this.request('make_channel_public', { channel: channelId, channel_id: channelId });
+  }
+
+  public async makeChannelSocial(channelId: string): Promise<ApiAck> {
+    return this.request('make_channel_social', { channel: channelId, channel_id: channelId });
+  }
+
+  public async getOnlineFriends(): Promise<ApiAck> {
+    return this.request('get_online_friends', {});
+  }
+
+  public async getNotifications(page = 1, pageSize = 20): Promise<ApiAck> {
+    return this.request('get_notifications', { page_size: pageSize, page });
+  }
+
+  public async getEvents(page = 1, pageSize = 20, isFiltered = false): Promise<ApiAck> {
+    return this.request('get_events', { is_filtered: isFiltered, page_size: pageSize, page });
   }
 
   public sandboxPresence(): PresenceFriend[] {
