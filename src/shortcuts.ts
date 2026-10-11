@@ -1,6 +1,21 @@
 const SHORTCUTS_KEY = 'clubbox_shortcuts';
 
-export const SHORTCUT_ACTIONS = ['mute', 'clip', 'pad1', 'pad2', 'pad3', 'pad4', 'pad5', 'pad6', 'pad7', 'pad8', 'pad9'] as const;
+export const SHORTCUT_ACTIONS = [
+  'mute',
+  'clip',
+  'raiseHand',
+  'acceptInvite',
+  'declineInvite',
+  'pad1',
+  'pad2',
+  'pad3',
+  'pad4',
+  'pad5',
+  'pad6',
+  'pad7',
+  'pad8',
+  'pad9',
+] as const;
 
 export type ShortcutAction = (typeof SHORTCUT_ACTIONS)[number];
 export type ShortcutMap = Record<ShortcutAction, string>;
@@ -8,6 +23,9 @@ export type ShortcutMap = Record<ShortcutAction, string>;
 export const DEFAULT_SHORTCUTS: ShortcutMap = {
   mute: 'Alt+Shift+M',
   clip: 'Alt+Shift+C',
+  raiseHand: 'Alt+Shift+H',
+  acceptInvite: 'Alt+Shift+Y',
+  declineInvite: 'Alt+Shift+N',
   pad1: 'Alt+1',
   pad2: 'Alt+2',
   pad3: 'Alt+3',

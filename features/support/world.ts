@@ -13,7 +13,25 @@ import { FakeTransport } from './fakeTransport.ts';
 import { FakePubNub } from './fakePubnub.ts';
 import { RealtimeRoomCoordinator } from '../../src/api/realtimeRoomCoordinator.ts';
 import { channelHasFriendSpeaker, prepareHallwayFeedRooms } from '../../src/hallway/hallwayDisplay.ts';
-import { defaultHallwayPrefs, type HallwayPrefs } from '../../src/hallway/hallwayPrefs.ts';
+import { defaultHallwayPrefs, readHallwayPrefs, type HallwayPrefs } from '../../src/hallway/hallwayPrefs.ts';
+import { SavedSearchTicker } from '../../src/hallway/savedSearchTicker.ts';
+import {
+  adjustZoomPercent,
+  applyThemeToDocument,
+  readAppPrefs,
+  writeAppPrefs,
+  type ThemeChoice,
+} from '../../src/app/appPrefs.ts';
+import {
+  applyEffect,
+  defaultVoiceEffectState,
+  pickEffect,
+  startPreview,
+  type VoiceEffectState,
+} from '../../src/audio/voiceEffects.ts';
+import { clipButtonVisible, validateClipDurationSeconds } from '../../src/audio/clipRules.ts';
+import { roomAudience } from '../../src/api/guards.ts';
+import { t } from '../../src/i18n/index.ts';
 
 export type ApiHealthEntry = {
   endpoint: string;
@@ -171,6 +189,22 @@ export class ClubboxWorld extends World {
   pingSelectedNames: string[] = [];
   onlineFriendsLoaded = false;
   onlineFriends: Array<{ name: string; roomTitle?: string; channel?: string; userId: number }> = [];
+  savedSearch: SavedSearchTicker;
+  themeChoice: ThemeChoice = 'dark';
+  zoomPercent = 100;
+  windowFocused = true;
+  voiceEffects: VoiceEffectState = defaultVoiceEffectState();
+  spatialAudioEnabled = false;
+  clipButtonShown = false;
+  localRecordingAllowed = false;
+  roomReplaysOn = true;
+  hostClipsEnabled = true;
+  roomAudienceType: ReturnType<typeof roomAudience> = 'public';
+  handRaised = false;
+  desktopNotificationsOn = false;
+  windowMinimized = false;
+  pendingPingRoomTitle: string | null = null;
+  searchRequestsSnapshot = 0;
 
   constructor(options: IWorldOptions) {
     super(options);
@@ -235,6 +269,15 @@ export class ClubboxWorld extends World {
       this.signedIn = false;
     });
     this.unfollowDocumented = 'unfollow' in (webApiRoutes as Record<string, unknown>);
+    this.savedSearch = new SavedSearchTicker({
+      setInterval: (fn, ms) => this.clock.setInterval(fn, ms),
+      clearInterval: (id) => this.clock.clearInterval(id),
+      now: () => this.clock.now(),
+      isHidden: () => this.visibilityState === 'hidden',
+      onSearch: (query) => {
+        void this.client.search(query, ['UserProfile', 'LiveChannel', 'SocialClub']);
+      },
+    });
   }
 
   syncFromRealtime(): void {
@@ -309,10 +352,43 @@ export class ClubboxWorld extends World {
   setVisibility(state: DocumentVisibilityState): void {
     this.visibilityState = state;
     this.session.setHidden(state === 'hidden');
+    this.savedSearch.setHidden(state === 'hidden');
     Object.defineProperty(this.dom.window.document, 'visibilityState', {
       configurable: true,
       get: () => this.visibilityState,
     });
+  }
+
+  refreshClipButtonVisibility(): void {
+    this.clipButtonShown = clipButtonVisible({
+      allowLocalRecording: this.localRecordingAllowed,
+      replayEnabled: this.roomReplaysOn,
+      hostClipsEnabled: this.hostClipsEnabled,
+      audience: this.roomAudienceType,
+    });
+  }
+
+  dispatchGlobalShortcut(action: string): void {
+    if (action === 'mute') {
+      this.micMuted = !this.micMuted;
+      return;
+    }
+    if (action === 'raise hand') {
+      this.handRaised = !this.handRaised;
+      return;
+    }
+    if (action === 'accept invite') {
+      if (this.invitedToSpeak) this.invitedToSpeak = false;
+      return;
+    }
+    if (action === 'decline invite') {
+      this.invitedToSpeak = false;
+      return;
+    }
+    if (action === 'pad 1') {
+      const pad = this.studioPads.find((entry) => entry.hotkey === '1');
+      if (pad) pad.playing = true;
+    }
   }
 
   noteHealth(endpoint: string, status: number, message: string, bodyKeys: string[] = []): void {

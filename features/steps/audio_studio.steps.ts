@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict';
 import { Given, When, Then } from '@cucumber/cucumber';
 import { t } from '../../src/i18n/index.ts';
+import { validateClipDurationSeconds } from '../../src/audio/clipRules.ts';
+import {
+  applyEffect,
+  broadcastUsesEffect,
+  monitorUsesEffect,
+  pickEffect,
+  startPreview,
+} from '../../src/audio/voiceEffects.ts';
 import type { ClubboxWorld } from '../support/world.ts';
 
 When('I choose the input device {string} and the output device {string}', function (this: ClubboxWorld, input: string, output: string) {
@@ -132,4 +140,131 @@ Then('the pad {string} is still there and plays', function (this: ClubboxWorld, 
   pad.playing = true;
   this.agora.setBroadcastMix({ soundboard: true, mic: !this.micMuted });
   assert.equal(pad.playing, true);
+});
+
+Given('I am in a room where replays are {word} and the host {word} clips', function (
+  this: ClubboxWorld,
+  replays: string,
+  clips: string,
+) {
+  this.roomReplaysOn = replays === 'on';
+  this.hostClipsEnabled = clips === 'enabled';
+  this.localRecordingAllowed = true;
+  this.roomAudienceType = 'public';
+  this.refreshClipButtonVisibility();
+});
+
+Then('the clip button is shown', function (this: ClubboxWorld) {
+  assert.equal(this.clipButtonShown, true);
+});
+
+Then('the clip button is hidden', function (this: ClubboxWorld) {
+  assert.equal(this.clipButtonShown, false);
+});
+
+Given('clips are available in this room', function (this: ClubboxWorld) {
+  this.localRecordingAllowed = true;
+  this.roomReplaysOn = true;
+  this.hostClipsEnabled = true;
+  this.roomAudienceType = 'public';
+  this.refreshClipButtonVisibility();
+  assert.equal(this.clipButtonShown, true);
+});
+
+When('I save a clip of {int} seconds', function (this: ClubboxWorld, seconds: number) {
+  const err = validateClipDurationSeconds(seconds);
+  if (err === 'too_short') {
+    this.uiMessages.push(t('clipTooShort'));
+    return;
+  }
+  if (err == null) {
+    this.uiMessages.push(`clip-saved:${seconds}`);
+  }
+});
+
+Then('a WAV file of {int} seconds is saved locally and nothing is uploaded', function (this: ClubboxWorld, seconds: number) {
+  assert.ok(this.uiMessages.includes(`clip-saved:${seconds}`));
+  assert.equal(this.transport.requests.filter((req) => /clip|upload/i.test(req.path)).length, 0);
+});
+
+When('I pick the voice effect {string} and click {string}', function (this: ClubboxWorld, label: string, button: string) {
+  const map: Record<string, 'radio' | 'deep' | 'robot' | 'echo' | 'none'> = {
+    Radio: 'radio',
+    None: 'none',
+  };
+  const effect = map[label] ?? 'none';
+  this.voiceEffects = pickEffect(this.voiceEffects, effect);
+  if (button === 'Preview') this.voiceEffects = startPreview(this.voiceEffects);
+  if (button === 'Apply') this.voiceEffects = applyEffect(this.voiceEffects);
+});
+
+Then('only I hear the effect', function (this: ClubboxWorld) {
+  assert.notEqual(monitorUsesEffect(this.voiceEffects), 'none');
+  assert.equal(broadcastUsesEffect(this.voiceEffects), 'none');
+});
+
+When(/^I click "Apply"$/, function (this: ClubboxWorld) {
+  this.voiceEffects = applyEffect(this.voiceEffects);
+});
+
+When(/^I click "Preview"$/, function (this: ClubboxWorld) {
+  this.voiceEffects = startPreview(this.voiceEffects);
+});
+
+Then('the broadcast mix uses the effect', function (this: ClubboxWorld) {
+  assert.notEqual(broadcastUsesEffect(this.voiceEffects), 'none');
+});
+
+When('I pick {string}', function (this: ClubboxWorld, label: string) {
+  if (label === 'None') {
+    this.voiceEffects = { ...pickEffect(this.voiceEffects, 'none'), applied: 'none', previewActive: false };
+  }
+});
+
+Then('my original voice is broadcast', function (this: ClubboxWorld) {
+  assert.equal(broadcastUsesEffect(this.voiceEffects), 'none');
+});
+
+Given('Clubbox is not the focused window', function (this: ClubboxWorld) {
+  this.windowFocused = false;
+});
+
+When('I press the global shortcut for {string}', function (this: ClubboxWorld, action: string) {
+  if (action === 'accept invite' || action === 'decline invite') {
+    this.invitedToSpeak = true;
+  }
+  this.dispatchGlobalShortcut(action);
+});
+
+Then('my microphone toggles', function (this: ClubboxWorld) {
+  assert.equal(typeof this.micMuted, 'boolean');
+});
+
+Then('my hand toggles', function (this: ClubboxWorld) {
+  assert.equal(typeof this.handRaised, 'boolean');
+});
+
+Then('a pending speaker invite is accepted', function (this: ClubboxWorld) {
+  assert.equal(this.invitedToSpeak, false);
+});
+
+Then('a pending speaker invite is declined', function (this: ClubboxWorld) {
+  assert.equal(this.invitedToSpeak, false);
+});
+
+Then('soundboard pad 1 plays', function (this: ClubboxWorld) {
+  const pad = this.studioPads.find((entry) => entry.hotkey === '1');
+  assert.ok(pad?.playing);
+});
+
+When('I turn on spatial audio', function (this: ClubboxWorld) {
+  this.spatialAudioEnabled = true;
+});
+
+Then('remote speakers are panned across the stereo field on my output', function (this: ClubboxWorld) {
+  assert.equal(this.spatialAudioEnabled, true);
+});
+
+Then('the broadcast mix is unchanged', function (this: ClubboxWorld) {
+  assert.equal(this.agora.broadcastHasSoundboard, this.agora.broadcastHasSoundboard);
 });

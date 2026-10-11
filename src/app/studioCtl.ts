@@ -8,6 +8,7 @@ import { roomSync } from '../api/roomSync.ts';
 import { audioEngine } from '../audio/audioEngine.ts';
 import { readAudioPrefs, writeAudioPrefs, type AudioPrefs } from '../audio/audioPrefs.ts';
 import { eventToAccelerator, normalizeShortcuts, readShortcuts, writeShortcuts, type ShortcutAction, type ShortcutMap } from '../shortcuts.ts';
+import { adjustZoomPercent, readAppPrefs, writeAppPrefs, zoomFactorFromPercent } from './appPrefs.ts';
 import { agoraVoice } from '../audio/agoraVoice.ts';
 import type { CHChannel, CHChannelDetail, CHChatMessage, CHConversation, CHUser, FeedTopic, MeSettings, SearchHit, SearchObjectType } from '../api/types.ts';
 import { setLanguage, t } from '../i18n/index.ts';
@@ -89,6 +90,30 @@ export function setupHotkeys(this: ClubboxApp) {
         return;
       }
 
+      if ((e.ctrlKey || e.metaKey) && (e.key === '=' || e.key === '+')) {
+        e.preventDefault();
+        const prefs = readAppPrefs();
+        const next = adjustZoomPercent(prefs.zoomPercent, 1);
+        writeAppPrefs({ ...prefs, zoomPercent: next });
+        void electronAPI()?.setZoomFactor?.(zoomFactorFromPercent(next));
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === '-') {
+        e.preventDefault();
+        const prefs = readAppPrefs();
+        const next = adjustZoomPercent(prefs.zoomPercent, -1);
+        writeAppPrefs({ ...prefs, zoomPercent: next });
+        void electronAPI()?.setZoomFactor?.(zoomFactorFromPercent(next));
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === '0') {
+        e.preventDefault();
+        const prefs = readAppPrefs();
+        writeAppPrefs({ ...prefs, zoomPercent: 100 });
+        void electronAPI()?.setZoomFactor?.(1);
+        return;
+      }
+
       if (e.code === 'Space') {
         e.preventDefault();
         if (!this.isMeSpeaker()) {
@@ -163,6 +188,18 @@ export function handleGlobalShortcut(this: ClubboxApp, action: string) : void {
     }
     if (action === 'clip') {
       void this.saveClip();
+      return;
+    }
+    if (action === 'raiseHand') {
+      void this.toggleHandRaise();
+      return;
+    }
+    if (action === 'acceptInvite') {
+      void this.acceptSpeakerInvite();
+      return;
+    }
+    if (action === 'declineInvite') {
+      this.closeSpeakerInvite();
       return;
     }
     const pad = /^pad([1-9])$/.exec(action);

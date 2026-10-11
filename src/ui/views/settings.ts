@@ -1,4 +1,5 @@
 import { t } from '../../i18n';
+import type { AppPrefs } from '../../app/appPrefs';
 import type { ClubhouseConfig } from '../../api/client';
 import type { MeSettings } from '../../api/types';
 import { SHORTCUT_ACTIONS, type ShortcutAction, type ShortcutMap } from '../../shortcuts';
@@ -40,6 +41,9 @@ function settingRow(label: string, enabled: boolean): SafeHtml {
 function shortcutLabel(action: ShortcutAction): string {
   if (action === 'mute') return t('shortcutMute');
   if (action === 'clip') return t('shortcutClip');
+  if (action === 'raiseHand') return t('shortcutRaiseHand');
+  if (action === 'acceptInvite') return t('shortcutAcceptInvite');
+  if (action === 'declineInvite') return t('shortcutDeclineInvite');
   return t('shortcutPad', { n: action.slice(3) });
 }
 
@@ -58,6 +62,7 @@ export function settingsView(
   liveOnly: boolean,
   account: AccountReadout | null,
   apiHealth: ApiHealthRow[] = [],
+  appPrefs: AppPrefs | null = null,
 ): SafeHtml {
   return html`
     <div style="max-width:780px; margin:0 auto;">
@@ -167,6 +172,25 @@ export function settingsView(
           <button class="btn btn-secondary" type="button" data-action="reset-unsupported-routes">${t('apiHealthResetUnsupported')}</button>
         </div>
       </div>
+
+      ${appPrefs ? html`
+      <div style="background:var(--bg-card); border:1px solid var(--border-subtle); border-radius:var(--radius-lg); padding:24px; margin-bottom:20px;">
+        <h3 style="font-size:16px; font-weight:700; margin-bottom:16px;">${t('appearanceSection')}</h3>
+        <div class="form-group">
+          <label class="form-label" for="cfg-theme">${t('appearanceSection')}</label>
+          <select class="form-input" id="cfg-theme">
+            <option value="light" ${appPrefs.theme === 'light' ? 'selected' : ''}>${t('themeLight')}</option>
+            <option value="dark" ${appPrefs.theme === 'dark' ? 'selected' : ''}>${t('themeDark')}</option>
+            <option value="system" ${appPrefs.theme === 'system' ? 'selected' : ''}>${t('themeSystem')}</option>
+          </select>
+        </div>
+        <label style="display:flex; align-items:flex-start; gap:8px; margin-top:12px; cursor:pointer;">
+          <input type="checkbox" id="cfg-desktop-notifications" ${appPrefs.desktopNotifications ? 'checked' : ''} />
+          <span><strong>${t('desktopNotifications')}</strong><br />${t('desktopNotificationsHelp')}</span>
+        </label>
+        <p style="font-size:12px; color:var(--text-muted); margin-top:12px;">${t('zoomLevel')}: ${appPrefs.zoomPercent}% (Ctrl+= / Ctrl+- / Ctrl+0)</p>
+      </div>
+      ` : ''}
 
       <div style="background:var(--bg-card); border:1px solid var(--border-subtle); border-radius:var(--radius-lg); padding:24px; margin-bottom:20px;">
         <div class="form-group" style="margin-bottom:0;">

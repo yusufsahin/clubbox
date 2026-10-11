@@ -11,6 +11,7 @@ import { PubNubRoomSource } from '../api/pubnubRoomSource';
 import { roomSync } from '../api/roomSync';
 import { audioEngine } from '../audio/audioEngine';
 import { readAudioPrefs, writeAudioPrefs, type AudioPrefs } from '../audio/audioPrefs';
+import { applyThemeToDocument, readAppPrefs, writeAppPrefs, zoomFactorFromPercent } from './appPrefs';
 import { eventToAccelerator, normalizeShortcuts, readShortcuts, writeShortcuts, type ShortcutAction, type ShortcutMap } from '../shortcuts';
 import { agoraVoice } from '../audio/agoraVoice';
 import type { CHChannel, CHChannelDetail, CHChatMessage, CHConversation, CHUser, FeedTopic, MeSettings, SearchHit, SearchObjectType } from '../api/types';
@@ -215,6 +216,8 @@ export class ClubboxApp {
 
   private async init() {
     setLanguage(clubhouseClient.getConfig().language);
+    applyThemeToDocument(readAppPrefs().theme, window.matchMedia('(prefers-color-scheme: dark)').matches);
+    void electronAPI()?.setZoomFactor?.(zoomFactorFromPercent(readAppPrefs().zoomPercent));
     this.applyAudioPrefs();
     navigator.mediaDevices?.addEventListener('devicechange', () => {
       if (this.currentTab === 'settings') void this.fillAudioDevices();
@@ -234,7 +237,10 @@ export class ClubboxApp {
     });
 
     const desktop = !!electronAPI()?.isElectron;
-    if (desktop) {
+    const forceSandbox = electronAPI()?.forceSandbox === true;
+    if (forceSandbox) {
+      await clubhouseClient.updateConfig({ useSandbox: true });
+    } else if (desktop) {
       await clubhouseClient.updateConfig({ useSandbox: false });
       if (!this.guidelinesAccepted()) {
         this.pendingLive = true;
@@ -247,7 +253,7 @@ export class ClubboxApp {
       this.guidelinesOpen = true;
       await clubhouseClient.updateConfig({ useSandbox: true });
     }
-    if (!(desktop && !this.guidelinesAccepted())) {
+    if (forceSandbox || !(desktop && !this.guidelinesAccepted())) {
       await this.refreshMe();
       try {
         await this.reloadChannels();
@@ -939,6 +945,7 @@ export class ClubboxApp {
         isAdmin: this.isAdmin,
       } : null,
       clubhouseClient.getApiHealth(),
+      readAppPrefs(),
     );
   }
 

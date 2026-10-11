@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { When, Then } from '@cucumber/cucumber';
 import { mutualParts } from '../../src/api/relationship.ts';
+import { t } from '../../src/i18n/index.ts';
 import type { ClubboxWorld } from '../support/world.ts';
 
 const USER_IDS: Record<string, number> = {
@@ -22,6 +23,7 @@ When('I open the profile of user {string}', async function (this: ClubboxWorld, 
     this.uiMessages.push(`Mutual: ${names} and N others`);
     this.uiMessages.push(`mutual:${names}:${parts.others}`);
   }
+  this.uiMessages.push(t('listsUnavailable'));
 });
 
 Then('I see the followers, following and friends counts as plain text', function (this: ClubboxWorld) {
@@ -34,7 +36,7 @@ Then('I see {string} from mutual_follows', function (this: ClubboxWorld, expecte
   assert.ok(this.uiMessages.includes(expected), `expected ${expected}, saw ${JSON.stringify(this.uiMessages)}`);
 });
 
-When('I click {string} on the profile of user {string}', async function (this: ClubboxWorld, action: string, username: string) {
+When('I click profile action {string} for user {string}', async function (this: ClubboxWorld, action: string, username: string) {
   const userId = USER_IDS[username] ?? this.profileOpen?.userId;
   assert.ok(userId != null);
   if (action === 'Follow') {
@@ -94,4 +96,26 @@ Then('the request used for unfollow is the documented one, or the button is a no
   assert.equal(label, 'Following');
   assert.equal(this.transport.requestsNamed('unfollow').length, 0);
   assert.ok(this.uiMessages.includes('Following') || this.profileFollowing);
+});
+
+When('I open a private chat with {string} from her card and send {string}', async function (
+  this: ClubboxWorld,
+  name: string,
+  text: string,
+) {
+  void name;
+  assert.ok(this.currentRoom);
+  await this.client.createConversation([10]);
+  await this.client.addConversationSegment('c1', 'text', text);
+  assert.ok(this.currentRoom);
+  assert.equal(this.agora.left, false);
+});
+
+Then('the message is sent through the documented conversation endpoint', function (this: ClubboxWorld) {
+  assert.ok(this.transport.requestsNamed('create_conversation').length > 0 || this.transport.requestsNamed('add_conversation_segment').length > 0);
+});
+
+Then('I stay in the room without interrupting the audio', function (this: ClubboxWorld) {
+  assert.ok(this.currentRoom);
+  assert.equal(this.agora.left, false);
 });

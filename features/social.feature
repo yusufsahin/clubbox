@@ -16,12 +16,12 @@ Feature: Profiles, follows, activity and private chat
 
   @bundle @SO-1
   Scenario: Follow and unfollow
-    When I click "Follow" on the profile of user "u1"
+    When I click profile action "Follow" for user "u1"
     Then a "POST /web_api/follow" request is sent with body keys "user_id"
-    When I click "Following" on the profile of user "u1"
+    When I click profile action "Following" for user "u1"
     Then the request used for unfollow is the documented one, or the button is a non-clickable "Following" when none is documented
 
-  @pending @SO-2
+  @SO-2
   Scenario: Full follower lists are not offered on web
     When I open the profile of user "u1"
     Then I see "Full lists are not available on Clubhouse web."
@@ -40,7 +40,7 @@ Feature: Profiles, follows, activity and private chat
     Then a "GET /web_api/get_notifications" request is sent with query keys "page_size, page"
     And "pinged you into" items show "Join" while the room is live
 
-  @pending @observed @RL-9
+  @observed @RL-9
   Scenario: Private text chat with someone in the room
     Given I am in the room "abc123"
     When I open a private chat with "Ayse" from her card and send "hi"

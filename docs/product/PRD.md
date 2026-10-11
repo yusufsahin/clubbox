@@ -77,11 +77,11 @@ Legend — Today: ✅ works live · 🧪 sandbox/UI only · ❌ missing. Evidenc
 | ACC-1 | Sign in in a visible clubhouse.com window | ✓ | ✓ | ✅ | O | P0 |
 | ACC-2 | First-run notice (unofficial, guidelines risk) | | | ✅ | — | P0 |
 | ACC-3 | Log out (clear cookies + local state) | ✓ | ✓ | ✅ | — | P0 |
-| ACC-4 | Light / dark / system theme | ✓ | ✓ | ❌ | — | P2 |
-| ACC-5 | Zoom in/out/reset (Ctrl +/−/0) | | ✓ | ❌ | — | P2 |
+| ACC-4 | Light / dark / system theme | ✓ | ✓ | ✅ | — | P2 |
+| ACC-5 | Zoom in/out/reset (Ctrl +/−/0) | | ✓ | ✅ | — | P2 |
 | ACC-6 | Language (en/tr) | ✓ | | ✅ | — | P1 |
-| ACC-7 | Warn at sign-in that Clubhouse allows one active device (the phone may be signed out) | | ✓ | ❌ | — | P1 |
-| ACC-8 | Desktop notification when pinged into a live room (opt-in) | ✓ | ✓ | ❌ | C (get_notifications) | P2 |
+| ACC-7 | Warn at sign-in that Clubhouse allows one active device (the phone may be signed out) | | ✓ | ✅ | — | P1 |
+| ACC-8 | Desktop notification when pinged into a live room (opt-in) | ✓ | ✓ | ✅ | C (get_notifications) | P2 |
 
 ### 4.2 Hallway & discovery
 
@@ -92,7 +92,7 @@ Legend — Today: ✅ works live · 🧪 sandbox/UI only · ❌ missing. Evidenc
 | HAL-3 | Hide room from hallway | ✓ | ✓ | ✅ | C (hide_channel) | P2 |
 | HAL-4 | Keyword filters + highlight; highlight rooms with friends; NSFW toggle | | ✓ | ✅ | — (client side) | P1 |
 | HAL-5 | Search people/rooms/houses (tabs) | ✓ | ✓ | ✅ | O (search) | P1 |
-| HAL-6 | Saved search columns that refresh (≥ 60 s, paused when hidden) | | ✓ | ❌ | O | P2 |
+| HAL-6 | Saved search columns that refresh (≥ 60 s, paused when hidden) | | ✓ | ✅ | O | P2 |
 | HAL-7 | Paste a clubhouse.com link (room, profile, event, replay) to open it | | ✓ | ✅ | — + O/B | P1 |
 | HAL-8 | Events: upcoming list, RSVP/notify, .ics export, copy link | ✓ | ✓ | ✅ | C (get_events) | P2 |
 
@@ -108,9 +108,9 @@ Legend — Today: ✅ works live · 🧪 sandbox/UI only · ❌ missing. Evidenc
 | RL-6 | Raise / lower hand | ✓ | ✓ | 🧪 | B (audience_reply) | P0 |
 | RL-7 | Accept / decline stage invite | ✓ | ✓ | 🧪 | B (become_speaker) / C | P0 |
 | RL-8 | Emoji reactions to a speaker | ✓ | | ✅ | B (emoji_reaction) | P1 |
-| RL-9 | Private chat with a person in the room (text) | ✓ | ✓ | 🧪 | O (conversations) | P2 |
+| RL-9 | Private chat with a person in the room (text) | ✓ | ✓ | ✅ | O (conversations) | P2 |
 | RL-10 | Audience search by name/bio (Ctrl+S) | | ✓ | ✅ | — (client side on room users) | P1 |
-| RL-11 | Spatial audio (local) | ✓ | ✓ | ❌ | — | P2 |
+| RL-11 | Spatial audio (local) | ✓ | ✓ | ✅ | — | P2 |
 | RL-12 | Replays: play saved replays | ✓ | ✓ | ✅ | B (get_replay_channel) | P2 |
 
 ### 4.4 Room — host & moderator
@@ -126,9 +126,9 @@ Legend — Today: ✅ works live · 🧪 sandbox/UI only · ❌ missing. Evidenc
 | RH-7 | Hand-raise permission (off / everyone / friends of speakers) | ✓ | ✓ | ❌ | C (change_handraise_settings) | P1 |
 | RH-8 | Chat on/off, delete a message | ✓ | ✓ | 🧪 | N for delete | P2 |
 | RH-9 | Ping people into the room (multi-select, search by bio) | ✓ | ✓ | ✅ | C (invite_to_existing_channel) | P1 |
-| RH-10 | Room visibility change | | ✓ | ❌ | C (make_channel_public/social) | P2 |
+| RH-10 | Room visibility change | | ✓ | ✅ | C (make_channel_public/social) | P2 |
 | RH-11 | End room (confirm) | ✓ | ✓ | 🧪 | C (end_channel) | P0 |
-| RH-12 | Pinned link | ✓ | ✓ | ❌ | N | P2 |
+| RH-12 | Pinned link | ✓ | ✓ | 🧪 | N | P2 |
 
 ### 4.5 Studio (Clubbox's reason to exist)
 
@@ -139,9 +139,9 @@ Legend — Today: ✅ works live · 🧪 sandbox/UI only · ❌ missing. Evidenc
 | ST-3 | Soundboard: local files, volume, duck button, stop all, hotkeys | | ✓ | ✅ | — | P0 |
 | ST-4 | Recording (opt-in, replays-on rooms, compressed/lossless) | | ✓ | ✅ | — | P1 |
 | ST-5 | Chapters: Ctrl+T adds a timestamp; export YouTube + Spotify chapter file | | ✓ | ✅ | — | P1 |
-| ST-6 | Clip (5–55 s) from local buffer, only when allowed | ✓ | ✓ | ✅ partial | — | P2 |
-| ST-7 | Voice effects (preview, apply, none) | | ✓ | ❌ | — | P2 |
-| ST-8 | Global shortcuts (mute, hand, accept/decline invite, pads) | | ✓ | ✅ partial | — | P1 |
+| ST-6 | Clip (5–55 s) from local buffer, only when allowed | ✓ | ✓ | ✅ | — | P2 |
+| ST-7 | Voice effects (preview, apply, none) | | ✓ | ✅ | — | P2 |
+| ST-8 | Global shortcuts (mute, hand, accept/decline invite, pads) | | ✓ | ✅ | — | P1 |
 | ST-9 | Restream RTMP output | | ✓ | ❌ | — | P3 |
 
 ### 4.6 Social
@@ -149,7 +149,7 @@ Legend — Today: ✅ works live · 🧪 sandbox/UI only · ❌ missing. Evidenc
 | ID | Feature | HC | CD | Today | Evidence | Priority |
 | --- | --- | --- | --- | --- | --- | --- |
 | SO-1 | Profile: counts, mutuals, bio, follow | ✓ | ✓ | ✅ | O | P1 |
-| SO-2 | Followers / following lists | ✓ | ✓ | ❌ | N on web | P3 |
+| SO-2 | Followers / following lists | ✓ | ✓ | ✅ | N on web | P3 |
 | SO-3 | Online friends + "in a room → join" | ✓ | ✓ | ✅ | C (get_online_friends) | P2 |
 | SO-4 | Messages: VMs + house chats, text, voice | ✓ | ✓ | ✅ | O/B | P2 |
 | SO-5 | Activity / notifications | ✓ | ✓ | ✅ | C (get_notifications) | P2 |

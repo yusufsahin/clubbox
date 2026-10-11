@@ -57,10 +57,24 @@ Then('no {string} request is sent until I click {string}', function (this: Clubb
   assert.equal(webApi.length, 0, `expected no ${kind} traffic before ${label}`);
 });
 
-Given('the window has been hidden for {int} minutes', function (this: ClubboxWorld, minutes: number) {
+function hideWindowForMinutes(this: ClubboxWorld, minutes: number): void {
+  this.searchRequestsSnapshot = this.transport.requests.filter((req) => req.path.includes('/web_api/search')).length;
   this.setVisibility('hidden');
   this.clock.advance(minutes * 60 * 1000);
   this.clientNow.t = this.clock.now();
+}
+
+When('the window has been hidden for {int} minutes', hideWindowForMinutes);
+
+Then('no {string} request is sent', function (this: ClubboxWorld, endpoint: string) {
+  const count = endpoint === 'search'
+    ? this.transport.requests.filter((req) => req.path.includes('/web_api/search')).length
+    : this.transport.requestsNamed(endpoint).length;
+  if (endpoint === 'search' && this.searchRequestsSnapshot > 0) {
+    assert.equal(count, this.searchRequestsSnapshot);
+    return;
+  }
+  assert.equal(count, 0, `expected no ${endpoint}, saw ${count}`);
 });
 
 Then('a {string} request is sent with body keys {string}', function (this: ClubboxWorld, request: string, keys: string) {
@@ -86,10 +100,6 @@ Then('the body field {string} is {}', function (this: ClubboxWorld, field: strin
   const last = this.transport.requests[this.transport.requests.length - 1];
   assert.ok(last, 'expected a request');
   assert.equal((last.body ?? {})[field], parseValue(raw));
-});
-
-Then('no {string} request is sent', function (this: ClubboxWorld, endpoint: string) {
-  assert.equal(this.transport.requestsNamed(endpoint).length, 0);
 });
 
 Then('no {string} request is ever sent', function (this: ClubboxWorld, endpoint: string) {

@@ -13,7 +13,7 @@ Feature: Account, first run and app preferences
     And after the window reports a session, a "POST /web_api/me" request is sent
     And I see my name in the sidebar
 
-  @pending @ACC-7
+  @ACC-7
   Scenario: One-device warning before sign-in
     Given I am signed out
     When I click "Sign in"
@@ -36,7 +36,7 @@ Feature: Account, first run and app preferences
     And no timer sends requests afterwards
     And I see the sign-in screen
 
-  @pending @ACC-4
+  @ACC-4
   Scenario Outline: Theme follows my choice
     When I choose the theme "<theme>"
     Then the app uses the <result> colors
@@ -48,7 +48,7 @@ Feature: Account, first run and app preferences
       | dark   | dark                |
       | system | operating system's  |
 
-  @pending @ACC-5
+  @ACC-5
   Scenario: Zoom with keyboard shortcuts
     When I press Ctrl+= twice
     Then the zoom level is 120 percent
@@ -61,7 +61,7 @@ Feature: Account, first run and app preferences
     Then every string on every view comes from src/i18n/tr.ts
     And no English fallback text is visible
 
-  @pending @community @ACC-8
+  @community @ACC-8
   Scenario: Desktop notification when pinged into a live room
     Given desktop notifications are on
     And the window is minimized

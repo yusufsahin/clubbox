@@ -41,6 +41,19 @@
   --shadow-glow: 0 0 25px var(--accent-purple-glow);
 }
 
+:root[data-theme='light'] {
+  --bg-app: #f1f5f9;
+  --bg-sidebar: #ffffff;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f8fafc;
+  --bg-dock: rgba(255, 255, 255, 0.92);
+  --bg-cockpit: rgba(255, 255, 255, 0.96);
+  --border-subtle: rgba(15, 23, 42, 0.1);
+  --text-main: #0f172a;
+  --text-muted: #475569;
+  --text-dim: #64748b;
+}
+
 * {
   box-sizing: border-box;
   margin: 0;

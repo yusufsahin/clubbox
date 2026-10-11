@@ -40,7 +40,7 @@ Feature: Audio studio
     And I restart Clubbox
     Then the pad "Intro" is still there and plays
 
-  @pending @local @ST-6
+  @local @ST-6
   Scenario Outline: Clip only where clips are allowed
     Given I am in a room where replays are <replays> and the host <clips> clips
     And local recording is allowed in Settings
@@ -52,15 +52,15 @@ Feature: Audio studio
       | on      | disabled   | hidden  |
       | off     | enabled    | hidden  |
 
-  @pending @local @ST-6
+  @local @ST-6
   Scenario: Clip length is between 5 and 55 seconds
-    Given the clip button is shown
+    Given clips are available in this room
     When I save a clip of 3 seconds
     Then I see "A clip must be at least 5 seconds"
     When I save a clip of 40 seconds
     Then a WAV file of 40 seconds is saved locally and nothing is uploaded
 
-  @pending @local @ST-7
+  @local @ST-7
   Scenario: Voice effects preview and apply
     When I pick the voice effect "Radio" and click "Preview"
     Then only I hear the effect
@@ -69,7 +69,7 @@ Feature: Audio studio
     When I pick "None"
     Then my original voice is broadcast
 
-  @pending @local @ST-8
+  @local @ST-8
   Scenario Outline: Global shortcuts work when Clubbox is in the background
     Given Clubbox is not the focused window
     When I press the global shortcut for "<action>"
@@ -83,7 +83,7 @@ Feature: Audio studio
       | decline invite | a pending speaker invite is declined   |
       | pad 1          | soundboard pad 1 plays                 |
 
-  @pending @local @RL-11
+  @local @RL-11
   Scenario: Spatial audio is a local filter
     When I turn on spatial audio
     Then remote speakers are panned across the stereo field on my output

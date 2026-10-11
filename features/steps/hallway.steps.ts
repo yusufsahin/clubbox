@@ -4,7 +4,7 @@ import {
   roomTitleKeywordHits,
   splitKeywordHighlight,
 } from '../../src/hallway/hallwayDisplay.ts';
-import { defaultHallwayPrefs } from '../../src/hallway/hallwayPrefs.ts';
+import { defaultHallwayPrefs, readHallwayPrefs } from '../../src/hallway/hallwayPrefs.ts';
 import type { ClubboxWorld, HallwayCard } from '../support/world.ts';
 
 function cardFromFeed(channel: Record<string, unknown>): HallwayCard {
@@ -243,4 +243,21 @@ Then('I can switch between the tabs {string}, {string}, {string} and {string}', 
   for (const tab of [a, b, c, d]) {
     assert.ok(this.searchTabs.has(tab), `missing tab ${tab}`);
   }
+});
+
+Given('I saved the search column {string}', function (this: ClubboxWorld, query: string) {
+  this.savedSearch.saveColumn(query);
+  this.savedSearch.ensureTimer();
+});
+
+Then('one {string} request is sent for {string}', function (this: ClubboxWorld, endpoint: string, query: string) {
+  assert.equal(endpoint, 'search');
+  const hits = this.transport.requests.filter(
+    (req) => req.path.includes('/web_api/search') && (req.body as { query?: string })?.query === query,
+  );
+  assert.ok(hits.length >= 1, `expected search for ${query}`);
+});
+
+Then('the saved column {string} is still there after restart', function (this: ClubboxWorld, query: string) {
+  assert.ok(readHallwayPrefs().savedSearchColumns.includes(query));
 });

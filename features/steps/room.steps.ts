@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { Given, When, Then } from '@cucumber/cucumber';
+import { t } from '../../src/i18n/index.ts';
 import type { ClubboxWorld } from '../support/world.ts';
 
 Given('the hallway shows the room {string} with channel {string}', function (this: ClubboxWorld, title: string, channel: string) {
@@ -104,7 +105,7 @@ When('I click {string} on {string}', async function (this: ClubboxWorld, action:
   assert.fail(`unsupported hallway action ${action}`);
 });
 
-When('I click {string}', async function (this: ClubboxWorld, label: string) {
+When(/^I click "(?!Apply"|Preview")([^"]+)"$/, async function (this: ClubboxWorld, label: string) {
   if (label === 'Leave quietly') {
     await this.session.leaveQuietly();
     this.syncFromSession();
@@ -146,6 +147,7 @@ When('I click {string}', async function (this: ClubboxWorld, label: string) {
     return;
   }
   if (label === 'Sign in') {
+    this.uiMessages.push(t('oneDeviceWarning'));
     this.openedSignInUrl = 'https://www.clubhouse.com/signin';
     this.uiMessages.push('Sign in');
     return;

@@ -60,7 +60,7 @@ Feature: Hallway and discovery
     Then a "POST /web_api/search" request is sent with body keys "query, limit_to_object_types"
     And I can switch between the tabs "Top", "People", "Rooms" and "Houses"
 
-  @pending @observed @HAL-6
+  @observed @HAL-6
   Scenario: Saved search columns refresh slowly and pause when hidden
     Given I saved the search column "jazz"
     When 60 seconds pass

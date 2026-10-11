@@ -1,6 +1,7 @@
 // @ts-nocheck — extracted controller; imports trimmed over time.
 import { ClubhouseApiError, clubhouseClient } from '../api/client.ts';
 import { beginJoin, commitJoin, finishLeave, localClipAllowed, roleSyncDecision, roomAudience } from '../api/guards.ts';
+import { applyThemeToDocument, readAppPrefs, writeAppPrefs } from './appPrefs.ts';
 import { capturedCreateBody, leaveClosesRoom, roomHasOthers } from '../api/roomActions.ts';
 import { applyFollowResponse, mergeProfile, PEOPLE_LIST_ENDPOINTS, profileCountsMissing, readProfile, relationshipFromStatus, talkPartners, type PeopleListKind } from '../api/relationship.ts';
 import { PubNubRoomSource } from '../api/pubnubRoomSource.ts';
@@ -139,6 +140,11 @@ export async function openOfficialSignIn(this: ClubboxApp) : Promise<void> {
       this.render();
       return;
     }
+    if (!window.confirm(t('oneDeviceWarning'))) {
+      this.loginNotice = t('signInHelperDesktop');
+      this.render();
+      return;
+    }
     this.loginNotice = t('officialSignInWaiting');
     this.render();
     await api.openOfficialSignIn();
@@ -185,6 +191,12 @@ export async function saveSettings(this: ClubboxApp) : Promise<void> {
     const allowLocalRecording = (document.getElementById('cfg-allow-recording') as HTMLInputElement | null)?.checked === true;
     const languageValue = (document.getElementById('cfg-language') as HTMLSelectElement | null)?.value;
     const language = languageValue === 'tr' ? 'tr' : 'en';
+    const themeValue = (document.getElementById('cfg-theme') as HTMLSelectElement | null)?.value;
+    const theme = themeValue === 'light' || themeValue === 'system' ? themeValue : 'dark';
+    const desktopNotifications = (document.getElementById('cfg-desktop-notifications') as HTMLInputElement | null)?.checked === true;
+    const prefs = readAppPrefs();
+    writeAppPrefs({ ...prefs, theme, desktopNotifications });
+    applyThemeToDocument(theme, window.matchMedia('(prefers-color-scheme: dark)').matches);
     if (!isSandbox && !this.guidelinesAccepted()) {
       this.pendingLive = true;
       this.guidelinesOpen = true;
