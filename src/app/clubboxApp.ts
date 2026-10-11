@@ -1341,26 +1341,30 @@ export class ClubboxApp {
         }
         break;
       }
-      case 'open-conversation':
-        if (el.dataset.conversationId) {
-          this.currentTab = 'messages';
-          const known = this.conversations.find((entry) => entry.conversation_id === el.dataset.conversationId);
-          if (known) {
-            const kind = conversationKind(known);
-            this.messageFilter = kind === 'house' || kind === 'vm' ? kind : 'all';
-          } else {
-            this.messageFilter = 'all';
-          }
-          void this.loadConversations().then(() => {
-            const loaded = this.conversations.find((entry) => entry.conversation_id === el.dataset.conversationId);
-            if (loaded) {
-              const kind = conversationKind(loaded);
-              this.messageFilter = kind === 'house' || kind === 'vm' ? kind : 'all';
-            }
-            return this.openConversationThread(el.dataset.conversationId!);
-          });
+      case 'open-conversation': {
+        const conversationId = el.dataset.conversationId;
+        if (!conversationId) break;
+        this.currentTab = 'messages';
+        const known = this.conversations.find((entry) => entry.conversation_id === conversationId);
+        if (known) {
+          const kind = conversationKind(known);
+          this.messageFilter = kind === 'house' || kind === 'vm' ? kind : 'all';
+        } else {
+          this.messageFilter = 'all';
         }
+        void this.openConversationThread(conversationId);
+        void this.loadConversations().then(() => {
+          if (this.openConversationId !== conversationId || this.currentTab !== 'messages') return;
+          const loaded = this.conversations.find((entry) => entry.conversation_id === conversationId);
+          if (!loaded) return;
+          const kind = conversationKind(loaded);
+          const nextFilter = kind === 'house' || kind === 'vm' ? kind : 'all';
+          if (this.messageFilter === nextFilter) return;
+          this.messageFilter = nextFilter;
+          this.render();
+        });
         break;
+      }
       case 'hide-room': {
         const channelId = el.dataset.channelId;
         if (channelId) void this.hideHallwayRoom(channelId);

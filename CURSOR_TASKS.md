@@ -14,9 +14,9 @@ Do these before continuing the Autonomous plan, then tick them:
 ### Last autonomous run (2026-10-11)
 
 - Autonomous plan already **Done** through **11.8 (strict)**; triage **NO NEW FAILURES**.
-- Done (local polish, no new API bodies):
-  - Same-House refresh failure no longer wipes an already-open house view
-  - Discover → conversation aligns Messages filter so the thread panel actually shows
+- Done (regression from prior Discover→Messages polish):
+  - Open conversation switches to Messages immediately (no wait on inbox fetch)
+  - Stale `loadConversations` callbacks cannot reopen an older thread after a newer open
 - Tests: unit 128 pass · BDD 123 scenarios / 717 steps · trace strict 0 errors · lint + build green.
 - **Stopped:** no further shippable product work without inventing endpoint bodies or owner capture.
 - Blocked: owner live room capture (0.9 S1–S3); topic-chip **server** `get_feed_v3` body; conversation delete/title + unread-summary body; replay chunk; `gif_reaction` body; unfollow omitted from web routes (capture needed).
