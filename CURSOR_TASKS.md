@@ -11,12 +11,11 @@ Owner added Phase 22 (HAL-9 room type chips). Continue from there:
 - [x] Phase 22 — hallway room types (HAL-9): chips, sparse load-more, badges, empty state
 - [x] npm test + e2e + light/dark hallway screenshots; PRD HAL-9 Today; commit; stop
 
-### Last autonomous run (2026-10-12)
+### Last autonomous run (2026-10-12 #recheck)
 
-- Done: Phase 22 — HAL-9 room type chips (All/Public/FoF/Friends/Houses), sparse auto load-more, card badges, empty states; sandbox type `friend_of_friend`.
-- Tests: npm test 197 scenarios / 1141 steps; e2e 12/12 (privacy chips + badge on hallway).
-- Blocked / deferred: ST-9 Restream only.
-- Questions for the owner: none.
+- Done: nothing new — Phase 22 already shipped (`6bb38ce`); triage clean; no Phase 23 in CURSOR_TASKS.
+- Blocked / deferred: ST-9 Restream (`@pending @deferred`) until you schedule it.
+- Questions for the owner: schedule ST-9, or add the next phase to CURSOR_TASKS.md.
 
 
 ## Status
