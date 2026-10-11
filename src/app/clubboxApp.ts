@@ -203,6 +203,7 @@ export class ClubboxApp {
   } | null = null;
   hallwayPrefs: HallwayPrefs = readHallwayPrefs();
   feedNextCursor: string | null = null;
+  feedPagesLoaded = 0;
   feedLoadingMore = false;
   conversationsNextCursor: string | null = null;
   conversationsLoadingMore = false;
@@ -1175,7 +1176,12 @@ export class ClubboxApp {
       canHide: clubhouseClient.supports('hide_channel'),
       canLoadMore: !!this.feedNextCursor,
       loadingMore: this.feedLoadingMore,
-    }, this.hallwayPrefs, this.selectedTopicKey);
+    }, this.hallwayPrefs, this.selectedTopicKey, {
+      allChannels: this.channelsList,
+      selectedPrivacy: this.hallwayPrefs.selectedPrivacy,
+      pagesChecked: this.hallwayPrefs.selectedPrivacy ? this.feedPagesLoaded : 0,
+      emptyMessage: this.hallwayPrivacyEmptyMessage(),
+    });
   }
 
 
@@ -1538,6 +1544,14 @@ export class ClubboxApp {
       case 'select-hallway-topic': {
         const key = el.dataset.topicKey;
         this.selectHallwayTopic(key || null);
+        break;
+      }
+      case 'select-hallway-privacy': {
+        const raw = el.dataset.privacy || '';
+        const privacy = raw === 'public' || raw === 'friend' || raw === 'friend_of_friend' || raw === 'house' || raw === 'dm' || raw === 'other'
+          ? raw
+          : null;
+        this.selectHallwayPrivacy(privacy);
         break;
       }
       case 'leave-room':

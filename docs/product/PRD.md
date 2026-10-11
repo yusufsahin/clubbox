@@ -95,7 +95,7 @@ Legend — Today: ✅ works live · ✅* wired (live verification pending) · �
 | HAL-6 | Saved search columns that refresh (≥ 60 s, paused when hidden) | | ✓ | ✅ | O | P2 |
 | HAL-7 | Paste a clubhouse.com link (room, profile, event, replay) to open it | | ✓ | ✅ | — + O/B | P1 |
 | HAL-8 | Events: upcoming list, RSVP/notify, .ics export, copy link | ✓ | ✓ | ✅ | C (get_events) | P2 |
-| HAL-9 | Room type chips (All · Public · Friends of friends · Friends · Houses) with counts from privacy_settings.type; a chip with too few rooms loads more feed pages (max FEED_MAX_PAGES); type badge on every card; empty state explains that Clubhouse web rarely or never lists that type | ✓ | ✓ | ❌ | O (get_feed_v3) | P1 |
+| HAL-9 | Room type chips (All · Public · Friends of friends · Friends · Houses) with counts from privacy_settings.type; a chip with too few rooms loads more feed pages (max FEED_MAX_PAGES); type badge on every card; empty state explains that Clubhouse web rarely or never lists that type | ✓ | ✓ | ✅ | O (get_feed_v3) | P1 |
 
 ### 4.3 Room — listener
 

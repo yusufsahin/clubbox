@@ -99,8 +99,49 @@ export type HallwayPrivacy = (typeof HALLWAY_PRIVACIES)[number] | 'other';
 type PrivacyRoom = { privacy_settings?: { type?: string } };
 
 export function hallwayRoomPrivacy(room: PrivacyRoom): HallwayPrivacy {
-  const type = room.privacy_settings?.type;
+  const raw = room.privacy_settings?.type;
+  // Sandbox / older captures used the plural form; web enum is friend_of_friend.
+  const type = raw === 'friends_of_friends' ? 'friend_of_friend' : raw;
   return (HALLWAY_PRIVACIES as readonly string[]).includes(type ?? '') ? (type as HallwayPrivacy) : 'other';
+}
+
+/** Chip order for the hallway UI (All is separate). dm/other stay out of the chip row. */
+export const HALLWAY_PRIVACY_CHIP_ORDER = ['public', 'friend_of_friend', 'friend', 'house'] as const;
+export type HallwayPrivacyChip = (typeof HALLWAY_PRIVACY_CHIP_ORDER)[number];
+
+export type PrivacyChip = { privacy: HallwayPrivacyChip | null; count: number };
+
+/** Chips with counts; hide zero-count chips unless that type is selected. */
+export function visiblePrivacyChips(
+  counts: Record<HallwayPrivacy, number>,
+  selected: HallwayPrivacy | null,
+): PrivacyChip[] {
+  const total = (Object.values(counts) as number[]).reduce((sum, n) => sum + n, 0);
+  const chips: PrivacyChip[] = [{ privacy: null, count: total }];
+  for (const privacy of HALLWAY_PRIVACY_CHIP_ORDER) {
+    const count = counts[privacy];
+    if (count === 0 && selected !== privacy) continue;
+    chips.push({ privacy, count });
+  }
+  return chips;
+}
+
+/** Keep auto-paging a sparse privacy filter until we have enough rooms or hit the feed page cap. */
+export function shouldAutoLoadMorePrivacy(input: {
+  privacy: HallwayPrivacy | null;
+  countOfType: number;
+  hasNextCursor: boolean;
+  pagesLoaded: number;
+  minCount?: number;
+  maxPages?: number;
+}): boolean {
+  if (!input.privacy) return false;
+  const minCount = input.minCount ?? 5;
+  const maxPages = input.maxPages ?? 8;
+  if (input.countOfType >= minCount) return false;
+  if (!input.hasNextCursor) return false;
+  if (input.pagesLoaded >= maxPages) return false;
+  return true;
 }
 
 export function hallwayPrivacyCounts(rooms: PrivacyRoom[]): Record<HallwayPrivacy, number> {

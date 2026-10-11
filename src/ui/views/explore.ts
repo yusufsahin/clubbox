@@ -1,11 +1,28 @@
-import { t } from '../../i18n';
+import { t, type MessageKey } from '../../i18n';
 import type { CHChannel, FeedTopic } from '../../api/types';
 import { avatarHtml } from '../avatar';
 import { html, safeUrl, type SafeHtml } from '../html';
-import { channelHasFriendSpeaker, roomTitleKeywordHits, speakerIsFriend, splitKeywordHighlight } from '../../hallway/hallwayDisplay';
+import {
+  channelHasFriendSpeaker,
+  hallwayPrivacyCounts,
+  hallwayRoomPrivacy,
+  roomTitleKeywordHits,
+  speakerIsFriend,
+  splitKeywordHighlight,
+  visiblePrivacyChips,
+  type HallwayPrivacy,
+  type HallwayPrivacyChip,
+} from '../../hallway/hallwayDisplay';
 import type { HallwayPrefs } from '../../hallway/hallwayPrefs';
 
 // Preview listening and "in a house" stay hidden until a capture shows those requests.
+
+function privacyLabelKey(privacy: HallwayPrivacyChip): MessageKey {
+  if (privacy === 'public') return 'roomTypePublic';
+  if (privacy === 'friend_of_friend') return 'roomTypeFriendOfFriend';
+  if (privacy === 'friend') return 'roomTypeFriend';
+  return 'roomTypeHouse';
+}
 
 function privacyLine(channel: CHChannel): SafeHtml | string {
   const label = channel.privacy_label && channel.privacy_label !== channel.club_name ? channel.privacy_label : '';
@@ -13,6 +30,12 @@ function privacyLine(channel: CHChannel): SafeHtml | string {
   const text = label || tooltip;
   if (!text) return '';
   return html`<div class="room-card-privacy" title="${tooltip || text}">${text}</div>`;
+}
+
+function privacyBadge(channel: CHChannel): SafeHtml | string {
+  const privacy = hallwayRoomPrivacy(channel);
+  if (privacy === 'dm' || privacy === 'other') return '';
+  return html`<span class="room-type-badge" data-room-type="${privacy}" data-privacy="${privacy}">${t(privacyLabelKey(privacy))}</span>`;
 }
 
 function housePhoto(channel: CHChannel): SafeHtml | string {
@@ -49,6 +72,11 @@ function formatRunningFor(iso: string | undefined): string {
   return t('runningForHours', { count: hours });
 }
 
+function chipLabel(privacy: HallwayPrivacyChip | null, count: number): string {
+  if (privacy == null) return `${t('roomTypeAll')} ${count}`;
+  return `${t(privacyLabelKey(privacy))} ${count}`;
+}
+
 export function exploreView(
   channels: CHChannel[],
   topics: FeedTopic[],
@@ -62,7 +90,20 @@ export function exploreView(
   },
   hallway: HallwayPrefs,
   selectedTopicKey: string | null = null,
+  options: {
+    allChannels: CHChannel[];
+    selectedPrivacy: HallwayPrivacy | null;
+    pagesChecked: number;
+    emptyMessage: string | null;
+  } = {
+    allChannels: channels,
+    selectedPrivacy: null,
+    pagesChecked: 0,
+    emptyMessage: null,
+  },
 ): SafeHtml {
+  const counts = hallwayPrivacyCounts(options.allChannels);
+  const privacyChips = visiblePrivacyChips(counts, options.selectedPrivacy);
   const view = html`
     <div style="max-width:1100px; margin:0 auto;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
@@ -92,20 +133,35 @@ export function exploreView(
           ${t('showNsfwRooms')}
         </label>
       </div>
-      ${topics.length ? html`
-      <div class="topic-chips">
-          <button class="topic-chip ${selectedTopicKey ? '' : 'active'}" type="button" data-action="select-hallway-topic">${t('forYou')}</button>
-          ${topics.map((topic) => html`
-            <button class="topic-chip ${selectedTopicKey === topic.key ? 'active' : ''}" type="button" data-action="select-hallway-topic" data-topic-key="${topic.key}">${topic.display_name}</button>
+      <div class="hallway-chip-rows">
+        ${topics.length ? html`
+        <div class="topic-chips">
+            <button class="topic-chip ${selectedTopicKey ? '' : 'active'}" type="button" data-action="select-hallway-topic">${t('forYou')}</button>
+            ${topics.map((topic) => html`
+              <button class="topic-chip ${selectedTopicKey === topic.key ? 'active' : ''}" type="button" data-action="select-hallway-topic" data-topic-key="${topic.key}">${topic.display_name}</button>
+            `)}
+        </div>
+        <p class="list-note">${t('topicFilterLocalHelp')}</p>
+        ` : ''}
+        <div class="topic-chips privacy-chips" data-privacy-chips>
+          ${privacyChips.map((chip) => html`
+            <button
+              class="topic-chip ${options.selectedPrivacy === chip.privacy ? 'active' : ''}"
+              type="button"
+              data-action="select-hallway-privacy"
+              data-privacy="${chip.privacy ?? ''}"
+            >${chipLabel(chip.privacy, chip.count)}</button>
           `)}
+        </div>
+        ${options.pagesChecked > 0 && options.selectedPrivacy ? html`
+          <p class="list-note" data-privacy-pages-checked>${t('roomTypeCheckedPages', { count: options.pagesChecked })}</p>
+        ` : ''}
       </div>
-      <p class="list-note">${t('topicFilterLocalHelp')}</p>
-      ` : ''}
       ${notices.map((notice) => html`<p class="list-note">${notice}</p>`)}
 
       ${channels.length === 0 ? html`
-        <div class="explore-empty">
-          <p>${t('noLiveRooms')}</p>
+        <div class="explore-empty" data-hallway-empty>
+          <p>${options.emptyMessage || t('noLiveRooms')}</p>
           <button class="btn btn-secondary" data-action="refresh-explore" type="button">${t('refresh')}</button>
         </div>
       ` : html`
@@ -119,11 +175,12 @@ export function exploreView(
           const friendSpeaker = channelHasFriendSpeaker(ch.users);
           const runningFor = formatRunningFor(ch.time_created);
           return html`
-          <div class="room-card ${ch.visited ? 'is-visited' : ''} ${access.canJoin ? '' : 'is-static'}" ${access.canJoin ? html`data-action="join-room" data-channel-id="${channelId}"` : ''}>
+          <div class="room-card ${ch.visited ? 'is-visited' : ''} ${access.canJoin ? '' : 'is-static'}" ${access.canJoin ? html`data-action="join-room" data-channel-id="${channelId}"` : ''} data-room-topic="${ch.topic}">
             <div>
               <div class="room-card-header">
                 <span class="room-card-club">${housePhoto(ch)} ${ch.club_name || 'Clubhouse'}</span>
                 <div class="room-card-stats">
+                  ${privacyBadge(ch)}
                   <span>👥 ${ch.num_all}</span>
                   <span>🎙️ ${ch.num_speakers}</span>
                 </div>

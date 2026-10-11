@@ -42,6 +42,9 @@ export type ClubboxAppCtlMethods = {
   runDiscoverSearch: typeof hallwayCtl.runDiscoverSearch;
   displayedHallwayChannels: typeof hallwayCtl.displayedHallwayChannels;
   selectHallwayTopic: typeof hallwayCtl.selectHallwayTopic;
+  selectHallwayPrivacy: typeof hallwayCtl.selectHallwayPrivacy;
+  ensureSparsePrivacyLoaded: typeof hallwayCtl.ensureSparsePrivacyLoaded;
+  hallwayPrivacyEmptyMessage: typeof hallwayCtl.hallwayPrivacyEmptyMessage;
   persistHallwayPrefs: typeof hallwayCtl.persistHallwayPrefs;
   addHallwayKeyword: typeof hallwayCtl.addHallwayKeyword;
   removeHallwayKeyword: typeof hallwayCtl.removeHallwayKeyword;

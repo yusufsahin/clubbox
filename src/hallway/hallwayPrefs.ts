@@ -1,10 +1,16 @@
 const STORAGE_KEY = 'clubbox_hallway_prefs';
 
+/** Mirrors HallwayPrivacy without importing hallwayDisplay (avoids a cycle). */
+export type StoredHallwayPrivacy = 'public' | 'friend' | 'friend_of_friend' | 'house' | 'dm' | 'other';
+
+const STORED_PRIVACIES = new Set<string>(['public', 'friend', 'friend_of_friend', 'house', 'dm', 'other']);
+
 export type HallwayPrefs = {
   keywords: string[];
   showNsfw: boolean;
   onlyKeywordMatches: boolean;
   savedSearchColumns: string[];
+  selectedPrivacy: StoredHallwayPrivacy | null;
 };
 
 export const defaultHallwayPrefs = (): HallwayPrefs => ({
@@ -12,7 +18,13 @@ export const defaultHallwayPrefs = (): HallwayPrefs => ({
   showNsfw: false,
   onlyKeywordMatches: false,
   savedSearchColumns: [],
+  selectedPrivacy: null,
 });
+
+function readSelectedPrivacy(value: unknown): StoredHallwayPrivacy | null {
+  if (typeof value !== 'string' || !value) return null;
+  return STORED_PRIVACIES.has(value) ? (value as StoredHallwayPrivacy) : null;
+}
 
 export function readHallwayPrefs(): HallwayPrefs {
   try {
@@ -30,6 +42,7 @@ export function readHallwayPrefs(): HallwayPrefs {
       showNsfw: parsed.showNsfw === true,
       onlyKeywordMatches: parsed.onlyKeywordMatches === true,
       savedSearchColumns,
+      selectedPrivacy: readSelectedPrivacy(parsed.selectedPrivacy),
     };
   } catch {
     return defaultHallwayPrefs();
@@ -43,6 +56,7 @@ export function writeHallwayPrefs(prefs: HallwayPrefs): void {
       showNsfw: prefs.showNsfw,
       onlyKeywordMatches: prefs.onlyKeywordMatches,
       savedSearchColumns: prefs.savedSearchColumns,
+      selectedPrivacy: prefs.selectedPrivacy,
     }));
   } catch {
     // ignore quota / private mode

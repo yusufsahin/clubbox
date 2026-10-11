@@ -1,6 +1,7 @@
 import { en, type MessageKey } from './en';
 import { tr } from './tr';
 
+export type { MessageKey };
 export type Language = 'en' | 'tr';
 
 let language: Language = 'en';

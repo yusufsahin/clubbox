@@ -3,7 +3,13 @@ import { isLiveUpdatesUnavailable } from '../api/liveUpdates.ts';
 import type { CHChannel, FeedTopic, SearchObjectType } from '../api/types.ts';
 import { t } from '../i18n/index.ts';
 import { html, safeUrl } from '../ui/html.ts';
-import { prepareHallwayChannels } from '../hallway/hallwayDisplay.ts';
+import { FEED_MAX_PAGES } from '../api/feedPagination.ts';
+import {
+  hallwayPrivacyCounts,
+  prepareHallwayChannels,
+  shouldAutoLoadMorePrivacy,
+  type HallwayPrivacy,
+} from '../hallway/hallwayDisplay.ts';
 import { type HallwayPrefs, readHallwayPrefs, writeHallwayPrefs } from '../hallway/hallwayPrefs.ts';
 import { encodeStereoWav } from '../audio/wav.ts';
 import { readHighlightPayload, readReplayPayload } from '../api/replayPlayback.ts';
@@ -34,6 +40,7 @@ export async function reloadChannels(this: ClubboxApp) : Promise<void> {
     const res = await clubhouseClient.getChannelsPage();
     this.channelsList = res.channels || [];
     this.feedNextCursor = res.next_cursor ?? null;
+    this.feedPagesLoaded = 1;
     this.feedTopics = Array.isArray(res.available_topics)
       ? res.available_topics.filter((topic): topic is FeedTopic => !!topic && typeof topic.key === 'string' && typeof topic.display_name === 'string')
       : [];
@@ -51,12 +58,51 @@ export async function loadMoreChannels(this: ClubboxApp): Promise<void> {
       }
       this.channelsList = [...merged.values()];
       this.feedNextCursor = res.next_cursor ?? null;
+      this.feedPagesLoaded += 1;
       if (this.currentTab === 'explore') this.render();
     } catch (err) {
       this.reportApiError(err);
+      this.feedNextCursor = null;
     } finally {
       this.feedLoadingMore = false;
     }
+  }
+
+export async function ensureSparsePrivacyLoaded(this: ClubboxApp): Promise<void> {
+    const privacy = this.hallwayPrefs.selectedPrivacy;
+    if (!privacy) return;
+    while (shouldAutoLoadMorePrivacy({
+      privacy,
+      countOfType: hallwayPrivacyCounts(this.channelsList)[privacy],
+      hasNextCursor: !!this.feedNextCursor,
+      pagesLoaded: this.feedPagesLoaded,
+      maxPages: FEED_MAX_PAGES,
+    })) {
+      const before = this.feedNextCursor;
+      await this.loadMoreChannels();
+      if (!this.feedNextCursor || this.feedNextCursor === before) break;
+    }
+  }
+
+export function selectHallwayPrivacy(this: ClubboxApp, privacy: HallwayPrivacy | null): void {
+    this.hallwayPrefs.selectedPrivacy = privacy;
+    this.persistHallwayPrefs();
+    if (this.currentTab === 'explore') this.render();
+    if (privacy) void this.ensureSparsePrivacyLoaded().then(() => {
+      if (this.currentTab === 'explore') this.render();
+    });
+  }
+
+export function hallwayPrivacyEmptyMessage(this: ClubboxApp): string | null {
+    const privacy = this.hallwayPrefs.selectedPrivacy;
+    if (!privacy) return null;
+    if (this.displayedHallwayChannels().length > 0) return null;
+    if (privacy === 'friend') return t('roomTypeEmptyFriend');
+    const typeLabel = privacy === 'public' ? t('roomTypePublic')
+      : privacy === 'friend_of_friend' ? t('roomTypeFriendOfFriend')
+        : privacy === 'house' ? t('roomTypeHouse')
+          : t('roomTypeFriend');
+    return t('roomTypeEmptyOther', { type: typeLabel, count: this.feedPagesLoaded || 1 });
   }
 
 export async function refreshExplore(this: ClubboxApp) : Promise<void> {
@@ -134,7 +180,12 @@ export function scheduleDiscoverSearch(this: ClubboxApp) : void {
   }
 
 export function displayedHallwayChannels(this: ClubboxApp): CHChannel[] {
-    return prepareHallwayChannels(this.channelsList, this.hallwayPrefs, this.selectedTopicKey);
+    return prepareHallwayChannels(
+      this.channelsList,
+      this.hallwayPrefs,
+      this.selectedTopicKey,
+      this.hallwayPrefs.selectedPrivacy,
+    );
   }
 
 export function selectHallwayTopic(this: ClubboxApp, topicKey: string | null): void {
@@ -382,6 +433,9 @@ export function wireHallwayCtl(proto: ClubboxApp): void {
   proto.runDiscoverSearch = runDiscoverSearch;
   proto.displayedHallwayChannels = displayedHallwayChannels;
   proto.selectHallwayTopic = selectHallwayTopic;
+  proto.selectHallwayPrivacy = selectHallwayPrivacy;
+  proto.ensureSparsePrivacyLoaded = ensureSparsePrivacyLoaded;
+  proto.hallwayPrivacyEmptyMessage = hallwayPrivacyEmptyMessage;
   proto.persistHallwayPrefs = persistHallwayPrefs;
   proto.addHallwayKeyword = addHallwayKeyword;
   proto.removeHallwayKeyword = removeHallwayKeyword;

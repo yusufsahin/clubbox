@@ -7,9 +7,11 @@ import {
   filterNsfwHallwayRooms,
   prepareHallwayChannels,
   roomTitleKeywordHits,
+  shouldAutoLoadMorePrivacy,
   usableFeedTopics,
   sortHallwayRooms,
   splitKeywordHighlight,
+  visiblePrivacyChips,
 } from '../src/hallway/hallwayDisplay.ts';
 
 test('sortHallwayRooms lists friend-speaker rooms first', () => {
@@ -48,7 +50,7 @@ test('usableFeedTopics hides topics no loaded room is tagged with', () => {
 
 test('prepareHallwayChannels ignores a selected topic that no room carries', () => {
   const live = [{ topic: 'A', users: [] }, { topic: 'B', users: [] }];
-  const prefs = { keywords: [], showNsfw: false, onlyKeywordMatches: false, savedSearchColumns: [] };
+  const prefs = { keywords: [], showNsfw: false, onlyKeywordMatches: false, savedSearchColumns: [], selectedPrivacy: null };
   assert.equal(prepareHallwayChannels(live, prefs, 'tech').length, 2);
 });
 
@@ -58,7 +60,7 @@ test('keyword rooms come first and can be the only rooms shown', () => {
     { topic: 'Tech Talk Live', users: [] },
     { topic: 'Jazz night', users: [] },
   ];
-  const base = { keywords: ['tech', 'JAZZ'], showNsfw: false, savedSearchColumns: [] };
+  const base = { keywords: ['tech', 'JAZZ'], showNsfw: false, savedSearchColumns: [], selectedPrivacy: null };
   assert.deepEqual(
     prepareHallwayChannels(rooms, { ...base, onlyKeywordMatches: false }).map((r) => r.topic),
     ['Tech Talk Live', 'Jazz night', 'Morning coffee'],
@@ -106,9 +108,39 @@ test('hallwayPrivacyCounts counts every privacy so chips can show what the feed 
 
 test('prepareHallwayChannels keeps only the chosen privacy, and all rooms when none is chosen', () => {
   const rooms = [privacyRoom('a', 'house'), privacyRoom('b', 'public'), privacyRoom('c', 'friend_of_friend'), privacyRoom('d', 'public')];
-  const prefs = { keywords: [], showNsfw: false, onlyKeywordMatches: false } as never;
+  const prefs = { keywords: [], showNsfw: false, onlyKeywordMatches: false, selectedPrivacy: null } as never;
   assert.deepEqual(prepareHallwayChannels(rooms, prefs, null, 'public').map((r) => r.channel), ['b', 'd']);
   assert.deepEqual(prepareHallwayChannels(rooms, prefs, null, 'friend_of_friend').map((r) => r.channel), ['c']);
   assert.deepEqual(prepareHallwayChannels(rooms, prefs, null, 'friend').map((r) => r.channel), []);
   assert.equal(prepareHallwayChannels(rooms, prefs).length, 4);
+});
+
+test('visiblePrivacyChips hides zero counts except the selected type', () => {
+  const counts = hallwayPrivacyCounts([
+    privacyRoom('a', 'house'), privacyRoom('b', 'house'), privacyRoom('c', 'public'), privacyRoom('d', 'friend_of_friend'),
+  ]);
+  assert.deepEqual(
+    visiblePrivacyChips(counts, null).map((chip) => [chip.privacy, chip.count]),
+    [[null, 4], ['public', 1], ['friend_of_friend', 1], ['house', 2]],
+  );
+  assert.ok(visiblePrivacyChips(counts, 'friend').some((chip) => chip.privacy === 'friend' && chip.count === 0));
+});
+
+test('shouldAutoLoadMorePrivacy only runs for a selected sparse type under the page cap', () => {
+  assert.equal(shouldAutoLoadMorePrivacy({
+    privacy: 'public', countOfType: 1, hasNextCursor: true, pagesLoaded: 1,
+  }), true);
+  assert.equal(shouldAutoLoadMorePrivacy({
+    privacy: null, countOfType: 1, hasNextCursor: true, pagesLoaded: 1,
+  }), false);
+  assert.equal(shouldAutoLoadMorePrivacy({
+    privacy: 'public', countOfType: 5, hasNextCursor: true, pagesLoaded: 2,
+  }), false);
+  assert.equal(shouldAutoLoadMorePrivacy({
+    privacy: 'public', countOfType: 1, hasNextCursor: true, pagesLoaded: 8,
+  }), false);
+});
+
+test('hallwayRoomPrivacy accepts the sandbox friends_of_friends alias', () => {
+  assert.equal(hallwayRoomPrivacy(privacyRoom('x', 'friends_of_friends')), 'friend_of_friend');
 });

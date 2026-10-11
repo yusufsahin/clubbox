@@ -311,7 +311,7 @@ export const INITIAL_MOCK_CHANNELS: CHChannel[] = [
     club_id: 99,
     is_private: false,
     is_social_mode: true,
-    privacy_settings: { type: 'friends_of_friends', display_text: 'Friends of friends', tooltip_text: 'Friends of friends' },
+    privacy_settings: { type: 'friend_of_friend', display_text: 'Friends of friends', tooltip_text: 'Friends of friends' },
     privacy_tooltip: 'Friends of friends',
     is_chat_enabled: false,
     is_handraise_enabled: false,

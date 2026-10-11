@@ -6,22 +6,17 @@ _Last reviewed: 2026-10-11. “Uygulandı” means the code is in the tree. “C
 
 ### Next run (owner instruction, 2026-10-12 #7)
 
-All checklist items below are done. No open Status-table task remains except ST-9 (deferred).
-- [x] 18.1 room bar + Sounds panel + Reactions popover; remove the Soundboard place
-- [x] 18.2 Room details: About · Audio · Moderation · Audience search; clean the stage page
-- [x] 18.3 Settings › Sounds; remove voice effect / spatial audio from Settings; NAV-1 + NAV-9 (four places)
-- [x] 18.4 room bar layout + emoji icons (owner screenshot: lone "F", clipped right side, two-line labels, faded disabled buttons, invisible ➕ on Start a room) — tests at 4 widths first
-- [x] npm run test:e2e green + fresh light/dark screenshots (UI phases are only done with both); commit per item; summary; stop
-- [x] Phase 19 — profiles: actions (Message any time, Talk live, follow labels, Share) and sections (houses, recently chatting, links, in a room now, mutual lists, private profile)
-- [x] Phase 21 — live reliability FIRST after Phase 19: crawler for signed-in users + no writes into the app (21.1), no silent realtime/audio failures + Connection status (21.2), unread-summary 400 + housekeeping (21.3)
-- [x] Phase 20 — external audio into the room (second input, system audio on Windows, auto-duck), no virtual cable needed
-- [x] api:triage (no new failures); PRD Today column synced for Phases 18–20
+Owner added Phase 22 (HAL-9 room type chips). Continue from there:
+- [x] Phases 18–21 (see history above)
+- [x] Phase 22 — hallway room types (HAL-9): chips, sparse load-more, badges, empty state
+- [x] npm test + e2e + light/dark hallway screenshots; PRD HAL-9 Today; commit; stop
 
-### Last autonomous run (2026-10-12 #recheck)
+### Last autonomous run (2026-10-12)
 
-- Done: nothing new — Next run fully ticked; `npm run api:triage` → NO NEW FAILURES; only `@pending` left is ST-9 `@deferred`.
-- Blocked / deferred: ST-9 Restream RTMP until you schedule it (will not un-pend without that).
-- Questions for the owner: schedule ST-9, or write the next phase into CURSOR_TASKS.md.
+- Done: Phase 22 — HAL-9 room type chips (All/Public/FoF/Friends/Houses), sparse auto load-more, card badges, empty states; sandbox type `friend_of_friend`.
+- Tests: npm test 197 scenarios / 1141 steps; e2e 12/12 (privacy chips + badge on hallway).
+- Blocked / deferred: ST-9 Restream only.
+- Questions for the owner: none.
 
 
 ## Status
@@ -32,7 +27,7 @@ Legend: **Uygulandı** = code is in the tree. **Canlı doğrulandı** = exercise
 | --- | --- | --- |
 | 1 | **0.7 Review fixes (2026-10-11 #2)** — navigation guard, packaged recorder, clip worklet path, auto-armed clip buffer, 429/visibility, CORS proxy token leak | Uygulandı |
 | 1b | **0.8 Followers / following / friends lists** — bundle scan + labeled UI hunt; live UI uses only counts + mutual lists | Uygulandı for counts, mutual names, and chat people. The public web bundle does not contain get_followers, get_following, or get_online_friends. get_friend_zone_match and get_social_club_members are in-bundle and not called. The labeled click-through still needs a signed-in session. |
-| 0 | **Autonomous plan** (see `.cursor/rules/clubbox.mdc`): 10.1 → 11.8 (warn mode) → 10.2 → 10.5 → 11.0 → 11.1 → 11.2 → 11.3 → 11.4 → 10.4 → 11.5 → 11.6 → 11.7 → 11.9 → 11.10 → 11.8 (strict). Acceptance files: account, hallway, room_listener, room_realtime, room_host, room_moderation, audio_studio, studio, social, messages, houses_events_replays, api_health. Requirements: `docs/product/PRD.md`; design + gap list G-01…G-18: `docs/product/DESIGN.md`; acceptance: `features/*.feature` | **Idle** — Phases 12–21 done. Only ST-9 Restream remains `@deferred`. |
+| 0 | **Autonomous plan** (see `.cursor/rules/clubbox.mdc`): 10.1 → 11.8 (warn mode) → 10.2 → 10.5 → 11.0 → 11.1 → 11.2 → 11.3 → 11.4 → 10.4 → 11.5 → 11.6 → 11.7 → 11.9 → 11.10 → 11.8 (strict). Acceptance files: account, hallway, room_listener, room_realtime, room_host, room_moderation, audio_studio, studio, social, messages, houses_events_replays, api_health. Requirements: `docs/product/PRD.md`; design + gap list G-01…G-18: `docs/product/DESIGN.md`; acceptance: `features/*.feature` | **Idle** — Phases 12–**22** done. Only ST-9 Restream remains `@deferred`. |
 | — | **10.1** / **10.2** / **10.4** / **10.5** / **11.0** / **11.8 (warn)** | Uygulandı |
 | 1c | **0.9 / 12.2 Verified by use** — request log + in-app triage (no recorder) | Uygulandı. Verified by use: endpoints the owner exercises become `observed` via userData `api-log` + startup triage / `npm run api:triage` (list grows with normal use). |
 | 2 | **0.6 Community Guidelines risk** — hidden reCAPTCHA sign-in, polling, recording, distribution | Uygulandı (code). Sign-in is a visible clubhouse.com window, polling pauses when the window is hidden, recording is opt-in, and there is no publish config. A public release is still your decision. |

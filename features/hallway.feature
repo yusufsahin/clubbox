@@ -107,7 +107,7 @@ Feature: Hallway and discovery
 
   # Live get_feed_v3 (52 first pages): house 86 %, public 13 %, friend_of_friend 1.6 %, friend 0.
   # Web ChannelPrivacyLevel enum: dm, friend, friend_of_friend, house; the feed also sends public.
-  @local @HAL-9 @pending
+  @local @HAL-9
   Scenario: Room type chips show what the feed holds
     Given the live hallway has 10 house rooms, 2 public rooms and 1 friends-of-friends room
     Then I see the room type chips "All 13", "Public 2", "Friends of friends 1" and "Houses 10"
@@ -115,20 +115,20 @@ Feature: Hallway and discovery
     When I select the room type "Public"
     Then the hallway lists only the 2 public rooms
 
-  @local @HAL-9 @pending
+  @local @HAL-9
   Scenario: A sparse room type loads more of the feed
     Given the live hallway first page has 1 public room and more pages are available
     When I select the room type "Public"
     Then Clubbox loads further feed pages until at least 5 public rooms are listed or 8 pages are loaded
     And the hallway says how many pages were checked
 
-  @local @HAL-9 @pending
+  @local @HAL-9
   Scenario: Every card shows its room type
     Given the live hallway has a public room "Open mic" and a friends-of-friends room "Late chat"
     Then the card "Open mic" shows the badge "Public"
     And the card "Late chat" shows the badge "Friends of friends"
 
-  @local @HAL-9 @pending
+  @local @HAL-9
   Scenario: Empty room type explains why
     Given the live hallway has no friends rooms after 8 pages
     When I select the room type "Friends"

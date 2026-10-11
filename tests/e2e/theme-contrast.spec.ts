@@ -78,6 +78,8 @@ test.describe('theme contrast (sandbox)', () => {
         await setTheme(page, theme);
 
         await page.locator(place('explore')).click({ force: true });
+        await expect(page.locator('[data-privacy-chips]')).toBeVisible({ timeout: 10_000 });
+        await expect(page.locator('[data-room-type]').first()).toBeVisible({ timeout: 10_000 });
         await page.screenshot({ path: path.join(shotDir, `${theme}-hallway.png`), fullPage: true });
         await assertNoContrastViolations(page, `${theme} hallway`);
 
