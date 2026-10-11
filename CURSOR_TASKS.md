@@ -13,11 +13,11 @@ Do these before continuing the Autonomous plan, then tick them:
 
 ### Last autonomous run (2026-10-11)
 
-- Done: **11.9** (remaining catalog — ACC-4/5/7/8, HAL-6, ST-6/7/8, RL-9/11, SO-2, RH-8/10/12, DX-11 + BDD steps/modules), **11.10** (Playwright Electron sandbox smoke + `CLUBBOX_FORCE_SANDBOX`), **11.8** (trace default **strict**, 0 errors).
-- Tests: `npm test` — **96** unit + **123 BDD** (717 steps) + trace strict; `npm run test:e2e` — dev smoke green.
-- Un-pended: `account.feature` (4), `hallway.feature` HAL-6, `audio_studio.feature` (5), `room_moderation.feature` (5), `social.feature` SO-2/RL-9.
-- Blocked: `test:e2e:packaged` — Playwright `electron.launch` fails on existing `release/win-unpacked/Clubbox.exe` (dev smoke OK).
-- Questions: none new (packaged e2e may need a different launcher or fresh dist on owner machine).
+- Done (this devam): Next-run regression (ST/HAL/SO/ACC) → **11.0** crawler → **11.1** registry/SandboxTransport → **11.2** RoomSession + controllers → **11.3** room API bindings → **11.4** PubNub/Agora hub → **10.4** studio quick wins → **11.5–11.7** hallway/messages/houses → **11.9** catalog → **11.10** e2e → **11.8** trace **strict**.
+- Tests: `npm test` — **97** unit + **123 BDD** (717 steps) + trace strict (0 errors); `npm run test:e2e` — dev smoke green.
+- Blocked: `test:e2e:packaged` — Playwright cannot launch existing `release/win-unpacked/Clubbox.exe` (dev e2e OK). Owner live room capture still outstanding.
+- Still @pending: ST-9 deferred; room_host DX-1/DX-3.
+- Questions: none new.
 
 ## Status
 

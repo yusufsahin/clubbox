@@ -27,6 +27,9 @@ api-captures/
 # Cucumber HTML report
 reports/
 
+# Playwright output
+test-results/
+
 # Secrets and local env (auth token, Agora credentials)
 .env
 .env.*
