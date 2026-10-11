@@ -103,11 +103,11 @@ Legend — Today: ✅ works live · 🧪 sandbox/UI only · ❌ missing. Evidenc
 | RL-1 | Join a room and hear audio | ✓ | ✓ | 🧪 | B (join_channel) + Agora | P0 |
 | RL-2 | Leave quietly | ✓ | ✓ | 🧪 | B | P0 |
 | RL-3 | Stay connected (active_ping 30 s) | | | 🧪 | B | P0 |
-| RL-4 | Live stage/audience updates | ✓ | ✓ | 🧪 | B/C (PubNub) | P0 |
-| RL-5 | Room chat read + send, unread count | ✓ | ✓ | 🧪 | B | P0 |
+| RL-4 | Live stage/audience updates | ✓ | ✓ | ✅ | B/C (PubNub) | P0 |
+| RL-5 | Room chat read + send, unread count | ✓ | ✓ | ✅ | B | P0 |
 | RL-6 | Raise / lower hand | ✓ | ✓ | 🧪 | B (audience_reply) | P0 |
 | RL-7 | Accept / decline stage invite | ✓ | ✓ | 🧪 | B (become_speaker) / C | P0 |
-| RL-8 | Emoji reactions to a speaker | ✓ | | 🧪 | B (emoji_reaction) | P1 |
+| RL-8 | Emoji reactions to a speaker | ✓ | | ✅ | B (emoji_reaction) | P1 |
 | RL-9 | Private chat with a person in the room (text) | ✓ | ✓ | 🧪 | O (conversations) | P2 |
 | RL-10 | Audience search by name/bio (Ctrl+S) | | ✓ | ❌ | — (client side on room users) | P1 |
 | RL-11 | Spatial audio (local) | ✓ | ✓ | ❌ | — | P2 |
