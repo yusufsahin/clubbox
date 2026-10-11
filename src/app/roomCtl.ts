@@ -215,16 +215,16 @@ export async function runAgoraRoleSync(this: ClubboxApp) : Promise<void> {
           if (wantSpeaker) {
             const ok = await agoraVoice.promoteToSpeaker();
             this.audioConnected = ok;
-            if (!ok) this.showToast(t('micStageFailed'), '≡ƒöç');
+            if (!ok) this.showToast(t('micStageFailed'), '🔇');
           } else {
             await agoraVoice.demoteToAudience();
             audioEngine.setMuted(true);
             const micBtn = document.getElementById('mic-toggle-btn');
             if (micBtn) {
               micBtn.classList.remove('unmuted');
-              micBtn.textContent = '≡ƒöç';
+              micBtn.textContent = '🔇';
             }
-            this.showToast(t('movedToAudience'), '≡ƒÄÖ∩╕Å');
+            this.showToast(t('movedToAudience'), '🎙️');
           }
         }
       }
@@ -240,7 +240,7 @@ export async function runAgoraRoleSync(this: ClubboxApp) : Promise<void> {
     }
     if (decision === 'give-up') {
       this.audioConnected = false;
-      this.showToast(t('agoraPromoteStopped'), '≡ƒöç');
+      this.showToast(t('agoraPromoteStopped'), '🔇');
       return;
     }
     this.syncAgoraRole();
@@ -251,7 +251,7 @@ export async function inviteToStage(this: ClubboxApp, userId: number) : Promise<
     if (!this.allowAction('invite_speaker')) return;
     try {
       await clubhouseClient.inviteSpeaker(this.channelApiId(this.currentChannel), userId);
-      this.showToast(t('invitedToSpeakToast'), '≡ƒÄÖ∩╕Å');
+      this.showToast(t('invitedToSpeakToast'), '🎙️');
       await this.refreshCurrentRoom();
     } catch (err) {
       this.reportApiError(err);
@@ -314,7 +314,7 @@ export async function acceptSpeakerInvite(this: ClubboxApp) : Promise<void> {
         await agoraVoice.promoteToSpeaker();
       }
       audioEngine.setMuted(true);
-      this.showToast(t('onStage'), '≡ƒÄÖ∩╕Å');
+      this.showToast(t('onStage'), '🎙️');
     } catch (err) {
       this.reportApiError(err);
       if (acceptBtn) acceptBtn.disabled = false;
@@ -368,7 +368,7 @@ export async function toggleHandRaise(this: ClubboxApp) {
     if (!this.currentChannel) return;
     if (!this.allowAction('audience_reply')) return;
     if (this.currentChannel.is_handraise_enabled === false) {
-      this.showToast(t('handOff'), 'Γ£ï');
+      this.showToast(t('handOff'), '✋');
       return;
     }
     if (this.isMeSpeaker()) return;
@@ -383,10 +383,10 @@ export async function toggleHandRaise(this: ClubboxApp) {
     if (handBtn) {
       if (!isRaised) {
         handBtn.classList.add('active');
-        this.showToast(t('handRaisedToast'), 'Γ£ï');
+        this.showToast(t('handRaisedToast'), '✋');
       } else {
         handBtn.classList.remove('active');
-        this.showToast(t('handLowered'), '≡ƒæç');
+        this.showToast(t('handLowered'), '👇');
       }
     }
   }
@@ -409,7 +409,7 @@ export function toggleRecording(this: ClubboxApp) {
     const starting = !audioEngine.getIsRecording();
     if (starting && !this.recordingAllowed()) {
       const allowed = clubhouseClient.getConfig().allowLocalRecording === true;
-      this.showToast(t(allowed ? 'recordingNeedsReplay' : 'recordingNeedsConsent'), '≡ƒö┤');
+      this.showToast(t(allowed ? 'recordingNeedsReplay' : 'recordingNeedsConsent'), '🔴');
       return;
     }
     if (starting && !window.confirm(t('recordingConfirm'))) return;
@@ -437,12 +437,12 @@ export async function saveClip(this: ClubboxApp) : Promise<void> {
     const channel = this.currentChannel;
     if (!channel) return;
     if (!this.clipsAllowed()) {
-      this.showToast(t('clipUnavailable'), 'Γ£é');
+      this.showToast(t('clipUnavailable'), '✂');
       return;
     }
     const blob = await audioEngine.saveClip();
     if (!blob) {
-      this.showToast(t('clipEmpty'), 'Γ£é');
+      this.showToast(t('clipEmpty'), '✂');
       return;
     }
     const url = URL.createObjectURL(blob);
@@ -451,7 +451,7 @@ export async function saveClip(this: ClubboxApp) : Promise<void> {
     link.download = recordingFilename(channel.topic, 'clip');
     link.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 1500);
-    this.showToast(t('clipSaved'), 'Γ£é');
+    this.showToast(t('clipSaved'), '✂');
   }
 
 export function allowAction(this: ClubboxApp, endpoint: string) : boolean {
@@ -462,7 +462,7 @@ export function allowAction(this: ClubboxApp, endpoint: string) : boolean {
         : evidence === 'community'
           ? 'availableInClubhouseApp'
           : 'unverifiedAction';
-      this.showToast(t(key), '≡ƒöÆ');
+      this.showToast(t(key), '🔒');
       return false;
     }
     if (clubhouseClient.needsExperimentalConfirmation(endpoint)) {
@@ -510,7 +510,7 @@ export async function joinRoom(this: ClubboxApp, channelId: string, preset?: CHC
     } catch (err) {
       if (this.roomSession.generation !== generation) return;
       if (err instanceof ClubhouseApiError && (err.status === 404 || err.status === 405)) {
-        this.showToast(t('joinUnavailableOnWeb'), '≡ƒöÆ');
+        this.showToast(t('joinUnavailableOnWeb'), '🔒');
       } else {
         this.reportApiError(err);
       }
@@ -546,27 +546,27 @@ export async function joinRoom(this: ClubboxApp, channelId: string, preset?: CHC
     if (this.currentChannel.is_chat_enabled !== false) this.chatOpen = true;
     this.render();
     if (clubhouseClient.getConfig().useSandbox || this.audioConnected) {
-      this.showToast(t('joinedRoom', { topic: this.currentChannel.topic }), '≡ƒÄÖ∩╕Å');
+      this.showToast(t('joinedRoom', { topic: this.currentChannel.topic }), '🎙️');
     }
-    if (this.currentChannel.should_join_muted === true) this.showToast(t('joinMuted'), '≡ƒöç');
+    if (this.currentChannel.should_join_muted === true) this.showToast(t('joinMuted'), '🔇');
   }
 
 export async function connectRoomAudio(this: ClubboxApp, generation: number) : Promise<void> {
     if (this.roomSession.generation !== generation || !this.currentChannel || clubhouseClient.getConfig().useSandbox) return;
     if (!this.me) {
       this.audioConnected = false;
-      this.showToast(t('signInToHear'), '≡ƒöæ');
+      this.showToast(t('signInToHear'), '🔑');
       return;
     }
     if (!clubhouseClient.getConfig().agoraAppId) {
       this.audioConnected = false;
       clubhouseClient.noteApiHealth('agora', t('audioKeyNotFound'));
-      this.showToast(t('audioKeyNotFound'), '≡ƒöç');
+      this.showToast(t('audioKeyNotFound'), '🔇');
       return;
     }
     if (!this.currentChannel.token) {
       this.audioConnected = false;
-      this.showToast(t('noAudioToken'), '≡ƒöç');
+      this.showToast(t('noAudioToken'), '🔇');
       return;
     }
     const ok = await agoraVoice.join(
@@ -580,7 +580,7 @@ export async function connectRoomAudio(this: ClubboxApp, generation: number) : P
       return;
     }
     this.audioConnected = ok;
-    if (!ok) this.showToast(t('audioTokenGap'), '≡ƒöç');
+    if (!ok) this.showToast(t('audioTokenGap'), '🔇');
   }
 
 export async function releaseRoomLocally(this: ClubboxApp, options: { skipServer?: boolean } = {}) : Promise<void> {
@@ -667,7 +667,7 @@ export function afterRoomExit(this: ClubboxApp, hadRoom: boolean, silent: boolea
     this.chatOpen = true;
     this.audienceSearchQuery = '';
     this.render();
-    if (hadRoom && !silent) this.showToast(ended ? t('endedRoom') : t('leftRoom'), ended ? 'ΓÅ╣' : '≡ƒæï');
+    if (hadRoom && !silent) this.showToast(ended ? t('endedRoom') : t('leftRoom'), ended ? '⏹' : '👋');
     if (!hadRoom) return;
     void this.reloadChannels().then(() => {
       if (this.currentTab === 'explore') this.render();
@@ -687,12 +687,12 @@ export async function sendChatMessage(this: ClubboxApp) {
     const input = document.getElementById('chat-input') as HTMLInputElement;
     if (!input || !input.value.trim() || !this.currentChannel) return;
     if (this.currentChannel.is_chat_enabled === false) {
-      this.showToast(t('chatOff'), '≡ƒÆ¼');
+      this.showToast(t('chatOff'), '💬');
       return;
     }
 
     if (!this.me) {
-      this.showToast(t('signInToChat'), '≡ƒöæ');
+      this.showToast(t('signInToChat'), '🔑');
       this.currentTab = 'login';
       this.render();
       return;
@@ -741,7 +741,7 @@ export async function confirmCreateRoom(this: ClubboxApp) : Promise<void> {
     const chatEnabled = (document.getElementById('new-room-chat') as HTMLInputElement | null)?.checked !== false;
     const confirmBtn = document.querySelector('[data-action="confirm-create"]') as HTMLButtonElement | null;
     if (!topic) {
-      this.showToast(t('enterTopic'), 'ΓÜá∩╕Å');
+      this.showToast(t('enterTopic'), '⚠️');
       return;
     }
     if (!this.allowAction('create_channel')) return;

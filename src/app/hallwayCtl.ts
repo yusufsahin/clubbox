@@ -95,7 +95,7 @@ export function hallwayNotices(this: ClubboxApp) : string[] {
 
 export function roomHousePhoto(this: ClubboxApp) : ReturnType<typeof html> | string {
     const photo = safeUrl(this.currentChannel?.club_photo_url);
-    if (!photo) return '≡ƒÅ¢∩╕Å';
+    if (!photo) return '🏛️';
     return html`<img class="house-photo" src="${photo}" alt="" />`;
   }
 

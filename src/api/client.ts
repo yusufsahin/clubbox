@@ -1043,7 +1043,7 @@ export class ClubhouseApiClient {
     return this.request('get_conversations', { is_private_only: true });
   }
 
-  public async getEdgeStories(): Promise<{ success: boolean; activities: unknown[] }> {
+  public async getEdgeStories(): Promise<{ success: boolean; activities?: unknown[]; stories?: unknown[]; items?: unknown[] }> {
     return this.request('get_edge_stories');
   }
 
@@ -1161,7 +1161,7 @@ export class ClubhouseApiClient {
     return this.call('get_online_friends', {});
   }
 
-  public async getNotifications(page = 1, pageSize = 20): Promise<ApiAck> {
+  public async getNotifications(page = 1, pageSize = 20): Promise<{ success?: boolean; notifications?: unknown[]; items?: unknown[] }> {
     return this.call('get_notifications', { page, page_size: pageSize });
   }
 

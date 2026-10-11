@@ -1,5 +1,6 @@
 // @ts-nocheck — extracted controller; imports trimmed over time.
 import { ClubhouseApiError, clubhouseClient } from '../api/client.ts';
+import { readConversationThread } from '../api/conversationThread.ts';
 import { beginJoin, commitJoin, finishLeave, localClipAllowed, roleSyncDecision, roomAudience } from '../api/guards.ts';
 import { capturedCreateBody, leaveClosesRoom, roomHasOthers } from '../api/roomActions.ts';
 import { applyFollowResponse, mergeProfile, PEOPLE_LIST_ENDPOINTS, profileCountsMissing, readProfile, relationshipFromStatus, talkPartners, type PeopleListKind } from '../api/relationship.ts';
@@ -72,7 +73,9 @@ export async function openConversationThread(this: ClubboxApp, conversationId: s
     this.openConversationId = conversationId;
     this.previewMember = null;
     this.openConversationThreadData = null;
-    if (clubhouseClient.getConfig().useSandbox) {
+    const sandboxThread = clubhouseClient.getSandbox()?.thread(conversationId) ?? null;
+    if (sandboxThread) {
+      this.openConversationThreadData = sandboxThread;
       this.render();
       return;
     }
@@ -80,13 +83,25 @@ export async function openConversationThread(this: ClubboxApp, conversationId: s
       this.render();
       return;
     }
+    this.render();
     try {
       const res = await clubhouseClient.getConversation(conversationId);
-      this.openConversationThreadData = res;
+      this.openConversationThreadData = readConversationThread(res);
+      if (this.openConversationId === conversationId && !this.openConversationThreadData) {
+        // Flat/nested parse failed — keep the panel open with empty segments.
+        this.openConversationThreadData = { segments: [], members: [] };
+      }
     } catch (err) {
       this.reportApiError(err);
     }
-    this.render();
+    if (this.openConversationId === conversationId) this.render();
+  }
+
+export function activeConversationThread(this: ClubboxApp) {
+    if (!this.openConversationId) return null;
+    const sandbox = clubhouseClient.getSandbox()?.thread(this.openConversationId);
+    if (sandbox) return sandbox;
+    return this.openConversationThreadData;
   }
 
 export function sendThreadSegment(this: ClubboxApp, conversationId: string | undefined, kind: 'text' | 'voice') : void {
@@ -105,14 +120,23 @@ export function sendThreadSegment(this: ClubboxApp, conversationId: string | und
       });
       if (kind === 'voice') audioEngine.playVoiceNote(this.voiceRate);
       void this.loadConversations();
+      if (this.openConversationId === conversationId) {
+        this.openConversationThreadData = sandbox.thread(conversationId);
+        this.render();
+      }
+      if (input && kind === 'text') input.value = '';
       return;
     }
     if (!clubhouseClient.supports('add_conversation_segment')) {
       this.liveMessageBlocked();
       return;
     }
+    if (input && kind === 'text') input.value = '';
     void clubhouseClient.addConversationSegment(conversationId, kind, kind === 'text' ? text : undefined)
-      .then(() => this.loadConversations())
+      .then(async () => {
+        await this.loadConversations();
+        if (this.openConversationId === conversationId) await this.openConversationThread(conversationId);
+      })
       .catch((err) => this.reportApiError(err));
     if (kind === 'voice') audioEngine.playVoiceNote(this.voiceRate);
   }
@@ -126,7 +150,7 @@ export function addThreadMember(this: ClubboxApp, conversationId: string | undef
     const count = (sandbox?.thread(conversationId)?.members.length ?? 0) + 1;
     const name = `New member ${count}`;
     if (!sandbox?.addMember(conversationId, name)) return;
-    this.showToast(t('memberAdded', { name }), 'Γ₧ò');
+    this.showToast(t('memberAdded', { name }), '➕');
     this.render();
   }
 
@@ -140,7 +164,7 @@ export function runThreadPermission(this: ClubboxApp, conversationId: string | u
     if (!allowed) return;
     if (this.liveMessageBlocked()) return;
     if (permission === 'invite') {
-      this.showToast(t('inviteMember'), 'Γ£ë∩╕Å');
+      this.showToast(t('inviteMember'), '✉️');
       return;
     }
     clubhouseClient.getSandbox()?.removeConversation(conversationId);
@@ -160,6 +184,7 @@ export function liveMessageBlocked(this: ClubboxApp) : boolean {
 export function wireMessagesCtl(proto: ClubboxApp): void {
   proto.loadConversations = loadConversations;
   proto.openConversationThread = openConversationThread;
+  proto.activeConversationThread = activeConversationThread;
   proto.sendThreadSegment = sendThreadSegment;
   proto.addThreadMember = addThreadMember;
   proto.runThreadPermission = runThreadPermission;

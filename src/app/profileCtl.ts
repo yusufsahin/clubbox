@@ -170,7 +170,7 @@ export async function followUser(this: ClubboxApp, userId: number) : Promise<voi
       }
       const after = relationshipFromStatus(next.follow_status);
       if (after !== rel && after !== 'unknown') {
-        this.showToast(t('nowFollowing', { username: user.username }), '≡ƒñ¥');
+        this.showToast(t('nowFollowing', { username: user.username }), '🤝');
       }
     } catch (err) {
       this.reportApiError(err);
@@ -196,7 +196,7 @@ export async function toggleFollow(this: ClubboxApp) : Promise<void> {
       this.renderProfileDrawer();
       const after = relationshipFromStatus(next.follow_status);
       if (after !== rel && after !== 'unknown') {
-        this.showToast(t('nowFollowing', { username: profile.username }), '≡ƒñ¥');
+        this.showToast(t('nowFollowing', { username: profile.username }), '🤝');
       }
     } catch (err) {
       this.reportApiError(err);
@@ -242,7 +242,7 @@ export function renderProfileDrawer(this: ClubboxApp) {
 
 export async function talkLive(this: ClubboxApp, userId: string | undefined, name: string | undefined, username: string | undefined) : Promise<void> {
     if (!clubhouseClient.getConfig().useSandbox) {
-      this.showToast(t('unverifiedAction'), '≡ƒöÆ');
+      this.showToast(t('unverifiedAction'), '🔒');
       return;
     }
     const id = Number(userId);
@@ -254,7 +254,7 @@ export async function talkLive(this: ClubboxApp, userId: string | undefined, nam
         chatEnabled: false,
         talkWith: { userId: id, name, username },
       });
-      this.showToast(t('talkLiveStarted'), '≡ƒÄÖ');
+      this.showToast(t('talkLiveStarted'), '🎙');
       await this.joinRoom(created.channel || String(created.channel_id));
     } catch (err) {
       this.reportApiError(err);
@@ -262,14 +262,31 @@ export async function talkLive(this: ClubboxApp, userId: string | undefined, nam
   }
 
 export async function sendVm(this: ClubboxApp, userId: string | undefined, name: string | undefined, username: string | undefined) : Promise<void> {
-    if (this.liveMessageBlocked()) return;
     const id = Number(userId);
     if (!name || !username || !Number.isFinite(id)) return;
-    this.openConversationId = clubhouseClient.getSandbox()?.startVm({ userId: id, name, username }) ?? null;
-    this.messageFilter = 'vm';
-    this.previewMember = null;
-    this.currentTab = 'messages';
-    await this.loadConversations();
+    const sandbox = clubhouseClient.getSandbox();
+    if (sandbox) {
+      this.openConversationId = sandbox.startVm({ userId: id, name, username }) ?? null;
+      this.messageFilter = 'vm';
+      this.previewMember = null;
+      this.currentTab = 'messages';
+      await this.loadConversations();
+      return;
+    }
+    if (!clubhouseClient.supports('create_conversation')) {
+      this.liveMessageBlocked();
+      return;
+    }
+    try {
+      await clubhouseClient.createConversation([id]);
+      this.messageFilter = 'vm';
+      this.previewMember = null;
+      this.currentTab = 'messages';
+      await this.loadConversations();
+      this.showToast(t('sendVm'), '💬');
+    } catch (err) {
+      this.reportApiError(err);
+    }
   }
 
 export function sendPrivateMessage(this: ClubboxApp, voice: boolean) : void {
@@ -280,7 +297,7 @@ export function sendPrivateMessage(this: ClubboxApp, voice: boolean) : void {
     const text = voice ? t('voicePreview') : (input?.value.trim() ?? '');
     if (!text) return;
     this.privateLines.push({ userId: profile.user_id, text, voice });
-    this.showToast(t('privateSent'), 'Γ£ë∩╕Å');
+    this.showToast(t('privateSent'), '✉️');
     this.renderProfileDrawer();
   }
 

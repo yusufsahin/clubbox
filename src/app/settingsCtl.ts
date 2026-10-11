@@ -65,7 +65,7 @@ export async function finishSignIn(this: ClubboxApp) : Promise<void> {
     this.currentTab = 'explore';
     this.render();
     if (this.me) {
-      this.showToast(t('signedInAs', { name: this.me.name }), '≡ƒöæ');
+      this.showToast(t('signedInAs', { name: this.me.name }), '🔑');
     }
   }
 
@@ -81,7 +81,7 @@ export function acceptGuidelines(this: ClubboxApp) : void {
     try {
       localStorage.setItem(GUIDELINES_KEY, '1');
     } catch {
-      this.showToast(t('somethingWrong'), 'ΓÜá∩╕Å');
+      this.showToast(t('somethingWrong'), '⚠️');
       return;
     }
     this.guidelinesOpen = false;
@@ -221,7 +221,7 @@ export async function saveSettings(this: ClubboxApp) : Promise<void> {
     this.syncClipArm();
     setLanguage(language);
     if (agoraAppId) agoraVoice.appId = agoraAppId;
-    this.showToast(t('settingsSaved'), 'Γ£à');
+    this.showToast(t('settingsSaved'), '✅');
     this.render();
     this.updateModeBadge();
   }
@@ -238,7 +238,7 @@ export async function switchRuntimeMode(this: ClubboxApp, useSandbox: boolean) :
     await clubhouseClient.updateConfig({ useSandbox });
     audioEngine.setSimulateMeterOnFailure(useSandbox);
     this.updateModeBadge();
-    this.showToast(useSandbox ? t('sandboxSwitched') : t('liveSwitched'), useSandbox ? '≡ƒº¬' : '≡ƒîÉ');
+    this.showToast(useSandbox ? t('sandboxSwitched') : t('liveSwitched'), useSandbox ? '🧪' : '🌐');
     this.render();
   }
 
@@ -249,7 +249,7 @@ export function handleAuthExpired(this: ClubboxApp) : void {
     this.stopActivityRefresh();
     this.me = null;
     void clubhouseClient.updateConfig({ webSession: false });
-    this.showToast(t('sessionExpired'), '≡ƒöæ');
+    this.showToast(t('sessionExpired'), '🔑');
     this.currentTab = 'login';
     this.render();
   }

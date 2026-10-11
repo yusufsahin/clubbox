@@ -68,7 +68,7 @@ export function setupHotkeys(this: ClubboxApp) {
       }
       const accelerator = eventToAccelerator(event);
       if (!accelerator) {
-        this.showToast(t('shortcutNeedsModifier'), 'Γî¿∩╕Å');
+        this.showToast(t('shortcutNeedsModifier'), '⌨️');
         return;
       }
       void this.assignShortcut(this.recordingShortcut, accelerator);
@@ -117,7 +117,7 @@ export function setupHotkeys(this: ClubboxApp) {
       if (e.code === 'Space') {
         e.preventDefault();
         if (!this.isMeSpeaker()) {
-          this.showToast(t('inAudience'), '≡ƒÄÖ∩╕Å');
+          this.showToast(t('inAudience'), '🎙️');
           return;
         }
         this.toggleMute();
@@ -127,7 +127,7 @@ export function setupHotkeys(this: ClubboxApp) {
       } else if ((e.key === 's' || e.key === 'S') && !e.metaKey && !e.ctrlKey && !e.altKey) {
         e.preventDefault();
         audioEngine.stopAllSounds();
-        this.showToast(t('soundsStopped'), 'ΓÅ╣');
+        this.showToast(t('soundsStopped'), '⏹');
       } else if ((e.key === 't' || e.key === 'T') && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
         if (!audioEngine.getIsRecording()) return;
@@ -240,7 +240,7 @@ export function handleRecordingStateChange(this: ClubboxApp, isRecording: boolea
         const secs = (this.recordDurationSec % 60).toString().padStart(2, '0');
         if (recTimerEl) recTimerEl.textContent = `${mins}:${secs}`;
       }, 1000);
-      this.showToast(t('recordingStarted'), '≡ƒö┤');
+      this.showToast(t('recordingStarted'), '🔴');
       document.getElementById('recording-badge')?.removeAttribute('hidden');
       this.syncRecBanner();
     } else {
@@ -254,7 +254,7 @@ export function handleRecordingStateChange(this: ClubboxApp, isRecording: boolea
       this.syncRecBanner();
 
       if (blobUrl) {
-        this.showToast(t('recordingReady'), '≡ƒÆ╛');
+        this.showToast(t('recordingReady'), '💾');
         const recName = recordingFilename(this.currentChannel?.topic);
         const a = document.createElement('a');
         a.href = blobUrl;
@@ -281,12 +281,12 @@ export function toggleMute(this: ClubboxApp) {
     if (micBtn) {
       if (isMuted) {
         micBtn.classList.remove('unmuted');
-        micBtn.textContent = '≡ƒöç';
-        this.showToast(t('micMuted'), '≡ƒöç');
+        micBtn.textContent = '🔇';
+        this.showToast(t('micMuted'), '🔇');
       } else {
         micBtn.classList.add('unmuted');
-        micBtn.textContent = '≡ƒÄÖ∩╕Å';
-        this.showToast(t('micLive'), '≡ƒÄÖ∩╕Å');
+        micBtn.textContent = '🎙️';
+        this.showToast(t('micLive'), '🎙️');
       }
     }
   }
@@ -307,9 +307,9 @@ export async function applyMusicMode(this: ClubboxApp) : Promise<void> {
     if (btn) btn.classList.toggle('active', isMusic);
     this.showToast(
       isMusic ? t('musicOn') : t('musicOff'),
-      isMusic ? '≡ƒÄ╡' : '≡ƒÄÖ∩╕Å',
+      isMusic ? '🎵' : '🎙️',
     );
-    if (isMusic) this.showToast(t('musicHeadphones'), '≡ƒÄº');
+    if (isMusic) this.showToast(t('musicHeadphones'), '🎧');
   }
 
 export function applyAudioPrefs(this: ClubboxApp) : void {
@@ -375,7 +375,7 @@ export async function commitSoundEdit(this: ClubboxApp, target: HTMLInputElement
       else if (target.id === 'sound-loop') await audioEngine.updateSound(id, { loop: target.checked });
       if (this.currentTab === 'soundboard' && target.id !== 'sound-volume') this.render();
     } catch {
-      this.showToast(t('somethingWrong'), 'ΓÜá∩╕Å');
+      this.showToast(t('somethingWrong'), '⚠️');
     }
   }
 
@@ -385,7 +385,7 @@ export async function removeSound(this: ClubboxApp, id: string) : Promise<void> 
       if (this.editingSoundId === id) this.editingSoundId = null;
       this.render();
     } catch {
-      this.showToast(t('somethingWrong'), 'ΓÜá∩╕Å');
+      this.showToast(t('somethingWrong'), '⚠️');
     }
   }
 
@@ -424,7 +424,7 @@ export async function publishShortcuts(this: ClubboxApp) : Promise<void> {
     if (!api?.setGlobalShortcuts) return;
     try {
       const result = await api.setGlobalShortcuts(this.shortcuts);
-      if (result.failed.length > 0) this.showToast(t('shortcutFailed'), 'Γî¿∩╕Å');
+      if (result.failed.length > 0) this.showToast(t('shortcutFailed'), '⌨️');
     } catch {
       // Registration is a desktop-app feature.
     }

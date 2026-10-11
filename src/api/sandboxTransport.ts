@@ -398,7 +398,55 @@ export class SandboxBackend {
         return { success: true, suggestions: [], next_cursor: null } as T;
 
       case 'get_edge_stories':
-        return { success: true, activities: [], next_cursor: '' } as T;
+        return {
+          success: true,
+          activities: [
+            {
+              activity_id: 'sandbox-ping-1',
+              message: 'Ayse pinged you into Morning Show',
+              channel: this.mockChannels[0]?.channel || 'sandbox-room',
+              time_created: new Date().toISOString(),
+              user_profile: {
+                user_id: 10,
+                name: 'Ayse',
+                username: 'ayse',
+                photo_url: null,
+              },
+            },
+            {
+              activity_id: 'sandbox-follow-1',
+              message: 'Ali started following you',
+              time_created: new Date(Date.now() - 3600_000).toISOString(),
+              user_profile: {
+                user_id: 11,
+                name: 'Ali',
+                username: 'ali',
+                photo_url: null,
+              },
+            },
+          ],
+          next_cursor: '',
+        } as T;
+
+      case 'get_notifications':
+        return {
+          success: true,
+          notifications: [
+            {
+              notification_id: 101,
+              message: 'Noah pinged you into Late Night',
+              channel: this.mockChannels[1]?.channel || this.mockChannels[0]?.channel || 'sandbox-room',
+              time_created: new Date().toISOString(),
+              type: 1,
+              user_profile: {
+                user_id: 12,
+                name: 'Noah Ellis',
+                username: 'noah_e',
+                photo_url: null,
+              },
+            },
+          ],
+        } as T;
 
       case 'get_conversations':
         return {

@@ -31,6 +31,7 @@ const SANDBOX_ENDPOINTS = new Set([
   'end_channel',
   'get_group_suggested_invites',
   'get_edge_stories',
+  'get_notifications',
   'get_conversations',
   'get_profile',
   'get_followers',

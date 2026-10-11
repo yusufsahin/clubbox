@@ -14,7 +14,8 @@ import { readAudioPrefs, writeAudioPrefs, type AudioPrefs } from '../audio/audio
 import { applyThemeToDocument, readAppPrefs, writeAppPrefs, zoomFactorFromPercent } from './appPrefs';
 import { eventToAccelerator, normalizeShortcuts, readShortcuts, writeShortcuts, type ShortcutAction, type ShortcutMap } from '../shortcuts';
 import { agoraVoice } from '../audio/agoraVoice';
-import type { CHChannel, CHChannelDetail, CHChatMessage, CHConversation, CHUser, FeedTopic, MeSettings, SearchHit, SearchObjectType } from '../api/types';
+import type { ActivityItem } from '../api/activityFeed';
+import type { CHChannel, CHChannelDetail, CHChatMessage, CHConversation, ConversationThread, CHUser, FeedTopic, MeSettings, SearchHit, SearchObjectType } from '../api/types';
 import { setLanguage, t } from '../i18n';
 import { avatarHtml, installAvatarFallback } from '../ui/avatar';
 import { cockpitBar } from '../ui/components/cockpitBar';
@@ -91,12 +92,13 @@ export class ClubboxApp {
   private conversationsLoaded = false;
   private messageFilter: 'all' | 'house' | 'vm' = 'all';
   private openConversationId: string | null = null;
-  openConversationThreadData: unknown = null;
+  openConversationThreadData: ConversationThread | null = null;
   private previewMember: string | null = null;
   private voiceRate = 1;
   private privateVoice = false;
   private privateLines: { userId: number; text: string; voice: boolean }[] = [];
   private activityCount: number | null = null;
+  activityItems: ActivityItem[] | null = null;
   private suggestionsCount: number | null = null;
   private discoverQuery = '';
   private discoverTab: DiscoverTab = 'top';
@@ -365,27 +367,27 @@ export class ClubboxApp {
     if (err instanceof ClubhouseApiError) {
       if (err.kind === 'auth' || err.status === 401) return;
       if (err.kind === 'permission') {
-        this.showToast(t('permissionDenied'), '≡ƒöÆ');
+        this.showToast(t('permissionDenied'), '🔒');
         return;
       }
       if (err.status === 403) {
-        this.showToast(t('requestForbidden'), '≡ƒöÆ');
+        this.showToast(t('requestForbidden'), '🔒');
         return;
       }
       if (err.kind === 'timeout') {
-        this.showToast(t('requestTimedOut'), 'ΓÅ▒∩╕Å');
+        this.showToast(t('requestTimedOut'), '⏱️');
         return;
       }
       if (err.kind === 'rate-limit') {
         if (!this.rateLimitNotices.has(err.endpoint)) {
           this.rateLimitNotices.add(err.endpoint);
-          this.showToast(t('rateLimited'), 'ΓÅ│');
+          this.showToast(t('rateLimited'), '⏳');
         }
         return;
       }
     }
     const message = err instanceof Error ? err.message : t('somethingWrong');
-    this.showToast(message, 'ΓÜá∩╕Å');
+    this.showToast(message, '⚠️');
   }
 
 
@@ -461,7 +463,7 @@ export class ClubboxApp {
 
 
 
-  private showToast(message: string, icon = 'Γ£¿') {
+  private showToast(message: string, icon = '✨') {
     showToast(message, icon);
   }
 
@@ -599,7 +601,7 @@ export class ClubboxApp {
     const sandbox = clubhouseClient.getConfig().useSandbox;
     el.innerHTML = markup(html`
         <div class="brand">
-          <div class="brand-icon">≡ƒÄÖ∩╕Å</div>
+          <div class="brand-icon">🎙️</div>
           <div>
             <div style="display:flex; align-items:center;">
               <span class="brand-title">Clubbox</span>
@@ -613,23 +615,23 @@ export class ClubboxApp {
           <div class="nav-label">${t('navigation')}</div>
 
           <div class="nav-item ${this.currentTab === 'explore' ? 'active' : ''}" data-action="nav" data-tab="explore">
-            <span class="icon">≡ƒÅá</span>
+            <span class="icon">🏠</span>
             <span>${t('hallway')}</span>
             <span class="count-badge">${this.channelsList.length}</span>
           </div>
 
           <div class="nav-item ${this.currentTab === 'discover' ? 'active' : ''}" data-action="nav" data-tab="discover">
-            <span class="icon">≡ƒöì</span>
+            <span class="icon">🔍</span>
             <span>${t('discover')}</span>
           </div>
 
           <div class="nav-item ${this.currentTab === 'friends' ? 'active' : ''}" data-action="nav" data-tab="friends">
-            <span class="icon">≡ƒñ¥</span>
+            <span class="icon">🤝</span>
             <span>${t('friends')}</span>
           </div>
 
           <div class="nav-item ${this.currentTab === 'messages' ? 'active' : ''}" data-action="nav" data-tab="messages">
-            <span class="icon">≡ƒÆ¼</span>
+            <span class="icon">💬</span>
             <span>${t('messages')}</span>
             ${this.unreadConversations > 0 ? html`<span class="count-badge">${this.unreadConversations}</span>` : ''}
           </div>
@@ -637,31 +639,31 @@ export class ClubboxApp {
           <div class="nav-label" style="margin-top:14px;">${t('studioTools')}</div>
 
           <div class="nav-item ${this.currentTab === 'stage' ? 'active' : ''}" data-action="nav" data-tab="stage">
-            <span class="icon">≡ƒô╗</span>
+            <span class="icon">📻</span>
             <span>${t('liveStage')}</span>
             ${this.currentChannel ? html`<span class="count-badge" style="background:var(--accent-emerald); color:#000;">${t('liveBadge')}</span>` : ''}
           </div>
 
           <div class="nav-item ${this.currentTab === 'soundboard' ? 'active' : ''}" data-action="nav" data-tab="soundboard">
-            <span class="icon">≡ƒÄ¢∩╕Å</span>
+            <span class="icon">🎛️</span>
             <span>${t('soundboardRack')}</span>
             <span class="count-badge">${audioEngine.soundEffects.length}</span>
           </div>
 
           ${clubhouseClient.supports('create_channel') ? html`
             <div class="nav-item" data-action="create-room">
-              <span class="icon">Γ₧ò</span>
+              <span class="icon">➕</span>
               <span>${t('startRoom')}</span>
             </div>
           ` : html`
             <div class="nav-item" title="${t('notVerifiedHint')}">
-              <span class="icon">Γ₧ò</span>
+              <span class="icon">➕</span>
               <span>${t('notVerifiedYet')}</span>
             </div>
           `}
 
           <div class="nav-item ${this.currentTab === 'settings' ? 'active' : ''}" data-action="nav" data-tab="settings">
-            <span class="icon">ΓÜÖ∩╕Å</span>
+            <span class="icon">⚙️</span>
             <span>${t('apiConfig')}</span>
           </div>
         </nav>
@@ -697,8 +699,8 @@ export class ClubboxApp {
                 ${this.currentChannel.is_active_trending_topic_channel ? html`<span class="live-updates-note">${t('trending')}</span>` : ''}
                 ${this.currentChannel.is_replay_enabled ? html`<span class="live-updates-note">${t('replayAvailable')}</span>` : ''}
                 ${this.liveUpdatesUnavailable() ? html`<span class="live-updates-note">${t('liveUpdatesNote')}</span>` : ''}
-                <span class="recording-badge" id="clip-armed-badge" ${audioEngine.isClipArmed() ? '' : 'hidden'}>ΓùÅ ${t('clipArmed')}</span>
-                <span class="recording-badge" id="recording-badge" ${audioEngine.getIsRecording() ? '' : 'hidden'}>ΓùÅ ${t('recording')}</span>
+                <span class="recording-badge" id="clip-armed-badge" ${audioEngine.isClipArmed() ? '' : 'hidden'}>● ${t('clipArmed')}</span>
+                <span class="recording-badge" id="recording-badge" ${audioEngine.getIsRecording() ? '' : 'hidden'}>● ${t('recording')}</span>
               </div>
             ` : html`
               <div style="font-weight:700; font-size:16px;">${this.sectionTitle()}</div>
@@ -707,11 +709,11 @@ export class ClubboxApp {
 
           <div class="top-actions">
             <button class="top-icon-btn" type="button" data-action="nav" data-tab="messages" title="${t('newMessage')}">
-              Γ£ë∩╕Å
+              ✉️
               ${this.unreadConversations > 0 ? html`<span class="nav-dot">${this.unreadConversations}</span>` : ''}
             </button>
             <button class="top-icon-btn" type="button" data-action="nav" data-tab="activity" title="${t('activity')}">
-              ≡ƒöö
+              🔔
               ${this.unreadNotifications ? html`<span class="nav-dot"></span>` : ''}
             </button>
             <button class="top-avatar-btn ${this.selfProfileOpen ? 'active' : ''}" type="button" data-action="sidebar-user" title="${this.me ? this.me.name : t('signIn')}">
@@ -719,11 +721,11 @@ export class ClubboxApp {
             </button>
             ${this.currentChannel ? html`
               ${this.currentTab === 'stage' ? html`<button class="btn btn-secondary" type="button" data-action="minimize-room">${t('minimize')}</button>` : ''}
-              <button class="btn btn-secondary" data-action="share-room">≡ƒöù ${t('link')}</button>
+              <button class="btn btn-secondary" data-action="share-room">🔗 ${t('link')}</button>
               <button class="btn btn-danger" data-action="leave-room">${t('leaveQuietly')}</button>
             ` : html`
               ${clubhouseClient.supports('create_channel') ? html`
-                <button class="btn btn-primary" data-action="create-room">Γ₧ò ${t('startRoom')}</button>
+                <button class="btn btn-primary" data-action="create-room">➕ ${t('startRoom')}</button>
               ` : html`
                 <button class="btn btn-secondary" type="button" disabled title="${t('notVerifiedHint')}">${t('notVerifiedYet')}</button>
               `}
@@ -857,13 +859,19 @@ export class ClubboxApp {
         dmRequests: this.dmRequestCount,
         filter: this.messageFilter,
         openId: this.openConversationId,
-        thread: this.openConversationId ? clubhouseClient.getSandbox()?.thread(this.openConversationId) ?? null : null,
+        thread: this.activeConversationThread(),
         previewMember: this.previewMember,
         playbackRate: this.voiceRate,
         presence: clubhouseClient.getSandbox()?.presence() ?? [],
+        canCreateVm: !!clubhouseClient.getSandbox() || clubhouseClient.supports('create_conversation'),
       });
     } else if (this.currentTab === 'activity') {
-      return activityView(this.activityCount);
+      return activityView({
+        items: this.activityItems,
+        unread: this.unreadNotifications,
+        experimentalOn: clubhouseClient.getConfig().experimentalActions === true,
+        notificationsSupported: clubhouseClient.supports('get_notifications'),
+      });
     } else if (this.currentTab === 'soundboard') {
       return this.renderSoundboardView();
     } else {
@@ -1078,7 +1086,7 @@ export class ClubboxApp {
       } else if (target.id === 'sound-upload-input' && target.files?.[0]) {
         const file = target.files[0];
         void audioEngine.loadCustomAudioFile(file, file.name.split('.')[0]).then(() => {
-          this.showToast(t('uploadedSound', { name: file.name }), '≡ƒÄ╡');
+          this.showToast(t('uploadedSound', { name: file.name }), '🎵');
           this.render();
         });
       }
@@ -1137,9 +1145,9 @@ export class ClubboxApp {
         const link = safeUrl(this.me?.share_url);
         if (!link) return;
         void navigator.clipboard.writeText(link).then(() => {
-          this.showToast(t('copiedProfile'), '≡ƒöù');
+          this.showToast(t('copiedProfile'), '🔗');
         }).catch(() => {
-          this.showToast(t('somethingWrong'), '≡ƒöù');
+          this.showToast(t('somethingWrong'), '🔗');
         });
         break;
       }
@@ -1155,9 +1163,9 @@ export class ClubboxApp {
         const link = safeUrl(item?.share_url);
         if (!link) return;
         void navigator.clipboard.writeText(link).then(() => {
-          this.showToast(t('copiedLink'), '≡ƒöù');
+          this.showToast(t('copiedLink'), '🔗');
         }).catch(() => {
-          this.showToast(t('somethingWrong'), '≡ƒöù');
+          this.showToast(t('somethingWrong'), '🔗');
         });
         break;
       }
@@ -1209,8 +1217,24 @@ export class ClubboxApp {
         this.render();
         break;
       }
-      case 'play-thread-voice':
+      case 'play-thread-voice': {
         audioEngine.playVoiceNote(this.voiceRate);
+        const conversationId = el.dataset.conversationId;
+        const segmentId = el.dataset.segmentId;
+        if (conversationId && segmentId && clubhouseClient.supports('mark_conversation_segment_listened')) {
+          void clubhouseClient.markConversationSegmentListened(conversationId, segmentId).catch((err) => this.reportApiError(err));
+        }
+        break;
+      }
+      case 'refresh-messages':
+        void this.loadConversations();
+        if (this.openConversationId) void this.openConversationThread(this.openConversationId);
+        break;
+      case 'refresh-activity':
+        void this.loadActivity();
+        break;
+      case 'activity-join':
+        if (el.dataset.channelId) void this.joinRoom(el.dataset.channelId);
         break;
       case 'send-thread-text':
         this.sendThreadSegment(el.dataset.conversationId, 'text');
@@ -1238,7 +1262,7 @@ export class ClubboxApp {
         void this.sendVm(el.dataset.userId, el.dataset.name, el.dataset.username);
         break;
       case 'talk-live':
-        this.showToast(t('unverifiedAction'), '≡ƒöÆ');
+        this.showToast(t('unverifiedAction'), '🔒');
         break;
       case 'private-mode':
         this.privateVoice = el.dataset.mode === 'voice';
@@ -1253,24 +1277,24 @@ export class ClubboxApp {
         const listed = this.channelsList.find((channel) => channel.channel === id || String(channel.channel_id) === id);
         const link = safeUrl(listed?.url);
         if (!link) {
-          this.showToast(t('noShareLink'), '≡ƒöù');
+          this.showToast(t('noShareLink'), '🔗');
           return;
         }
         void navigator.clipboard.writeText(link).then(() => {
-          this.showToast(t('linkCopied'), '≡ƒôï');
+          this.showToast(t('linkCopied'), '📋');
         }).catch(() => {
-          this.showToast(t('somethingWrong'), '≡ƒöù');
+          this.showToast(t('somethingWrong'), '🔗');
         });
         break;
       }
       case 'share-room': {
         const link = safeUrl(this.currentChannel?.url);
         if (!link) {
-          this.showToast(t('noShareLink'), '≡ƒöù');
+          this.showToast(t('noShareLink'), '🔗');
           return;
         }
         void navigator.clipboard?.writeText(link);
-        this.showToast(t('linkCopied'), '≡ƒôï');
+        this.showToast(t('linkCopied'), '📋');
         break;
       }
       case 'toggle-mic':
@@ -1309,7 +1333,7 @@ export class ClubboxApp {
       case 'toggle-chat':
         if (!this.currentChannel) return;
         if (this.currentChannel.is_chat_enabled === false) {
-          this.showToast(t('chatOff'), '≡ƒÆ¼');
+          this.showToast(t('chatOff'), '💬');
           return;
         }
         this.chatOpen = !this.chatOpen;
@@ -1347,7 +1371,7 @@ export class ClubboxApp {
       }
       case 'stop-sounds':
         audioEngine.stopAllSounds();
-        this.showToast(t('soundsStopped'), 'ΓÅ╣');
+        this.showToast(t('soundsStopped'), '⏹');
         break;
       case 'record-shortcut': {
         const action = el.dataset.shortcut;
@@ -1459,14 +1483,14 @@ export class ClubboxApp {
         const report = clubhouseClient.copyHealthReport();
         if (!report) break;
         void navigator.clipboard?.writeText(report).then(
-          () => this.showToast(t('apiHealthCopied'), '≡ƒôï'),
-          () => this.showToast(t('somethingWrong'), 'ΓÜá∩╕Å'),
+          () => this.showToast(t('apiHealthCopied'), '📋'),
+          () => this.showToast(t('somethingWrong'), '⚠️'),
         );
         break;
       }
       case 'reset-unsupported-routes':
         clubhouseClient.resetUnsupportedRoutes();
-        this.showToast(t('apiHealthResetUnsupported'), 'Γ£à');
+        this.showToast(t('apiHealthResetUnsupported'), '✅');
         this.render();
         break;
       case 'close-profile':

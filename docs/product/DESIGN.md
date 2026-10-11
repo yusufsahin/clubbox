@@ -78,7 +78,7 @@ Legend — Evidence: O observed · B bundle call site · C community · ? to dis
 | get_group_suggested_invites | POST | {} | suggestions, next_cursor | O | ✅ | Ping picker |
 | hide_channel | POST | channel, hide | ack | C | ❌ | HallwayCtl |
 | get_events | GET | is_filtered, page_size, page | events | C | ❌ | Events |
-| get_notifications | GET | page_size, page | notifications | C | ❌ | ActivityCtl |
+| get_notifications | GET | page_size, page | notifications | C | ✅ experimental merge into Activity | ActivityCtl |
 | get_online_friends | POST | {} | users + current channel | C | 🧪 | Presence |
 
 ### 3.3 Room
@@ -86,14 +86,14 @@ Legend — Evidence: O observed · B bundle call site · C community · ? to dis
 | Endpoint | Method | Request | Response → domain | Evid. | Today | Used by |
 | --- | --- | --- | --- | --- | --- | --- |
 | create_channel | POST | topic, privacy_level, is_public_room, is_private, is_social_mode, is_replay_enabled, is_chat_enabled, user_ids, topic_ids, source (+ club id for house: ?) | full channel incl. token, rtm_token, pubnub_*, users, user_capabilities | O | ✅ any privacy from composer (G-01 closed) | RoomCtl |
-| join_channel | POST | channel | channel detail incl. token, pubnub_* (assumed same shape as create) | B | 🟡 blocked as unverified | RoomCtl |
-| leave_channel | POST | channel | ack | B | 🟡 | RoomCtl |
-| active_ping | POST | channel | ack | B | 🟡 | RoomSession |
+| join_channel | POST | channel | channel detail incl. token, pubnub_* (assumed same shape as create) | O | ✅ | RoomCtl |
+| leave_channel | POST | channel | ack | O | ✅ | RoomCtl |
+| active_ping | POST | channel | ack | O | ✅ | RoomSession |
 | audience_reply | POST | channel, raise_hands, unraise_hands | ack | B | 🟡 | RoomCtl |
 | become_speaker | POST | channel | ack | B | ✅ registry key `become_speaker` (G-08 closed) | RoomCtl |
 | reject_speaker_invite | POST | channel, user_id | ack | C | ❌ | RoomCtl |
-| send_channel_message | POST | channel, message | ack | B | 🟡 | ChatStream |
-| get_channel_messages | GET | channel | messages[] | B | 🟡 | ChatStream (fallback) |
+| send_channel_message | POST | channel, message | ack | O | ✅ | ChatStream |
+| get_channel_messages | GET | channel | messages[] | O | ✅ | ChatStream (fallback) |
 | emoji_reaction | POST | channel, emoji | ack | B | ❌ | Reactions |
 | gif_reaction | POST | ? | ack | B (no body) | ❌ | — (P3) |
 | set_channel_title | POST | channel, title | ack | B | ❌ | RoomCtl |
@@ -111,8 +111,8 @@ Legend — Evidence: O observed · B bundle call site · C community · ? to dis
 | Endpoint | Method | Request | Response → domain | Evid. | Today | Used by |
 | --- | --- | --- | --- | --- | --- | --- |
 | get_conversations | POST | is_private_only | conversations[] (permissions, preview, segments_authors) | O | ✅ list | MessagesCtl |
-| get_conversation | POST | conversation_id (verify) | segments[] (+ transcription, reactions), emoji_reaction_options | O | 🧪 thread is sandbox-only (G-05) | MessagesCtl |
-| mark_conversation_segment_listened | POST | ? (observed) | ack | O | ❌ | MessagesCtl |
+| get_conversation | POST | conversation_id | segments[] (+ transcription, reactions), emoji_reaction_options | O | ✅ live thread via readConversationThread (G-05) | MessagesCtl |
+| mark_conversation_segment_listened | POST | conversation_id, segment_id | ack | O | ✅ on voice play | MessagesCtl |
 | add_conversation_segment | POST | ? | segment | B (no body) | 🧪 (G-05) | Composer |
 | create_conversation | POST | ? | conversation | B (no body) | 🧪 | New VM |
 | send_conversation_emoji_reaction | POST | ? (400 observed) | ack | O-error | ❌ | Thread |

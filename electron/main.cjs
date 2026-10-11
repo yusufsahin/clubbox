@@ -518,7 +518,13 @@ function webSessionUrl(pathName, method, body) {
 }
 
 function logResponseShape(endpoint, text) {
-  if (endpoint !== 'join_channel' && endpoint !== 'get_channels' && endpoint !== 'search_users') return;
+  if (
+    endpoint !== 'join_channel'
+    && endpoint !== 'get_channels'
+    && endpoint !== 'search_users'
+    && endpoint !== 'get_edge_stories'
+    && endpoint !== 'get_notifications'
+  ) return;
   try {
     const parsed = JSON.parse(text);
     const keys = parsed && typeof parsed === 'object' ? Object.keys(parsed) : [];
@@ -527,7 +533,11 @@ function logResponseShape(endpoint, text) {
     if (nested && typeof nested === 'object') {
       console.log('[web]', endpoint, 'channel keys', Object.keys(nested).join(','));
     }
-    const first = Array.isArray(parsed?.items) ? parsed.items[0] : null;
+    const first = Array.isArray(parsed?.items)
+      ? parsed.items[0]
+      : (Array.isArray(parsed?.activities)
+        ? parsed.activities[0]
+        : (Array.isArray(parsed?.notifications) ? parsed.notifications[0] : null));
     if (first && typeof first === 'object') {
       console.log('[web]', endpoint, 'item keys', Object.keys(first).join(','));
       const inner = first.channel;
