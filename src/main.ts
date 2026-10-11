@@ -169,7 +169,7 @@ class ClubboxApp {
 
     const desktop = !!electronAPI()?.isElectron;
     if (desktop) {
-      await clubhouseClient.updateConfig({ useSandbox: false, allowUnverified: true });
+      await clubhouseClient.updateConfig({ useSandbox: false });
       if (!this.guidelinesAccepted()) {
         this.pendingLive = true;
         this.guidelinesOpen = true;
@@ -2143,14 +2143,21 @@ class ClubboxApp {
   }
 
   private renderSettingsView(): ReturnType<typeof html> {
-    return settingsView(clubhouseClient.getConfig(), this.shortcuts, this.recordingShortcut, !!electronAPI()?.isElectron, this.me ? {
-      settings: this.meSettings,
-      notificationsEnabled: this.notificationsEnabled,
-      soundEffectsEnabled: this.soundEffectsEnabled,
-      anonymousEnabled: this.anonymousEnabled,
-      blockedCount: this.blockedCount,
-      isAdmin: this.isAdmin,
-    } : null);
+    return settingsView(
+      clubhouseClient.getConfig(),
+      this.shortcuts,
+      this.recordingShortcut,
+      !!electronAPI()?.isElectron,
+      this.me ? {
+        settings: this.meSettings,
+        notificationsEnabled: this.notificationsEnabled,
+        soundEffectsEnabled: this.soundEffectsEnabled,
+        anonymousEnabled: this.anonymousEnabled,
+        blockedCount: this.blockedCount,
+        isAdmin: this.isAdmin,
+      } : null,
+      clubhouseClient.getApiHealth(),
+    );
   }
 
   private renderCockpitBar(): ReturnType<typeof html> {
@@ -2762,6 +2769,20 @@ class ClubboxApp {
       case 'save-settings':
         void this.saveSettings();
         break;
+      case 'copy-api-health-report': {
+        const report = clubhouseClient.copyHealthReport();
+        if (!report) break;
+        void navigator.clipboard?.writeText(report).then(
+          () => this.showToast(t('apiHealthCopied'), '📋'),
+          () => this.showToast(t('somethingWrong'), '⚠️'),
+        );
+        break;
+      }
+      case 'reset-unsupported-routes':
+        clubhouseClient.resetUnsupportedRoutes();
+        this.showToast(t('apiHealthResetUnsupported'), '✅');
+        this.render();
+        break;
       case 'close-profile':
         this.closeProfileDrawer();
         if (this.selfProfileOpen) this.render();
@@ -2809,7 +2830,8 @@ class ClubboxApp {
     const isSandbox = electronAPI()?.isElectron
       ? false
       : (document.getElementById('radio-sandbox') as HTMLInputElement)?.checked === true;
-    const allowUnverified = (document.getElementById('cfg-allow-unverified') as HTMLInputElement | null)?.checked === true;
+    const experimentalActions = (document.getElementById('cfg-experimental-actions') as HTMLInputElement | null)?.checked === true;
+    const requestLogging = (document.getElementById('cfg-request-logging') as HTMLInputElement | null)?.checked === true;
     const allowLocalRecording = (document.getElementById('cfg-allow-recording') as HTMLInputElement | null)?.checked === true;
     const languageValue = (document.getElementById('cfg-language') as HTMLSelectElement | null)?.value;
     const language = languageValue === 'tr' ? 'tr' : 'en';
@@ -2828,7 +2850,8 @@ class ClubboxApp {
       appVersion,
       agoraAppId: agoraAppId || clubhouseClient.getConfig().agoraAppId,
       useSandbox: isSandbox,
-      allowUnverified,
+      experimentalActions,
+      requestLogging,
       allowLocalRecording,
       language,
     });

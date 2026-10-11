@@ -1,6 +1,6 @@
 import webApiRoutes from '../../electron/webApiRoutes.json' with { type: 'json' };
 
-export type Evidence = 'observed' | 'configured-unverified' | 'unsupported' | 'in-bundle';
+export type Evidence = 'observed' | 'bundle' | 'community' | 'unsupported' | 'in-bundle';
 export type Transport = 'web-session' | 'sandbox';
 
 type RouteRecord = {
@@ -28,6 +28,7 @@ const SANDBOX_ENDPOINTS = new Set([
   'make_moderator',
   'uninvite_speaker',
   'create_channel',
+  'end_channel',
   'get_group_suggested_invites',
   'get_edge_stories',
   'get_conversations',
@@ -41,13 +42,32 @@ const SANDBOX_ENDPOINTS = new Set([
   'send_channel_message',
 ]);
 
-export function evidenceOf(endpoint: string): Evidence {
+export type CanCallOptions = {
+  experimentalActions?: boolean;
+  /** endpoint → appVersion that marked it unsupported after 404/405 */
+  unsupportedRoutes?: Record<string, string>;
+  appVersion?: string;
+  sessionDisabled?: Iterable<string>;
+  /** Local promotions / test overrides (e.g. observed after a logged 2xx). */
+  evidenceOverrides?: Record<string, Evidence>;
+};
+
+export function evidenceOf(endpoint: string, overrides?: Record<string, Evidence>): Evidence {
+  const overridden = overrides?.[endpoint];
+  if (overridden) return overridden;
   const route = ROUTES[endpoint];
   if (!route) return 'unsupported';
-  if (route.evidence === 'observed' || route.evidence === 'unsupported' || route.evidence === 'in-bundle') {
-    return route.evidence;
+  const value = route.evidence;
+  if (
+    value === 'observed'
+    || value === 'bundle'
+    || value === 'community'
+    || value === 'unsupported'
+    || value === 'in-bundle'
+  ) {
+    return value;
   }
-  return 'configured-unverified';
+  return 'unsupported';
 }
 
 export function transportsOf(endpoint: string): Array<'web-session'> {
@@ -55,17 +75,31 @@ export function transportsOf(endpoint: string): Array<'web-session'> {
   return ['web-session'];
 }
 
+export function routeMethod(endpoint: string): string {
+  return ROUTES[endpoint]?.method ?? 'POST';
+}
+
+export function routePath(endpoint: string): string {
+  return ROUTES[endpoint]?.path ?? `/web_api/${endpoint}`;
+}
+
 export function canCall(
   endpoint: string,
   transport: Transport,
-  options?: { allowUnverified?: boolean },
+  options?: CanCallOptions,
 ): boolean {
   if (transport === 'sandbox') return SANDBOX_ENDPOINTS.has(endpoint);
-  const evidence = evidenceOf(endpoint);
+
+  const disabled = options?.sessionDisabled ? new Set(options.sessionDisabled) : null;
+  if (disabled?.has(endpoint)) return false;
+
+  const markedAt = options?.unsupportedRoutes?.[endpoint];
+  if (markedAt && (!options.appVersion || markedAt === options.appVersion)) return false;
+
+  const evidence = evidenceOf(endpoint, options?.evidenceOverrides);
   if (evidence === 'unsupported' || evidence === 'in-bundle') return false;
   if (transport !== 'web-session') return false;
-  const route = ROUTES[endpoint];
-  if (route?.evidence === 'observed') return true;
-  if (route?.mutation) return options?.allowUnverified === true;
-  return true;
+  if (evidence === 'observed' || evidence === 'bundle') return true;
+  if (evidence === 'community') return options?.experimentalActions === true;
+  return false;
 }

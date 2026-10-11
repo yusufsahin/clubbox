@@ -16,12 +16,12 @@ const docsDir = path.join(root, 'docs', 'api');
 const routesPath = path.join(root, 'electron', 'webApiRoutes.json');
 const TELEMETRY_PATHS = new Set(['/web_api/record_action_trails']);
 
-function readCaptures() {
-  if (!fs.existsSync(captureDir)) return [];
+function readJsonlDir(dir) {
+  if (!fs.existsSync(dir)) return [];
   const records = [];
-  for (const name of fs.readdirSync(captureDir)) {
+  for (const name of fs.readdirSync(dir)) {
     if (!name.endsWith('.jsonl')) continue;
-    const text = fs.readFileSync(path.join(captureDir, name), 'utf8');
+    const text = fs.readFileSync(path.join(dir, name), 'utf8');
     for (const line of text.split(/\r?\n/)) {
       if (!line.trim()) continue;
       try {
@@ -31,6 +31,17 @@ function readCaptures() {
       }
     }
   }
+  return records;
+}
+
+function readCaptures() {
+  const dirs = [captureDir];
+  if (process.env.CLUBBOX_API_LOG) dirs.push(process.env.CLUBBOX_API_LOG);
+  // Opt-in app request log (Task 10.2) — same redacted JSONL shape as the recorder.
+  const localApiLog = path.join(root, 'api-log');
+  if (fs.existsSync(localApiLog)) dirs.push(localApiLog);
+  const records = [];
+  for (const dir of dirs) records.push(...readJsonlDir(dir));
   return records;
 }
 
@@ -225,6 +236,21 @@ function checklistCoverage(records) {
   return lines;
 }
 
+/** Keep in sync with src/api/mutationFlags.ts (api_health.feature rule). */
+function expectedMutation(endpoint) {
+  const name = String(endpoint).replace(/^\//, '');
+  const exact = new Set(['talk', 'emoji_reaction', 'gif_reaction', 'audience_reply', 'follow', 'unfollow']);
+  if (exact.has(name)) return true;
+  if (name.endsWith('_ping')) return true;
+  if (name.startsWith('join') || name.startsWith('leave')) return true;
+  if (name.startsWith('follow') || name.startsWith('unfollow')) return true;
+  const prefixes = [
+    'send_', 'create_', 'delete_', 'update_', 'set_', 'mark_', 'mute_', 'invite_', 'uninvite_',
+    'make_', 'block_', 'end_', 'change_', 'hide_', 'accept_', 'reject_', 'become_', 'add_',
+  ];
+  return prefixes.some((prefix) => name.startsWith(prefix));
+}
+
 function evidenceRoutes(routes, records) {
   const groups = groupHttp(records);
   const next = {};
@@ -237,8 +263,11 @@ function evidenceRoutes(routes, records) {
     if (route.evidence === 'unsupported') evidence = 'unsupported';
     else if (observed) evidence = 'observed';
     else if (route.evidence === 'in-bundle') evidence = 'in-bundle';
-    else evidence = 'configured-unverified';
-    next[key] = { ...route, evidence };
+    else if (route.evidence === 'community') evidence = 'community';
+    else if (route.evidence === 'bundle') evidence = 'bundle';
+    else if (route.evidence === 'observed') evidence = 'observed';
+    else evidence = 'bundle';
+    next[key] = { ...route, evidence, mutation: expectedMutation(key) };
   }
   return next;
 }
@@ -533,16 +562,7 @@ function buildRealtime(records, callsites) {
   return `${lines.join('\n').trim()}\n`;
 }
 
-function withoutBundleOnly(routes) {
-  const next = {};
-  for (const [key, route] of Object.entries(routes)) {
-    if (route.evidence === 'in-bundle') continue;
-    next[key] = route;
-  }
-  return next;
-}
-
-const savedRoutes = withoutBundleOnly(JSON.parse(fs.readFileSync(routesPath, 'utf8')));
+const savedRoutes = JSON.parse(fs.readFileSync(routesPath, 'utf8'));
 const records = readCaptures();
 const bundleHits = readBundleHits();
 const callsites = readCallsites();

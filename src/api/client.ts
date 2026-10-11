@@ -1,5 +1,5 @@
-import webApiRoutes from '../../electron/webApiRoutes.json' with { type: 'json' };
-import { canCall, evidenceOf, type Evidence, type Transport } from './capabilities';
+import { ApiHealthStore, type ApiHealthFailure, type RedactedRequestLogEntry } from './apiHealth';
+import { canCall, evidenceOf, routeMethod, routePath, type Evidence, type Transport } from './capabilities';
 import { PEOPLE_LIST_ENDPOINTS, readPeopleList, readProfile, type PeopleListKind, type PeopleListPage } from './relationship';
 import { businessFailure, classifyHttpFailure, nextBackoffMs, type ApiErrorKind } from './guards';
 import { capturedCreateBody, permissionOn } from './roomActions';
@@ -9,38 +9,8 @@ import type { CHAuthResponse, CHChannel, CHChannelDetail, CHChatMessage, CHConve
 const REQUEST_TIMEOUT_MS = 20000;
 const OFFICIAL_WEB_API = 'https://www.clubhouse.com/web_api';
 
-type RouteMeta = { path?: string; method?: string };
-
-/** PRD §2 community routes not yet in webApiRoutes.json (added in Task 10.2). */
-const PRD_ROUTE_FALLBACKS: Record<string, { method: string; path: string }> = {
-  invite_speaker: { method: 'POST', path: '/web_api/invite_speaker' },
-  uninvite_speaker: { method: 'POST', path: '/web_api/uninvite_speaker' },
-  mute_speaker: { method: 'POST', path: '/web_api/mute_speaker' },
-  make_moderator: { method: 'POST', path: '/web_api/make_moderator' },
-  block_from_channel: { method: 'POST', path: '/web_api/block_from_channel' },
-  reject_speaker_invite: { method: 'POST', path: '/web_api/reject_speaker_invite' },
-  invite_to_existing_channel: { method: 'POST', path: '/web_api/invite_to_existing_channel' },
-  end_channel: { method: 'POST', path: '/web_api/end_channel' },
-  make_channel_public: { method: 'POST', path: '/web_api/make_channel_public' },
-  make_channel_social: { method: 'POST', path: '/web_api/make_channel_social' },
-  change_handraise_settings: { method: 'POST', path: '/web_api/change_handraise_settings' },
-  hide_channel: { method: 'POST', path: '/web_api/hide_channel' },
-  get_online_friends: { method: 'POST', path: '/web_api/get_online_friends' },
-  get_notifications: { method: 'GET', path: '/web_api/get_notifications' },
-  get_events: { method: 'GET', path: '/web_api/get_events' },
-};
-
 function routeMeta(endpoint: string): { method: string; path: string } {
-  const route = (webApiRoutes as Record<string, RouteMeta>)[endpoint];
-  if (route?.path && route?.method) {
-    return { method: route.method, path: route.path };
-  }
-  const fallback = PRD_ROUTE_FALLBACKS[endpoint];
-  if (fallback) return fallback;
-  return {
-    method: route?.method ?? 'POST',
-    path: route?.path ?? `/web_api/${endpoint}`,
-  };
+  return { method: routeMethod(endpoint), path: routePath(endpoint) };
 }
 
 function isWebAuthEndpoint(endpoint: string): boolean {
@@ -105,8 +75,17 @@ export interface ClubhouseConfig {
   useSandbox: boolean;
   webSession: boolean;
   language: 'en' | 'tr';
+  /** @deprecated Prefer experimentalActions for community routes; bundle/observed are always callable. */
   allowUnverified: boolean;
   allowLocalRecording: boolean;
+  experimentalActions: boolean;
+  requestLogging: boolean;
+  /** endpoint → appVersion that recorded a 404/405 */
+  unsupportedRoutes: Record<string, string>;
+  /** Local evidence overrides (unsupported / observed promotions) */
+  evidenceOverrides: Record<string, Evidence>;
+  /** Community routes the user confirmed as experimental */
+  confirmedExperimentalRoutes: string[];
 }
 
 const DEFAULT_CONFIG: ClubhouseConfig = {
@@ -122,6 +101,11 @@ const DEFAULT_CONFIG: ClubhouseConfig = {
   language: 'en',
   allowUnverified: false,
   allowLocalRecording: false,
+  experimentalActions: false,
+  requestLogging: false,
+  unsupportedRoutes: {},
+  evidenceOverrides: {},
+  confirmedExperimentalRoutes: [],
 };
 
 
@@ -197,7 +181,8 @@ export interface ApiTransport {
 
 export type ClubhouseClientOptions = Partial<ClubhouseConfig> & {
   transport?: ApiTransport;
-}
+  now?: () => number;
+};
 
 interface SandboxInput {
   channel?: string;
@@ -561,10 +546,15 @@ export class ClubhouseApiClient {
   private backoffMs = new Map<string, number>();
   private blockedUntil = new Map<string, number>();
   private customTransport: ApiTransport | null = null;
+  private nowFn: () => number = () => Date.now();
+  private consecutiveClientErrors = new Map<string, number>();
+  private sessionDisabled = new Set<string>();
+  private health = new ApiHealthStore();
 
   constructor(customConfig?: ClubhouseClientOptions) {
-    const { transport, ...configOverrides } = customConfig ?? {};
+    const { transport, now, ...configOverrides } = customConfig ?? {};
     this.customTransport = transport ?? null;
+    if (now) this.nowFn = now;
     const parsedSaved = readSavedConfig();
     const savedBuild = Number(parsedSaved.appBuild);
     const clientIsCurrent = Number.isFinite(savedBuild) && savedBuild >= 1_000_000;
@@ -577,6 +567,20 @@ export class ClubhouseApiClient {
       ...DEFAULT_CONFIG,
       ...parsedSaved,
       ...configOverrides,
+      unsupportedRoutes: {
+        ...DEFAULT_CONFIG.unsupportedRoutes,
+        ...parsedSaved.unsupportedRoutes,
+        ...configOverrides.unsupportedRoutes,
+      },
+      evidenceOverrides: {
+        ...DEFAULT_CONFIG.evidenceOverrides,
+        ...parsedSaved.evidenceOverrides,
+        ...configOverrides.evidenceOverrides,
+      },
+      confirmedExperimentalRoutes:
+        configOverrides.confirmedExperimentalRoutes
+        ?? parsedSaved.confirmedExperimentalRoutes
+        ?? DEFAULT_CONFIG.confirmedExperimentalRoutes,
     };
     if (STALE_AGORA_APP_IDS.has(this.config.agoraAppId)) {
       this.config.agoraAppId = DEFAULT_CONFIG.agoraAppId;
@@ -598,11 +602,68 @@ export class ClubhouseApiClient {
   }
 
   public supports(endpoint: string): boolean {
-    return canCall(endpoint, this.transport(), { allowUnverified: this.config.allowUnverified === true });
+    return canCall(endpoint, this.transport(), {
+      experimentalActions: this.config.experimentalActions === true,
+      unsupportedRoutes: this.config.unsupportedRoutes,
+      appVersion: this.config.appVersion,
+      sessionDisabled: this.sessionDisabled,
+      evidenceOverrides: this.config.evidenceOverrides,
+    });
   }
 
   public evidence(endpoint: string): Evidence {
-    return evidenceOf(endpoint);
+    return this.effectiveEvidence(endpoint);
+  }
+
+  public effectiveEvidence(endpoint: string): Evidence {
+    return evidenceOf(endpoint, this.config.evidenceOverrides);
+  }
+
+  public isDisabledForSession(endpoint: string): boolean {
+    return this.sessionDisabled.has(endpoint);
+  }
+
+  public getApiHealth(): ApiHealthFailure[] {
+    return [...this.health.failures];
+  }
+
+  public getRequestLog(): RedactedRequestLogEntry[] {
+    return [...this.health.requestLog];
+  }
+
+  public copyHealthReport(index?: number): string {
+    return this.health.copyReport(index);
+  }
+
+  public resetUnsupportedRoutes(): void {
+    const evidenceOverrides = { ...this.config.evidenceOverrides };
+    for (const endpoint of Object.keys(this.config.unsupportedRoutes)) {
+      if (evidenceOverrides[endpoint] === 'unsupported') delete evidenceOverrides[endpoint];
+    }
+    void this.updateConfig({ unsupportedRoutes: {}, evidenceOverrides });
+  }
+
+  public confirmExperimental(endpoint: string): void {
+    if (this.config.confirmedExperimentalRoutes.includes(endpoint)) return;
+    void this.updateConfig({
+      confirmedExperimentalRoutes: [...this.config.confirmedExperimentalRoutes, endpoint],
+    });
+  }
+
+  public needsExperimentalConfirmation(endpoint: string): boolean {
+    return this.effectiveEvidence(endpoint) === 'community'
+      && this.config.experimentalActions
+      && !this.config.confirmedExperimentalRoutes.includes(endpoint);
+  }
+
+  /** Used by BDD / api:docs-style promotion after a logged 2xx. */
+  public promoteFromRequestLog(endpoint: string): boolean {
+    const hit = this.health.requestLog.find((entry) => entry.endpoint === endpoint && entry.status >= 200 && entry.status < 300);
+    if (!hit) return false;
+    void this.updateConfig({
+      evidenceOverrides: { ...this.config.evidenceOverrides, [endpoint]: 'observed' },
+    });
+    return true;
   }
 
   private transport(): Transport {
@@ -656,18 +717,63 @@ export class ClubhouseApiClient {
 
   private rateLimitRemaining(endpoint: string): number {
     const until = this.blockedUntil.get(endpoint) ?? 0;
-    return Math.max(0, until - Date.now());
+    return Math.max(0, until - this.nowFn());
   }
 
   private noteRateLimit(endpoint: string): void {
     const next = nextBackoffMs(this.backoffMs.get(endpoint) ?? 0);
     this.backoffMs.set(endpoint, next);
-    this.blockedUntil.set(endpoint, Date.now() + next);
+    this.blockedUntil.set(endpoint, this.nowFn() + next);
   }
 
   private clearRateLimit(endpoint: string): void {
     this.backoffMs.delete(endpoint);
     this.blockedUntil.delete(endpoint);
+  }
+
+  private assertCallable(endpoint: string): void {
+    if (this.sessionDisabled.has(endpoint)) {
+      throw new ClubhouseApiError(0, endpoint, 'Temporarily unavailable', 'unknown');
+    }
+  }
+
+  private noteClientFailure(endpoint: string, status: number, message: string, body?: RequestBody): void {
+    const meta = routeMeta(endpoint);
+    this.health.recordFailure({
+      endpoint,
+      method: meta.method,
+      status,
+      message,
+      bodyKeys: Object.keys(body ?? {}),
+      time: new Date(this.nowFn()).toISOString(),
+    });
+    if (status === 404 || status === 405) {
+      void this.updateConfig({
+        unsupportedRoutes: { ...this.config.unsupportedRoutes, [endpoint]: this.config.appVersion },
+        evidenceOverrides: { ...this.config.evidenceOverrides, [endpoint]: 'unsupported' },
+      });
+    }
+    if (status >= 400 && status < 500 && status !== 401 && status !== 429) {
+      const count = (this.consecutiveClientErrors.get(endpoint) ?? 0) + 1;
+      this.consecutiveClientErrors.set(endpoint, count);
+      if (count >= 2) this.sessionDisabled.add(endpoint);
+    }
+  }
+
+  private noteClientSuccess(endpoint: string, status: number, body?: RequestBody): void {
+    this.consecutiveClientErrors.delete(endpoint);
+    if (!this.config.requestLogging) return;
+    const meta = routeMeta(endpoint);
+    this.health.recordSuccess({
+      endpoint,
+      method: meta.method,
+      path: meta.path,
+      status,
+      bodyKeys: Object.keys(body ?? {}),
+      evidence: this.effectiveEvidence(endpoint),
+      appVersion: this.config.appVersion,
+      timestamp: new Date(this.nowFn()).toISOString(),
+    });
   }
 
   private async request<T>(endpoint: string, body?: RequestBody, forceLive = false): Promise<T> {
@@ -677,6 +783,7 @@ export class ClubhouseApiClient {
     if (this.config.useSandbox && !forceLive) {
       return this.handleSandboxRequest<T>(endpoint, body);
     }
+    this.assertCallable(endpoint);
     if (this.rateLimitRemaining(endpoint) > 0) {
       throw new ClubhouseApiError(429, endpoint, 'Too many requests', 'rate-limit');
     }
@@ -705,7 +812,7 @@ export class ClubhouseApiClient {
     try {
       if (desktopRequest) {
         const result = await withTimeout(desktopRequest(endpoint, body ?? null, headers), endpoint);
-        return this.parseLiveResponse<T>(endpoint, result.status, result.body, result.ok);
+        return this.parseLiveResponse<T>(endpoint, result.status, result.body, result.ok, body);
       }
 
       const url = browserRequestUrl(endpoint);
@@ -716,7 +823,7 @@ export class ClubhouseApiClient {
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
       const text = await response.text();
-      return this.parseLiveResponse<T>(endpoint, response.status, text, response.ok);
+      return this.parseLiveResponse<T>(endpoint, response.status, text, response.ok, body);
     } catch (err) {
       if (err instanceof ClubhouseApiError) throw err;
       if (err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')) {
@@ -728,6 +835,7 @@ export class ClubhouseApiClient {
   }
 
   private async requestViaTransport<T>(endpoint: string, body?: RequestBody): Promise<T> {
+    this.assertCallable(endpoint);
     if (this.rateLimitRemaining(endpoint) > 0) {
       throw new ClubhouseApiError(429, endpoint, 'Too many requests', 'rate-limit');
     }
@@ -743,10 +851,16 @@ export class ClubhouseApiClient {
       }),
       endpoint,
     );
-    return this.parseLiveResponse<T>(endpoint, result.status, result.body, result.ok);
+    return this.parseLiveResponse<T>(endpoint, result.status, result.body, result.ok, body);
   }
 
-  private parseLiveResponse<T>(endpoint: string, status: number, text: string, ok: boolean): T {
+  private parseLiveResponse<T>(
+    endpoint: string,
+    status: number,
+    text: string,
+    ok: boolean,
+    requestBody?: RequestBody,
+  ): T {
     if (!ok) {
       let message = text || `HTTP ${status}`;
       try {
@@ -757,6 +871,7 @@ export class ClubhouseApiClient {
       }
       const failure = classifyHttpFailure(status, message);
       if (failure.kind === 'rate-limit') this.noteRateLimit(endpoint);
+      this.noteClientFailure(endpoint, status, failure.message, requestBody);
       if (failure.expireSession && !this.suppressAuthExpired) {
         this.emitAuthExpired();
       }
@@ -781,9 +896,11 @@ export class ClubhouseApiClient {
     if (failed) {
       const failure = classifyHttpFailure(status, failed);
       if (failure.kind === 'rate-limit') this.noteRateLimit(endpoint);
+      this.noteClientFailure(endpoint, status, failed, requestBody);
       throw new ClubhouseApiError(status, endpoint, failed, failure.kind === 'rate-limit' ? 'rate-limit' : 'business');
     }
     this.clearRateLimit(endpoint);
+    this.noteClientSuccess(endpoint, status, requestBody);
     if (endpoint === 'get_channels' && Array.isArray(data.items) && !Array.isArray(data.channels)) {
       data.channels = data.items
         .map((item) => feedChannel(item))
@@ -1248,9 +1365,6 @@ export class ClubhouseApiClient {
   }
 
   public async endChannel(channelId: string): Promise<ApiAck> {
-    if (!this.config.useSandbox && !this.customTransport) {
-      throw new ClubhouseApiError(0, 'end_channel', 'Not captured', 'unknown');
-    }
     return this.request('end_channel', { channel: channelId, channel_id: channelId });
   }
 

@@ -77,6 +77,7 @@ export class ClubboxWorld extends World {
   presenceTimer: number | null = null;
   lastError: Error | null = null;
   myUserId = 42;
+  clientNow = { t: Date.parse('2026-10-11T12:00:00.000Z') };
 
   constructor(options: IWorldOptions) {
     super(options);
@@ -84,12 +85,18 @@ export class ClubboxWorld extends World {
     this.transport = new FakeTransport();
     this.clock = new FakeClock();
     this.agora = new FakeAgora();
+    this.clientNow = { t: this.clock.now() };
     this.client = new ClubhouseApiClient({
       useSandbox: false,
       webSession: true,
       userId: this.myUserId,
-      allowUnverified: true,
+      experimentalActions: false,
+      requestLogging: false,
       transport: this.transport,
+      now: () => this.clientNow.t,
+    });
+    this.client.onAuthExpired(() => {
+      this.signedIn = false;
     });
   }
 

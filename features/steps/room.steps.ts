@@ -127,15 +127,8 @@ When('I click {string}', async function (this: ClubboxWorld, label: string) {
     return;
   }
   if (label === 'Copy report') {
-    const failure = this.apiHealth[this.apiHealth.length - 1];
-    assert.ok(failure, 'expected an API Health failure');
-    this.clipboard = [
-      `endpoint=${failure.endpoint}`,
-      `method=${failure.method}`,
-      `status=${failure.status}`,
-      `body_keys=${failure.bodyKeys.join(',')}`,
-      `error=${failure.message}`,
-    ].join('\n');
+    this.clipboard = this.client.copyHealthReport();
+    assert.ok(this.clipboard, 'expected an API Health failure');
     return;
   }
   this.uiMessages.push(`clicked:${label}`);

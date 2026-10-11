@@ -43,12 +43,21 @@ function shortcutLabel(action: ShortcutAction): string {
   return t('shortcutPad', { n: action.slice(3) });
 }
 
+export type ApiHealthRow = {
+  endpoint: string;
+  method: string;
+  status: number;
+  message: string;
+  time: string;
+};
+
 export function settingsView(
   config: ClubhouseConfig,
   shortcuts: ShortcutMap,
   recording: ShortcutAction | null,
   liveOnly: boolean,
   account: AccountReadout | null,
+  apiHealth: ApiHealthRow[] = [],
 ): SafeHtml {
   return html`
     <div style="max-width:780px; margin:0 auto;">
@@ -125,13 +134,37 @@ export function settingsView(
           </div>
         `}
         <label style="display:flex; align-items:flex-start; gap:8px; margin-top:16px; cursor:pointer;">
-          <input type="checkbox" id="cfg-allow-unverified" ${config.allowUnverified ? 'checked' : ''} />
-          <span><strong>${t('allowUnverified')}</strong><br />${t('allowUnverifiedHelp')}</span>
+          <input type="checkbox" id="cfg-experimental-actions" ${config.experimentalActions ? 'checked' : ''} />
+          <span><strong>${t('experimentalActions')}</strong><br />${t('experimentalActionsHelp')}</span>
+        </label>
+        <label style="display:flex; align-items:flex-start; gap:8px; margin-top:16px; cursor:pointer;">
+          <input type="checkbox" id="cfg-request-logging" ${config.requestLogging ? 'checked' : ''} />
+          <span><strong>${t('requestLogging')}</strong><br />${t('requestLoggingHelp')}</span>
         </label>
         <label style="display:flex; align-items:flex-start; gap:8px; margin-top:16px; cursor:pointer;">
           <input type="checkbox" id="cfg-allow-recording" ${config.allowLocalRecording ? 'checked' : ''} />
           <span><strong>${t('allowLocalRecording')}</strong><br />${t('allowLocalRecordingHelp')}</span>
         </label>
+      </div>
+
+      <div style="background:var(--bg-card); border:1px solid var(--border-subtle); border-radius:var(--radius-lg); padding:24px; margin-bottom:20px;">
+        <h3 style="font-size:16px; font-weight:700; margin-bottom:6px;">${t('apiHealthTitle')}</h3>
+        <p style="font-size:12px; color:var(--text-muted); margin-bottom:16px; line-height:1.5;">${t('apiHealthHelp')}</p>
+        ${apiHealth.length === 0 ? html`<p class="list-note">${t('apiHealthEmpty')}</p>` : html`
+          <div class="api-health-list" style="display:flex; flex-direction:column; gap:10px; margin-bottom:16px;">
+            ${apiHealth.slice(-12).reverse().map((row) => html`
+              <div style="font-size:12px; border:1px solid var(--border-subtle); border-radius:8px; padding:10px 12px;">
+                <div style="font-weight:600;">${row.endpoint} · ${row.method} · ${row.status}</div>
+                <div style="color:var(--text-muted); margin-top:4px;">${row.time}</div>
+                <div style="margin-top:4px;">${row.message}</div>
+              </div>
+            `)}
+          </div>
+        `}
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn btn-secondary" type="button" data-action="copy-api-health-report" ${apiHealth.length ? '' : 'disabled'}>${t('apiHealthCopy')}</button>
+          <button class="btn btn-secondary" type="button" data-action="reset-unsupported-routes">${t('apiHealthResetUnsupported')}</button>
+        </div>
       </div>
 
       <div style="background:var(--bg-card); border:1px solid var(--border-subtle); border-radius:var(--radius-lg); padding:24px; margin-bottom:20px;">

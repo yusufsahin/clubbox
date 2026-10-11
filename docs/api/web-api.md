@@ -8,7 +8,7 @@ Sign-in (`start_phone_number_web_auth`, `complete_phone_number_web_auth`, `resen
 
 ## POST /web_api/me
 
-Seen when: smoke-open.
+Seen when: smoke-open; s1-host.
 
 ### Request
 
@@ -284,7 +284,7 @@ App endpoint key: `me`. Configured method: POST.
 
 ## POST /web_api/get_feed_v3
 
-Seen when: smoke-open.
+Seen when: smoke-open; s1-host.
 
 Hint match (not proof): Open home feed.
 
@@ -1266,7 +1266,7 @@ App endpoint key: `get_edge_stories`. Configured method: GET.
 
 ## POST /web_api/get_conversations
 
-Seen when: smoke-open.
+Seen when: smoke-open; s1-host.
 
 Hint match (not proof): Open a DM.
 
@@ -2063,7 +2063,7 @@ App endpoint key: `get_create_channel_targets`. Configured method: POST.
 
 ## POST /web_api/get_feed_v3
 
-Seen when: smoke-open.
+Seen when: smoke-open; s1-host.
 
 Hint match (not proof): Open home feed.
 
@@ -2294,6 +2294,126 @@ Status codes seen: 200.
 
 App endpoint key: `mark_conversation_segment_listened`. Configured method: POST.
 
+## POST /web_api/emoji_reaction
+
+App endpoint key: `emoji_reaction`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /web_api/set_channel_title
+
+App endpoint key: `set_channel_title`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /web_api/web_listener_active_ping
+
+App endpoint key: `web_listener_active_ping`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /web_api/web_listener_join
+
+App endpoint key: `web_listener_join`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /web_api/web_listener_leave
+
+App endpoint key: `web_listener_leave`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /web_api/invite_speaker
+
+App endpoint key: `invite_speaker`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /web_api/uninvite_speaker
+
+App endpoint key: `uninvite_speaker`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /web_api/mute_speaker
+
+App endpoint key: `mute_speaker`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /web_api/make_moderator
+
+App endpoint key: `make_moderator`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /web_api/block_from_channel
+
+App endpoint key: `block_from_channel`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /web_api/reject_speaker_invite
+
+App endpoint key: `reject_speaker_invite`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /web_api/invite_to_existing_channel
+
+App endpoint key: `invite_to_existing_channel`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /web_api/end_channel
+
+App endpoint key: `end_channel`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /web_api/make_channel_public
+
+App endpoint key: `make_channel_public`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /web_api/make_channel_social
+
+App endpoint key: `make_channel_social`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /web_api/change_handraise_settings
+
+App endpoint key: `change_handraise_settings`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /web_api/hide_channel
+
+App endpoint key: `hide_channel`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /web_api/get_online_friends
+
+App endpoint key: `get_online_friends`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## GET /web_api/get_notifications
+
+App endpoint key: `get_notifications`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## GET /web_api/get_events
+
+App endpoint key: `get_events`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
 ## Captured paths the app does not call yet
 
 ## POST /web_api/send_conversation_emoji_reaction
@@ -2338,4 +2458,5 @@ Status codes seen: 400.
 
 ## Checklist coverage
 
+- `s1-host`: POST /web_api/get_conversations (200); POST /web_api/get_feed_v3 (200); POST /web_api/me (200)
 - `smoke-open`: GET /web_api/get_edge_stories (200); POST /web_api/create_channel (200); POST /web_api/get_conversation (200); POST /web_api/get_conversations (200); POST /web_api/get_create_channel_targets (200); POST /web_api/get_feed_v3 (200); POST /web_api/get_group_suggested_invites (200); POST /web_api/mark_conversation_segment_listened (200); POST /web_api/me (200); POST /web_api/record_action_trails (200); POST /web_api/search (200)
