@@ -1,4 +1,3 @@
-// @ts-nocheck — extracted controller; imports trimmed over time.
 import { clubhouseClient } from '../api/client.ts';
 import {
   mergeActivityFeed,

@@ -1,34 +1,8 @@
-// @ts-nocheck — extracted controller; imports trimmed over time.
-import { ClubhouseApiError, clubhouseClient } from '../api/client.ts';
+import { clubhouseClient } from '../api/client.ts';
 import { isLiveUpdatesUnavailable } from '../api/liveUpdates.ts';
-import { beginJoin, commitJoin, finishLeave, localClipAllowed, roleSyncDecision, roomAudience } from '../api/guards.ts';
-import { capturedCreateBody, leaveClosesRoom, roomHasOthers } from '../api/roomActions.ts';
-import { applyFollowResponse, mergeProfile, PEOPLE_LIST_ENDPOINTS, profileCountsMissing, readProfile, relationshipFromStatus, talkPartners, type PeopleListKind } from '../api/relationship.ts';
-import { PubNubRoomSource } from '../api/pubnubRoomSource.ts';
-import { roomSync } from '../api/roomSync.ts';
-import { audioEngine } from '../audio/audioEngine.ts';
-import { readAudioPrefs, writeAudioPrefs, type AudioPrefs } from '../audio/audioPrefs.ts';
-import { eventToAccelerator, normalizeShortcuts, readShortcuts, writeShortcuts, type ShortcutAction, type ShortcutMap } from '../shortcuts.ts';
-import { agoraVoice } from '../audio/agoraVoice.ts';
-import type { CHChannel, CHChannelDetail, CHChatMessage, CHConversation, CHUser, FeedTopic, MeSettings, SearchHit, SearchObjectType } from '../api/types.ts';
-import { setLanguage, t } from '../i18n/index.ts';
-import { avatarHtml, installAvatarFallback } from '../ui/avatar.ts';
-import { cockpitBar } from '../ui/components/cockpitBar.ts';
-import { mountCreateModal } from '../ui/components/createModal.ts';
-import { paintPersonSheet, selfProfilePage } from '../ui/components/profileDrawer.ts';
-import { mountSpeakerInvite } from '../ui/components/speakerInvite.ts';
-import { showToast } from '../ui/components/toast.ts';
-import { html, markup, safeUrl } from '../ui/html.ts';
-import { activityView } from '../ui/views/activity.ts';
-import { exploreView } from '../ui/views/explore.ts';
-import { friendsView } from '../ui/views/friends.ts';
-import { peopleListView } from '../ui/views/peopleList.ts';
-import { discoverView, type DiscoverTab } from '../ui/views/discover.ts';
-import { loginView } from '../ui/views/login.ts';
-import { messagesView } from '../ui/views/messages.ts';
-import { settingsView } from '../ui/views/settings.ts';
-import { soundboardView } from '../ui/views/soundboard.ts';
-import { chatList, emptyStageView, stageColumn, stageView } from '../ui/views/stage.ts';
+import type { CHChannel, FeedTopic, SearchObjectType } from '../api/types.ts';
+import { t } from '../i18n/index.ts';
+import { html, safeUrl } from '../ui/html.ts';
 import { prepareHallwayChannels } from '../hallway/hallwayDisplay.ts';
 import { type HallwayPrefs, readHallwayPrefs, writeHallwayPrefs } from '../hallway/hallwayPrefs.ts';
 import { encodeStereoWav } from '../audio/wav.ts';
@@ -54,27 +28,6 @@ function revokeReplayBlob(app: ClubboxApp): void {
   if (url?.startsWith('blob:')) URL.revokeObjectURL(url);
 }
 
-const CHAT_POLL_MS = 15_000;
-const GUIDELINES_KEY = 'clubbox-guidelines-accepted';
-
-function electronAPI() {
-  return (window as Window & { electronAPI?: unknown }).electronAPI ?? null;
-}
-
-function recordingFilename(topic: string | undefined, kind: 'recording' | 'clip' = 'recording'): string {
-  const slug = (topic || 'room')
-    .normalize('NFKD')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 40)
-    .replace(/-+$/g, '') || 'room';
-  const now = new Date();
-  const pad = (n: number) => n.toString().padStart(2, '0');
-  const stamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`;
-  const extension = kind === 'clip' ? 'wav' : 'webm';
-  return `clubbox-${kind}-${slug}-${stamp}.${extension}`;
-}
 
 
 export async function reloadChannels(this: ClubboxApp) : Promise<void> {

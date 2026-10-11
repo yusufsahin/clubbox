@@ -1,24 +1,25 @@
-﻿// @ts-nocheck
-import { ClubhouseApiError, clubhouseClient } from '../api/client';
-import { beginJoin, commitJoin, emptyRoomSession, finishLeave, localClipAllowed, roleSyncDecision, roomAudience } from '../api/guards';
+﻿import { ClubhouseApiError, clubhouseClient } from '../api/client';
+import { emptyRoomSession } from '../api/guards';
 import type { CreateChannelTargets } from '../api/createComposer';
-import { conversationKind, leaveClosesRoom, roomHasOthers } from '../api/roomActions';
-import { applyFollowResponse, mergeProfile, PEOPLE_LIST_ENDPOINTS, profileCountsMissing, readProfile, relationshipFromStatus, talkPartners, type PeopleListKind } from '../api/relationship';
+import { conversationKind } from '../api/roomActions';
+import { talkPartners, type PeopleListKind } from '../api/relationship';
+import type { ClubboxAppCtlMethods } from './ctlMethods.ts';
+import { electronAPI } from './electronApi.ts';
+import { stageControlFlags } from './roomCtl.ts';
+import { wireAppControllers } from './wireControllers.ts';
 
-const CHAT_POLL_MS = 15_000;
-const GUIDELINES_KEY = 'clubbox-guidelines-accepted';
 import { PubNubRoomSource } from '../api/pubnubRoomSource';
 import { roomSync } from '../api/roomSync';
 import { audioEngine } from '../audio/audioEngine';
-import { readAudioPrefs, writeAudioPrefs, type AudioPrefs } from '../audio/audioPrefs';
-import { applyThemeToDocument, readAppPrefs, writeAppPrefs, zoomFactorFromPercent } from './appPrefs';
-import { eventToAccelerator, normalizeShortcuts, readShortcuts, writeShortcuts, type ShortcutAction, type ShortcutMap } from '../shortcuts';
+import { readAudioPrefs, type AudioPrefs } from '../audio/audioPrefs';
+import { applyThemeToDocument, readAppPrefs, zoomFactorFromPercent } from './appPrefs';
+import { readShortcuts, type ShortcutAction, type ShortcutMap } from '../shortcuts';
 import { agoraVoice } from '../audio/agoraVoice';
 import type { ActivityItem } from '../api/activityFeed';
 import type { EventListItem, HouseChatMessage, HouseListItem, HouseMemberItem } from '../api/communityLists';
 import type { PingCandidate } from '../api/pingInvites';
 import type { ReplayPlayback } from '../api/replayPlayback';
-import type { CHChannel, CHChannelDetail, CHChatMessage, CHConversation, ConversationThread, CHUser, FeedTopic, MeSettings, SearchHit, SearchObjectType } from '../api/types';
+import type { CHChannel, CHChannelDetail, CHChatMessage, CHConversation, ConversationThread, CHUser, FeedTopic, MeSettings, SearchHit } from '../api/types';
 import { eventsView } from '../ui/views/events';
 import { housesView } from '../ui/views/houses';
 import { replayView } from '../ui/views/replay';
@@ -26,8 +27,7 @@ import { setLanguage, t } from '../i18n';
 import { avatarHtml, installAvatarFallback } from '../ui/avatar';
 import { cockpitBar } from '../ui/components/cockpitBar';
 import { mountCreateModal } from '../ui/components/createModal';
-import { paintPersonSheet, selfProfilePage } from '../ui/components/profileDrawer';
-import { mountSpeakerInvite } from '../ui/components/speakerInvite';
+import { selfProfilePage } from '../ui/components/profileDrawer';
 import { showToast } from '../ui/components/toast';
 import { html, markup, safeUrl } from '../ui/html';
 import { activityView } from '../ui/views/activity';
@@ -38,65 +38,14 @@ import { discoverView, type DiscoverTab } from '../ui/views/discover';
 import { loginView } from '../ui/views/login';
 import { messagesView } from '../ui/views/messages';
 import { settingsView } from '../ui/views/settings';
-import { soundboardView } from '../ui/views/soundboard';
 import { chatList, emptyStageView, stageColumn, stageView } from '../ui/views/stage';
 import { readHallwayPrefs, type HallwayPrefs } from '../hallway/hallwayPrefs';
 import { usableFeedTopics } from '../hallway/hallwayDisplay';
 import type { RecordingChapter } from '../studio/recordingChapters';
 
-interface ElectronAPI {
-  isElectron: boolean;
-  getGlobalShortcuts: () => Promise<ShortcutMap | null>;
-  setGlobalShortcuts: (shortcuts: ShortcutMap) => Promise<{ ok: boolean; failed: string[] }>;
-  onGlobalShortcut: (callback: (action: string) => void) => void;
-  openOfficialSignIn?: () => Promise<{ ok: boolean }>;
-  closeOfficialSignIn?: () => Promise<{ ok: boolean }>;
-  onWebSessionMaybe?: (callback: () => void) => void;
-  onAgoraAppId?: (callback: (appId: string) => void) => () => void;
-  pubnubSubscribe?: (params: import('../api/realtimeHub.ts').PubNubSubscribeParams) => Promise<{ ok: boolean }>;
-  pubnubResubscribe?: () => Promise<{ ok: boolean }>;
-  pubnubUnsubscribe?: () => Promise<{ ok: boolean }>;
-  onPubNubMessage?: (callback: (message: Record<string, unknown>) => void) => () => void;
-  onPubNubStatus?: (callback: (status: import('../api/realtimeHub.ts').RealtimeHubStatus) => void) => () => void;
-  clearWebSession?: () => Promise<{ ok: boolean }>;
-  appendApiLog?: (record: {
-    endpoint: string;
-    status: number;
-    ok?: boolean;
-    bodyKeys?: string[];
-    error?: string;
-    kind?: string;
-    appVersion?: string;
-    timestamp?: string;
-  }) => Promise<{ ok: boolean }>;
-  runApiTriage?: () => Promise<{
-    ok: boolean;
-    promotions?: string[];
-    failures?: Array<{ endpoint: string; status: number; error?: string; bodyKeys?: string[] }>;
-  }>;
-}
-
-function recordingFilename(topic: string | undefined, kind: 'recording' | 'clip' = 'recording'): string {
-  const slug = (topic || 'room')
-    .normalize('NFKD')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 40)
-    .replace(/-+$/g, '') || 'room';
-  const now = new Date();
-  const pad = (n: number) => n.toString().padStart(2, '0');
-  const stamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`;
-  const extension = kind === 'clip' ? 'wav' : 'webm';
-  return `clubbox-${kind}-${slug}-${stamp}.${extension}`;
-}
-
-function electronAPI(): ElectronAPI | null {
-  return (window as Window & { electronAPI?: ElectronAPI }).electronAPI ?? null;
-}
-
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging -- merged with ClubboxAppCtlMethods below (Task 13.1)
 export class ClubboxApp {
-  private currentTab: 'stage' | 'explore' | 'discover' | 'friends' | 'messages' | 'activity' | 'houses' | 'events' | 'replay' | 'soundboard' | 'settings' | 'login' = 'stage';
+  currentTab: 'stage' | 'explore' | 'discover' | 'friends' | 'messages' | 'activity' | 'houses' | 'events' | 'replay' | 'soundboard' | 'settings' | 'login' = 'stage';
   housesList: HouseListItem[] | null = null;
   selectedHouse: HouseListItem | null = null;
   houseChatOpen = false;
@@ -114,89 +63,89 @@ export class ClubboxApp {
   pingCandidates: PingCandidate[] = [];
   pingSelectedIds: number[] = [];
   pingLoading = false;
-  private currentChannel: CHChannelDetail | null = null;
-  private channelsList: CHChannel[] = [];
-  private feedTopics: FeedTopic[] = [];
+  currentChannel: CHChannelDetail | null = null;
+  channelsList: CHChannel[] = [];
+  feedTopics: FeedTopic[] = [];
   selectedTopicKey: string | null = null;
-  private conversations: CHConversation[] = [];
-  private conversationsLoaded = false;
+  conversations: CHConversation[] = [];
+  conversationsLoaded = false;
   conversationUnreadById: Record<string, number> = {};
-  private messageFilter: 'all' | 'house' | 'vm' = 'all';
-  private openConversationId: string | null = null;
+  messageFilter: 'all' | 'house' | 'vm' = 'all';
+  openConversationId: string | null = null;
   openConversationThreadData: ConversationThread | null = null;
   threadLiveNote = '';
-  private previewMember: string | null = null;
-  private voiceRate = 1;
-  private privateVoice = false;
-  private privateLines: { userId: number; text: string; voice: boolean }[] = [];
-  private activityCount: number | null = null;
+  previewMember: string | null = null;
+  voiceRate = 1;
+  privateVoice = false;
+  privateLines: { userId: number; text: string; voice: boolean }[] = [];
+  activityCount: number | null = null;
   activityItems: ActivityItem[] | null = null;
-  private suggestionsCount: number | null = null;
-  private discoverQuery = '';
-  private discoverTab: DiscoverTab = 'top';
-  private discoverHits: SearchHit[] | null = null;
-  private discoverLoading = false;
-  private discoverTimer: number | null = null;
-  private discoverSeq = 0;
-  private me: CHUser | null = null;
-  private meSettings: MeSettings | null = null;
-  private unreadNotifications = false;
-  private unreadConversations = 0;
-  private selectedProfile: CHUser | null = null;
-  private loginBusy = false;
-  private loginNotice = '';
-  private adoptInFlight = false;
-  private guidelinesOpen = false;
-  private pendingLive = false;
-  private isCreateModalOpen: boolean = false;
-  private isSettingsModalOpen: boolean = false;
-  private isProfileDrawerOpen: boolean = false;
-  private selfProfileOpen = false;
-  private recordTimerInterval: number | null = null;
-  private recordDurationSec: number = 0;
-  private pingTimer: number | null = null;
-  private chatTimer: number | null = null;
-  private activityTimer: number | null = null;
-  private roomTitleOptions: string[] = [];
-  private createChannelTargets: CreateChannelTargets | null = null;
-  private notificationsEnabled: boolean | null = null;
-  private soundEffectsEnabled: boolean | null = null;
-  private anonymousEnabled: boolean | null = null;
-  private needsAgeVerification = false;
-  private isOnboarding = false;
-  private publicHallway: boolean | null = null;
-  private blockedCount: number | null = null;
-  private isAdmin = false;
-  private requestedFollowingCount: number | null = null;
-  private dmRequestCount = 0;
-  private profileLoading = false;
-  private peopleList: {
+  suggestionsCount: number | null = null;
+  discoverQuery = '';
+  discoverTab: DiscoverTab = 'top';
+  discoverHits: SearchHit[] | null = null;
+  discoverLoading = false;
+  discoverTimer: number | null = null;
+  discoverSeq = 0;
+  me: CHUser | null = null;
+  meSettings: MeSettings | null = null;
+  unreadNotifications = false;
+  unreadConversations = 0;
+  selectedProfile: CHUser | null = null;
+  loginBusy = false;
+  loginNotice = '';
+  adoptInFlight = false;
+  guidelinesOpen = false;
+  pendingLive = false;
+  isCreateModalOpen: boolean = false;
+  isSettingsModalOpen: boolean = false;
+  isProfileDrawerOpen: boolean = false;
+  selfProfileOpen = false;
+  recordTimerInterval: number | null = null;
+  recordDurationSec: number = 0;
+  pingTimer: number | null = null;
+  chatTimer: number | null = null;
+  activityTimer: number | null = null;
+  roomTitleOptions: string[] = [];
+  createChannelTargets: CreateChannelTargets | null = null;
+  notificationsEnabled: boolean | null = null;
+  soundEffectsEnabled: boolean | null = null;
+  anonymousEnabled: boolean | null = null;
+  needsAgeVerification = false;
+  isOnboarding = false;
+  publicHallway: boolean | null = null;
+  blockedCount: number | null = null;
+  isAdmin = false;
+  requestedFollowingCount: number | null = null;
+  dmRequestCount = 0;
+  profileLoading = false;
+  peopleList: {
     kind: PeopleListKind;
     userId: number;
     users: CHUser[] | null;
     nextCursor: string | null;
     loadingMore: boolean;
   } | null = null;
-  private peopleListSeq = 0;
-  private openSpeakerMenuId: number | null = null;
-  private speakerInviteVisible = false;
-  private dismissedSpeakerInvite = false;
-  private audioConnected: boolean | null = null;
-  private agoraRoleSyncing = false;
-  private agoraPromoteFailures = 0;
-  private roomSession = emptyRoomSession();
-  private joinInFlight = false;
-  private authCleanupStarted = false;
-  private hiddenPauseTimer: number | null = null;
-  private pollsPaused = false;
-  private rateLimitNotices = new Set<string>();
-  private musicModeChain: Promise<void> = Promise.resolve();
-  private eventsBound = false;
+  peopleListSeq = 0;
+  openSpeakerMenuId: number | null = null;
+  speakerInviteVisible = false;
+  dismissedSpeakerInvite = false;
+  audioConnected: boolean | null = null;
+  agoraRoleSyncing = false;
+  agoraPromoteFailures = 0;
+  roomSession = emptyRoomSession();
+  joinInFlight = false;
+  authCleanupStarted = false;
+  hiddenPauseTimer: number | null = null;
+  pollsPaused = false;
+  rateLimitNotices = new Set<string>();
+  musicModeChain: Promise<void> = Promise.resolve();
+  eventsBound = false;
 
-  private chatMessages: CHChatMessage[] = [];
-  private unreadChat = 0;
-  private chatOpen = true;
-  private pubnubSource = new PubNubRoomSource({
+  chatMessages: CHChatMessage[] = [];
+  unreadChat = 0;
+  chatOpen = true;
+  pubnubSource = new PubNubRoomSource({
     onUnknownMessage: ({ type, keys }) => {
       clubhouseClient.noteApiHealth('pubnub', `Unknown realtime message type: ${type}`, keys);
       void electronAPI()?.appendApiLog?.({
@@ -216,7 +165,7 @@ export class ClubboxApp {
       else this.unreadChat += 1;
     },
     onReaction: (emoji, targetName) => {
-      this.showToast(`${emoji} → ${targetName}`, emoji);
+      this.showToast(`${emoji} ? ${targetName}`, emoji);
     },
     onReconnecting: (reconnecting) => {
       const banner = document.getElementById('realtime-banner');
@@ -225,14 +174,14 @@ export class ClubboxApp {
     onRoomEnded: () => {
       void this.releaseRoomLocally({ skipServer: true }).then(() => {
         this.afterRoomExit(true, false, true);
-        this.showToast(t('roomEndedByHost'), '🏁');
+        this.showToast(t('roomEndedByHost'), '??');
       });
     },
   });
-  private audioPrefs: AudioPrefs = readAudioPrefs();
-  private shortcuts: ShortcutMap = readShortcuts();
-  private recordingShortcut: ShortcutAction | null = null;
-  private editingSoundId: string | null = null;
+  audioPrefs: AudioPrefs = readAudioPrefs();
+  shortcuts: ShortcutMap = readShortcuts();
+  recordingShortcut: ShortcutAction | null = null;
+  editingSoundId: string | null = null;
   hallwayPrefs: HallwayPrefs = readHallwayPrefs();
   feedNextCursor: string | null = null;
   feedLoadingMore = false;
@@ -252,7 +201,7 @@ export class ClubboxApp {
     this.init();
   }
 
-  private async runStartupApiTriage(): Promise<void> {
+  async runStartupApiTriage(): Promise<void> {
     const run = electronAPI()?.runApiTriage;
     if (!run) return;
     try {
@@ -260,19 +209,19 @@ export class ClubboxApp {
       if (!result?.ok) return;
       const applied = clubhouseClient.promoteEndpointsLocally(result.promotions ?? []);
       if (applied.length) {
-        this.showToast(t('evidenceLogPromoted', { endpoints: applied.join(', ') }), '📋');
+        this.showToast(t('evidenceLogPromoted', { endpoints: applied.join(', ') }), '??');
       }
       const failures = result.failures ?? [];
       if (failures.length) {
         clubhouseClient.importTriageFailures(failures);
-        this.showToast(t('evidenceLogPending', { count: failures.length }), '⚠️');
+        this.showToast(t('evidenceLogPending', { count: failures.length }), '??');
       }
     } catch (err) {
       console.warn('[Clubbox] startup triage failed', err);
     }
   }
 
-  private async init() {
+  async init() {
     setLanguage(clubhouseClient.getConfig().language);
     applyThemeToDocument(readAppPrefs().theme, window.matchMedia('(prefers-color-scheme: dark)').matches);
     void electronAPI()?.setZoomFactor?.(zoomFactorFromPercent(readAppPrefs().zoomPercent));
@@ -391,7 +340,7 @@ export class ClubboxApp {
 
 
 
-  private accountStamp(): string {
+  accountStamp(): string {
     return [
       this.unreadNotifications,
       this.unreadConversations,
@@ -423,31 +372,31 @@ export class ClubboxApp {
 
 
 
-  private reportApiError(err: unknown): void {
+  reportApiError(err: unknown): void {
     if (err instanceof ClubhouseApiError) {
       if (err.kind === 'auth' || err.status === 401) return;
       if (err.kind === 'permission') {
-        this.showToast(t('permissionDenied'), '🔒');
+        this.showToast(t('permissionDenied'), '??');
         return;
       }
       if (err.status === 403) {
-        this.showToast(t('requestForbidden'), '🔒');
+        this.showToast(t('requestForbidden'), '??');
         return;
       }
       if (err.kind === 'timeout') {
-        this.showToast(t('requestTimedOut'), '⏱️');
+        this.showToast(t('requestTimedOut'), '??');
         return;
       }
       if (err.kind === 'rate-limit') {
         if (!this.rateLimitNotices.has(err.endpoint)) {
           this.rateLimitNotices.add(err.endpoint);
-          this.showToast(t('rateLimited'), '⏳');
+          this.showToast(t('rateLimited'), '?');
         }
         return;
       }
     }
     const message = err instanceof Error ? err.message : t('somethingWrong');
-    this.showToast(message, '⚠️');
+    this.showToast(message, '??');
   }
 
 
@@ -466,7 +415,7 @@ export class ClubboxApp {
 
 
 
-  private updateModeBadge(): void {
+  updateModeBadge(): void {
     const badge = document.querySelector('.mode-badge');
     if (!badge) return;
     const sandbox = clubhouseClient.getConfig().useSandbox;
@@ -475,7 +424,7 @@ export class ClubboxApp {
     badge.classList.toggle('live', !sandbox);
   }
 
-  private syncSelectedProfileFromRoom(): void {
+  syncSelectedProfileFromRoom(): void {
     const profile = this.selectedProfile;
     const users = this.currentChannel?.users;
     if (!profile || !users) return;
@@ -523,11 +472,11 @@ export class ClubboxApp {
 
 
 
-  private showToast(message: string, icon = '✨') {
+  showToast(message: string, icon = '?') {
     showToast(message, icon);
   }
 
-  private ensureProfileDrawer(): HTMLElement {
+  ensureProfileDrawer(): HTMLElement {
     if (!document.getElementById('profile-scrim')) {
       const scrim = document.createElement('div');
       scrim.id = 'profile-scrim';
@@ -647,7 +596,7 @@ export class ClubboxApp {
     if (this.isProfileDrawerOpen) this.renderProfileDrawer();
   }
 
-  private ensureShell(): void {
+  ensureShell(): void {
     if (document.getElementById('shell-sidebar')) return;
     const app = document.getElementById('app');
     if (!app) return;
@@ -655,13 +604,13 @@ export class ClubboxApp {
     this.bindEvents();
   }
 
-  private renderSidebar(): void {
+  renderSidebar(): void {
     const el = document.getElementById('shell-sidebar');
     if (!el) return;
     const sandbox = clubhouseClient.getConfig().useSandbox;
     el.innerHTML = markup(html`
         <div class="brand">
-          <div class="brand-icon">🎙️</div>
+          <div class="brand-icon">???</div>
           <div>
             <div style="display:flex; align-items:center;">
               <span class="brand-title">Clubbox</span>
@@ -675,33 +624,33 @@ export class ClubboxApp {
           <div class="nav-label">${t('navigation')}</div>
 
           <div class="nav-item ${this.currentTab === 'explore' ? 'active' : ''}" data-action="nav" data-tab="explore">
-            <span class="icon">🏠</span>
+            <span class="icon">??</span>
             <span>${t('hallway')}</span>
             <span class="count-badge">${this.channelsList.length}</span>
           </div>
 
           <div class="nav-item ${this.currentTab === 'discover' ? 'active' : ''}" data-action="nav" data-tab="discover">
-            <span class="icon">🔍</span>
+            <span class="icon">??</span>
             <span>${t('discover')}</span>
           </div>
 
           <div class="nav-item ${this.currentTab === 'friends' ? 'active' : ''}" data-action="nav" data-tab="friends">
-            <span class="icon">🤝</span>
+            <span class="icon">??</span>
             <span>${t('friends')}</span>
           </div>
 
           <div class="nav-item ${this.currentTab === 'houses' ? 'active' : ''}" data-action="nav" data-tab="houses">
-            <span class="icon">🏛</span>
+            <span class="icon">??</span>
             <span>${t('houses')}</span>
           </div>
 
           <div class="nav-item ${this.currentTab === 'events' ? 'active' : ''}" data-action="nav" data-tab="events">
-            <span class="icon">📅</span>
+            <span class="icon">??</span>
             <span>${t('events')}</span>
           </div>
 
           <div class="nav-item ${this.currentTab === 'messages' ? 'active' : ''}" data-action="nav" data-tab="messages">
-            <span class="icon">💬</span>
+            <span class="icon">??</span>
             <span>${t('messages')}</span>
             ${this.unreadConversations > 0 ? html`<span class="count-badge">${this.unreadConversations}</span>` : ''}
           </div>
@@ -709,31 +658,31 @@ export class ClubboxApp {
           <div class="nav-label" style="margin-top:14px;">${t('studioTools')}</div>
 
           <div class="nav-item ${this.currentTab === 'stage' ? 'active' : ''}" data-action="nav" data-tab="stage">
-            <span class="icon">📻</span>
+            <span class="icon">??</span>
             <span>${t('liveStage')}</span>
             ${this.currentChannel ? html`<span class="count-badge" style="background:var(--accent-emerald); color:#000;">${t('liveBadge')}</span>` : ''}
           </div>
 
           <div class="nav-item ${this.currentTab === 'soundboard' ? 'active' : ''}" data-action="nav" data-tab="soundboard">
-            <span class="icon">🎛️</span>
+            <span class="icon">???</span>
             <span>${t('soundboardRack')}</span>
             <span class="count-badge">${audioEngine.soundEffects.length}</span>
           </div>
 
           ${clubhouseClient.supports('create_channel') ? html`
             <div class="nav-item" data-action="create-room">
-              <span class="icon">➕</span>
+              <span class="icon">?</span>
               <span>${t('startRoom')}</span>
             </div>
           ` : html`
             <div class="nav-item" title="${t('notVerifiedHint')}">
-              <span class="icon">➕</span>
+              <span class="icon">?</span>
               <span>${t('notVerifiedYet')}</span>
             </div>
           `}
 
           <div class="nav-item ${this.currentTab === 'settings' ? 'active' : ''}" data-action="nav" data-tab="settings">
-            <span class="icon">⚙️</span>
+            <span class="icon">??</span>
             <span>${t('apiConfig')}</span>
           </div>
         </nav>
@@ -753,7 +702,7 @@ export class ClubboxApp {
     `);
   }
 
-  private renderTopBar(): void {
+  renderTopBar(): void {
     const el = document.getElementById('shell-topbar');
     if (!el) return;
     el.innerHTML = markup(html`
@@ -769,8 +718,8 @@ export class ClubboxApp {
                 ${this.currentChannel.is_active_trending_topic_channel ? html`<span class="live-updates-note">${t('trending')}</span>` : ''}
                 ${this.currentChannel.is_replay_enabled ? html`<span class="live-updates-note">${t('replayAvailable')}</span>` : ''}
                 ${this.liveUpdatesUnavailable() ? html`<span class="live-updates-note">${t('liveUpdatesNote')}</span>` : ''}
-                <span class="recording-badge" id="clip-armed-badge" ${audioEngine.isClipArmed() ? '' : 'hidden'}>● ${t('clipArmed')}</span>
-                <span class="recording-badge" id="recording-badge" ${audioEngine.getIsRecording() ? '' : 'hidden'}>● ${t('recording')}</span>
+                <span class="recording-badge" id="clip-armed-badge" ${audioEngine.isClipArmed() ? '' : 'hidden'}>? ${t('clipArmed')}</span>
+                <span class="recording-badge" id="recording-badge" ${audioEngine.getIsRecording() ? '' : 'hidden'}>? ${t('recording')}</span>
               </div>
             ` : html`
               <div style="font-weight:700; font-size:16px;">${this.sectionTitle()}</div>
@@ -779,11 +728,11 @@ export class ClubboxApp {
 
           <div class="top-actions">
             <button class="top-icon-btn" type="button" data-action="nav" data-tab="messages" title="${t('messages')}">
-              ✉️
+              ??
               ${this.unreadConversations > 0 ? html`<span class="nav-dot">${this.unreadConversations}</span>` : ''}
             </button>
             <button class="top-icon-btn" type="button" data-action="nav" data-tab="activity" title="${t('activity')}">
-              🔔
+              ??
               ${this.unreadNotifications ? html`<span class="nav-dot"></span>` : ''}
             </button>
             <button class="top-avatar-btn ${this.selfProfileOpen ? 'active' : ''}" type="button" data-action="sidebar-user" title="${this.me ? this.me.name : t('signIn')}">
@@ -791,11 +740,11 @@ export class ClubboxApp {
             </button>
             ${this.currentChannel ? html`
               ${this.currentTab === 'stage' ? html`<button class="btn btn-secondary" type="button" data-action="minimize-room">${t('minimize')}</button>` : ''}
-              <button class="btn btn-secondary" data-action="share-room">🔗 ${t('link')}</button>
+              <button class="btn btn-secondary" data-action="share-room">?? ${t('link')}</button>
               <button class="btn btn-danger" data-action="leave-room">${t('leaveQuietly')}</button>
             ` : html`
               ${clubhouseClient.supports('create_channel') ? html`
-                <button class="btn btn-primary" data-action="create-room">➕ ${t('startRoom')}</button>
+                <button class="btn btn-primary" data-action="create-room">? ${t('startRoom')}</button>
               ` : html`
                 <button class="btn btn-secondary" type="button" disabled title="${t('notVerifiedHint')}">${t('notVerifiedYet')}</button>
               `}
@@ -804,7 +753,7 @@ export class ClubboxApp {
     `);
   }
 
-  private renderView(): void {
+  renderView(): void {
     const el = document.getElementById('view-root');
     if (!el) return;
     el.innerHTML = markup(this.renderCurrentView());
@@ -861,12 +810,12 @@ export class ClubboxApp {
     }
   }
 
-  private sectionTitle(): string {
+  sectionTitle(): string {
     if (this.selfProfileOpen) return t('yourProfile');
     return this.placeTitle();
   }
 
-  private placeTitle(): string {
+  placeTitle(): string {
     if (this.currentTab === 'discover') return t('discover');
     if (this.currentTab === 'friends') return t('friends');
     if (this.currentTab === 'houses') return t('houses');
@@ -881,7 +830,7 @@ export class ClubboxApp {
     return t('hallway');
   }
 
-  private renderSidebarUser(): ReturnType<typeof html> {
+  renderSidebarUser(): ReturnType<typeof html> {
     if (!this.me) {
       return html`
         <div class="sidebar-user" data-action="sidebar-user">
@@ -905,7 +854,7 @@ export class ClubboxApp {
     `;
   }
 
-  private renderCurrentView(): ReturnType<typeof html> {
+  renderCurrentView(): ReturnType<typeof html> {
     if (this.selfProfileOpen && this.me) {
       if (this.peopleList && this.peopleList.userId === this.me.user_id) {
         return peopleListView(this.peopleList);
@@ -984,7 +933,7 @@ export class ClubboxApp {
     }
   }
 
-  private renderLoginView(): ReturnType<typeof html> {
+  renderLoginView(): ReturnType<typeof html> {
     return loginView({
       busy: this.loginBusy,
       notice: this.loginNotice,
@@ -992,12 +941,12 @@ export class ClubboxApp {
     });
   }
 
-  private renderStageView(): ReturnType<typeof html> {
+  renderStageView(): ReturnType<typeof html> {
     if (!this.currentChannel) return emptyStageView();
     return stageView(this.stageColumn(), this.chatList(), this.chatOpen && this.currentChannel.is_chat_enabled !== false);
   }
 
-  private stageColumn(): ReturnType<typeof html> {
+  stageColumn(): ReturnType<typeof html> {
     if (!this.currentChannel) return html``;
     const controls = stageControlFlags(this);
     const handraiseOn = this.currentChannel.is_handraise_enabled !== false;
@@ -1022,11 +971,11 @@ export class ClubboxApp {
     });
   }
 
-  private chatList(): ReturnType<typeof html> {
+  chatList(): ReturnType<typeof html> {
     return chatList(this.chatMessages);
   }
 
-  private latestChatLine(): string {
+  latestChatLine(): string {
     if (this.currentChannel?.is_chat_enabled === false) return '';
     const last = this.chatMessages[this.chatMessages.length - 1];
     if (!last) return '';
@@ -1035,7 +984,7 @@ export class ClubboxApp {
 
 
 
-  private renderExploreView(): ReturnType<typeof html> {
+  renderExploreView(): ReturnType<typeof html> {
     return exploreView(this.displayedHallwayChannels(), usableFeedTopics(this.channelsList, this.feedTopics), this.hallwayNotices(), {
       canJoin: clubhouseClient.supports('join_channel'),
       canCreate: clubhouseClient.supports('create_channel'),
@@ -1055,7 +1004,7 @@ export class ClubboxApp {
 
 
 
-  private renderSettingsView(): ReturnType<typeof html> {
+  renderSettingsView(): ReturnType<typeof html> {
     return settingsView(
       clubhouseClient.getConfig(),
       this.shortcuts,
@@ -1076,7 +1025,7 @@ export class ClubboxApp {
     );
   }
 
-  private renderCockpitBar(): ReturnType<typeof html> {
+  renderCockpitBar(): ReturnType<typeof html> {
     return cockpitBar({
       muted: audioEngine.getIsMuted(),
       musicMode: audioEngine.getIsMusicMode(),
@@ -1108,7 +1057,7 @@ export class ClubboxApp {
 
 
 
-  private renderCreateModal() {
+  renderCreateModal() {
     document.body.appendChild(mountCreateModal({
       titleSuggestions: this.roomTitleOptions,
       targets: this.createChannelTargets,
@@ -1126,7 +1075,7 @@ export class ClubboxApp {
 
 
 
-  private bindEvents(): void {
+  bindEvents(): void {
     if (this.eventsBound) return;
     this.eventsBound = true;
     document.addEventListener('click', (event) => {
@@ -1207,7 +1156,7 @@ export class ClubboxApp {
         this.saveAudioPrefs();
         this.showToast(
           this.audioPrefs.spatialAudioEnabled ? t('spatialAudioOn') : t('spatialAudioOff'),
-          '🎧',
+          '??',
         );
         return;
       }
@@ -1228,23 +1177,27 @@ export class ClubboxApp {
         this.audioPrefs.outputDeviceId = target.value;
         this.saveAudioPrefs();
         audioEngine.setOutputDevice(target.value);
-      } else if (target.id === 'sound-name' || target.id === 'sound-icon' || target.id === 'sound-hotkey' || target.id === 'sound-loop' || target.id === 'sound-volume') {
+      } else if (
+        target instanceof HTMLInputElement
+        && (target.id === 'sound-name' || target.id === 'sound-icon' || target.id === 'sound-hotkey'
+          || target.id === 'sound-loop' || target.id === 'sound-volume')
+      ) {
         void this.commitSoundEdit(target);
-      } else if (target.id === 'hallway-show-nsfw') {
+      } else if (target instanceof HTMLInputElement && target.id === 'hallway-show-nsfw') {
         this.setHallwayShowNsfw(target.checked);
-      } else if (target.id === 'hallway-only-keywords') {
+      } else if (target instanceof HTMLInputElement && target.id === 'hallway-only-keywords') {
         this.setHallwayOnlyKeywordMatches(target.checked);
-      } else if (target.id === 'sound-upload-input' && target.files?.[0]) {
+      } else if (target instanceof HTMLInputElement && target.id === 'sound-upload-input' && target.files?.[0]) {
         const file = target.files[0];
         void audioEngine.loadCustomAudioFile(file, file.name.split('.')[0]).then(() => {
-          this.showToast(t('uploadedSound', { name: file.name }), '🎵');
+          this.showToast(t('uploadedSound', { name: file.name }), '??');
           this.render();
         });
       }
     });
   }
 
-  private handleAction(action: string, el: HTMLElement): void {
+  handleAction(action: string, el: HTMLElement): void {
     const tab = el.dataset.tab;
     if (action === 'nav' && (tab === 'stage' || tab === 'explore' || tab === 'discover' || tab === 'friends' || tab === 'messages' || tab === 'activity' || tab === 'houses' || tab === 'events' || tab === 'soundboard' || tab === 'settings' || tab === 'login')) {
       this.selfProfileOpen = false;
@@ -1298,9 +1251,9 @@ export class ClubboxApp {
         const link = safeUrl(this.me?.share_url);
         if (!link) return;
         void navigator.clipboard.writeText(link).then(() => {
-          this.showToast(t('copiedProfile'), '🔗');
+          this.showToast(t('copiedProfile'), '??');
         }).catch(() => {
-          this.showToast(t('somethingWrong'), '🔗');
+          this.showToast(t('somethingWrong'), '??');
         });
         break;
       }
@@ -1316,9 +1269,9 @@ export class ClubboxApp {
         const link = safeUrl(item?.share_url);
         if (!link) return;
         void navigator.clipboard.writeText(link).then(() => {
-          this.showToast(t('copiedLink'), '🔗');
+          this.showToast(t('copiedLink'), '??');
         }).catch(() => {
-          this.showToast(t('somethingWrong'), '🔗');
+          this.showToast(t('somethingWrong'), '??');
         });
         break;
       }
@@ -1515,7 +1468,7 @@ export class ClubboxApp {
       case 'host-house-room': {
         const houseId = Number(el.dataset.houseId);
         if (!Number.isFinite(houseId) || !clubhouseClient.supports('create_channel')) {
-          this.showToast(t('unverifiedAction'), '🔒');
+          this.showToast(t('unverifiedAction'), '??');
           break;
         }
         void clubhouseClient.createChannel(t('hostInHouse'), {
@@ -1533,11 +1486,11 @@ export class ClubboxApp {
       case 'copy-event-link': {
         const link = safeUrl(el.dataset.eventUrl);
         if (!link) {
-          this.showToast(t('noShareLink'), '🔗');
+          this.showToast(t('noShareLink'), '??');
           break;
         }
-        void navigator.clipboard.writeText(link).then(() => this.showToast(t('copiedLink'), '🔗'))
-          .catch(() => this.showToast(t('somethingWrong'), '⚠️'));
+        void navigator.clipboard.writeText(link).then(() => this.showToast(t('copiedLink'), '??'))
+          .catch(() => this.showToast(t('somethingWrong'), '??'));
         break;
       }
       case 'add-event-calendar':
@@ -1576,7 +1529,7 @@ export class ClubboxApp {
         void this.sendVm(el.dataset.userId, el.dataset.name, el.dataset.username);
         break;
       case 'talk-live':
-        this.showToast(t('unverifiedAction'), '🔒');
+        this.showToast(t('unverifiedAction'), '??');
         break;
       case 'private-mode':
         this.privateVoice = el.dataset.mode === 'voice';
@@ -1591,26 +1544,26 @@ export class ClubboxApp {
         const listed = this.channelsList.find((channel) => channel.channel === id || String(channel.channel_id) === id);
         const link = safeUrl(listed?.url);
         if (!link) {
-          this.showToast(t('noShareLink'), '🔗');
+          this.showToast(t('noShareLink'), '??');
           return;
         }
         void navigator.clipboard.writeText(link).then(() => {
-          this.showToast(t('linkCopied'), '📋');
+          this.showToast(t('linkCopied'), '??');
         }).catch(() => {
-          this.showToast(t('somethingWrong'), '🔗');
+          this.showToast(t('somethingWrong'), '??');
         });
         break;
       }
       case 'share-room': {
         const link = safeUrl(this.currentChannel?.url);
         if (!link) {
-          this.showToast(t('noShareLink'), '🔗');
+          this.showToast(t('noShareLink'), '??');
           return;
         }
         void navigator.clipboard?.writeText(link).then(() => {
-          this.showToast(t('linkCopied'), '📋');
+          this.showToast(t('linkCopied'), '??');
         }).catch(() => {
-          this.showToast(t('somethingWrong'), '🔗');
+          this.showToast(t('somethingWrong'), '??');
         });
         break;
       }
@@ -1642,7 +1595,7 @@ export class ClubboxApp {
             audioEngine.setMonitorEnabled(true);
             this.saveAudioPrefs();
           }
-          this.showToast(t('voiceEffectPreview'), '🎧');
+          this.showToast(t('voiceEffectPreview'), '??');
           this.renderCockpit();
         });
         break;
@@ -1651,7 +1604,7 @@ export class ClubboxApp {
         const applied = audioEngine.getBroadcastEffect();
         this.audioPrefs.voiceEffectApplied = applied;
         this.saveAudioPrefs();
-        this.showToast(t('voiceEffectApply'), '🎙️');
+        this.showToast(t('voiceEffectApply'), '???');
         break;
       }
       case 'retry-audio':
@@ -1678,7 +1631,7 @@ export class ClubboxApp {
       case 'toggle-chat':
         if (!this.currentChannel) return;
         if (this.currentChannel.is_chat_enabled === false) {
-          this.showToast(t('chatOff'), '💬');
+          this.showToast(t('chatOff'), '??');
           return;
         }
         this.chatOpen = !this.chatOpen;
@@ -1716,7 +1669,7 @@ export class ClubboxApp {
       }
       case 'stop-sounds':
         audioEngine.stopAllSounds();
-        this.showToast(t('soundsStopped'), '⏹');
+        this.showToast(t('soundsStopped'), '?');
         break;
       case 'record-shortcut': {
         const action = el.dataset.shortcut;
@@ -1840,14 +1793,14 @@ export class ClubboxApp {
         const report = clubhouseClient.copyHealthReport();
         if (!report) break;
         void navigator.clipboard?.writeText(report).then(
-          () => this.showToast(t('apiHealthCopied'), '📋'),
-          () => this.showToast(t('somethingWrong'), '⚠️'),
+          () => this.showToast(t('apiHealthCopied'), '??'),
+          () => this.showToast(t('somethingWrong'), '??'),
         );
         break;
       }
       case 'reset-unsupported-routes':
         clubhouseClient.resetUnsupportedRoutes();
-        this.showToast(t('apiHealthResetUnsupported'), '✅');
+        this.showToast(t('apiHealthResetUnsupported'), '?');
         this.render();
         break;
       case 'close-profile':
@@ -1880,24 +1833,9 @@ export class ClubboxApp {
 
 }
 
-
-import { stageControlFlags, wireRoomCtl } from './roomCtl.ts';
-import { wireHallwayCtl } from './hallwayCtl.ts';
-import { wireMessagesCtl } from './messagesCtl.ts';
-import { wireProfileCtl } from './profileCtl.ts';
-import { wireActivityCtl } from './activityCtl.ts';
-import { wireStudioCtl } from './studioCtl.ts';
-import { wireSettingsCtl } from './settingsCtl.ts';
-
-export function wireAppControllers(ClubboxAppClass: typeof ClubboxApp): void {
-  const proto = ClubboxAppClass.prototype as ClubboxApp;
-  wireRoomCtl(proto);
-  wireHallwayCtl(proto);
-  wireMessagesCtl(proto);
-  wireProfileCtl(proto);
-  wireActivityCtl(proto);
-  wireStudioCtl(proto);
-  wireSettingsCtl(proto);
-}
+// Prototype methods are wired by wire*Ctl (Task 13.1). Declaration merging keeps
+// controller `this: ClubboxApp` typed without duplicating 150+ method bodies.
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging, @typescript-eslint/no-empty-object-type -- intentional ClubboxApp + ClubboxAppCtlMethods merge
+export interface ClubboxApp extends ClubboxAppCtlMethods {}
 
 wireAppControllers(ClubboxApp);
