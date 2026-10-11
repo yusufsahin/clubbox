@@ -12,7 +12,8 @@ Given('my user_capabilities have {string} {word}', function (this: ClubboxWorld,
 Given('{string} is on stage', async function (this: ClubboxWorld, name: string) {
   this.onStageUsers.push({ name, userId: 99 });
   if (this.realtimeRoom.channel) {
-    this.realtimeRoom.handleType('speaker_added', name);
+    const channel = this.realtimeRoom.channel.channel || String(this.realtimeRoom.channel.channel_id);
+    this.realtimeRoom.handleRaw({ action: 'add_speaker', channel, user_profile: { user_id: 99, name, username: name.toLowerCase(), photo_url: null } });
     this.syncFromRealtime();
     return;
   }

@@ -655,8 +655,15 @@ ipcMain.handle('clubbox:pubnub-subscribe', async (event, payload) => {
   const origin = String(payload.origin || 'clubhouse.pubnubapi.com');
   const uuid = String(payload.uuid || 'clubbox');
   if (!channelId || !token) return { ok: false };
+  // Only the room's own Clubhouse channels (users.*, channel_user.*, channel_all.*, channel_speakers.*).
+  const channels = Array.isArray(payload.channels)
+    ? payload.channels
+      .filter((name) => typeof name === 'string' && /^(users|channel_user|channel_all|channel_speakers)\.[A-Za-z0-9_.-]{1,80}$/.test(name))
+      .slice(0, 6)
+    : [];
   ensurePubNubClient().start({
     channelId,
+    channels,
     token,
     origin,
     uuid,

@@ -18,20 +18,54 @@ Given('the realtime hub loses its connection', function (this: ClubboxWorld) {
   this.pubnub.simulateDisconnect();
 });
 
-When('the realtime hub receives a {string} event for {string}', function (this: ClubboxWorld, type: string, quoted: string) {
-  const name = quoted.replace(/^"|"$/g, '');
-  this.realtimeRoom.handleType(type, name);
+// Steps below send real Clubhouse PubNub payloads through the app's parser (handleRaw).
+const AYSE_ID = 501;
+const PROFILE_ACTIONS = new Set(['join_channel', 'raise_hands', 'add_speaker']);
+
+function currentChannel(world: ClubboxWorld): string {
+  const channel = world.realtimeRoom.channel;
+  return channel ? channel.channel || String(channel.channel_id) : 'abc123';
+}
+
+Given(/^"([^"]+)" is (not|listening|raising her hand|speaking) in the room$/, function (this: ClubboxWorld, name: string, state: string) {
+  const channel = this.realtimeRoom.channel;
+  assert.ok(channel, 'no room');
+  const others = channel.users.filter((user) => user.user_id !== AYSE_ID && user.name !== name);
+  if (state !== 'not') {
+    others.push({
+      user_id: AYSE_ID,
+      name,
+      username: name.toLowerCase(),
+      photo_url: null,
+      is_speaker: state === 'speaking',
+      is_moderator: false,
+      is_hand_raised: state === 'raising her hand',
+    });
+  }
+  channel.users = others;
+});
+
+When(/^the realtime hub receives the Clubhouse action "([a-z_]+)" for "([^"]+)"(?: in room "([^"]+)")?$/, function (this: ClubboxWorld, action: string, name: string, room?: string) {
+  const payload: Record<string, unknown> = { action, channel: room ?? currentChannel(this) };
+  if (PROFILE_ACTIONS.has(action)) payload.user_profile = { user_id: AYSE_ID, name, username: name.toLowerCase(), photo_url: null };
+  else payload.user_id = AYSE_ID;
+  this.realtimeRoom.handleRaw(payload);
   this.syncFromRealtime();
 });
 
+Then('{string} is no longer in the raised hands list', function (this: ClubboxWorld, quoted: string) {
+  const name = quoted.replace(/^"|"$/g, '');
+  assert.equal(this.realtimeRoom.userRaisedHand(name), false);
+});
+
 When('the realtime hub receives an invite to speak for me', function (this: ClubboxWorld) {
-  this.realtimeRoom.handleInviteForMe();
+  this.realtimeRoom.handleRaw({ action: 'invite_speaker', channel: currentChannel(this), from_user_id: 9, from_name: 'Host' });
   this.syncFromRealtime();
 });
 
 When('the realtime hub receives {string}', function (this: ClubboxWorld, label: string) {
   if (label === 'room ended') {
-    this.realtimeRoom.handleRoomEnded();
+    this.realtimeRoom.handleRaw({ action: 'end_channel', channel: currentChannel(this) });
     this.syncFromRealtime();
     return;
   }

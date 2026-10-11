@@ -3,6 +3,7 @@ import {
   applyStageEvent,
   mergeChannelUsers,
   parseRealtimeMessage,
+  roomPubNubChannels,
   type ParsedRealtimeEvent,
 } from './realtimeEvents.ts';
 import type { RealtimeHub, PubNubSubscribeParams } from './realtimeHub.ts';
@@ -87,6 +88,7 @@ export class RealtimeRoomCoordinator {
       heartbeat: detail.pubnub_heartbeat_value,
       heartbeatInterval: detail.pubnub_heartbeat_interval,
       timeToken: detail.pubnub_time_token,
+      channels: roomPubNubChannels(channelId, this.myUserId, detail.users.some((user) => user.user_id === this.myUserId && !!user.is_moderator)),
     };
     if (params.token) this.hub.subscribe(params);
     this.startPresence(channelId);
@@ -107,19 +109,9 @@ export class RealtimeRoomCoordinator {
   }
 
   handleRaw(raw: Record<string, unknown>): void {
-    const parsed = parseRealtimeMessage(raw);
+    const current = this.channel ? this.channel.channel || String(this.channel.channel_id) : null;
+    const parsed = parseRealtimeMessage(raw, current);
     this.applyParsed(parsed);
-  }
-
-  handleType(type: string, userName: string): void {
-    this.applyParsed({ kind: 'stage', type: type as never, userName });
-  }
-
-  handleInviteForMe(): void {
-    if (!this.channel) return;
-    const me = this.channel.users.find((user) => user.user_id === this.myUserId);
-    const name = me?.name ?? 'Me';
-    this.applyParsed({ kind: 'stage', type: 'invite_to_speak', userName: name });
   }
 
   handleChat(fromName: string, text: string): void {
@@ -143,10 +135,6 @@ export class RealtimeRoomCoordinator {
 
   handleUnknown(type: string, keys: string[]): void {
     this.applyParsed({ kind: 'unknown', type, keys });
-  }
-
-  handleRoomEnded(): void {
-    this.applyParsed({ kind: 'room_ended' });
   }
 
   async refresh(): Promise<void> {
@@ -182,6 +170,8 @@ export class RealtimeRoomCoordinator {
   private applyParsed(parsed: ParsedRealtimeEvent): void {
     if (!this.channel) return;
 
+    if (parsed.kind === 'ignored') return;
+
     if (parsed.kind === 'unknown') {
       this.callbacks.onUnknown?.(parsed.type, parsed.keys);
       return;
@@ -208,7 +198,8 @@ export class RealtimeRoomCoordinator {
 
     if (parsed.kind === 'stage') {
       if (parsed.type === 'invite_to_speak') {
-        const users = applyStageEvent(this.channel.users, parsed);
+        // The invite arrives on my channel_user.* channel; from_name is the inviter, the target is me.
+        const users = applyStageEvent(this.channel.users, { ...parsed, userId: this.myUserId, profile: null });
         this.channel = mergeChannelUsers(this.channel, users);
         this.callbacks.onInvite?.();
         this.callbacks.onChannelUpdate?.(this.channel);

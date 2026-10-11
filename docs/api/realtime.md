@@ -32,3 +32,37 @@ PubNub message types the room UI parses: `channel_message`, `channel_reaction`.
 - `channel_reaction` keys read by the ticker: `message_id`, `action_user_profile` (`id`, `name`, `photo_url`), `message`, `message_type`, `time_received`, `reaction`, `target_user_profile`.
 
 PubNub channel templates: not found in the scanned chunks (run `npm run api:discover` after sign-in).
+
+## Room channels and actions (community sources, 2026-10-11)
+
+Not in the clubhouse.com bundle (the web room UI only parses `channel_message` / `channel_reaction`). Taken from two open-source clients that read the live PubNub stream:
+[grishka/Houseclub `VoiceService.java`](https://github.com/grishka/Houseclub) (Android) and
+[seovchinnikov/clubhouse-web `JoinChannel.vue`](https://github.com/seovchinnikov/clubhouse-web) (web).
+Evidence level: **community** — confirm with the request/realtime log in live use.
+
+Subscribe (`/v2/subscribe/{sub_key}/{channels}/0`, `auth` = `pubnub_token`, `uuid` = my user id; the v2 answer is `{ t: { t, r }, m: [ { c, d } ] }` — send `tt` and `tr` back):
+
+- `users.{myUserId}`
+- `channel_user.{channel}.{myUserId}` — personal room events (speaker invites)
+- `channel_all.{channel}` — room-wide events
+- `channel_speakers.{channel}` — moderators only (subscribing without the grant fails the request)
+
+Payloads carry `action` and `channel` (ignore messages whose `channel` is another room):
+
+| action | user | Clubbox effect |
+| --- | --- | --- |
+| `join_channel` | `user_profile` | add listener |
+| `leave_channel` | `user_id` or `user_profile.user_id` | remove |
+| `remove_from_channel` | `user_id` | remove |
+| `raise_hands` | `user_profile` | hand up |
+| `unraise_hands` | `user_id` | hand down |
+| `add_speaker` | `user_profile` | to stage |
+| `remove_speaker` | `user_id` | to audience (drops moderator) |
+| `make_moderator` | `user_id` | moderator (on stage) |
+| `invite_speaker` | `from_user_id`, `from_name` (inviter) | invite **me** |
+| `end_channel` | — | room ended |
+
+Mute and "speaking" state come from Agora (remote audio mute / volume), not PubNub.
+The mobile app's action list also names `make_channel_public`, `make_channel_social`, `change_handraise_settings`, `uninvite_speaker`, `reject_speaker_invite`, `accept_speaker_invite`, `mute_speaker` and others; their payloads are unknown and are logged to API Health as unknown types until seen live.
+
+The production PubNub keys and Agora app id are the config block with a live Stripe key in the bundle; clubhouse-py's constants (`AGORA_KEY`, `PUBNUB_*_KEY`) match that block.

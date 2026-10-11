@@ -16,17 +16,28 @@ Feature: Live room updates through realtime
 
   @community @RL-4
   Scenario Outline: Stage events update the room
-    When the realtime hub receives a "<type>" event for "Ayse"
+    # Real Clubhouse PubNub payloads: the type is in "action", users are identified by user_id.
+    # Sources: grishka/Houseclub VoiceService.java, seovchinnikov/clubhouse-web JoinChannel.vue.
+    Given "Ayse" is <before> in the room
+    When the realtime hub receives the Clubhouse action "<action>" for "Ayse"
     Then <result>
 
     Examples:
-      | type             | result                                     |
-      | user_joined      | "Ayse" appears in the audience             |
-      | user_left        | "Ayse" disappears from the room            |
-      | hand_raised      | "Ayse" appears in the raised hands list    |
-      | speaker_added    | "Ayse" moves to the stage                  |
-      | speaker_removed  | "Ayse" moves to the audience               |
-      | moderator_added  | "Ayse" shows the moderator badge           |
+      | before                | action              | result                                     |
+      | not                   | join_channel        | "Ayse" appears in the audience             |
+      | listening             | leave_channel       | "Ayse" disappears from the room            |
+      | listening             | remove_from_channel | "Ayse" disappears from the room            |
+      | listening             | raise_hands         | "Ayse" appears in the raised hands list    |
+      | raising her hand      | unraise_hands       | "Ayse" is no longer in the raised hands list |
+      | raising her hand      | add_speaker         | "Ayse" moves to the stage                  |
+      | speaking              | remove_speaker      | "Ayse" moves to the audience               |
+      | speaking              | make_moderator      | "Ayse" shows the moderator badge           |
+
+  @community @RL-4
+  Scenario: Actions for another room are ignored
+    Given "Ayse" is listening in the room
+    When the realtime hub receives the Clubhouse action "leave_channel" for "Ayse" in room "otherRoom"
+    Then "Ayse" appears in the audience
 
   @community @RL-7
   Scenario: Being invited to speak arrives through realtime

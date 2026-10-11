@@ -6,6 +6,8 @@ export type PubNubSubscribeParams = {
   heartbeat?: number;
   heartbeatInterval?: number;
   timeToken?: string;
+  /** PubNub channels to subscribe to (see roomPubNubChannels). */
+  channels?: string[];
 };
 
 export type RealtimeHubStatus = {

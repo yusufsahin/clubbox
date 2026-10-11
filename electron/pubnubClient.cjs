@@ -17,6 +17,7 @@ function createPubNubClient(options) {
   let config = null;
   let subscribeKey = null;
   let timeToken = '0';
+  let region = null;
 
   const emitStatus = (partial) => {
     onStatus?.({
@@ -41,12 +42,17 @@ function createPubNubClient(options) {
 
   const buildUrl = () => {
     const origin = config.origin.replace(/^https?:\/\//, '');
-    const channel = encodeURIComponent(config.channelId);
+    // Room channels as the official clients use them; a bare room id is not a Clubhouse channel.
+    const list = Array.isArray(config.channels) && config.channels.length
+      ? config.channels
+      : [`channel_all.${config.channelId}`];
+    const channel = list.map((name) => encodeURIComponent(name)).join(',');
     const params = new URLSearchParams();
     params.set('auth', config.token);
     params.set('uuid', config.uuid);
     if (config.heartbeat != null) params.set('heartbeat', String(config.heartbeat));
     if (timeToken) params.set('tt', String(timeToken));
+    if (region != null) params.set('tr', String(region));
     return `https://${origin}/v2/subscribe/${subscribeKey}/${channel}/0?${params.toString()}`;
   };
 
@@ -69,7 +75,16 @@ function createPubNubClient(options) {
       } catch {
         throw new Error('PubNub invalid JSON');
       }
-      if (Array.isArray(parsed) && parsed.length >= 2) {
+      if (parsed && !Array.isArray(parsed) && typeof parsed === 'object' && parsed.t) {
+        // v2 subscribe: { t: { t: timetoken, r: region }, m: [ { c: channel, d: payload } ] }
+        if (parsed.t.t != null) timeToken = String(parsed.t.t);
+        if (parsed.t.r != null) region = parsed.t.r;
+        for (const envelope of Array.isArray(parsed.m) ? parsed.m : []) {
+          if (!envelope || typeof envelope !== 'object') continue;
+          const payload = envelope.d;
+          if (payload && typeof payload === 'object') onMessage?.(payload);
+        }
+      } else if (Array.isArray(parsed) && parsed.length >= 2) {
         const messages = parsed[0];
         const nextTt = parsed[1];
         if (nextTt != null) timeToken = String(nextTt);
@@ -106,6 +121,7 @@ function createPubNubClient(options) {
       config = { ...nextConfig };
       subscribeKey = nextSubscribeKey;
       timeToken = nextConfig.timeToken ? String(nextConfig.timeToken) : '0';
+      region = null;
       backoffIndex = 0;
       emitStatus({ connected: true, reconnecting: false });
       void pollLoop();
