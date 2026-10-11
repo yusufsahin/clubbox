@@ -10,6 +10,8 @@ export class FakeAgora {
   left = false;
   broadcastHasSoundboard = false;
   broadcastHasMic = true;
+  republishCount = 0;
+  lastEncoder: 'speech_standard' | 'high_quality_stereo' | null = null;
 
   join(role: 'audience' | 'host', token: string): void {
     this.left = false;
@@ -22,6 +24,11 @@ export class FakeAgora {
 
   leave(): void {
     this.left = true;
+  }
+
+  republish(isMusicMode: boolean): void {
+    this.republishCount += 1;
+    this.lastEncoder = isMusicMode ? 'high_quality_stereo' : 'speech_standard';
   }
 
   setBroadcastMix(options: { soundboard: boolean; mic: boolean }): void {

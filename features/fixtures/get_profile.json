@@ -1,0 +1,18 @@
+{
+  "success": true,
+  "user_profile": {
+    "user_id": 1,
+    "name": "Ayse",
+    "username": "u1",
+    "photo_url": null,
+    "bio": "hello",
+    "num_followers": 12,
+    "num_following": 34,
+    "num_cofollows": 5,
+    "mutual_follows_count": 5,
+    "mutual_follows": [
+      { "user_id": 2, "name": "A", "username": "a", "photo_url": null },
+      { "user_id": 3, "name": "B", "username": "b", "photo_url": null }
+    ]
+  }
+}

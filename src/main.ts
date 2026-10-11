@@ -533,7 +533,7 @@ class ClubboxApp {
         <p>${t('guidelinesBody')}</p>
         <div class="guidelines-actions">
           <button class="btn btn-primary" type="button" data-action="accept-guidelines">${t('guidelinesAccept')}</button>
-          ${electronAPI()?.isElectron ? '' : html`<button class="btn btn-secondary" type="button" data-action="decline-guidelines">${t('guidelinesDecline')}</button>`}
+          <button class="btn btn-secondary" type="button" data-action="decline-guidelines">${t('guidelinesDecline')}</button>
         </div>
       </div>
     `);
@@ -1220,6 +1220,7 @@ class ClubboxApp {
       isMusic ? t('musicOn') : t('musicOff'),
       isMusic ? '🎵' : '🎙️',
     );
+    if (isMusic) this.showToast(t('musicHeadphones'), '🎧');
   }
 
   private async toggleHandRaise() {
@@ -2486,8 +2487,18 @@ class ClubboxApp {
       const target = event.target as HTMLElement | null;
       const actionEl = target?.closest('[data-action]') as HTMLElement | null;
       if (!actionEl || (actionEl instanceof HTMLButtonElement && actionEl.disabled)) return;
+      if (actionEl.dataset.action === 'duck-sounds') return;
       this.handleAction(actionEl.dataset.action || '', actionEl);
     });
+    document.addEventListener('pointerdown', (event) => {
+      const target = event.target as HTMLElement | null;
+      const duck = target?.closest('[data-action="duck-sounds"]') as HTMLElement | null;
+      if (!duck) return;
+      event.preventDefault();
+      audioEngine.setDuckHeld(true);
+    });
+    document.addEventListener('pointerup', () => audioEngine.setDuckHeld(false));
+    document.addEventListener('pointercancel', () => audioEngine.setDuckHeld(false));
     document.addEventListener('input', (event) => {
       const target = event.target as HTMLInputElement | null;
       if (!target) return;

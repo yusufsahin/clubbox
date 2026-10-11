@@ -32,7 +32,10 @@ export class AudioEngine {
   private isRecording: boolean = false;
   private simulateMeterOnFailure = false;
   private soundpadVolume: number = 0.8;
+  private soundpadVolumeBeforeDuck: number | null = null;
   private micVolume: number = 1.0;
+  /** Last getUserMedia audio constraints applied when opening the mic (for tests / diagnostics). */
+  public lastMicConstraints: MediaTrackConstraints | null = null;
 
   private onVolumeChangeCallbacks: ((level: number) => void)[] = [];
   private onRecordingStateCallbacks: ((isRecording: boolean, blobUrl?: string) => void)[] = [];
@@ -131,6 +134,7 @@ export class AudioEngine {
             autoGainControl: true,
           };
       if (this.inputDeviceId) audio.deviceId = { ideal: this.inputDeviceId };
+      this.lastMicConstraints = { ...audio };
       const constraints: MediaStreamConstraints = { audio };
 
       this.releaseMicrophoneGraph();
@@ -404,13 +408,32 @@ export class AudioEngine {
 
   public setSoundpadVolume(vol: number): void {
     this.soundpadVolume = Math.max(0, Math.min(1, vol));
-    if (this.soundpadGain && this.ctx) {
+    if (this.soundpadVolumeBeforeDuck == null && this.soundpadGain && this.ctx) {
       this.soundpadGain.gain.setTargetAtTime(this.soundpadVolume, this.ctx.currentTime, 0.02);
     }
   }
 
   public getSoundpadVolume(): number {
+    if (this.soundpadVolumeBeforeDuck != null) return 0;
     return this.soundpadVolume;
+  }
+
+  /** Hold to mute the soundboard bus; release restores the previous level. */
+  public setDuckHeld(held: boolean): void {
+    if (held) {
+      if (this.soundpadVolumeBeforeDuck == null) this.soundpadVolumeBeforeDuck = this.soundpadVolume;
+      if (this.soundpadGain && this.ctx) {
+        this.soundpadGain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.02);
+      }
+      return;
+    }
+    if (this.soundpadVolumeBeforeDuck == null) return;
+    const restored = this.soundpadVolumeBeforeDuck;
+    this.soundpadVolumeBeforeDuck = null;
+    this.soundpadVolume = restored;
+    if (this.soundpadGain && this.ctx) {
+      this.soundpadGain.gain.setTargetAtTime(restored, this.ctx.currentTime, 0.02);
+    }
   }
 
   public onVolumeLevel(cb: (level: number) => void): () => void {

@@ -7,7 +7,7 @@ Feature: Hallway and discovery
   Background:
     Given I am signed in with a web session
 
-  @pending @observed @HAL-1
+  @observed @HAL-1
   Scenario: Hallway loads on open and on refresh only
     When I open the hallway
     Then a "POST /web_api/get_feed_v3" request is sent
@@ -17,13 +17,13 @@ Feature: Hallway and discovery
     When I click "Refresh"
     Then a "POST /web_api/get_feed_v3" request is sent
 
-  @pending @observed @HAL-1
+  @observed @HAL-1
   Scenario: Selecting a topic chip filters the hallway
     Given the hallway has topics "tech" and "music"
     When I select the topic chip "tech"
     Then only rooms for "tech" are shown
 
-  @pending @observed @HAL-2
+  @observed @HAL-2
   Scenario: Room card shows everything needed to decide
     Given the hallway shows the room "Tech Talk" with channel "abc123"
     Then its card shows the title, the house name, replays on/off, clips on/off, how long it has been running, the listener count and the speaker count
@@ -54,7 +54,7 @@ Feature: Hallway and discovery
     When I turn on "Show NSFW rooms"
     Then that room is shown
 
-  @pending @observed @HAL-5
+  @observed @HAL-5
   Scenario: Search with result tabs
     When I search for "jazz"
     Then a "POST /web_api/search" request is sent with body keys "query, limit_to_object_types"

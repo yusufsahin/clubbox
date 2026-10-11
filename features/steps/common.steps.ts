@@ -27,6 +27,34 @@ When('{int} seconds pass', function (this: ClubboxWorld, seconds: number) {
   }
 });
 
+When('{int} minutes pass without interaction', function (this: ClubboxWorld, minutes: number) {
+  this.clock.advance(minutes * 60 * 1000);
+  this.clientNow.t = this.clock.now();
+});
+
+Then('a {string} request is sent', function (this: ClubboxWorld, request: string) {
+  const [method, path] = request.split(/\s+/);
+  const match = lastMatching(this, method, path);
+  assert.ok(
+    match,
+    `expected ${method} ${path}, saw ${this.transport.requests.map((r) => `${r.method} ${r.path}`).join('; ')}`,
+  );
+});
+
+Then('no further {string} request is sent', function (this: ClubboxWorld, name: string) {
+  const before = this.transport.requestsNamed(name).length;
+  this.clock.advance(1000);
+  this.clientNow.t = this.clock.now();
+  assert.equal(this.transport.requestsNamed(name).length, before);
+});
+
+Then('no {string} request is sent until I click {string}', function (this: ClubboxWorld, kind: string, label: string) {
+  assert.equal(this.guidelinesGateOpen, true);
+  assert.equal(this.guidelinesAcceptedFlag, false);
+  const webApi = this.transport.requests.filter((req) => req.path.includes(kind) || req.path.includes('/web_api/'));
+  assert.equal(webApi.length, 0, `expected no ${kind} traffic before ${label}`);
+});
+
 Given('the window has been hidden for {int} minutes', function (this: ClubboxWorld, minutes: number) {
   this.setVisibility('hidden');
   this.clock.advance(minutes * 60 * 1000);

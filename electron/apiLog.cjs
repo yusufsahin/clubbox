@@ -26,7 +26,7 @@ function safeErrorMessage(text) {
 
 function buildRecord(input) {
   const route = webApiRoutes[input.endpoint] || {};
-  let responseShape = null;
+  let responseShape;
   try {
     responseShape = input.responseBody ? keyShape(JSON.parse(input.responseBody)) : null;
   } catch {

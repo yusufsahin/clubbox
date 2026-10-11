@@ -7,14 +7,14 @@ Feature: Profiles, follows, activity and private chat
   Background:
     Given I am signed in with a web session
 
-  @pending @observed @SO-1
+  @observed @SO-1
   Scenario: Open a profile
     When I open the profile of user "u1"
     Then a "POST /web_api/get_profile" request is sent with body keys "user_id"
     And I see the followers, following and friends counts as plain text
     And I see "Mutual: A, B and N others" from mutual_follows
 
-  @pending @bundle @SO-1
+  @bundle @SO-1
   Scenario: Follow and unfollow
     When I click "Follow" on the profile of user "u1"
     Then a "POST /web_api/follow" request is sent with body keys "user_id"

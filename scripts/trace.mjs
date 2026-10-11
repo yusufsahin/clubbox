@@ -3,8 +3,6 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const ID_RE = /\b((?:ACC|HAL|RL|RH|ST|SO|DX)-\d+)\b/g;
-const GAP_RE = /\b(G-\d+)\b/;
 
 /** R1 scope from PRD §5. */
 export const R1_IDS = new Set([

@@ -76,7 +76,7 @@ Legend — Today: ✅ works live · 🧪 sandbox/UI only · ❌ missing. Evidenc
 | --- | --- | --- | --- | --- | --- | --- |
 | ACC-1 | Sign in in a visible clubhouse.com window | ✓ | ✓ | ✅ | O | P0 |
 | ACC-2 | First-run notice (unofficial, guidelines risk) | | | ✅ | — | P0 |
-| ACC-3 | Log out (clear cookies + local state) | ✓ | ✓ | ❌ | — | P0 |
+| ACC-3 | Log out (clear cookies + local state) | ✓ | ✓ | ✅ | — | P0 |
 | ACC-4 | Light / dark / system theme | ✓ | ✓ | ❌ | — | P2 |
 | ACC-5 | Zoom in/out/reset (Ctrl +/−/0) | | ✓ | ❌ | — | P2 |
 | ACC-6 | Language (en/tr) | ✓ | | ✅ | — | P1 |

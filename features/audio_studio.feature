@@ -4,27 +4,27 @@ Feature: Audio studio
   I want professional audio control on my computer
   So that I sound better than on my phone
 
-  @pending @local @ST-1
+  @local @ST-1
   Scenario: Devices and levels persist
     When I choose the input device "USB Mic" and the output device "Headphones"
     And I set the mic gain to 80 percent
     And I restart Clubbox
     Then "USB Mic", "Headphones" and 80 percent are still selected
 
-  @pending @local @ST-1
+  @local @ST-1
   Scenario: Monitor is off by default
     Then I do not hear my own microphone
     When I turn on "Hear myself"
     Then my microphone is routed to the output
 
-  @pending @local @ST-2
+  @local @ST-2
   Scenario: Music mode disables voice processing and warns about headphones
     When I turn on music mode
     Then the microphone is reopened without echo cancellation, noise suppression and auto gain
     And I see "Use headphones in music mode"
     And if I am speaking, Agora republishes with the high-quality stereo profile without leaving the room
 
-  @pending @local @ST-3
+  @local @ST-3
   Scenario: Soundboard pads, hotkeys, stop all and duck
     Given the pad "Applause" has the hotkey "1"
     When I press "1"
@@ -34,7 +34,7 @@ Feature: Audio studio
     When I hold the duck button
     Then the soundboard volume is 0 until I release it
 
-  @pending @local @ST-3
+  @local @ST-3
   Scenario: Custom sounds survive a restart
     When I add the file "intro.mp3" as a pad named "Intro"
     And I restart Clubbox

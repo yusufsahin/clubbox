@@ -4,10 +4,17 @@ Each task below is a self-contained prompt. Paste one task at a time into Cursor
 
 _Last reviewed: 2026-10-11. “Uygulandı” means the code is in the tree. “Canlı doğrulandı” means it was exercised against the official Clubhouse web session. This pass is implemented; the live room, hand, invite, and chat capture is still outstanding._
 
+### Next run (owner instruction, 2026-10-11)
+
+Do these before continuing the Autonomous plan, then tick them:
+- [x] Regression guards before the 11.1/11.2 refactor: un-pend and make green ST-1, ST-2, ST-3 (`features/audio_studio.feature`), HAL-1, HAL-2, HAL-5 (`features/hallway.feature`), SO-1 (`features/social.feature`), ACC-1, ACC-2, ACC-6 (`features/account.feature`). These features already exist in the app; the tests must describe today's behaviour, not new behaviour.
+- [x] Update the PRD catalog "Today" column for everything done so far (ACC-3 is done but still shows ❌).
+- [ ] Then continue the Autonomous plan at 11.0 and do not stop until the plan is done or a Hard rule would be broken.
+
 ### Last autonomous run (2026-10-11)
 
-- Done: 10.1, 10.2, R1 listen/host BDD (room_listener/host + ACC-3; DX still pending), 11.8 warn mode, 10.5 self-healing api-log + `api:triage`.
-- Tests: see latest `npm test` (unit + BDD + trace warn).
+- Done: Next-run regression (ST-1/2/3, HAL-1/2/5, SO-1, ACC-1/2/6) green; ACC-3 PRD Today ✅; duck button + music headphones toast; guidelines Cancel label.
+- Tests: `npm test` — unit + 47 BDD scenarios + trace warn (0 errors).
 - Blocked: none for code; live check (former 10.3 item 8) is owner-only.
 - Next: 11.0 → …
 - Questions: none new.
@@ -20,7 +27,7 @@ Legend: **Uygulandı** = code is in the tree. **Canlı doğrulandı** = exercise
 | --- | --- | --- |
 | 1 | **0.7 Review fixes (2026-10-11 #2)** — navigation guard, packaged recorder, clip worklet path, auto-armed clip buffer, 429/visibility, CORS proxy token leak | Uygulandı |
 | 1b | **0.8 Followers / following / friends lists** — bundle scan + labeled UI hunt; live UI uses only counts + mutual lists | Uygulandı for counts, mutual names, and chat people. The public web bundle does not contain get_followers, get_following, or get_online_friends. get_friend_zone_match and get_social_club_members are in-bundle and not called. The labeled click-through still needs a signed-in session. |
-| 0 | **Autonomous plan** (see `.cursor/rules/clubbox.mdc`): 10.1 → 11.8 (warn mode) → 10.2 → 10.5 → 11.0 → 11.1 → 11.2 → 11.3 → 11.4 → 10.4 → 11.5 → 11.6 → 11.7 → 11.9 → 11.10 → 11.8 (strict). Acceptance files: account, hallway, room_listener, room_realtime, room_host, room_moderation, audio_studio, studio, social, messages, houses_events_replays, api_health. Requirements: `docs/product/PRD.md`; design + gap list G-01…G-18: `docs/product/DESIGN.md`; acceptance: `features/*.feature` | Through **10.5** done. 🆕 Do next: **11.0**. R1 room BDD landed early; full R1 exit still 11.2–11.4 + owner live check. |
+| 0 | **Autonomous plan** (see `.cursor/rules/clubbox.mdc`): 10.1 → 11.8 (warn mode) → 10.2 → 10.5 → 11.0 → 11.1 → 11.2 → 11.3 → 11.4 → 10.4 → 11.5 → 11.6 → 11.7 → 11.9 → 11.10 → 11.8 (strict). Acceptance files: account, hallway, room_listener, room_realtime, room_host, room_moderation, audio_studio, studio, social, messages, houses_events_replays, api_health. Requirements: `docs/product/PRD.md`; design + gap list G-01…G-18: `docs/product/DESIGN.md`; acceptance: `features/*.feature` | Through **10.5** + Next-run regression done. 🆕 Do next: **11.0**. R1 room BDD landed early; full R1 exit still 11.2–11.4 + owner live check. |
 | — | **10.1** / **10.2** / **10.5** / **11.8 (warn)** | Uygulandı |
 | 1c | **0.9 Real room capture** — recorder misses clubhouse.pubnubapi.com, bundle scan saw 1 chunk, corrected smoke test (replays ON) | Steps 1–2 are in. S1–S3 still need a signed-in capture. |
 | 2 | **0.6 Community Guidelines risk** — hidden reCAPTCHA sign-in, polling, recording, distribution | Uygulandı (code). Sign-in is a visible clubhouse.com window, polling pauses when the window is hidden, recording is opt-in, and there is no publish config. A public release is still your decision. |

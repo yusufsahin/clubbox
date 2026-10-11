@@ -15,6 +15,12 @@ export function soundboardView(effects: SoundEffectItem[], editingId: string | n
         </div>
         <div style="display:flex; gap:8px; flex-shrink:0;">
           <button class="btn btn-secondary" type="button" data-action="stop-sounds" title="S">${t('stopSounds')}</button>
+          <button
+            class="btn btn-secondary"
+            type="button"
+            data-action="duck-sounds"
+            title="${t('duckSounds')}"
+          >${t('duckSounds')}</button>
           <label class="btn btn-primary" style="cursor:pointer;">
             📁 ${t('uploadSound')}
             <input type="file" id="sound-upload-input" accept="audio/*" style="display:none;" />

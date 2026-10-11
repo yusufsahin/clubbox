@@ -2,6 +2,8 @@ import { World, setWorldConstructor, type IWorldOptions } from '@cucumber/cucumb
 import { JSDOM } from 'jsdom';
 import { ClubhouseApiClient } from '../../src/api/client.ts';
 import { RoomSessionController } from '../../src/api/roomSession.ts';
+import { readAudioPrefs, writeAudioPrefs } from '../../src/audio/audioPrefs.ts';
+import { setLanguage, type Language } from '../../src/i18n/index.ts';
 import webApiRoutes from '../../electron/webApiRoutes.json' with { type: 'json' };
 import { FakeAgora } from './fakeAgora.ts';
 import { FakeClock } from './fakeClock.ts';
@@ -20,6 +22,26 @@ export type RouteOverride = {
   evidence?: string;
   disabledForSession?: boolean;
   unsupportedInstall?: boolean;
+};
+
+export type HallwayCard = {
+  title: string;
+  channel: string;
+  clubName: string;
+  replays: boolean;
+  clips: boolean;
+  startedAt: string;
+  listeners: number;
+  speakers: number;
+  url: string;
+  topicKey: string;
+};
+
+export type StudioPad = {
+  name: string;
+  hotkey: string;
+  file?: string;
+  playing: boolean;
 };
 
 function ensureDom(): JSDOM {
@@ -58,7 +80,11 @@ export class ClubboxWorld extends World {
   experimentalActions = false;
   requestLogging = false;
   signedIn = false;
-  hallwayRoom: { title: string; channel: string } | null = null;
+  hallwayRoom: HallwayCard | null = null;
+  hallwayRooms: HallwayCard[] = [];
+  hallwayTopics: string[] = [];
+  selectedTopic: string | null = null;
+  searchTabs = new Set<string>();
   currentRoom: string | null = null;
   role: 'audience' | 'host' | null = null;
   chatPanelOpen = false;
@@ -88,6 +114,29 @@ export class ClubboxWorld extends World {
   lastError: Error | null = null;
   myUserId = 42;
   clientNow = { t: Date.parse('2026-10-11T12:00:00.000Z') };
+  sidebarName: string | null = null;
+  openedSignInUrl: string | null = null;
+  calledRecaptcha = false;
+  guidelinesAcceptedFlag = true;
+  guidelinesGateOpen = false;
+  liveModeBlocked = false;
+  profileOpen: { username: string; userId: number } | null = null;
+  profileFollowing = false;
+  unfollowDocumented = false;
+  musicMode = false;
+  speaking = false;
+  lastMicConstraints: MediaTrackConstraints | null = null;
+  monitorEnabled = false;
+  hearOwnMic = false;
+  inputDeviceLabel = '';
+  outputDeviceLabel = '';
+  micGainPercent = 100;
+  studioPads: StudioPad[] = [
+    { name: 'Applause', hotkey: '1', playing: false },
+  ];
+  soundboardVolume = 0.8;
+  soundboardVolumeBeforeDuck: number | null = null;
+  language: Language = 'en';
 
   constructor(options: IWorldOptions) {
     super(options);
@@ -115,6 +164,7 @@ export class ClubboxWorld extends World {
     this.client.onAuthExpired(() => {
       this.signedIn = false;
     });
+    this.unfollowDocumented = 'unfollow' in (webApiRoutes as Record<string, unknown>);
   }
 
   syncFromSession(): void {
@@ -164,6 +214,57 @@ export class ClubboxWorld extends World {
       bodyKeys,
       time: new Date(this.clock.now()).toISOString(),
     });
+  }
+
+  persistStudioDevices(): void {
+    writeAudioPrefs({
+      ...readAudioPrefs(),
+      inputDeviceId: this.inputDeviceLabel,
+      outputDeviceId: this.outputDeviceLabel,
+      micVolume: this.micGainPercent / 100,
+      monitorEnabled: this.monitorEnabled,
+    });
+  }
+
+  restoreStudioDevices(): void {
+    const prefs = readAudioPrefs();
+    this.inputDeviceLabel = prefs.inputDeviceId;
+    this.outputDeviceLabel = prefs.outputDeviceId;
+    this.micGainPercent = Math.round(prefs.micVolume * 100);
+    this.monitorEnabled = prefs.monitorEnabled;
+  }
+
+  persistPads(): void {
+    try {
+      localStorage.setItem('clubbox_bdd_pads', JSON.stringify(this.studioPads.map((pad) => ({
+        name: pad.name,
+        hotkey: pad.hotkey,
+        file: pad.file,
+      }))));
+    } catch {
+      // ignore
+    }
+  }
+
+  restorePads(): void {
+    try {
+      const raw = localStorage.getItem('clubbox_bdd_pads');
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as Array<{ name: string; hotkey: string; file?: string }>;
+      this.studioPads = parsed.map((pad) => ({ ...pad, playing: false }));
+    } catch {
+      // ignore
+    }
+  }
+
+  setLang(next: Language): void {
+    this.language = next;
+    setLanguage(next);
+  }
+
+  filteredHallway(): HallwayCard[] {
+    if (!this.selectedTopic) return this.hallwayRooms;
+    return this.hallwayRooms.filter((room) => room.topicKey === this.selectedTopic);
   }
 }
 

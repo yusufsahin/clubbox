@@ -19,6 +19,8 @@ Electron 44, Vite 8, TypeScript 6, vanilla DOM (no React/Vue/state library), ago
 - No background polling while the window is hidden > 2 min (except active_ping in a room); respect 429 backoff.
 
 ## Autonomous workflow (no owner involvement needed)
+When the owner writes only "devam", "continue" or "go", run this workflow from step 0 without asking anything.
+0. First do the "Next run" checklist at the top of `CURSOR_TASKS.md`, then tick it off there.
 1. Follow the "Autonomous plan" row in the Status table; pick the first task in that order that is not done. Requirements: `docs/product/PRD.md`; architecture, API binding map and gap list G-01…G-18: `docs/product/DESIGN.md`. When a gap closes, mark its DESIGN §8 row "Closed in <commit>".
 2. TDD: write the failing test or remove `@pending` from the scenario first, then implement until it passes.
 3. Run `npm test`, `npx tsc --noEmit`, `npm run lint`, `npm run build`. Fix until all pass. If the same failure survives 3 attempts, record it under "Blocked" in `CURSOR_TASKS.md` and move to the next task.

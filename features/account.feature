@@ -4,7 +4,7 @@ Feature: Account, first run and app preferences
   I want a safe sign-in and app-level preferences
   So that I can use Clubbox comfortably without risking my account
 
-  @pending @observed @ACC-1
+  @observed @ACC-1
   Scenario: Sign in happens in a visible clubhouse.com window
     Given I am signed out
     When I click "Sign in"
@@ -19,7 +19,7 @@ Feature: Account, first run and app preferences
     When I click "Sign in"
     Then I see "Clubhouse allows one active device. Signing in here may sign you out on your phone."
 
-  @pending @ACC-2
+  @ACC-2
   Scenario: Live mode stays blocked until the first-run notice is accepted
     Given I have never accepted the first-run notice
     When I try to switch to live mode
@@ -55,7 +55,7 @@ Feature: Account, first run and app preferences
     When I press Ctrl+0
     Then the zoom level is 100 percent
 
-  @pending @ACC-6
+  @ACC-6
   Scenario: Language switch covers every visible string
     When I switch the language to "tr"
     Then every string on every view comes from src/i18n/tr.ts

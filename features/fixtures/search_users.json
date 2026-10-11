@@ -1,0 +1,8 @@
+{
+  "success": true,
+  "hits": [
+    { "kind": "user", "user": { "user_id": 7, "name": "Jazz Fan", "username": "jazz" }, "followsMe": false },
+    { "kind": "channel", "channel": { "channel": "j1", "topic": "Jazz Room" } },
+    { "kind": "club", "club": { "club_id": 9, "name": "Jazz House" } }
+  ]
+}

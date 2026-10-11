@@ -1,0 +1,35 @@
+{
+  "success": true,
+  "channels": [
+    {
+      "channel": "abc123",
+      "channel_id": "abc123",
+      "topic": "Tech Talk",
+      "club_name": "Builders",
+      "is_replay_enabled": true,
+      "is_clipping_enabled": true,
+      "time_created": "2026-10-11T11:00:00.000Z",
+      "num_all": 42,
+      "num_speakers": 3,
+      "url": "https://www.clubhouse.com/room/abc123",
+      "topic_key": "tech"
+    },
+    {
+      "channel": "music1",
+      "channel_id": "music1",
+      "topic": "Music Night",
+      "club_name": "DJs",
+      "is_replay_enabled": false,
+      "is_clipping_enabled": false,
+      "time_created": "2026-10-11T11:30:00.000Z",
+      "num_all": 10,
+      "num_speakers": 2,
+      "url": "https://www.clubhouse.com/room/music1",
+      "topic_key": "music"
+    }
+  ],
+  "available_topics": [
+    { "key": "tech", "display_name": "tech" },
+    { "key": "music", "display_name": "music" }
+  ]
+}

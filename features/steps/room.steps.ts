@@ -3,7 +3,21 @@ import { Given, When, Then } from '@cucumber/cucumber';
 import type { ClubboxWorld } from '../support/world.ts';
 
 Given('the hallway shows the room {string} with channel {string}', function (this: ClubboxWorld, title: string, channel: string) {
-  this.hallwayRoom = { title, channel };
+  this.hallwayRoom = {
+    title,
+    channel,
+    clubName: 'Builders',
+    replays: true,
+    clips: true,
+    startedAt: '2026-10-11T11:00:00.000Z',
+    listeners: 42,
+    speakers: 3,
+    url: `https://www.clubhouse.com/room/${channel}`,
+    topicKey: 'tech',
+  };
+  if (!this.hallwayRooms.some((room) => room.channel === channel)) {
+    this.hallwayRooms.push(this.hallwayRoom);
+  }
 });
 
 Given('I am in the room {string}', function (this: ClubboxWorld, channel: string) {
@@ -68,14 +82,26 @@ Given('the chat panel is closed', function (this: ClubboxWorld) {
 });
 
 When('I click {string} on {string}', async function (this: ClubboxWorld, action: string, title: string) {
-  assert.equal(action, 'Join');
-  assert.equal(this.hallwayRoom?.title, title);
-  const channel = this.hallwayRoom!.channel;
-  const result = await this.session.joinFromHallway(channel);
-  this.syncFromSession();
-  if (!result.ok) {
-    this.lastError = new Error(result.message ?? 'Join failed');
+  const room = this.hallwayRooms.find((entry) => entry.title === title) ?? this.hallwayRoom;
+  assert.ok(room, `expected hallway room ${title}`);
+  assert.equal(room.title, title);
+  if (action === 'Join') {
+    const result = await this.session.joinFromHallway(room.channel);
+    this.syncFromSession();
+    if (!result.ok) this.lastError = new Error(result.message ?? 'Join failed');
+    return;
   }
+  if (action === 'Copy link') {
+    this.clipboard = room.url;
+    return;
+  }
+  if (action === 'Hide') {
+    await this.client.callEndpoint('hide_channel', { channel: room.channel, hide: true });
+    this.hallwayRooms = this.hallwayRooms.filter((entry) => entry.channel !== room.channel);
+    if (this.hallwayRoom?.channel === room.channel) this.hallwayRoom = null;
+    return;
+  }
+  assert.fail(`unsupported hallway action ${action}`);
 });
 
 When('I click {string}', async function (this: ClubboxWorld, label: string) {
@@ -105,6 +131,26 @@ When('I click {string}', async function (this: ClubboxWorld, label: string) {
   if (label === 'Copy report') {
     this.clipboard = this.client.copyHealthReport();
     assert.ok(this.clipboard, 'expected an API Health failure');
+    return;
+  }
+  if (label === 'Refresh') {
+    await this.client.getChannels();
+    return;
+  }
+  if (label === 'Sign in') {
+    this.openedSignInUrl = 'https://www.clubhouse.com/signin';
+    this.uiMessages.push('Sign in');
+    return;
+  }
+  if (label === 'I understand') {
+    this.guidelinesAcceptedFlag = true;
+    this.guidelinesGateOpen = false;
+    this.liveModeBlocked = false;
+    try {
+      localStorage.setItem('clubbox-guidelines-accepted', '1');
+    } catch {
+      // ignore
+    }
     return;
   }
   this.uiMessages.push(`clicked:${label}`);
