@@ -6,11 +6,19 @@ import { getEndpoint } from '../src/api/registry.ts';
 test('roomControlFlags gates handraise, rename, and emoji by capability + support', () => {
   const all = roomControlFlags(
     { can_edit_handraise_queue: true, can_edit_room_title: true },
-    (endpoint) => ['change_handraise_settings', 'set_channel_title', 'emoji_reaction'].includes(endpoint),
+    (endpoint) => [
+      'change_handraise_settings',
+      'set_channel_title',
+      'emoji_reaction',
+      'invite_to_existing_channel',
+      'make_channel_public',
+    ].includes(endpoint),
   );
   assert.equal(all.canHandraise, true);
   assert.equal(all.canRename, true);
   assert.equal(all.canReact, true);
+  assert.equal(all.canPing, true);
+  assert.equal(all.canChangeVisibility, true);
 
   const blocked = roomControlFlags(
     { can_edit_handraise_queue: false, can_edit_room_title: false },

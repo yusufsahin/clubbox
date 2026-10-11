@@ -21,9 +21,12 @@ export interface StageState {
   canRename: boolean;
   canHandraise: boolean;
   canReact: boolean;
+  canPing: boolean;
+  canChangeVisibility: boolean;
   canFollow: boolean;
   audienceSearch: string;
   handraiseMode: 'off' | '1' | '2';
+  visibilityMode: 'open' | 'social' | 'other';
 }
 
 function unverifiedAction(): SafeHtml {
@@ -88,8 +91,18 @@ export function stageColumn(state: StageState): SafeHtml {
             <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; align-items:center;">
               <button class="btn btn-secondary" type="button" data-action="refresh-stage" title="Ctrl+P">${t('refreshStage')}</button>
               ${state.moderator && state.canRename ? html`<button class="btn btn-secondary" type="button" data-action="rename-room">${t('renameRoom')}</button>` : ''}
+              ${state.moderator && state.canPing ? html`<button class="btn btn-secondary" type="button" data-action="open-ping-panel">${t('invitePeople')}</button>` : ''}
               ${state.moderator && state.canMuteEveryone ? html`<button class="btn btn-secondary" type="button" data-action="mute-everyone">${t('muteEveryone')}</button>` : ''}
               ${state.moderator && state.canEnd ? html`<button class="btn btn-danger" type="button" data-action="end-room">${t('endRoom')}</button>` : ''}
+              ${state.moderator && state.canChangeVisibility ? html`
+                <label class="handraise-select">
+                  <span>${t('roomVisibility')}</span>
+                  <select data-action="set-room-visibility" aria-label="${t('roomVisibility')}">
+                    <option value="open" ${state.visibilityMode === 'open' ? 'selected' : ''}>${t('roomVisibilityOpen')}</option>
+                    <option value="social" ${state.visibilityMode === 'social' ? 'selected' : ''}>${t('roomVisibilitySocial')}</option>
+                  </select>
+                </label>
+              ` : ''}
               ${state.moderator && state.canHandraise ? html`
                 <label class="handraise-select">
                   <span>${t('handRaisePermission')}</span>

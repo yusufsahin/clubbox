@@ -91,17 +91,17 @@ Legend — Evidence: O observed · B bundle call site · C community · ? to dis
 | active_ping | POST | channel | ack | O | ✅ | RoomSession |
 | audience_reply | POST | channel, raise_hands, unraise_hands | ack | B | 🟡 | RoomCtl |
 | become_speaker | POST | channel | ack | B | ✅ registry key `become_speaker` (G-08 closed) | RoomCtl |
-| reject_speaker_invite | POST | channel, user_id | ack | C | ❌ | RoomCtl |
+| reject_speaker_invite | POST | channel, user_id | ack | C | ✅ decline invite (experimental) | RoomCtl |
 | send_channel_message | POST | channel, message | ack | O | ✅ | ChatStream |
 | get_channel_messages | GET | channel | messages[] | O | ✅ | ChatStream (fallback) |
 | emoji_reaction | POST | channel, emoji | ack | B | ✅ stage reaction pad | Reactions |
 | gif_reaction | POST | ? | ack | B (no body) | ❌ | — (P3) |
 | set_channel_title | POST | channel, title | ack | B | ✅ rename on stage | RoomCtl |
 | invite_speaker / uninvite_speaker / mute_speaker / make_moderator / block_from_channel | POST | channel, user_id | ack | C | 🟡 | RoomCtl (mod) |
-| invite_to_existing_channel | POST | channel, user_id | ack | C | ❌ | Ping |
+| invite_to_existing_channel | POST | channel, user_id | ack | C | ✅ Invite people panel (RH-9) | Ping |
 | change_handraise_settings | POST | channel, is_enabled, handraise_permission (1=everyone, 2=friends of speakers) | ack | C | ✅ experimental stage select (RH-7) | RoomCtl (mod) |
 | end_channel | POST | channel, channel_id | ack | C | ✅ experimental + capabilities (G-04 closed) | RoomCtl |
-| make_channel_public / make_channel_social | POST | channel, channel_id | ack | C | ❌ | RoomCtl (mod) |
+| make_channel_public / make_channel_social | POST | channel, channel_id | ack | C | ✅ stage visibility select (RH-10) | RoomCtl (mod) |
 | get_channel | POST | channel | channel detail | C (not in web bundle) | 🟡 used by RoomSync but not callable on web (G-03) | — replace with PubNub |
 | get_replay_channel / _chunk | POST | ? | replay meta / audio chunks | B (no body yet) | ❌ | Replays (R4) |
 | web_listener_* , guest_* | POST | session_id, staff_token, recaptcha_token… | — | B | won't do (reCAPTCHA) | — |

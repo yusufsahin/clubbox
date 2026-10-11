@@ -13,6 +13,8 @@ export type RoomControlFlags = {
   canRename: boolean;
   canHandraise: boolean;
   canReact: boolean;
+  canPing: boolean;
+  canChangeVisibility: boolean;
 };
 
 function capAllows(caps: UserCapabilities | undefined, key: string): boolean {
@@ -37,6 +39,8 @@ export function roomControlFlags(
     canRename: gate('can_edit_room_title', 'set_channel_title'),
     canHandraise: gate('can_edit_handraise_queue', 'change_handraise_settings'),
     canReact: supports('emoji_reaction'),
+    canPing: supports('invite_to_existing_channel'),
+    canChangeVisibility: supports('make_channel_public') || supports('make_channel_social'),
   };
 }
 

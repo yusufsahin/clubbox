@@ -13,9 +13,9 @@ Do these before continuing the Autonomous plan, then tick them:
 
 ### Last autonomous run (2026-10-11)
 
-- Autonomous plan already **Done** through **11.8 (strict)**; this devam closed PRD RH-7 and stage chrome gaps.
-- Done: Hand-raise permission select (community numeric 1/2 + off); stage Rename (`set_channel_title`); reaction pad (`emoji_reaction`); sandbox routes for those three; DESIGN/PRD Today updated.
-- Tests: `npm test` — **113** unit + **123 BDD** + trace strict; tsc/lint/build green.
+- Autonomous plan already **Done** through **11.8 (strict)**; this devam wired RH-9/RH-10 stage UI.
+- Done: Invite people ping panel (`get_group_suggested_invites` + search → `invite_to_existing_channel`); room visibility select (`make_channel_public` / `make_channel_social`); DESIGN Today for reject/ping/visibility.
+- Tests: `npm test` — **116** unit + **123 BDD** + trace strict; tsc/lint/build green.
 - Blocked: `test:e2e:packaged`; owner live room capture (0.9 S1–S3); topic-chip request body uncaptured.
 - Still @pending: ST-9 deferred; room_host DX-1/DX-3.
 - Questions for the owner: Capture a topic-chip click on clubhouse.com (`get_feed_v3` body) so Hallway topics can filter server-side.

@@ -3,6 +3,8 @@ export { RoomEffectRunner, type RoomEffectDeps } from './roomEffectRunner.ts';
 import { ClubhouseApiError, clubhouseClient } from '../api/client.ts';
 import { beginJoin, commitJoin, finishLeave, localClipAllowed, roleSyncDecision, roomAudience } from '../api/guards.ts';
 import { leaveClosesRoom, planLeaveServer, roomHasOthers } from '../api/roomActions.ts';
+import { visibilityChangeEndpoint } from '../api/moderationExtras.ts';
+import { mergePingCandidates, readSearchPingCandidates, readSuggestedInvites } from '../api/pingInvites.ts';
 import { readUserCapabilities, roomControlFlags } from '../api/roomControls.ts';
 import { applyFollowResponse, mergeProfile, PEOPLE_LIST_ENDPOINTS, profileCountsMissing, readProfile, relationshipFromStatus, talkPartners, type PeopleListKind } from '../api/relationship.ts';
 import { PubNubRoomSource } from '../api/pubnubRoomSource.ts';
@@ -17,6 +19,7 @@ import { avatarHtml, installAvatarFallback } from '../ui/avatar.ts';
 import { cockpitBar } from '../ui/components/cockpitBar.ts';
 import { mountCreateModal } from '../ui/components/createModal.ts';
 import { paintPersonSheet, selfProfilePage } from '../ui/components/profileDrawer.ts';
+import { closePingPanel, mountPingPanel, refreshPingPanel } from '../ui/components/pingPanel.ts';
 import { mountSpeakerInvite } from '../ui/components/speakerInvite.ts';
 import { showToast } from '../ui/components/toast.ts';
 import { html, markup, safeUrl } from '../ui/html.ts';
@@ -383,6 +386,117 @@ export async function sendReaction(this: ClubboxApp, emoji: string | undefined):
     try {
       await clubhouseClient.emojiReaction(this.channelApiId(this.currentChannel), emoji);
       this.showToast(emoji, emoji);
+    } catch (err) {
+      this.reportApiError(err);
+    }
+  }
+
+function pingPanelState(app: ClubboxApp) {
+  return {
+    query: app.pingQuery,
+    candidates: app.pingCandidates,
+    selectedIds: app.pingSelectedIds,
+    loading: app.pingLoading,
+  };
+}
+
+export async function openPingPanel(this: ClubboxApp): Promise<void> {
+    if (!this.currentChannel || !this.isMeModerator()) return;
+    if (!this.allowAction('invite_to_existing_channel')) return;
+    this.pingPanelOpen = true;
+    this.pingQuery = '';
+    this.pingSelectedIds = [];
+    this.pingLoading = true;
+    mountPingPanel(pingPanelState(this));
+    try {
+      const suggested = clubhouseClient.supports('get_group_suggested_invites')
+        ? readSuggestedInvites(await clubhouseClient.getGroupSuggestedInvites())
+        : [];
+      this.pingCandidates = suggested;
+    } catch (err) {
+      this.pingCandidates = [];
+      this.reportApiError(err);
+    } finally {
+      this.pingLoading = false;
+      if (this.pingPanelOpen) refreshPingPanel(pingPanelState(this));
+    }
+  }
+
+export function closePingInvitePanel(this: ClubboxApp): void {
+    this.pingPanelOpen = false;
+    this.pingLoading = false;
+    closePingPanel();
+  }
+
+export async function searchPingCandidates(this: ClubboxApp): Promise<void> {
+    if (!this.pingPanelOpen) return;
+    const input = document.getElementById('ping-search-input') as HTMLInputElement | null;
+    const query = (input?.value || this.pingQuery).trim();
+    this.pingQuery = query;
+    this.pingLoading = true;
+    refreshPingPanel(pingPanelState(this));
+    try {
+      const suggested = clubhouseClient.supports('get_group_suggested_invites')
+        ? readSuggestedInvites(await clubhouseClient.getGroupSuggestedInvites())
+        : [];
+      let searched = [] as ReturnType<typeof readSearchPingCandidates>;
+      if (query) {
+        const res = await clubhouseClient.search(query, ['UserProfile']);
+        searched = readSearchPingCandidates(res.hits?.length ? res.hits : res.users);
+      }
+      this.pingCandidates = mergePingCandidates(suggested, searched);
+    } catch (err) {
+      this.reportApiError(err);
+    } finally {
+      this.pingLoading = false;
+      if (this.pingPanelOpen) refreshPingPanel(pingPanelState(this));
+    }
+  }
+
+export function togglePingSelect(this: ClubboxApp, userIdRaw: string | undefined): void {
+    const userId = Number(userIdRaw);
+    if (!Number.isFinite(userId)) return;
+    if (this.pingSelectedIds.includes(userId)) {
+      this.pingSelectedIds = this.pingSelectedIds.filter((id) => id !== userId);
+    } else {
+      this.pingSelectedIds = [...this.pingSelectedIds, userId];
+    }
+    if (this.pingPanelOpen) refreshPingPanel(pingPanelState(this));
+  }
+
+export async function sendPings(this: ClubboxApp): Promise<void> {
+    if (!this.currentChannel || this.pingSelectedIds.length === 0) return;
+    if (!this.allowAction('invite_to_existing_channel')) return;
+    const channelId = this.channelApiId(this.currentChannel);
+    let sent = 0;
+    for (const userId of this.pingSelectedIds) {
+      try {
+        await clubhouseClient.inviteToExistingChannel(channelId, userId);
+        sent += 1;
+        await new Promise((resolve) => window.setTimeout(resolve, 300));
+      } catch (err) {
+        this.reportApiError(err);
+      }
+    }
+    this.closePingInvitePanel();
+    if (sent > 0) this.showToast(t('pingSent', { count: sent }), '📣');
+  }
+
+export async function setRoomVisibility(this: ClubboxApp, visibility: string): Promise<void> {
+    if (!this.currentChannel || !this.isMeModerator()) return;
+    if (visibility !== 'open' && visibility !== 'social') return;
+    const endpoint = visibilityChangeEndpoint(visibility);
+    if (!endpoint || !this.allowAction(endpoint)) return;
+    try {
+      if (visibility === 'open') await clubhouseClient.makeChannelPublic(this.channelApiId(this.currentChannel));
+      else await clubhouseClient.makeChannelSocial(this.channelApiId(this.currentChannel));
+      this.currentChannel = {
+        ...this.currentChannel,
+        is_private: false,
+        is_social_mode: visibility === 'social',
+      };
+      this.renderStage();
+      this.showToast(t('roomVisibilityChanged'), '👁');
     } catch (err) {
       this.reportApiError(err);
     }
@@ -852,6 +966,12 @@ export function wireRoomCtl(proto: ClubboxApp): void {
   proto.setHandRaisePermission = setHandRaisePermission;
   proto.renameRoom = renameRoom;
   proto.sendReaction = sendReaction;
+  proto.openPingPanel = openPingPanel;
+  proto.closePingInvitePanel = closePingInvitePanel;
+  proto.searchPingCandidates = searchPingCandidates;
+  proto.togglePingSelect = togglePingSelect;
+  proto.sendPings = sendPings;
+  proto.setRoomVisibility = setRoomVisibility;
   proto.refreshStageManual = refreshStageManual;
   proto.toggleHandRaise = toggleHandRaise;
   proto.recordingAllowed = recordingAllowed;

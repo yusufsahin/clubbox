@@ -403,7 +403,14 @@ export class SandboxBackend {
       }
 
       case 'get_group_suggested_invites':
-        return { success: true, suggestions: [], next_cursor: null } as T;
+        return {
+          success: true,
+          suggestions: [
+            { user_profile: { user_id: 10, name: 'Ayse', username: 'ayse', photo_url: null } },
+            { user_profile: { user_id: 11, name: 'Ali', username: 'ali', photo_url: null } },
+          ],
+          next_cursor: null,
+        } as T;
 
       case 'get_edge_stories':
         return {
@@ -528,6 +535,10 @@ export class SandboxBackend {
       }
 
       case 'emoji_reaction':
+      case 'invite_to_existing_channel':
+      case 'make_channel_public':
+      case 'make_channel_social':
+      case 'reject_speaker_invite':
         return { success: true } as T;
 
       case 'get_conversations':

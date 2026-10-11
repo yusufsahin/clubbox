@@ -16,6 +16,7 @@ import { eventToAccelerator, normalizeShortcuts, readShortcuts, writeShortcuts, 
 import { agoraVoice } from '../audio/agoraVoice';
 import type { ActivityItem } from '../api/activityFeed';
 import type { EventListItem, HouseListItem } from '../api/communityLists';
+import type { PingCandidate } from '../api/pingInvites';
 import type { CHChannel, CHChannelDetail, CHChatMessage, CHConversation, ConversationThread, CHUser, FeedTopic, MeSettings, SearchHit, SearchObjectType } from '../api/types';
 import { eventsView } from '../ui/views/events';
 import { housesView } from '../ui/views/houses';
@@ -91,6 +92,11 @@ export class ClubboxApp {
   housesList: HouseListItem[] | null = null;
   selectedHouse: HouseListItem | null = null;
   eventsList: EventListItem[] | null = null;
+  pingPanelOpen = false;
+  pingQuery = '';
+  pingCandidates: PingCandidate[] = [];
+  pingSelectedIds: number[] = [];
+  pingLoading = false;
   private currentChannel: CHChannelDetail | null = null;
   private channelsList: CHChannel[] = [];
   private feedTopics: FeedTopic[] = [];
@@ -930,6 +936,9 @@ export class ClubboxApp {
     const handraiseMode: 'off' | '1' | '2' = !handraiseOn
       ? 'off'
       : (permission === 2 ? '2' : '1');
+    const visibilityMode: 'open' | 'social' | 'other' = this.currentChannel.is_private
+      ? 'other'
+      : (this.currentChannel.is_social_mode ? 'social' : 'open');
     return stageColumn({
       channel: this.currentChannel,
       me: this.me,
@@ -940,6 +949,7 @@ export class ClubboxApp {
       canFollow: clubhouseClient.evidence('follow') === 'observed',
       audienceSearch: this.audienceSearchQuery,
       handraiseMode,
+      visibilityMode,
     });
   }
 
@@ -1110,6 +1120,14 @@ export class ClubboxApp {
         void this.setHandRaisePermission(target.value);
         return;
       }
+      if (action === 'set-room-visibility' && target instanceof HTMLSelectElement) {
+        void this.setRoomVisibility(target.value);
+        return;
+      }
+      if (action === 'toggle-ping-select' && target instanceof HTMLInputElement) {
+        this.togglePingSelect(target.dataset.userId);
+        return;
+      }
       if (target.id === 'radio-sandbox' || target.id === 'radio-live') {
         void this.switchRuntimeMode(target.id === 'radio-sandbox');
       } else if (target.id === 'cfg-input-device') {
@@ -1232,6 +1250,20 @@ export class ClubboxApp {
         break;
       case 'send-reaction':
         void this.sendReaction(el.dataset.emoji);
+        break;
+      case 'open-ping-panel':
+        void this.openPingPanel();
+        break;
+      case 'close-ping-panel':
+        this.closePingInvitePanel();
+        break;
+      case 'ping-panel-root':
+        break;
+      case 'search-ping':
+        void this.searchPingCandidates();
+        break;
+      case 'send-pings':
+        void this.sendPings();
         break;
       case 'refresh-stage':
         void this.refreshStageManual();
