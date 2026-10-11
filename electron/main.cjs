@@ -5,6 +5,7 @@ const os = require('os');
 const { pathToFileURL } = require('url');
 const { isAllowedEndpoint, isPlainPayload, pickHeaders } = require('./ipcGuard.cjs');
 const { appendApiLog } = require('./apiLog.cjs');
+const { runStartupTriage } = require('./apiTriage.cjs');
 const { createBundleCrawler } = require('./bundleCrawler.cjs');
 const { createPubNubClient } = require('./pubnubClient.cjs');
 
@@ -323,6 +324,16 @@ ipcMain.handle('clubbox:api-log-append', (event, record) => {
   } catch (err) {
     console.warn('[Clubbox] api-log-append failed:', err);
     return { ok: false };
+  }
+});
+
+ipcMain.handle('clubbox:run-api-triage', (event) => {
+  if (!isTrustedSender(event)) return { ok: false, promotions: [], failures: [] };
+  try {
+    return runStartupTriage(app.getPath('userData'));
+  } catch (err) {
+    console.warn('[Clubbox] run-api-triage failed:', err);
+    return { ok: false, promotions: [], failures: [] };
   }
 });
 

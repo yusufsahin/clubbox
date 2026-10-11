@@ -75,6 +75,19 @@ export function triage(options = {}) {
   mkdirSync(dirname(reportPath), { recursive: true });
 
   const records = readJsonlDir(logDir);
+  const pendingPath = join(logDir, 'triage-pending.json');
+  if (existsSync(pendingPath)) {
+    try {
+      const pending = JSON.parse(readFileSync(pendingPath, 'utf8'));
+      if (Array.isArray(pending?.failures)) {
+        for (const row of pending.failures) {
+          if (row && typeof row.endpoint === 'string') records.push(row);
+        }
+      }
+    } catch {
+      // ignore corrupt pending file
+    }
+  }
   const failures = groupFailures(records);
   const created = [];
   const promoted = [];

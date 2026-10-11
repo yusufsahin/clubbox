@@ -68,6 +68,11 @@ interface ElectronAPI {
     appVersion?: string;
     timestamp?: string;
   }) => Promise<{ ok: boolean }>;
+  runApiTriage?: () => Promise<{
+    ok: boolean;
+    promotions?: string[];
+    failures?: Array<{ endpoint: string; status: number; error?: string; bodyKeys?: string[] }>;
+  }>;
 }
 
 function recordingFilename(topic: string | undefined, kind: 'recording' | 'clip' = 'recording'): string {
@@ -243,6 +248,26 @@ export class ClubboxApp {
     this.init();
   }
 
+  private async runStartupApiTriage(): Promise<void> {
+    const run = electronAPI()?.runApiTriage;
+    if (!run) return;
+    try {
+      const result = await run();
+      if (!result?.ok) return;
+      const applied = clubhouseClient.promoteEndpointsLocally(result.promotions ?? []);
+      if (applied.length) {
+        this.showToast(t('evidenceLogPromoted', { endpoints: applied.join(', ') }), '📋');
+      }
+      const failures = result.failures ?? [];
+      if (failures.length) {
+        clubhouseClient.importTriageFailures(failures);
+        this.showToast(t('evidenceLogPending', { count: failures.length }), '⚠️');
+      }
+    } catch (err) {
+      console.warn('[Clubbox] startup triage failed', err);
+    }
+  }
+
   private async init() {
     setLanguage(clubhouseClient.getConfig().language);
     applyThemeToDocument(readAppPrefs().theme, window.matchMedia('(prefers-color-scheme: dark)').matches);
@@ -270,13 +295,17 @@ export class ClubboxApp {
     if (forceSandbox) {
       await clubhouseClient.updateConfig({ useSandbox: true });
     } else if (desktop) {
-      await clubhouseClient.updateConfig({ useSandbox: false });
+      await clubhouseClient.updateConfig({
+        useSandbox: false,
+        requestLogging: clubhouseClient.getConfig().requestLogging !== false,
+      });
       if (!this.guidelinesAccepted()) {
         this.pendingLive = true;
         this.guidelinesOpen = true;
       } else {
         await clubhouseClient.adoptWebSession();
       }
+      await this.runStartupApiTriage();
     } else if (!this.guidelinesAccepted() && !clubhouseClient.getConfig().useSandbox) {
       this.pendingLive = true;
       this.guidelinesOpen = true;

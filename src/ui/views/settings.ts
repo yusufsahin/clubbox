@@ -176,6 +176,7 @@ export function settingsView(
 
       <div style="background:var(--bg-card); border:1px solid var(--border-subtle); border-radius:var(--radius-lg); padding:24px; margin-bottom:20px;">
         <h3 style="font-size:16px; font-weight:700; margin-bottom:6px;">${t('apiHealthTitle')}</h3>
+        <p style="font-size:13px; font-weight:600; margin-bottom:8px;">${config.requestLogging ? t('evidenceLogOn') : t('evidenceLogOff')}</p>
         <p style="font-size:12px; color:var(--text-muted); margin-bottom:16px; line-height:1.5;">${t('apiHealthHelp')}</p>
         ${apiHealth.length === 0 ? html`<p class="list-note">${t('apiHealthEmpty')}</p>` : html`
           <div class="api-health-list" style="display:flex; flex-direction:column; gap:10px; margin-bottom:16px;">

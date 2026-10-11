@@ -538,6 +538,10 @@ export class ClubhouseApiClient {
       ...DEFAULT_CONFIG,
       ...parsedSaved,
       ...configOverrides,
+      // Evidence log stays on across upgrades unless the user explicitly saved false.
+      requestLogging: configOverrides.requestLogging
+        ?? parsedSaved.requestLogging
+        ?? DEFAULT_CONFIG.requestLogging,
       unsupportedRoutes: {
         ...DEFAULT_CONFIG.unsupportedRoutes,
         ...parsedSaved.unsupportedRoutes,
@@ -677,6 +681,38 @@ export class ClubhouseApiClient {
       evidenceOverrides: { ...this.config.evidenceOverrides, [endpoint]: 'observed' },
     });
     return true;
+  }
+
+  /** Local promotions from the userData request log (Task 12.2 startup triage). */
+  public promoteEndpointsLocally(endpoints: string[]): string[] {
+    const overrides = { ...this.config.evidenceOverrides };
+    const applied: string[] = [];
+    for (const endpoint of endpoints) {
+      if (!endpoint || this.effectiveEvidence(endpoint) === 'observed') continue;
+      overrides[endpoint] = 'observed';
+      applied.push(endpoint);
+    }
+    if (applied.length) void this.updateConfig({ evidenceOverrides: overrides });
+    return applied;
+  }
+
+  public importTriageFailures(failures: Array<{
+    endpoint: string;
+    status: number;
+    error?: string;
+    bodyKeys?: string[];
+  }>): void {
+    for (const failure of failures) {
+      if (!failure?.endpoint) continue;
+      this.health.recordFailure({
+        endpoint: failure.endpoint,
+        method: 'LOG',
+        status: failure.status || 0,
+        message: failure.error || `HTTP ${failure.status || 0}`,
+        bodyKeys: failure.bodyKeys ?? [],
+        time: new Date(this.nowFn()).toISOString(),
+      });
+    }
   }
 
   private transport(): Transport {

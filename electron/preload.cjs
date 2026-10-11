@@ -29,6 +29,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setZoomFactor: (factor) => ipcRenderer.invoke('clubbox:set-zoom', factor),
   showDesktopNotification: (payload) => ipcRenderer.invoke('clubbox:desktop-notification', payload),
   appendApiLog: (record) => ipcRenderer.invoke('clubbox:api-log-append', record),
+  runApiTriage: () => ipcRenderer.invoke('clubbox:run-api-triage'),
   pubnubSubscribe: (params) => ipcRenderer.invoke('clubbox:pubnub-subscribe', params),
   pubnubResubscribe: () => ipcRenderer.invoke('clubbox:pubnub-resubscribe'),
   pubnubUnsubscribe: () => ipcRenderer.invoke('clubbox:pubnub-unsubscribe'),

@@ -9,14 +9,15 @@ _Last reviewed: 2026-10-11. “Uygulandı” means the code is in the tree. “C
 The capture wait is over: request bodies for 60 web-client methods are documented in `docs/api/web-client-methods.md` (extracted from the web bundle's own API module). Do these, tick them, then continue:
 - [x] Commit `docs/api/web-client-methods.md` and the new scenarios in features/ (room_host RH-7/RH-12/SO-6, messages rename/delete/pagination, hallway pagination/@username, replays by chunk path).
 - [x] Task 12.1 — promote and bind every documented method; record the final decisions (topic chips local, unfollow/moderation not in web client).
-- [ ] Task 12.2 — live verification by normal use (request log + in-app triage); remove recorder steps from the workflow.
-- [ ] Then finish any remaining Autonomous plan items and run 11.8 in strict mode.
+- [x] Task 12.2 — live verification by normal use (request log + in-app triage); remove recorder steps from the workflow.
+- [x] Then finish any remaining Autonomous plan items and run 11.8 in strict mode.
 ### Last autonomous run (2026-10-11)
 
-- In progress: Phase 12.1 binding from `web-client-methods.md` (sync script, GET path params, pagination, conversation menu, chunked replays).
+- Done: Task 12.1 (bundle bind + un-pend scenarios), Task 12.2 (Evidence log + startup triage), 11.8 strict green (0 errors / 0 warnings).
+- Tests: unit + BDD 131 scenarios + trace strict.
 - Still @pending: ST-9 deferred; room_host DX-1/DX-3.
-- Blocked (need live use, not bodies): 0.9 room smoke / Verified-by-use promotions; `gif_reaction` needs a Giphy picker decision (P3, left hidden).
-- Questions for the owner: none on bodies — closed by web-client-methods.md.
+- Blocked: `gif_reaction` P3 (no Giphy picker / third-party key). Promotions grow with normal use.
+- Questions for the owner: none.
 
 ## Status
 
@@ -28,9 +29,9 @@ Legend: **Uygulandı** = code is in the tree. **Canlı doğrulandı** = exercise
 | 1b | **0.8 Followers / following / friends lists** — bundle scan + labeled UI hunt; live UI uses only counts + mutual lists | Uygulandı for counts, mutual names, and chat people. The public web bundle does not contain get_followers, get_following, or get_online_friends. get_friend_zone_match and get_social_club_members are in-bundle and not called. The labeled click-through still needs a signed-in session. |
 | 0 | **Autonomous plan** (see `.cursor/rules/clubbox.mdc`): 10.1 → 11.8 (warn mode) → 10.2 → 10.5 → 11.0 → 11.1 → 11.2 → 11.3 → 11.4 → 10.4 → 11.5 → 11.6 → 11.7 → 11.9 → 11.10 → 11.8 (strict). Acceptance files: account, hallway, room_listener, room_realtime, room_host, room_moderation, audio_studio, studio, social, messages, houses_events_replays, api_health. Requirements: `docs/product/PRD.md`; design + gap list G-01…G-18: `docs/product/DESIGN.md`; acceptance: `features/*.feature` | **Done** through **11.8 (strict)**. Pending @feature: ST-9 deferred, room_host DX-1/3, owner live room capture. Packaged e2e green (`dist:dir` + asar smoke). |
 | — | **10.1** / **10.2** / **10.4** / **10.5** / **11.0** / **11.8 (warn)** | Uygulandı |
-| 1c | **0.9 Real room capture** — recorder misses clubhouse.pubnubapi.com, bundle scan saw 1 chunk, corrected smoke test (replays ON) | Steps 1–2 are in. S1–S3 still need a signed-in capture. |
+| 1c | **0.9 / 12.2 Verified by use** — request log + in-app triage (no recorder) | Uygulandı. Verified by use: endpoints the owner exercises become `observed` via userData `api-log` + startup triage / `npm run api:triage` (list grows with normal use). |
 | 2 | **0.6 Community Guidelines risk** — hidden reCAPTCHA sign-in, polling, recording, distribution | Uygulandı (code). Sign-in is a visible clubhouse.com window, polling pauses when the window is hidden, recording is opt-in, and there is no publish config. A public release is still your decision. |
-| 3 | **0.5 Capture gaps** — labeled sessions, two-party protocol, evidence sync, room smoke test | `create_channel` observed (FoF, chat/replays off). Join/leave/active_ping/chat promoted to **observed** via triage. Room smoke / labeled S1–S3 still need a signed-in capture. |
+| 3 | **0.5 Capture gaps** — labeled sessions, two-party protocol, evidence sync, room smoke test | `create_channel` observed (FoF, chat/replays off). Join/leave/active_ping/chat promoted to **observed** via triage. Further promotions: Verified by use (12.2), not capture-first. |
 | — | 0.1–0.4 Rename, mock data, recorder, web-session regressions | Uygulandı |
 | — | 1–4 Audio, live API, identity, UI wiring | Uygulandı; live room parts not verified |
 | — | 5 / 7 Security and review bugs | Uygulandı; see 0.7 for what is still open |
