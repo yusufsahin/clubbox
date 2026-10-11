@@ -32,6 +32,7 @@ interface SandboxInput {
   title?: string;
   isEnabled?: boolean;
   handraisePermission?: number;
+  highlightId?: string;
 }
 
 function readRequestBody(body: RequestBody | undefined): SandboxInput {
@@ -54,6 +55,7 @@ function readRequestBody(body: RequestBody | undefined): SandboxInput {
     title: typeof record.title === 'string' ? record.title : undefined,
     isEnabled: typeof record.is_enabled === 'boolean' ? record.is_enabled : undefined,
     handraisePermission: typeof record.handraise_permission === 'number' ? record.handraise_permission : undefined,
+    highlightId: typeof record.highlight_id === 'string' ? record.highlight_id : undefined,
   };
 }
 
@@ -530,6 +532,24 @@ export class SandboxBackend {
 
       case 'send_social_club_message':
         return { success: true } as T;
+
+      case 'get_replay_channel':
+        return {
+          success: true,
+          replay: {
+            channel: input.channel || 'replay-1',
+            topic: 'Sandbox replay',
+          },
+        } as T;
+
+      case 'get_highlight':
+        return {
+          success: true,
+          highlight: {
+            highlight_id: input.highlightId || 'hl-1',
+            title: 'Sandbox highlight',
+          },
+        } as T;
 
       case 'hide_channel':
         return { success: true } as T;

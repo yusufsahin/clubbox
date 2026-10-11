@@ -17,9 +17,11 @@ import { agoraVoice } from '../audio/agoraVoice';
 import type { ActivityItem } from '../api/activityFeed';
 import type { EventListItem, HouseChatMessage, HouseListItem } from '../api/communityLists';
 import type { PingCandidate } from '../api/pingInvites';
+import type { ReplayPlayback } from '../api/replayPlayback';
 import type { CHChannel, CHChannelDetail, CHChatMessage, CHConversation, ConversationThread, CHUser, FeedTopic, MeSettings, SearchHit, SearchObjectType } from '../api/types';
 import { eventsView } from '../ui/views/events';
 import { housesView } from '../ui/views/houses';
+import { replayView } from '../ui/views/replay';
 import { setLanguage, t } from '../i18n';
 import { avatarHtml, installAvatarFallback } from '../ui/avatar';
 import { cockpitBar } from '../ui/components/cockpitBar';
@@ -88,13 +90,15 @@ function electronAPI(): ElectronAPI | null {
 }
 
 export class ClubboxApp {
-  private currentTab: 'stage' | 'explore' | 'discover' | 'friends' | 'messages' | 'activity' | 'houses' | 'events' | 'soundboard' | 'settings' | 'login' = 'stage';
+  private currentTab: 'stage' | 'explore' | 'discover' | 'friends' | 'messages' | 'activity' | 'houses' | 'events' | 'replay' | 'soundboard' | 'settings' | 'login' = 'stage';
   housesList: HouseListItem[] | null = null;
   selectedHouse: HouseListItem | null = null;
   houseChatOpen = false;
   houseChatMessages: HouseChatMessage[] | null = null;
   houseChatCanPost = false;
   eventsList: EventListItem[] | null = null;
+  replayPlayback: ReplayPlayback | null = null;
+  replayRate = 1;
   pingPanelOpen = false;
   pingQuery = '';
   pingCandidates: PingCandidate[] = [];
@@ -826,6 +830,7 @@ export class ClubboxApp {
     if (this.currentTab === 'friends') return t('friends');
     if (this.currentTab === 'houses') return t('houses');
     if (this.currentTab === 'events') return t('events');
+    if (this.currentTab === 'replay') return this.replayPlayback?.kind === 'highlight' ? t('highlight') : t('replay');
     if (this.currentTab === 'messages') return t('messages');
     if (this.currentTab === 'activity') return t('activity');
     if (this.currentTab === 'soundboard') return t('soundboard');
@@ -915,6 +920,8 @@ export class ClubboxApp {
         experimentalOn: clubhouseClient.getConfig().experimentalActions === true,
         supported: clubhouseClient.supports('get_events'),
       });
+    } else if (this.currentTab === 'replay' && this.replayPlayback) {
+      return replayView({ item: this.replayPlayback, rate: this.replayRate });
     } else if (this.currentTab === 'soundboard') {
       return this.renderSoundboardView();
     } else {
@@ -1345,6 +1352,21 @@ export class ClubboxApp {
         break;
       case 'send-house-chat':
         void this.sendHouseChat(el.dataset.houseId, el.dataset.houseSlug);
+        break;
+      case 'open-replay':
+        void this.openReplay(el.dataset.replayId);
+        break;
+      case 'open-highlight':
+        void this.openHighlight(el.dataset.highlightId);
+        break;
+      case 'close-replay':
+        this.closeReplay();
+        break;
+      case 'set-replay-rate':
+        this.setReplayRate(el.dataset.rate);
+        break;
+      case 'skip-replay':
+        this.skipReplay(el.dataset.seconds);
         break;
       case 'host-house-room': {
         const houseId = Number(el.dataset.houseId);

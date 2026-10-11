@@ -30,8 +30,28 @@ import { soundboardView } from '../ui/views/soundboard.ts';
 import { chatList, emptyStageView, stageColumn, stageView } from '../ui/views/stage.ts';
 import { prepareHallwayChannels } from '../hallway/hallwayDisplay.ts';
 import { type HallwayPrefs, readHallwayPrefs, writeHallwayPrefs } from '../hallway/hallwayPrefs.ts';
+import { encodeStereoWav } from '../audio/wav.ts';
+import { readHighlightPayload, readReplayPayload } from '../api/replayPlayback.ts';
 import { parseClubhouseLink, type ParsedClubhouseLink } from '../studio/clubhouseLink.ts';
 import type { ClubboxApp } from './clubboxApp.ts';
+
+function sandboxToneUrl(): string {
+  const sampleRate = 44100;
+  const frames = sampleRate; // 1s
+  const left = new Float32Array(frames);
+  const right = new Float32Array(frames);
+  for (let i = 0; i < frames; i++) {
+    const sample = Math.sin((2 * Math.PI * 440 * i) / sampleRate) * 0.18;
+    left[i] = sample;
+    right[i] = sample;
+  }
+  return URL.createObjectURL(encodeStereoWav(left, right, sampleRate));
+}
+
+function revokeReplayBlob(app: ClubboxApp): void {
+  const url = app.replayPlayback?.audioUrl;
+  if (url?.startsWith('blob:')) URL.revokeObjectURL(url);
+}
 
 const CHAT_POLL_MS = 15_000;
 const GUIDELINES_KEY = 'clubbox-guidelines-accepted';
@@ -155,13 +175,105 @@ export function setHallwayShowNsfw(this: ClubboxApp, enabled: boolean): void {
     if (this.currentTab === 'explore') this.render();
   }
 
+export async function openReplay(this: ClubboxApp, replayId: string | undefined): Promise<void> {
+    if (!replayId || !clubhouseClient.supports('get_replay_channel')) {
+      this.showToast(t('unverifiedAction'), '🔒');
+      return;
+    }
+    try {
+      const res = await clubhouseClient.getReplayChannel(replayId);
+      let item = readReplayPayload(res, replayId);
+      if (!item) {
+        this.showToast(t('somethingWrong'), '⚠️');
+        return;
+      }
+      if (!item.audioUrl && clubhouseClient.getConfig().useSandbox) {
+        item = { ...item, audioUrl: sandboxToneUrl() };
+      }
+      revokeReplayBlob(this);
+      this.replayPlayback = item;
+      this.replayRate = 1;
+      this.currentTab = 'replay';
+      this.render();
+      this.showToast(t('replayOpened'), '▶');
+      queueMicrotask(() => this.applyReplayRate());
+    } catch (err) {
+      this.reportApiError(err);
+    }
+  }
+
+export async function openHighlight(this: ClubboxApp, highlightId: string | undefined): Promise<void> {
+    if (!highlightId || !clubhouseClient.supports('get_highlight')) {
+      this.showToast(t('unverifiedAction'), '🔒');
+      return;
+    }
+    try {
+      const res = await clubhouseClient.getHighlight(highlightId);
+      let item = readHighlightPayload(res, highlightId);
+      if (!item) {
+        this.showToast(t('somethingWrong'), '⚠️');
+        return;
+      }
+      if (!item.audioUrl && clubhouseClient.getConfig().useSandbox) {
+        item = { ...item, audioUrl: sandboxToneUrl() };
+      }
+      revokeReplayBlob(this);
+      this.replayPlayback = item;
+      this.replayRate = 1;
+      this.currentTab = 'replay';
+      this.render();
+      this.showToast(t('highlightOpened'), '▶');
+      queueMicrotask(() => this.applyReplayRate());
+    } catch (err) {
+      this.reportApiError(err);
+    }
+  }
+
+export function closeReplay(this: ClubboxApp): void {
+    revokeReplayBlob(this);
+    this.replayPlayback = null;
+    this.replayRate = 1;
+    if (this.currentTab === 'replay') {
+      this.currentTab = 'explore';
+      this.render();
+    }
+  }
+
+export function applyReplayRate(this: ClubboxApp): void {
+    const audio = document.getElementById('replay-audio') as HTMLAudioElement | null;
+    if (audio) audio.playbackRate = this.replayRate;
+  }
+
+export function setReplayRate(this: ClubboxApp, rateRaw: string | undefined): void {
+    const rate = Number(rateRaw);
+    if (![1, 1.5, 2].includes(rate)) return;
+    this.replayRate = rate;
+    this.applyReplayRate();
+    if (this.currentTab === 'replay') this.render();
+    queueMicrotask(() => this.applyReplayRate());
+  }
+
+export function skipReplay(this: ClubboxApp, secondsRaw: string | undefined): void {
+    const seconds = Number(secondsRaw);
+    if (!Number.isFinite(seconds)) return;
+    const audio = document.getElementById('replay-audio') as HTMLAudioElement | null;
+    if (!audio) return;
+    audio.currentTime = Math.max(0, audio.currentTime + seconds);
+  }
+
 export async function openClubhouseLink(this: ClubboxApp, link: ParsedClubhouseLink): Promise<void> {
-    if (link.kind === 'room' || link.kind === 'replay') {
-      await this.joinRoom(link.kind === 'room' ? link.channelId : link.replayId);
+    if (link.kind === 'replay') {
+      await this.openReplay(link.replayId);
+      return;
+    }
+    if (link.kind === 'room') {
+      await this.joinRoom(link.channelId);
       return;
     }
     if (link.kind === 'event') {
-      await this.joinRoom(link.eventId);
+      this.currentTab = 'events';
+      this.render();
+      void this.loadEvents();
       return;
     }
     const res = await clubhouseClient.search(link.username, ['UserProfile']);
@@ -263,5 +375,11 @@ export function wireHallwayCtl(proto: ClubboxApp): void {
   proto.removeHallwayKeyword = removeHallwayKeyword;
   proto.setHallwayShowNsfw = setHallwayShowNsfw;
   proto.openClubhouseLink = openClubhouseLink;
+  proto.openReplay = openReplay;
+  proto.openHighlight = openHighlight;
+  proto.closeReplay = closeReplay;
+  proto.applyReplayRate = applyReplayRate;
+  proto.setReplayRate = setReplayRate;
+  proto.skipReplay = skipReplay;
   proto.hideHallwayRoom = hideHallwayRoom;
 }

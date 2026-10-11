@@ -13,9 +13,9 @@ Do these before continuing the Autonomous plan, then tick them:
 
 ### Last autonomous run (2026-10-11)
 
-- Autonomous plan already **Done** through **11.8 (strict)**; this devam wired Houses chat (SO-6).
-- Done: House chat panel (`get_social_club_messages` / `send_social_club_message`) with admin-only post copy; sandbox fixtures; DESIGN Today updated.
-- Tests: `npm test` — **117** unit + **123 BDD** + trace strict; tsc/lint/build green.
+- Autonomous plan already **Done** through **11.8 (strict)**; this devam wired RL-12 replay/highlight playback.
+- Done: Replay player (`get_replay_channel` / `get_highlight`) with 1x/1.5x/2x and ±15s; discover + paste-link open path; sandbox tone when no audio URL; DESIGN Today updated.
+- Tests: `npm test` — **120** unit + **123 BDD** + trace strict; tsc/lint/build green.
 - Blocked: `test:e2e:packaged`; owner live room capture (0.9 S1–S3); topic-chip request body uncaptured.
 - Still @pending: ST-9 deferred; room_host DX-1/DX-3.
 - Questions for the owner: Capture a topic-chip click on clubhouse.com (`get_feed_v3` body) so Hallway topics can filter server-side.

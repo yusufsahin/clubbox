@@ -103,7 +103,8 @@ Legend — Evidence: O observed · B bundle call site · C community · ? to dis
 | end_channel | POST | channel, channel_id | ack | C | ✅ experimental + capabilities (G-04 closed) | RoomCtl |
 | make_channel_public / make_channel_social | POST | channel, channel_id | ack | C | ✅ stage visibility select (RH-10) | RoomCtl (mod) |
 | get_channel | POST | channel | channel detail | C (not in web bundle) | 🟡 used by RoomSync but not callable on web (G-03) | — replace with PubNub |
-| get_replay_channel / _chunk | POST | ? | replay meta / audio chunks | B (no body yet) | ❌ | Replays (R4) |
+| get_replay_channel | POST | channel | replay meta (+ audio url when present) | B | ✅ replay player (rate/skip) | Replays |
+| get_replay_channel_chunk | POST | ? | audio chunks | in-bundle | ❌ | — |
 | web_listener_* , guest_* | POST | session_id, staff_token, recaptcha_token… | — | B | won't do (reCAPTCHA) | — |
 
 ### 3.4 Messages (VMs, house chats)

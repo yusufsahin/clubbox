@@ -1170,6 +1170,18 @@ span.topic-chip {
   gap: 8px;
 }
 
+.replay-page .replay-audio {
+  width: 100%;
+  margin: 12px 0 16px;
+}
+
+.replay-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
 .event-row {
   display: flex;
   align-items: center;

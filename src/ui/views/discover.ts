@@ -31,12 +31,22 @@ function hitRow(hit: SearchHit): SafeHtml {
       </div>
     `;
   }
-  if (hit.kind === 'room' || hit.kind === 'replay') {
+  if (hit.kind === 'room') {
     return html`
       <button class="discover-row discover-main" type="button" data-action="join-room" data-channel-id="${hit.channel}">
         <span class="discover-copy">
           <strong>${hit.topic}</strong>
-          <span class="list-empty">${hit.kind === 'room' ? t('discoverRoomMeta', { speakers: hit.speakers, listeners: hit.listeners }) : t('replayAvailable')}</span>
+          <span class="list-empty">${t('discoverRoomMeta', { speakers: hit.speakers, listeners: hit.listeners })}</span>
+        </span>
+      </button>
+    `;
+  }
+  if (hit.kind === 'replay') {
+    return html`
+      <button class="discover-row discover-main" type="button" data-action="open-replay" data-replay-id="${hit.channel}">
+        <span class="discover-copy">
+          <strong>${hit.topic}</strong>
+          <span class="list-empty">${t('replayAvailable')}</span>
         </span>
       </button>
     `;
