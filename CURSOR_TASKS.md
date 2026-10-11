@@ -13,6 +13,7 @@ Soundboard and in-room settings belong in the room (owner review). Do Phase 18 a
 - [x] 18.4 room bar layout + emoji icons (owner screenshot: lone "F", clipped right side, two-line labels, faded disabled buttons, invisible ➕ on Start a room) — tests at 4 widths first
 - [x] npm run test:e2e green + fresh light/dark screenshots (UI phases are only done with both); commit per item; summary; stop
 - [ ] Phase 19 — profiles: actions (Message any time, Talk live, follow labels, Share) and sections (houses, recently chatting, links, in a room now, mutual lists, private profile)
+- [ ] Phase 20 — external audio into the room (second input, system audio on Windows, auto-duck), no virtual cable needed
 ### Last autonomous run (2026-10-12)
 
 - Done: Next run #6 leftovers (e2e NAV v2 green, Discover houses re-render, light cyan, Hard-rule DoD) then Next run #7 Phase 18 — room-centred controls.
@@ -1299,4 +1300,29 @@ Today: messaging from a profile only works while in a room (`canMessage: !isSelf
 4. Private profile (has_protected_profile and not friends): show "Private profile", hide houses and recently chatting, follow control = Request.
 5. My profile: counts, bio, my houses via get_user_social_clubs, recently chatting, share, account settings. Do not show polls, clips, replays, karma, earnings (not in web data).
 Acceptance (Phase 19): profile.feature green; e2e opens a profile sheet and my profile in light and dark mode; screenshots in reports/theme/.
+```
+
+---
+
+## Phase 20 — External audio into the room (ST-11)
+
+Clubdeck tells users to install Loopback / BlackHole / VB-Audio Cable / Voicemeeter to mix voice + external audio. Clubbox owns the broadcast mix (mic + pads → broadcastDest; remote audio → recording), so it can add a second source natively. Today it opens one input only (`audioEngine.inputDeviceId`). Acceptance: `features/external_audio.feature` (all @pending). TDD: unit-test the audio graph routing first.
+
+### Task 20.1 — External input channel
+
+```
+1. AudioEngine: an "external" channel — getUserMedia({ deviceId: chosen, echoCancellation:false, noiseSuppression:false, autoGainControl:false, channelCount:2 }) → externalGain → broadcastDest and recordMix; → monitorGain only when "Monitor external" is on. Independent of mic mute.
+2. Own volume, mute and level meter (AnalyserNode). Release the stream on leaving the room / becoming a listener; re-offer when speaking again. Persist the chosen device id in audioPrefs.
+3. UI: Room details › Audio gets "External audio" (device select — every audioinput except the current mic —, volume, mute, Monitor external, Duck under voice). Show it only while I am a speaker.
+4. Starting external audio while quality is Normal offers Music quality (existing headphones warning).
+5. One-time copyright reminder (i18n en + tr).
+```
+
+### Task 20.2 — Auto-duck and system audio
+
+```
+1. Duck under voice: when the mic level (existing analyser) is above the voice threshold, ramp externalGain down by the duck amount (default -12 dB, setting 0…-24 dB) with ~80 ms attack and ~500 ms release. Pure function for the envelope + unit tests.
+2. System audio (Windows, beta): session.setDisplayMediaRequestHandler in main.cjs granting { audio: 'loopback' } for a renderer request from the trusted main window only; the renderer uses getDisplayMedia({ audio: true, video: false-equivalent }) and feeds the same external channel. Echo guard: loopback also captures Clubbox's own playback (the room), so enable "System audio" only when Clubbox's output device (setSinkId) differs from the system default output; otherwise show the reason. macOS: show the virtual-device guide (BlackHole / Loopback) instead, unless Electron's loopback is supported on the running macOS version.
+3. Short in-app guide (Settings › Audio › "Using a virtual cable"): choose Voicemeeter / VB-Cable / BlackHole output as External audio — no need to replace the mic.
+Acceptance (Phase 20): external_audio.feature green; unit tests prove the routing (broadcast + recording, no monitor by default, mic mute independent) and the duck envelope; e2e (sandbox) shows the External audio section for a speaker in light and dark mode.
 ```
