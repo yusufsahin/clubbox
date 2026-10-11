@@ -1548,7 +1548,7 @@ class ClubboxApp {
     const input = document.getElementById('thread-input') as HTMLInputElement | null;
     const text = kind === 'voice' ? t('voicePreview') : (input?.value.trim() ?? '');
     if (!text) return;
-    clubhouseClient.sandboxAppendSegment(conversationId, {
+    clubhouseClient.getSandbox()?.appendSegment(conversationId, {
       kind,
       author_name: this.me?.name || 'Sandbox User',
       text,
@@ -1562,9 +1562,10 @@ class ClubboxApp {
     const item = this.conversations.find((entry) => entry.conversation_id === conversationId);
     if (!item?.can_add_members) return;
     if (this.liveMessageBlocked()) return;
-    const count = (clubhouseClient.sandboxThread(conversationId)?.members.length ?? 0) + 1;
+    const sandbox = clubhouseClient.getSandbox();
+    const count = (sandbox?.thread(conversationId)?.members.length ?? 0) + 1;
     const name = `New member ${count}`;
-    if (!clubhouseClient.sandboxAddMember(conversationId, name)) return;
+    if (!sandbox?.addMember(conversationId, name)) return;
     this.showToast(t('memberAdded', { name }), '➕');
     this.render();
   }
@@ -1582,7 +1583,7 @@ class ClubboxApp {
       this.showToast(t('inviteMember'), '✉️');
       return;
     }
-    clubhouseClient.sandboxRemoveConversation(conversationId);
+    clubhouseClient.getSandbox()?.removeConversation(conversationId);
     if (this.openConversationId === conversationId) {
       this.openConversationId = null;
       this.previewMember = null;
@@ -1616,7 +1617,7 @@ class ClubboxApp {
     if (this.liveMessageBlocked()) return;
     const id = Number(userId);
     if (!name || !username || !Number.isFinite(id)) return;
-    this.openConversationId = clubhouseClient.sandboxStartVm({ userId: id, name, username });
+    this.openConversationId = clubhouseClient.getSandbox()?.startVm({ userId: id, name, username }) ?? null;
     this.messageFilter = 'vm';
     this.previewMember = null;
     this.currentTab = 'messages';
@@ -2132,10 +2133,10 @@ class ClubboxApp {
         dmRequests: this.dmRequestCount,
         filter: this.messageFilter,
         openId: this.openConversationId,
-        thread: this.openConversationId ? clubhouseClient.sandboxThread(this.openConversationId) : null,
+        thread: this.openConversationId ? clubhouseClient.getSandbox()?.thread(this.openConversationId) ?? null : null,
         previewMember: this.previewMember,
         playbackRate: this.voiceRate,
-        presence: clubhouseClient.sandboxPresence(),
+        presence: clubhouseClient.getSandbox()?.presence() ?? [],
       });
     } else if (this.currentTab === 'activity') {
       return activityView(this.activityCount);
