@@ -64,8 +64,8 @@ Legend — Evidence: O observed · B bundle call site · C community · ? to dis
 | --- | --- | --- | --- | --- | --- | --- |
 | me | POST | {} | user_profile, pubnub_token, pubnub_origin, feature_flags, user_settings, has_unread_notifications, default_room_title_options | O | ✅ | Session, Realtime |
 | get_profile | POST | user_id | profile counts, mutual_follows[], mutual_cofollows[], social_clubs[], follows_me, chatting_with | O | ✅ | ProfileCtl |
-| follow | POST | user_id (+ source, user_ids, source_topic_id per C) | ack | B/C | 🟡 | ProfileCtl |
-| unfollow | POST | user_id | ack | C | 🟡 | ProfileCtl |
+| follow | POST | user_id (+ source, user_ids, source_topic_id per C) | ack | C | ✅ experimental via supports/allowAction | ProfileCtl |
+| unfollow | POST | user_id | ack | C (not in webApiRoutes) | ❌ static “Following” label (SO-1) | — |
 | search | POST | query, limit_to_object_types | hits (users/rooms/clubs) | O | ✅ | Discovery |
 
 ### 3.2 Hallway & discovery
@@ -89,7 +89,7 @@ Legend — Evidence: O observed · B bundle call site · C community · ? to dis
 | join_channel | POST | channel | channel detail incl. token, pubnub_* (assumed same shape as create) | O | ✅ | RoomCtl |
 | leave_channel | POST | channel | ack | O | ✅ | RoomCtl |
 | active_ping | POST | channel | ack | O | ✅ | RoomSession |
-| audience_reply | POST | channel, raise_hands, unraise_hands | ack | B | 🟡 | RoomCtl |
+| audience_reply | POST | channel, raise_hands, unraise_hands | ack | B | ✅ raise/lower hand | RoomCtl |
 | become_speaker | POST | channel | ack | B | ✅ registry key `become_speaker` (G-08 closed) | RoomCtl |
 | reject_speaker_invite | POST | channel, user_id | ack | C | ✅ decline invite (experimental) | RoomCtl |
 | send_channel_message | POST | channel, message | ack | O | ✅ | ChatStream |
@@ -97,7 +97,7 @@ Legend — Evidence: O observed · B bundle call site · C community · ? to dis
 | emoji_reaction | POST | channel, emoji | ack | B | ✅ stage reaction pad | Reactions |
 | gif_reaction | POST | ? | ack | B (no body) | ❌ | — (P3) |
 | set_channel_title | POST | channel, title | ack | B | ✅ rename on stage | RoomCtl |
-| invite_speaker / uninvite_speaker / mute_speaker / make_moderator / block_from_channel | POST | channel, user_id | ack | C | 🟡 | RoomCtl (mod) |
+| invite_speaker / uninvite_speaker / mute_speaker / make_moderator / block_from_channel | POST | channel, user_id | ack | C | ✅ experimental mod menu + mute everyone | RoomCtl (mod) |
 | invite_to_existing_channel | POST | channel, user_id | ack | C | ✅ Invite people panel (RH-9) | Ping |
 | change_handraise_settings | POST | channel, is_enabled, handraise_permission (1=everyone, 2=friends of speakers) | ack | C | ✅ experimental stage select (RH-7) | RoomCtl (mod) |
 | end_channel | POST | channel, channel_id | ack | C | ✅ experimental + capabilities (G-04 closed) | RoomCtl |
@@ -124,7 +124,7 @@ Legend — Evidence: O observed · B bundle call site · C community · ? to dis
 
 | Endpoint | Method | Request | Evid. | Today |
 | --- | --- | --- | --- | --- |
-| get_user_social_clubs | POST | ? | B | ✅ Houses tab |
+| get_user_social_clubs | POST | ? | O | ✅ Houses tab |
 | get_social_club / get_social_club_members | POST | ? | B | ✅ detail + members toast |
 | get_social_club_messages / send_social_club_message | POST | social_club_id, social_club_slug (, message) | B | ✅ Houses chat panel |
 | get_social_club_message_thread / send threaded/emoji / update_last_read_social_club_message | POST | ? | B/in-bundle | ❌ |

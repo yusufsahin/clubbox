@@ -13,9 +13,9 @@ Do these before continuing the Autonomous plan, then tick them:
 
 ### Last autonomous run (2026-10-11)
 
-- Autonomous plan already **Done** through **11.8 (strict)**; triage **NO NEW FAILURES**; re-audit found **no shippable code** under Hard rules.
-- Done this devam: none (no inventable product path left after 8c062e3).
-- Tests: last green was **127** unit + **123 BDD** + trace strict + sandbox e2e (unchanged).
+- Autonomous plan already **Done** through **11.8 (strict)**; triage **NO NEW FAILURES**.
+- Done: DESIGN §3 Today column sync (follow/audience_reply/mod ✅; unfollow ❌; get_user_social_clubs O). No product code — nothing left without capture/invented bodies.
+- Tests: unchanged (**127** unit + **123 BDD** + sandbox e2e last green).
 - **Stopped:** Hard rule — remaining gaps need owner capture or undocumented bodies.
 - Blocked: owner live room capture (0.9 S1–S3); topic-chip **server** `get_feed_v3` body; conversation delete/title + unread-summary body; replay chunk; `gif_reaction` body; unfollow undocumented.
 - Still @pending: ST-9 deferred; room_host DX-1/DX-3.
