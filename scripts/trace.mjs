@@ -249,7 +249,7 @@ export function renderReport(result, mode) {
 
 export function runTrace(options = {}) {
   const root = options.root ?? ROOT;
-  const mode = options.mode ?? process.env.TRACE_MODE ?? 'warn';
+  const mode = options.mode ?? process.env.TRACE_MODE ?? 'strict';
   const prdPath = options.prdPath ?? join(root, 'docs/product/PRD.md');
   const designPath = options.designPath ?? join(root, 'docs/product/DESIGN.md');
   const tasksPath = options.tasksPath ?? join(root, 'CURSOR_TASKS.md');
