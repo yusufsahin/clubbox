@@ -119,6 +119,7 @@ export class ClubboxApp {
   selectedTopicKey: string | null = null;
   private conversations: CHConversation[] = [];
   private conversationsLoaded = false;
+  conversationUnreadById: Record<string, number> = {};
   private messageFilter: 'all' | 'house' | 'vm' = 'all';
   private openConversationId: string | null = null;
   openConversationThreadData: ConversationThread | null = null;
@@ -939,6 +940,7 @@ export class ClubboxApp {
         canCreateVm: !!clubhouseClient.getSandbox() || clubhouseClient.supports('create_conversation'),
         canReact: clubhouseClient.supports('send_conversation_emoji_reaction'),
         threadNote: this.threadLiveNote,
+        unreadById: this.conversationUnreadById,
       });
     } else if (this.currentTab === 'activity') {
       return activityView({

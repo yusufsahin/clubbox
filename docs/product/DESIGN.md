@@ -95,7 +95,7 @@ Legend — Evidence: O observed · B bundle call site · C community · ? to dis
 | send_channel_message | POST | channel, message | ack | O | ✅ | ChatStream |
 | get_channel_messages | GET | channel | messages[] | O | ✅ | ChatStream (fallback) |
 | emoji_reaction | POST | channel, emoji | ack | B | ✅ stage reaction pad | Reactions |
-| gif_reaction | POST | ? | ack | B (no body) | ❌ | — (P3) |
+| gif_reaction | POST | `{channel, giphy_id}` | ack | B | ❌ P3 hidden — no Giphy picker without a third-party key | — |
 | set_channel_title | POST | channel, title | ack | B | ✅ rename on stage | RoomCtl |
 | invite_speaker / uninvite_speaker / mute_speaker / make_moderator / block_from_channel | POST | channel, user_id | ack | C | ✅ experimental mod menu + mute everyone | RoomCtl (mod) |
 | invite_to_existing_channel | POST | channel, user_id | ack | C | ✅ Invite people panel (RH-9) | Ping |
@@ -120,7 +120,7 @@ Legend — Evidence: O observed · B bundle call site · C community · ? to dis
 | update_conversation_title | POST | `{conversation_id, title}` | ack | B | ✅ thread rename | MessagesCtl |
 | delete_conversation | POST | `{conversation_id}` | ack | B | ✅ thread delete + confirm | MessagesCtl |
 | delete_conversation_segment | POST | ? | ack | in-bundle | ❌ | — |
-| get_conversation_unread_summary | POST | ? (live 400: conversation_id required) | counts | B | 🟡 not called for badge until body captured; me.unread_conversations_count | Badge |
+| get_conversation_unread_summary | POST | `{conversation_id}` | unread_count | B | ✅ per visible row (max 10, skip when hidden); nav badge still `me.unread_conversations_count` | MessagesCtl |
 
 ### 3.5 Houses
 

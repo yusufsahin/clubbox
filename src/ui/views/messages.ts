@@ -18,6 +18,7 @@ export interface MessagesState {
   canLoadMore?: boolean;
   loadingMore?: boolean;
   threadNote?: string;
+  unreadById?: Record<string, number>;
 }
 
 const THREAD_REACTIONS = ['❤️', '👏', '🔥', '😂'] as const;
@@ -50,14 +51,20 @@ function rowAvatar(item: CHConversation): SafeHtml {
   return avatarHtml({ name: item.short_title || item.title || '?' }, 44, 'conversation-avatar');
 }
 
-function conversationRow(item: CHConversation, openId: string | null): SafeHtml {
+function conversationRow(
+  item: CHConversation,
+  openId: string | null,
+  unreadById: Record<string, number> | undefined,
+): SafeHtml {
   const kind = conversationKind(item);
   const title = item.short_title || item.title || t('messages');
   const preview = item.preview_segment_text || item.summary || '';
   const isVoice = item.preview_segment_type === 'TEXT_TO_SPEECH' || item.preview_segment_type === 'AUDIO';
   const selected = openId === item.conversation_id;
+  const unreadCount = unreadById?.[item.conversation_id] ?? 0;
+  const showUnread = unreadCount > 0 || item.has_new_segments;
   return html`
-    <div class="conversation-row ${item.has_new_segments ? 'is-new' : ''} ${item.is_archived ? 'is-archived' : ''} ${selected ? 'is-selected' : ''}">
+    <div class="conversation-row ${showUnread ? 'is-new' : ''} ${item.is_archived ? 'is-archived' : ''} ${selected ? 'is-selected' : ''}">
       <button class="conversation-open" type="button" data-action="open-conversation" data-conversation-id="${item.conversation_id}">
         ${rowAvatar(item)}
         <div class="conversation-body">
@@ -72,7 +79,7 @@ function conversationRow(item: CHConversation, openId: string | null): SafeHtml 
           <div class="conversation-tags">
             <span class="conversation-chip">${kindLabel(kind)}</span>
             ${item.social_club_name ? html`<span class="conversation-chip is-house">${item.social_club_name}</span>` : ''}
-            ${item.has_new_segments ? html`<span class="conversation-chip is-unread">${t('messageNew')}</span>` : ''}
+            ${unreadCount > 0 ? html`<span class="conversation-chip is-unread">${unreadCount}</span>` : item.has_new_segments ? html`<span class="conversation-chip is-unread">${t('messageNew')}</span>` : ''}
             ${!item.can_reply && item.cant_reply_reason ? html`<span class="conversation-chip is-muted" title="${item.cant_reply_reason}">🔒</span>` : ''}
           </div>
         </div>
@@ -286,11 +293,11 @@ export function messagesView(state: MessagesState): SafeHtml {
         <div class="messages-layout ${open || pendingOpen ? 'has-thread' : 'no-thread'}">
           <div class="messages-list-pane">
             ${shown.length === 0 ? html`<p class="list-empty">${t('messagesEmpty')}</p>` : html`
-              <div class="conversation-list">${shown.map((item) => conversationRow(item, state.openId))}</div>
+              <div class="conversation-list">${shown.map((item) => conversationRow(item, state.openId, state.unreadById))}</div>
             `}
             ${archive.length > 0 && state.filter === 'all' ? html`
               <h3 class="archive-heading">${t('archiveHeading')}</h3>
-              <div class="conversation-list">${archive.map((item) => conversationRow(item, state.openId))}</div>
+              <div class="conversation-list">${archive.map((item) => conversationRow(item, state.openId, state.unreadById))}</div>
             ` : ''}
             ${state.canLoadMore ? html`
               <div style="margin:12px 0; text-align:center;">

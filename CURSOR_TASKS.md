@@ -13,8 +13,8 @@ The capture wait is over: request bodies for 60 web-client methods are documente
 - [x] Then finish any remaining Autonomous plan items and run 11.8 in strict mode.
 ### Last autonomous run (2026-10-11)
 
-- Done: House chat thread / react / mark-read (Task 12.1 remainder); DESIGN §3.5 closed; SO-6 scenario green.
-- Tests: unit + BDD 134 scenarios + trace strict; lint + build green. `api:triage` → NO NEW FAILURES.
+- Done: Per-row `get_conversation_unread_summary` (max 10, skip when hidden); DESIGN gif_reaction + unread rows; Status parity note.
+- Tests: unit + BDD 135 scenarios + trace strict; lint + build green. `api:triage` → NO NEW FAILURES.
 - Still @pending: ST-9 deferred only.
 - Blocked: `gif_reaction` P3 (no Giphy picker). Live promotions via normal use + api:triage.
 - Questions for the owner: none.
@@ -35,7 +35,7 @@ Legend: **Uygulandı** = code is in the tree. **Canlı doğrulandı** = exercise
 | — | 0.1–0.4 Rename, mock data, recorder, web-session regressions | Uygulandı |
 | — | 1–4 Audio, live API, identity, UI wiring | Uygulandı; live room parts not verified |
 | — | 5 / 7 Security and review bugs | Uygulandı; see 0.7 for what is still open |
-| — | 8 Clubhouse parity | Uygulandı for captured fields only. Help Center copy applied for audiences, Messages (VM/House + archive), replays-default note, and local-vs-Clubhouse Clips. Moderator chat delete / pinned link still wait on documented bodies. |
+| — | 8 Clubhouse parity | Uygulandı for captured fields only. Help Center copy applied for audiences, Messages (VM/House + archive), replays-default note, and local-vs-Clubhouse Clips. Pinned link + hand-raise at create are wired (`create_channel` body). Moderator chat segment delete has no body in the web client (`delete_conversation_segment` stays unsupported). |
 | — | 9 Studio features (devices, soundboard, global shortcuts, packaging) | Uygulandı (packaging + updater: see 0.6 step 5) |
 
 ## Project context (include with every task)

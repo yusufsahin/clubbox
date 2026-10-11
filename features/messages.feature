@@ -57,6 +57,13 @@ Feature: Messages (VMs and house chats)
     Then the Messages badge uses "get_conversation_unread_summary" when documented, otherwise "unread_conversations_count" from me
 
   @bundle @SO-4
+  Scenario: Unread summary for visible conversations
+    Given conversations "c1", "c2" and "c3" are visible in Messages
+    When I refresh unread summaries for visible conversations
+    Then a "POST /web_api/get_conversation_unread_summary" request is sent with the documented body keys
+    And at most 10 unread-summary requests were sent, one per conversation id
+
+  @bundle @SO-4
   Scenario: Rename and delete a conversation
     When I rename the conversation "c1" to "Weekend plans"
     Then a "POST /web_api/update_conversation_title" request is sent with body keys "conversation_id, title"

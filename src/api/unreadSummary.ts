@@ -8,3 +8,20 @@ export function readUnreadSummary(payload: unknown): number | null {
   }
   return null;
 }
+
+/** Visible conversation ids for unread summary: unique, non-empty, capped (Task 12.1). */
+export function conversationIdsForUnreadSummary(
+  conversationIds: readonly string[],
+  max = 10,
+): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const id of conversationIds) {
+    const trimmed = typeof id === 'string' ? id.trim() : '';
+    if (!trimmed || seen.has(trimmed)) continue;
+    seen.add(trimmed);
+    out.push(trimmed);
+    if (out.length >= max) break;
+  }
+  return out;
+}

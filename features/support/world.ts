@@ -117,6 +117,7 @@ export class ClubboxWorld extends World {
   selectedTopic: string | null = null;
   feedNextCursor: string | null = null;
   conversationsNextCursor: string | null = null;
+  visibleConversationIds: string[] = [];
   replayId: string | null = null;
   replayChunkCount = 0;
   searchTabs = new Set<string>();

@@ -266,8 +266,8 @@ export async function refreshMe(this: ClubboxApp, options?: { quiet?: boolean })
         private_conversations_enabled: settings.private_conversations_enabled === true,
       } : null;
       this.unreadNotifications = res.has_unread_notifications === true;
-      // Live get_conversation_unread_summary requires a conversation_id (400 with {}).
-      // Until a capture documents a feed-wide body, the badge uses me.unread_conversations_count.
+      // Nav badge: me.unread_conversations_count. Per-row counts: get_conversation_unread_summary
+      // for visible conversations (max 10) in messagesCtl — body is {conversation_id} (bundle).
       this.unreadConversations = typeof res.unread_conversations_count === 'number' ? res.unread_conversations_count : 0;
       this.notificationsEnabled = typeof res.notifications_enabled === 'boolean' ? res.notifications_enabled : null;
       this.soundEffectsEnabled = typeof res.enable_sound_effect === 'boolean' ? res.enable_sound_effect : null;

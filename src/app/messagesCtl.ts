@@ -1,6 +1,7 @@
 // @ts-nocheck — extracted controller; imports trimmed over time.
 import { ClubhouseApiError, clubhouseClient } from '../api/client.ts';
 import { readConversationThread } from '../api/conversationThread.ts';
+import { conversationIdsForUnreadSummary, readUnreadSummary } from '../api/unreadSummary.ts';
 import { beginJoin, commitJoin, finishLeave, localClipAllowed, roleSyncDecision, roomAudience } from '../api/guards.ts';
 import { capturedCreateBody, leaveClosesRoom, roomHasOthers } from '../api/roomActions.ts';
 import { applyFollowResponse, mergeProfile, PEOPLE_LIST_ENDPOINTS, profileCountsMissing, readProfile, relationshipFromStatus, talkPartners, type PeopleListKind } from '../api/relationship.ts';
@@ -54,6 +55,35 @@ function recordingFilename(topic: string | undefined, kind: 'recording' | 'clip'
 }
 
 
+async function refreshVisibleUnreadSummaries(app: ClubboxApp): Promise<void> {
+  if (!clubhouseClient.supports('get_conversation_unread_summary')) return;
+  if (app.pollsPaused || (typeof document !== 'undefined' && document.visibilityState === 'hidden')) {
+    return;
+  }
+  const ids = conversationIdsForUnreadSummary(
+    app.conversations.map((item) => item.conversation_id),
+  );
+  if (ids.length === 0) {
+    app.conversationUnreadById = {};
+    return;
+  }
+  const next: Record<string, number> = { ...app.conversationUnreadById };
+  await Promise.all(ids.map(async (id) => {
+    try {
+      const res = await clubhouseClient.getConversationUnreadSummary(id);
+      const count = readUnreadSummary(res);
+      if (count == null) {
+        delete next[id];
+      } else {
+        next[id] = count;
+      }
+    } catch (err) {
+      app.reportApiError(err);
+    }
+  }));
+  app.conversationUnreadById = next;
+}
+
 export async function loadConversations(this: ClubboxApp) : Promise<void> {
     try {
       const res = await clubhouseClient.getConversations();
@@ -61,11 +91,13 @@ export async function loadConversations(this: ClubboxApp) : Promise<void> {
       this.conversationsNextCursor = res.next_cursor ?? null;
       this.conversationsLoaded = true;
       this.dmRequestCount = typeof res.new_dm_requests_count === 'number' ? res.new_dm_requests_count : 0;
+      await refreshVisibleUnreadSummaries(this);
     } catch (err) {
       this.conversations = [];
       this.conversationsNextCursor = null;
       this.conversationsLoaded = true;
       this.dmRequestCount = 0;
+      this.conversationUnreadById = {};
       this.reportApiError(err);
     }
     if (this.currentTab === 'messages' || this.currentTab === 'friends') this.render();
@@ -81,6 +113,7 @@ export async function loadMoreConversations(this: ClubboxApp): Promise<void> {
         if (!seen.has(item.conversation_id)) this.conversations.push(item);
       }
       this.conversationsNextCursor = res.next_cursor ?? null;
+      await refreshVisibleUnreadSummaries(this);
       if (this.currentTab === 'messages' || this.currentTab === 'friends') this.render();
     } catch (err) {
       this.reportApiError(err);

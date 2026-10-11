@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { Given, When, Then } from '@cucumber/cucumber';
+import { conversationIdsForUnreadSummary } from '../../src/api/unreadSummary.ts';
 import type { ClubboxWorld } from '../support/world.ts';
 
 When('I open Messages', async function (this: ClubboxWorld) {
@@ -87,6 +88,31 @@ Then(
     await this.client.getMe();
     const meReq = this.transport.requestsNamed('me');
     assert.ok(meReq.length > 0);
+  },
+);
+
+Given(
+  'conversations {string}, {string} and {string} are visible in Messages',
+  function (this: ClubboxWorld, a: string, b: string, c: string) {
+    this.visibleConversationIds = [a, b, c];
+  },
+);
+
+When('I refresh unread summaries for visible conversations', async function (this: ClubboxWorld) {
+  const ids = conversationIdsForUnreadSummary(this.visibleConversationIds);
+  for (const id of ids) {
+    await this.client.getConversationUnreadSummary(id);
+  }
+});
+
+Then(
+  'at most 10 unread-summary requests were sent, one per conversation id',
+  function (this: ClubboxWorld) {
+    const reqs = this.transport.requestsNamed('get_conversation_unread_summary');
+    assert.ok(reqs.length <= 10);
+    assert.equal(reqs.length, this.visibleConversationIds.length);
+    const bodies = reqs.map((req) => String((req.body ?? {}).conversation_id ?? ''));
+    assert.deepEqual(bodies.sort(), [...this.visibleConversationIds].sort());
   },
 );
 
