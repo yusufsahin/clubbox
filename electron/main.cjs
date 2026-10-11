@@ -487,8 +487,11 @@ function showEmbeddedSignIn(bounds) {
   });
   mainWindow.setBrowserView(signInView);
   signInView.setBounds(bounds);
+  // Keep Clubhouse's SMS/code steps in the same BrowserView — never spawn a popup window.
   signInView.webContents.setWindowOpenHandler(({ url }) => {
-    if (isClubhouseHttps(url)) return { action: 'allow' };
+    if (isClubhouseHttps(url) && signInView && !signInView.webContents.isDestroyed()) {
+      void signInView.webContents.loadURL(url);
+    }
     return { action: 'deny' };
   });
   signInView.webContents.on('will-navigate', (event, url) => {
