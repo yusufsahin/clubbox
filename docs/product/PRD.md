@@ -159,6 +159,8 @@ Legend — Today: ✅ works live · ✅* wired (live verification pending) · �
 | SO-5 | Activity / notifications | ✓ | ✓ | ✅ | C (get_notifications) | P2 |
 | SO-6 | Houses: list, page, members, join | ✓ | | ✅ | B (get_social_club*) | P2 |
 | SO-7 | "Follow back" button when someone follows me and I do not follow them (search results, profile) | ✓ | | 🧪 | O (follows_me) | P2 |
+| SO-8 | Profile actions: Message (any time, can_dm), Talk live (can_wave → create_channel friend + user_ids), follow control by follow_status (Follow / Follow back / Following / Friends / Requested), Share | ✓ | ✓ | 🧪 message only in a room; Talk live blocked in live | O/B | P1 |
+| SO-9 | Profile sections: houses (social_clubs), recently chatting (chatting_with, max 5), X/Instagram links, "in a room now · Join", clickable mutual friends/follows lists, private-profile state; own profile adds my houses (get_user_social_clubs) | ✓ | ✓ | ❌ | O/B | P1 |
 
 ### 4.8 Capabilities discovered in API responses (decided)
 
@@ -215,6 +217,8 @@ These appear in `create_channel` / `me` responses (`user_capabilities`, `channel
 | Unfollow API | Not in the web client; live UI keeps a non-clickable “Following” control (SO-1 decided) |
 | Mobile-only room settings: "show replay on profile", "allow web listening", "report a recent speaker", "report room title" | Not in the clubhouse.com web client (no request in the bundle). Show nothing rather than a control that cannot work; users do these in the app. |
 | Live captions | Rendered by the web client from a source not yet identified; revisit if the crawler finds it. |
+| Profile polls, clips, replays, karma, earnings | Not in the web profile data (bundle parseUserProfile); app-only. |
+| Full followers / following / friends lists of any user | No list endpoint in the web client; only counts, mutual lists and recently chatting are available. Mobile API is off-policy. |
 
 ## 5. Releases
 

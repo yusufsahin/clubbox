@@ -12,6 +12,7 @@ Soundboard and in-room settings belong in the room (owner review). Do Phase 18 a
 - [x] 18.3 Settings › Sounds; remove voice effect / spatial audio from Settings; NAV-1 + NAV-9 (four places)
 - [x] 18.4 room bar layout + emoji icons (owner screenshot: lone "F", clipped right side, two-line labels, faded disabled buttons, invisible ➕ on Start a room) — tests at 4 widths first
 - [x] npm run test:e2e green + fresh light/dark screenshots (UI phases are only done with both); commit per item; summary; stop
+- [ ] Phase 19 — profiles: actions (Message any time, Talk live, follow labels, Share) and sections (houses, recently chatting, links, in a room now, mutual lists, private profile)
 ### Last autonomous run (2026-10-12)
 
 - Done: Next run #6 leftovers (e2e NAV v2 green, Discover houses re-render, light cyan, Hard-rule DoD) then Next run #7 Phase 18 — room-centred controls.
@@ -1271,3 +1272,31 @@ Tests (write first):
 - e2e at 1024, 1280, 1490 and 1920 px, light and dark: for the room bar and the top bar assert scrollWidth <= clientWidth, every button's text is one line (height of label ≤ line-height), the room title shows ≥ 10 characters when the title is longer, and axe colour-contrast passes (disabled controls included).
 - A unit/lint check that no `data-action` button template contains an emoji as its only icon (allow-list soundpad icons).
 Acceptance: screenshots of the room bar at the four widths in both themes in reports/theme/.
+
+---
+
+## Phase 19 — Profiles: actions, sections and honest lists
+
+Owner review 2026-10-12 + research. Acceptance: `features/profile.feature` (all @pending). Data: the web client's own `parseUserProfile` reads bio, can_dm, can_wave, displayname, follow_status (following / not_following / requested), follows_me, has_protected_profile, instagram, twitter, mutual_follows(+count), mutual_cofollows(+count), num_followers, num_following, num_cofollows, social_clubs, url and chatting_with. Help Center: the friends list is shown on profiles; private profiles hide friends list and houses from non-friends; "recently chatting with" shows the last 5 VM partners. There is no followers/following/friends list endpoint on web and no polls/clips/replays/karma in web profile data.
+
+Today: messaging from a profile only works while in a room (`canMessage: !isSelf && !!this.currentChannel`); "Talk live" exists only in the presence row and is blocked in live mode although create_channel with user_ids is documented; houses, recently chatting, social links and private-profile state are not shown; "+N others" in mutual lines is plain text; count boxes are inert.
+
+### Task 19.1 — Profile actions (SO-8)
+
+```
+1. Action row on someone's profile: Message (if can_dm), Talk live (if can_wave), follow control, Share (url). Same component in the side sheet everywhere.
+2. Message: open the existing DM (match conversation participants) or create one with create_conversation {privacy_level, social_club_id: null, is_private: true, user_ids: [id], source} using the source value the web client passes (find it at the createConversation call sites in bundle-src and document it in web-client-methods.md Notes). Then navigate to Messages with that conversation open. Keep the in-room private chat as is.
+3. Talk live: create_channel with privacy_level "friend" and user_ids [id] (documented keys) — remove the sandbox-only guard in talkLive(); join the created room.
+4. Follow control labels from follow_status + follows_me: Follow / Follow back / Following / Friends / Requested (has_protected_profile → follow sends a request). Unfollow stays non-clickable (not in web client).
+```
+
+### Task 19.2 — Profile sections and lists (SO-9, SO-2)
+
+```
+1. Sections: Houses (social_clubs → cards → house page), Recently chatting with (chatting_with, max 5 → profile), X / Instagram links (open in the system browser through the allow-listed shell.openExternal), "In a room now · Join" when the person is in a hallway room's users.
+2. Mutual friends / mutual follows: the label is a button that opens a people list (sub-page with ← back) showing the returned people; add "and N more not shown by Clubhouse web" when count > returned.
+3. Followers / following / friends counts: clicking shows one clear message "Clubhouse web does not provide this list" (no empty page, no disabled-looking box).
+4. Private profile (has_protected_profile and not friends): show "Private profile", hide houses and recently chatting, follow control = Request.
+5. My profile: counts, bio, my houses via get_user_social_clubs, recently chatting, share, account settings. Do not show polls, clips, replays, karma, earnings (not in web data).
+Acceptance (Phase 19): profile.feature green; e2e opens a profile sheet and my profile in light and dark mode; screenshots in reports/theme/.
+```
