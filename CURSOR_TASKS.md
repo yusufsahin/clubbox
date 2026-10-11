@@ -13,12 +13,12 @@ The capture wait is over: request bodies for 60 web-client methods are documente
 - [x] Then finish any remaining Autonomous plan items and run 11.8 in strict mode.
 ### Last autonomous run (2026-10-11)
 
-- Done: Re-checked plan after `gif_reaction` paste UI (`fb0affc`). `api:triage` → NO NEW FAILURES. No unfinished Autonomous plan / Phase 12 item left.
-- Tests: prior run BDD 136 + trace strict (unchanged this pass — docs/status only).
-- Still @pending: ST-9 Restream `@deferred` only (needs owner schedule to un-defer).
-- Blocked: none. Live promotions via normal use + `api:triage`.
-- Questions for the owner: none.
-- Stop: Hard rule / deferred-only — no further local product work without inventing endpoints or un-deferring ST-9.
+- Done: Re-ran checklist + `api:triage` → NO NEW FAILURES. Confirmed unused bundle rows (`talk/*`, AI questions, friend-zone, guest/reCAPTCHA, phone invite joins) stay Won't / out of scope — not product backlog.
+- Tests: unchanged (no code this pass). Prior: BDD 136 + trace strict.
+- Still @pending: ST-9 Restream `@deferred` only.
+- Blocked: none.
+- Questions for the owner: none — say if you want ST-9 un-deferred, or use the app so triage can promote routes.
+- Stop: Autonomous plan finished. Further `devam` will re-triage and stop unless ST-9 is scheduled or triage finds failures.
 
 ## Status
 
