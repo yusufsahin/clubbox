@@ -18,6 +18,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   showEmbeddedSignIn: (bounds) => ipcRenderer.invoke('clubbox:embedded-signin-show', bounds),
   hideEmbeddedSignIn: () => ipcRenderer.invoke('clubbox:embedded-signin-hide'),
   setEmbeddedSignInBounds: (bounds) => ipcRenderer.invoke('clubbox:embedded-signin-set-bounds', bounds),
+  hasWebSession: () => ipcRenderer.invoke('clubbox:has-web-session'),
   onWebSessionMaybe: (callback) => {
     const listener = () => callback();
     ipcRenderer.on('clubbox:web-session-maybe', listener);

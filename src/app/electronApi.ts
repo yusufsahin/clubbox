@@ -14,6 +14,7 @@ export type ElectronAPI = {
   showEmbeddedSignIn?: (bounds?: { x: number; y: number; width: number; height: number }) => Promise<{ ok: boolean }>;
   hideEmbeddedSignIn?: () => Promise<{ ok: boolean }>;
   setEmbeddedSignInBounds?: (bounds?: { x: number; y: number; width: number; height: number }) => Promise<{ ok: boolean }>;
+  hasWebSession?: () => Promise<{ ok: boolean; hasSession?: boolean; authReady?: boolean }>;
   onWebSessionMaybe?: (callback: () => void) => void;
   onAgoraAppId?: (callback: (appId: string) => void) => () => void;
   pubnubSubscribe?: (params: PubNubSubscribeParams) => Promise<{ ok: boolean; reason?: string }>;

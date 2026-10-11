@@ -1015,10 +1015,25 @@ export class ClubhouseApiClient {
 
   public async adoptWebSession(): Promise<boolean> {
     const desktopApi = typeof window !== 'undefined'
-      ? (window as Window & { electronAPI?: { isElectron?: boolean; ensureRealtimeConfig?: () => Promise<unknown> } }).electronAPI
+      ? (window as Window & {
+        electronAPI?: {
+          isElectron?: boolean;
+          ensureRealtimeConfig?: () => Promise<unknown>;
+          hasWebSession?: () => Promise<{ ok: boolean; hasSession?: boolean; authReady?: boolean }>;
+        };
+      }).electronAPI
       : undefined;
     const desktop = !!desktopApi?.isElectron;
     if (!desktop || this.config.webSession) return false;
+    // Skip the guaranteed-403 probe when Clubhouse has not issued a session yet.
+    try {
+      const gate = await desktopApi?.hasWebSession?.();
+      if (gate && gate.hasSession !== true && gate.authReady !== true) {
+        return false;
+      }
+    } catch {
+      // Fall through and try /me — older preload builds may lack hasWebSession.
+    }
     const previous = this.config.webSession;
     this.config.webSession = true;
     this.suppressAuthExpired = true;
@@ -1041,7 +1056,12 @@ export class ClubhouseApiClient {
       // Already-signed-in users never open the sign-in window — crawl for PubNub/Agora keys here.
       void desktopApi?.ensureRealtimeConfig?.();
       return true;
-    } catch {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (/waiting_for_signin/i.test(msg)) {
+        this.clearAdoptedWebSession(previous);
+        return false;
+      }
       this.clearAdoptedWebSession(previous);
       return false;
     } finally {

@@ -305,6 +305,12 @@ ipcMain.handle('clubbox:shortcuts-set', (event, shortcuts) => {
   return { ok: true, failed: applyGlobalShortcuts(clean) };
 });
 
+ipcMain.handle('clubbox:has-web-session', async (event) => {
+  if (!isTrustedSender(event)) return { ok: false, hasSession: false };
+  const hasSession = await hasClubhouseSessionCookie();
+  return { ok: true, hasSession, authReady: signInAuthReady };
+});
+
 ipcMain.handle('clubbox:open-signin', (event, bounds) => {
   if (!isTrustedSender(event)) return { ok: false };
   showEmbeddedSignIn(normalizeBounds(bounds));
@@ -724,8 +730,7 @@ function armWebSessionCookieWatch() {
     if (!domain.includes('clubhouse.com')) return;
     const name = String(cookie.name || '');
     console.log('[web] cookie set:', name);
-    // Real session cookies — not analytics / csrf alone.
-    if (/sessionid|^session$|auth|jwt|refresh/i.test(name) && !/csrf/i.test(name)) {
+    if (cookieLooksLikeSession(name)) {
       markSignInAuthReady(`cookie:${name}`);
     }
     if (cookieNotifyTimer) clearTimeout(cookieNotifyTimer);
@@ -742,16 +747,24 @@ function armSignInNetworkWatch() {
   if (signInNetworkWatchArmed) return;
   signInNetworkWatchArmed = true;
   session.defaultSession.webRequest.onCompleted(
-    { urls: ['https://www.clubhouse.com/web_api/*', 'https://clubhouse.com/web_api/*'] },
+    { urls: ['https://www.clubhouse.com/*', 'https://clubhouse.com/*'] },
     (details) => {
       if (!signInWindow) return;
-      const path = String(details.url || '');
-      console.log('[web] xhr', details.method, path.replace(/^https:\/\/www\.clubhouse\.com/, ''), details.statusCode);
-      if (details.statusCode >= 200 && details.statusCode < 400 && /complete_phone/i.test(path)) {
-        markSignInAuthReady('complete_phone');
-      }
-      if (signInAuthReady && details.statusCode >= 200 && details.statusCode < 400 && /\/me\b/i.test(path)) {
-        notifyWebSessionMaybe(`xhr-me:${details.statusCode}:${Date.now()}`, { force: true });
+      const type = String(details.resourceType || '');
+      if (type !== 'xhr' && type !== 'fetch') return;
+      const path = String(details.url || '').replace(/^https:\/\/www\.clubhouse\.com/, '');
+      // Skip noisy analytics.
+      if (/google-analytics|\/collect|_ga|stripe/i.test(path)) return;
+      console.log('[web] xhr', details.method, path.slice(0, 120), details.statusCode);
+      if (details.statusCode >= 200 && details.statusCode < 400) {
+        if (/complete_phone|verify|confirm_otp|check_waitlist|web_api\/me/i.test(path) && !/start_phone|resend_phone/i.test(path)) {
+          // /me 200 means the SPA itself is authenticated.
+          if (/web_api\/me/i.test(path) && details.statusCode === 200) {
+            markSignInAuthReady('spa-me-200');
+          } else if (/complete_phone|verify|confirm_otp/i.test(path)) {
+            markSignInAuthReady(`xhr:${path.split('?')[0]}`);
+          }
+        }
       }
     },
   );
@@ -869,6 +882,18 @@ async function listClubhouseCookies(sess) {
   return [...map.values()];
 }
 
+function cookieLooksLikeSession(name) {
+  const n = String(name || '');
+  if (/csrf/i.test(n)) return false;
+  if (/^(__stripe|_ga|_gid|_gat|__cf|_fbp|_gcl)/i.test(n)) return false;
+  return /sessionid|^session$|auth|jwt|refresh|sid|logged/i.test(n);
+}
+
+async function hasClubhouseSessionCookie(sess = session.defaultSession) {
+  const cookies = await listClubhouseCookies(sess);
+  return cookies.some((cookie) => cookieLooksLikeSession(cookie.name));
+}
+
 async function syncClubhouseCookiesToDefault(sourceSession) {
   if (!sourceSession || sourceSession === session.defaultSession) return 0;
   const cookies = await listClubhouseCookies(sourceSession);
@@ -934,16 +959,17 @@ async function postWithWebSession(endpoint, body) {
       body: JSON.stringify({ error_message: 'This action is not available on the web session yet.' }),
     };
   }
-  // Do not hammer /me with 403 while the user is still typing the SMS code.
-  if (endpoint === 'me' && signInWindow && !signInWindow.isDestroyed() && !signInAuthReady) {
+  const sess = authSession();
+  const allCookies = await listClubhouseCookies(sess);
+  const hasSession = allCookies.some((cookie) => cookieLooksLikeSession(cookie.name));
+  // Never call /me until we have a real session cookie or an auth-ready signal.
+  if (endpoint === 'me' && !hasSession && !signInAuthReady) {
     return {
       ok: false,
       status: 0,
       body: JSON.stringify({ error_message: 'waiting_for_signin' }),
     };
   }
-  const sess = authSession();
-  const allCookies = await listClubhouseCookies(sess);
   const csrf = allCookies.find((cookie) => cookie.name === 'csrftoken')?.value || '';
   console.log(
     '[web] session cookies',
@@ -952,6 +978,8 @@ async function postWithWebSession(endpoint, body) {
     csrf ? 'yes' : 'no',
     'authReady',
     signInAuthReady,
+    'hasSession',
+    hasSession,
   );
   const method = route.method || 'POST';
   let pathName;
