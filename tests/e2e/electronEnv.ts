@@ -2,8 +2,8 @@
 export function cleanElectronEnv(
   base: NodeJS.ProcessEnv = process.env,
   extra: Record<string, string> = {},
-): Record<string, string | undefined> {
-  const env: Record<string, string | undefined> = { ...base, ...extra };
+): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = { ...base, ...extra };
   delete env.ELECTRON_RUN_AS_NODE;
   return env;
 }

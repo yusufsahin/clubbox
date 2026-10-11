@@ -22,7 +22,7 @@
     "test:unit": "node --test electron/redact.test.cjs electron/apiRecorderFailure.test.cjs electron/ipcGuard.test.cjs electron/bundleScan.test.cjs electron/bundleCrawler.test.cjs electron/pubnubClient.test.cjs electron/apiLog.test.cjs electron/apiTriage.test.cjs && node --import tsx --test tests/*.test.ts tests/live-failures/*.test.ts",
     "test:bdd": "node --import tsx ./node_modules/@cucumber/cucumber/bin/cucumber.js --tags \"not @pending\"",
     "test:trace": "node scripts/trace.mjs",
-    "test:e2e": "npm run build && playwright test -g \"sandbox \"",
+    "test:e2e": "npm run build && playwright test --grep-invert win-unpacked",
     "test:e2e:packaged": "npm run dist:dir && playwright test -g \"win-unpacked\"",
     "test:nocheck": "node scripts/check-nocheck.mjs",
     "test:theme-audit": "node scripts/theme-audit.mjs",

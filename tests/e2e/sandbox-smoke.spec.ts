@@ -3,6 +3,7 @@ import { createRequire } from 'node:module';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { cleanElectronEnv } from './electronEnv';
 
 const require = createRequire(import.meta.url);
 
@@ -33,12 +34,11 @@ async function launchClubbox(userData: string, extraEnv: Record<string, string> 
   const liveHosts: string[] = [];
   const app = await electron.launch({
     args: ['.'],
-    env: {
-      ...process.env,
+    env: cleanElectronEnv(process.env, {
       CLUBBOX_FORCE_SANDBOX: '1',
       CLUBBOX_USER_DATA: userData,
       ...extraEnv,
-    },
+    }),
   });
   const page = await app.firstWindow();
   page.on('console', (msg) => {
@@ -69,14 +69,22 @@ async function assertNoLeaks(errors: string[], liveHosts: string[]) {
   expect(liveHosts).toEqual([]);
 }
 
+function place(tab: string) {
+  return `.nav-item[data-action="nav"][data-tab="${tab}"]`;
+}
+
 test('sandbox dev build: hallway and settings smoke', async () => {
   const userData = tempUserData();
   const { app, page, errors, liveHosts } = await launchClubbox(userData);
   try {
-    await page.locator('.nav-item[data-action="nav"][data-tab="explore"]').click();
+    await page.locator(place('explore')).click();
     await expect(page.locator('body')).toContainText(/Tech|Refresh|room|sandbox|Future of Social/i);
-    await page.locator('.nav-item[data-action="nav"][data-tab="settings"]').click();
-    await expect(page.locator('body')).toContainText(/Settings|API Health/i);
+
+    await page.locator('[data-action="open-settings"]').click();
+    await expect(page.locator('body')).toContainText(/Settings|Ayarlar/i);
+    await expect(page.locator('.settings-advanced')).toBeVisible();
+    await expect(page.locator(place('friends'))).toHaveCount(0);
+
     await assertNoLeaks(errors, liveHosts);
   } finally {
     await app.close();
@@ -87,10 +95,18 @@ test('sandbox studio path: join, hand, pad, chat, leave, messages, theme', async
   const userData = tempUserData();
   const { app, page, errors, liveHosts } = await launchClubbox(userData);
   try {
-    await page.locator('.nav-item[data-action="nav"][data-tab="explore"]').click();
+    await page.locator(place('explore')).click();
     await expect(page.locator('[data-action="join-room"]').first()).toBeVisible({ timeout: 15_000 });
     await page.locator('[data-action="join-room"]').first().click();
     await expect(page.locator('body')).toContainText(/Leave|Leave quietly|Stage|Mute/i, { timeout: 15_000 });
+    await expect(page.locator('#cockpit-root, .room-bar, [data-room-title]').first()).toBeVisible({ timeout: 10_000 });
+
+    const detailsBtn = page.locator('[data-action="open-room-details"]');
+    if (await detailsBtn.isVisible().catch(() => false)) {
+      await detailsBtn.click();
+      await expect(page.locator('[data-room-details]')).toBeVisible({ timeout: 5_000 });
+      await page.locator('[data-action="close-room-details"]').click();
+    }
 
     const hand = page.locator('[data-action="toggle-hand"]');
     if (await hand.isVisible().catch(() => false) && !(await hand.isDisabled().catch(() => true))) {
@@ -114,26 +130,41 @@ test('sandbox studio path: join, hand, pad, chat, leave, messages, theme', async
     }
 
     await page.locator('[data-action="leave-room"]').first().click();
-    await expect(page.locator('.nav-item[data-action="nav"][data-tab="explore"]')).toBeVisible();
+    await expect(page.locator(place('explore'))).toBeVisible();
 
-    await page.locator('.nav-item[data-action="nav"][data-tab="messages"]').click();
+    await page.locator(place('messages')).click();
     await expect(page.locator('body')).toContainText(/Messages|Voice|House|conversation|Mesaj/i);
     const openThread = page.locator('[data-action="open-conversation"]').first();
     if (await openThread.isVisible().catch(() => false)) {
       await openThread.click();
       await expect(page.locator('.thread-panel, .thread-scroll, body')).toBeVisible();
+      const back = page.locator('[data-action="nav-back"]');
+      if (await back.isVisible().catch(() => false)) {
+        await page.keyboard.press('Escape');
+      }
     }
 
-    await page.locator('.nav-item[data-action="nav"][data-tab="discover"]').click();
-    await expect(page.locator('body')).toContainText(/Discover|Search|Keşfet|Ara/i, { timeout: 10_000 });
-    await page.locator('.nav-item[data-action="nav"][data-tab="friends"]').click();
-    await expect(page.locator('body')).toContainText(/Friends|suggestions|Arkadaş|öneri/i, { timeout: 10_000 });
+    await page.locator(place('discover')).click();
+    await expect(page.locator('body')).toContainText(/Discover|Search|Keşfet|Ara|Suggestions|Houses/i, { timeout: 10_000 });
+    await expect(page.locator('[data-nav-contains="friends"], [data-nav-contains="houses"]').first()).toBeVisible();
 
-    await page.locator('.nav-item[data-action="nav"][data-tab="settings"]').click();
+    await page.locator(place('activity')).click();
+    await expect(page.locator('body')).toContainText(/Activity|Notification|Etkinlik|Bildirim/i, { timeout: 10_000 });
+
+    const createBtn = page.locator('[data-action="create-room"]').first();
+    if (await createBtn.isVisible().catch(() => false)) {
+      await createBtn.click();
+      await expect(page.locator('[data-create-composer]')).toBeVisible();
+      await expect(page.locator('.room-type-list')).toBeVisible();
+      await expect(page.locator('[data-action="confirm-create"]')).toContainText(/Go live|Canlıya/i);
+      await page.keyboard.press('Escape');
+    }
+
+    await page.locator('[data-action="open-settings"]').click();
     await page.locator('#cfg-theme').selectOption('dark');
     await page.locator('#cfg-language').selectOption('tr');
     await page.locator('[data-action="save-settings"]').click();
-    await expect(page.locator('body')).toContainText(/Ayarlar|API|Clubbox/i, { timeout: 10_000 });
+    await expect(page.locator('body')).toContainText(/Ayarlar|Clubbox/i, { timeout: 10_000 });
 
     // Navigation guard: external location changes must not leave the app document.
     const stayed = await page.evaluate(() => {
@@ -163,11 +194,10 @@ test.describe('packaged', () => {
     expect(fs.existsSync(asar)).toBe(true);
 
     const userData = tempUserData();
-    const env = {
-      ...process.env,
+    const env = cleanElectronEnv(process.env, {
       CLUBBOX_FORCE_SANDBOX: '1',
       CLUBBOX_USER_DATA: userData,
-    };
+    });
 
     // Prefer Clubbox.exe; fall back to electron + app.asar when Application Control
     // blocks the freshly built wrapper (common on locked-down Windows hosts).
