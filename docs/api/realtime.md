@@ -30,4 +30,5 @@ PubNub message types the room UI parses: `channel_message`, `channel_reaction`.
 
 - `channel_message` keys read by the ticker: `message_id`, `from_user_id`, `from_name`, `from_photo_url`, `message`, `message_type`, `time_received`.
 - `channel_reaction` keys read by the ticker: `message_id`, `action_user_profile` (`id`, `name`, `photo_url`), `message`, `message_type`, `time_received`, `reaction`, `target_user_profile`.
-- The subscribe channel name is not in the homepage scripts.
+
+PubNub channel templates: not found in the scanned chunks (run `npm run api:discover` after sign-in).

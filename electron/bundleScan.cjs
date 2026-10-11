@@ -120,12 +120,103 @@ function mineRealtime(source) {
   const messageTypes = [];
   if (text.includes('channel_message')) messageTypes.push('channel_message');
   if (text.includes('channel_reaction')) messageTypes.push('channel_reaction');
+  const channelTemplates = extractPubNubTemplates(text);
   return {
     createClient: clients,
     appIdLiteral,
     appIdEnv: envKey,
     pubnubOrigin: origin ? origin[1] : null,
     messageTypes,
+    channelTemplates,
+  };
+}
+
+/** Next.js build id from an HTML document or a `/_next/static/<id>/…` URL. */
+function extractBuildId(htmlOrUrl) {
+  const text = typeof htmlOrUrl === 'string' ? htmlOrUrl : '';
+  const fromStatic = text.match(/\/_next\/static\/([A-Za-z0-9_-]{8,})\/(?:_buildManifest|_ssgManifest)/);
+  if (fromStatic) return fromStatic[1];
+  const fromMeta = text.match(/"buildId"\s*:\s*"([A-Za-z0-9_-]{8,})"/);
+  if (fromMeta) return fromMeta[1];
+  return null;
+}
+
+/**
+ * Lists JS chunk paths from a Next.js `_buildManifest.js` body.
+ * Returns paths like `/_next/static/chunks/foo.js` (leading slash, no host).
+ */
+function parseBuildManifest(source, buildId) {
+  const text = typeof source === 'string' ? source : '';
+  const chunks = new Set();
+  for (const match of text.matchAll(/["'](\/_next\/static\/(?:chunks|css)\/[^"']+\.js)["']/g)) {
+    chunks.add(match[1]);
+  }
+  for (const match of text.matchAll(/["'](static\/(?:chunks|css)\/[^"']+\.js)["']/g)) {
+    chunks.add(`/_next/${match[1]}`);
+  }
+  if (buildId) {
+    for (const match of text.matchAll(new RegExp(`["'](/_next/static/${buildId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/[^"']+\\.js)["']`, 'g'))) {
+      chunks.add(match[1]);
+    }
+  }
+  return [...chunks].sort();
+}
+
+/** PubNub channel name templates (string literals with ${…} or channel_ prefixes). */
+function extractPubNubTemplates(source) {
+  const text = typeof source === 'string' ? source : '';
+  const templates = new Set();
+  for (const match of text.matchAll(/["'`]((?:channel|pubnub|pn)[_-][A-Za-z0-9_$.{}-]{2,80})["'`]/gi)) {
+    templates.add(match[1]);
+  }
+  for (const match of text.matchAll(/["'`]([^"'`]*(?:\$\{[^}]+\}[^"'`]*)+)["'`]/g)) {
+    const value = match[1];
+    if (/channel|pubnub|subscribe/i.test(value) && value.length < 120) templates.add(value);
+  }
+  return [...templates].sort();
+}
+
+/**
+ * Secret and env values pulled from a chunk. Callers must write values only to
+ * userData/realtime-config.json — never to docs, logs, or git-tracked files.
+ */
+function extractSecrets(source) {
+  const text = typeof source === 'string' ? source : '';
+  const envKeys = [...new Set([...text.matchAll(/\b(NEXT_PUBLIC_[A-Z0-9_]+)\b/g)].map((m) => m[1]))].sort();
+  const agora = text.match(/NEXT_PUBLIC_AGORA_KEY["'\s:=]+["']([A-Fa-f0-9]{32})["']/)
+    || text.match(/agora\s*[:=]\s*\{\s*key\s*:\s*["']([A-Fa-f0-9]{32})["']/);
+  const pub = text.match(/(?:publishKey|publish_key|PUBLISH_KEY)["'\s:=]+["'](pub-c-[A-Za-z0-9-]+)["']/i)
+    || text.match(/["'](pub-c-[A-Za-z0-9-]+)["']/);
+  const sub = text.match(/(?:subscribeKey|subscribe_key|SUBSCRIBE_KEY)["'\s:=]+["'](sub-c-[A-Za-z0-9-]+)["']/i)
+    || text.match(/["'](sub-c-[A-Za-z0-9-]+)["']/);
+  return {
+    envKeys,
+    agoraAppId: agora ? agora[1] : null,
+    pubnubPublishKey: pub ? pub[1] : null,
+    pubnubSubscribeKey: sub ? sub[1] : null,
+  };
+}
+
+function analyzeChunk(source, meta = {}) {
+  const calls = extractEndpointCalls(source);
+  const sites = extractCallSites(source);
+  const endpoints = extractBundleEndpoints(source);
+  const realtime = mineRealtime(source);
+  const secrets = extractSecrets(source);
+  return {
+    path: meta.path || '',
+    page: meta.page || '',
+    endpoints,
+    calls,
+    sites,
+    realtime,
+    secrets: {
+      envKeys: secrets.envKeys,
+      hasAgoraAppId: !!secrets.agoraAppId,
+      hasPubnubPublishKey: !!secrets.pubnubPublishKey,
+      hasPubnubSubscribeKey: !!secrets.pubnubSubscribeKey,
+    },
+    _secretValues: secrets,
   };
 }
 
@@ -169,12 +260,17 @@ function keyShape(value, depth = 0) {
 }
 
 module.exports = {
+  analyzeChunk,
+  extractBuildId,
   extractBundleEndpoints,
   extractCallSites,
   extractEndpointCalls,
+  extractPubNubTemplates,
+  extractSecrets,
   isBundleScript,
   keyShape,
   mineRealtime,
+  parseBuildManifest,
   scriptPath,
   scrubBundleText,
   trafficKind,

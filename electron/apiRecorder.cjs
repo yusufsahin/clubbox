@@ -428,6 +428,7 @@ function startApiRecorder(hooks) {
         appIdEnv: mined.appIdEnv,
         pubnubOrigin: mined.pubnubOrigin,
         messageTypes: mined.messageTypes,
+        channelTemplates: mined.channelTemplates,
       },
     });
     const mergedRealtime = {
@@ -436,6 +437,7 @@ function startApiRecorder(hooks) {
       appIdEnv: false,
       pubnubOrigin: null,
       messageTypes: [],
+      channelTemplates: [],
     };
     for (const script of callsiteScripts.values()) {
       const realtime = script.realtime || {};
@@ -446,7 +448,11 @@ function startApiRecorder(hooks) {
       for (const kind of realtime.messageTypes || []) {
         if (!mergedRealtime.messageTypes.includes(kind)) mergedRealtime.messageTypes.push(kind);
       }
+      for (const template of realtime.channelTemplates || []) {
+        if (!mergedRealtime.channelTemplates.includes(template)) mergedRealtime.channelTemplates.push(template);
+      }
     }
+    mergedRealtime.channelTemplates.sort();
     fs.writeFileSync(callsitePath, JSON.stringify({
       scripts: [...callsiteScripts.values()].sort((left, right) => left.path.localeCompare(right.path)),
       realtime: mergedRealtime,

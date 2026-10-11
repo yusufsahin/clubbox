@@ -390,6 +390,15 @@ const CALLSITE_NAMES = [
   'get_channel_messages',
   'emoji_reaction',
   'set_channel_title',
+  'get_conversation',
+  'add_conversation_segment',
+  'create_conversation',
+  'get_social_club',
+  'get_social_club_info',
+  'get_social_club_members',
+  'get_social_club_messages',
+  'get_social_club_message_thread',
+  'get_replay_channel',
 ];
 
 function readCallsites() {
@@ -484,7 +493,13 @@ function bundleRealtimeLines(data) {
     lines.push('');
     lines.push('- `channel_message` keys read by the ticker: `message_id`, `from_user_id`, `from_name`, `from_photo_url`, `message`, `message_type`, `time_received`.');
     lines.push('- `channel_reaction` keys read by the ticker: `message_id`, `action_user_profile` (`id`, `name`, `photo_url`), `message`, `message_type`, `time_received`, `reaction`, `target_user_profile`.');
-    lines.push('- The subscribe channel name is not in the homepage scripts.');
+  }
+  lines.push('');
+  const templates = Array.isArray(realtime.channelTemplates) ? realtime.channelTemplates : [];
+  if (!templates.length) {
+    lines.push('PubNub channel templates: not found in the scanned chunks (run `npm run api:discover` after sign-in).');
+  } else {
+    lines.push(`PubNub channel templates: ${templates.map((entry) => `\`${entry}\``).join(', ')}.`);
   }
   lines.push('');
   return lines;

@@ -5,6 +5,7 @@ const os = require('os');
 const { pathToFileURL } = require('url');
 const { isAllowedEndpoint, isPlainPayload, pickHeaders } = require('./ipcGuard.cjs');
 const { appendApiLog } = require('./apiLog.cjs');
+const { createBundleCrawler } = require('./bundleCrawler.cjs');
 
 const REQUEST_TIMEOUT_MS = 20000;
 const DEV_SERVER_ORIGIN = 'http://localhost:5173';
@@ -329,6 +330,34 @@ const WEB_SESSION_PATHS = require('./webApiRoutes.json');
 
 let signInWindow = null;
 let lastSignInNotice = '';
+let bundleCrawlInFlight = null;
+
+function scheduleBundleCrawl() {
+  if (bundleCrawlInFlight) return;
+  const crawler = createBundleCrawler({
+    userDataPath: app.getPath('userData'),
+    projectRoot: path.join(__dirname, '..'),
+    fetchFn: (url, init) => session.defaultSession.fetch(url, init),
+  });
+  bundleCrawlInFlight = crawler.crawl().then((result) => {
+    if (result.ok && result.reason === 'crawled') {
+      console.log(`[Clubbox] bundle crawl done buildId=${result.buildId} chunks=${result.chunks}`);
+      try {
+        fs.writeFileSync(path.join(app.getPath('userData'), 'web-session-ok'), '1');
+      } catch {
+        // ignore
+      }
+    } else if (result.ok && result.reason === 'cache_hit') {
+      console.log(`[Clubbox] bundle crawl cache hit buildId=${result.buildId}`);
+    } else {
+      console.warn('[Clubbox] bundle crawl skipped:', result.reason);
+    }
+  }).catch((err) => {
+    console.warn('[Clubbox] bundle crawl failed:', err instanceof Error ? err.message : err);
+  }).finally(() => {
+    bundleCrawlInFlight = null;
+  });
+}
 
 function maybeNotifyWebSession(target) {
   if (!isClubhouseHttps(target) || !mainWindow || mainWindow.isDestroyed()) return;
@@ -343,6 +372,7 @@ function maybeNotifyWebSession(target) {
   if (lastSignInNotice === url.href) return;
   lastSignInNotice = url.href;
   mainWindow.webContents.send('clubbox:web-session-maybe');
+  scheduleBundleCrawl();
 }
 
 function openOfficialSignIn() {
