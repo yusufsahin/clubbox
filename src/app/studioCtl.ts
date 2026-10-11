@@ -124,6 +124,7 @@ export function setupHotkeys(this: ClubboxApp) {
       } else if (!e.metaKey && !e.ctrlKey && !e.altKey) {
         const fx = audioEngine.soundEffects.find((item) => item.hotkey === e.key);
         if (fx) {
+          if (!this.currentChannel || !this.isMeSpeaker()) return;
           e.preventDefault();
           audioEngine.playSoundEffect(fx.id);
           this.showToast(t('soundNamed', { name: fx.name }), fx.icon);

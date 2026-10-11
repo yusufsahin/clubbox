@@ -31,6 +31,7 @@ import { selfProfilePage } from '../ui/components/profileDrawer';
 import { roomDetailsPanel } from '../ui/components/roomDetailsPanel';
 import { showToast } from '../ui/components/toast';
 import { html, markup, safeUrl } from '../ui/html';
+import { icon } from '../ui/icons';
 import { renderSidebarChrome } from '../ui/shellChrome';
 import { activityView } from '../ui/views/activity';
 import { exploreView } from '../ui/views/explore';
@@ -49,6 +50,9 @@ export class ClubboxApp {
   currentTab: 'stage' | 'explore' | 'discover' | 'friends' | 'messages' | 'activity' | 'houses' | 'events' | 'replay' | 'soundboard' | 'settings' | 'login' = 'explore';
   viewStack: ViewSnapshot[] = [];
   roomDetailsOpen = false;
+  reactionsOpen = false;
+  soundsOpen = false;
+  roomBarOverflowOpen = false;
   housesList: HouseListItem[] | null = null;
   selectedHouse: HouseListItem | null = null;
   houseChatOpen = false;
@@ -623,12 +627,32 @@ export class ClubboxApp {
       document.querySelector('.studio-main')?.appendChild(root);
     }
     const music = audioEngine.getIsMusicMode();
+    const flags = stageControlFlags(this);
+    const mod = this.isMeModerator();
     root.innerHTML = markup(roomDetailsPanel({
       topic: this.currentChannel.topic,
       replaysOn: this.currentChannel.is_replay_enabled !== false,
       audioQuality: music ? 'music' : 'normal',
-      canMuteAll: this.isMeModerator() && clubhouseClient.getConfig().experimentalActions === true,
+      monitorEnabled: audioEngine.getMonitorEnabled(),
+      voiceEffect: audioEngine.getBroadcastEffect(),
+      voiceEffectOptions: [
+        { id: 'none', label: t('voiceEffectNone') },
+        { id: 'radio', label: t('voiceEffectRadio') },
+        { id: 'deep', label: t('voiceEffectDeep') },
+        { id: 'robot', label: t('voiceEffectRobot') },
+        { id: 'echo', label: t('voiceEffectEcho') },
+      ],
+      spatialAudio: this.audioPrefs.spatialAudioEnabled === true,
+      canMuteAll: mod && flags.canMuteEveryone,
       canShare: !!safeUrl(this.currentChannel.url),
+      canModerate: mod,
+      canRename: mod && flags.canRename,
+      canPing: mod && flags.canPing,
+      canEnd: mod && flags.canEnd,
+      canChangeVisibility: mod && flags.canChangeVisibility,
+      canHandraise: mod && flags.canHandraise,
+      visibilityMode: 'open',
+      handraiseMode: this.currentChannel.is_handraise_enabled === false ? 'off' : '1',
       helpUrl: 'https://support.clubhouse.com/hc/en-us/articles/360059385913',
     }));
   }
@@ -772,12 +796,10 @@ export class ClubboxApp {
 
           <div class="top-actions">
             ${onRoomPage ? html`
-              <button class="btn btn-secondary" type="button" data-action="open-room-details">${t('roomDetails')}</button>
               <button class="btn btn-secondary" type="button" data-action="minimize-room">${t('minimize')}</button>
-              <button class="btn btn-danger" data-action="leave-room">${t('leaveQuietly')}</button>
             ` : html`
               ${clubhouseClient.supports('create_channel') ? html`
-                <button class="btn btn-primary" data-action="create-room" data-start-room="top">➕ ${t('startRoom')}</button>
+                <button class="btn btn-primary" data-action="create-room" data-start-room="top">${icon('plus')} ${t('startRoom')}</button>
               ` : html`
                 <button class="btn btn-secondary" type="button" disabled title="${t('notVerifiedHint')}">${t('notVerifiedYet')}</button>
               `}
@@ -1030,15 +1052,15 @@ export class ClubboxApp {
       } : null,
       clubhouseClient.getApiHealth(),
       readAppPrefs(),
-      this.audioPrefs.spatialAudioEnabled === true,
-      audioEngine.getBroadcastEffect(),
+      audioEngine.soundEffects,
+      this.editingSoundId,
     );
   }
 
   renderCockpitBar(): ReturnType<typeof html> {
+    const flags = stageControlFlags(this);
     return cockpitBar({
       muted: audioEngine.getIsMuted(),
-      musicMode: audioEngine.getIsMusicMode(),
       recording: audioEngine.getIsRecording(),
       handRaised: clubhouseClient.isHandRaised(),
       handDisabled: !this.currentChannel || this.isMeSpeaker() || this.currentChannel.is_handraise_enabled === false,
@@ -1059,8 +1081,11 @@ export class ClubboxApp {
         : clubhouseClient.getConfig().allowLocalRecording === true
           ? t('recordingNeedsReplay')
           : t('recordingNeedsConsent'),
-      micVolume: audioEngine.getMicVolume(),
-      monitorEnabled: audioEngine.getMonitorEnabled(),
+      reactionsOpen: this.reactionsOpen,
+      soundsOpen: this.soundsOpen,
+      canReact: flags.canReact,
+      canGifReact: flags.canGifReact,
+      overflowOpen: this.roomBarOverflowOpen,
     });
   }
 
@@ -1249,8 +1274,39 @@ export class ClubboxApp {
         break;
       case 'open-room-details':
         this.roomDetailsOpen = true;
+        this.reactionsOpen = false;
+        this.soundsOpen = false;
         this.render();
         break;
+      case 'toggle-reactions':
+        this.reactionsOpen = !this.reactionsOpen;
+        this.soundsOpen = false;
+        this.render();
+        break;
+      case 'toggle-sounds':
+        this.soundsOpen = !this.soundsOpen;
+        this.reactionsOpen = false;
+        this.render();
+        break;
+      case 'toggle-room-bar-more':
+        this.roomBarOverflowOpen = !this.roomBarOverflowOpen;
+        this.render();
+        break;
+      case 'set-audio-quality': {
+        const quality = (el as HTMLSelectElement).value;
+        if (quality === 'music') {
+          if (!audioEngine.getIsMusicMode()) audioEngine.toggleMusicMode();
+        } else if (audioEngine.getIsMusicMode()) {
+          audioEngine.toggleMusicMode();
+        }
+        this.render();
+        break;
+      }
+      case 'preview-sound': {
+        const fxId = el.getAttribute('data-fx-id');
+        if (fxId) audioEngine.playSoundEffect(fxId, { localOnly: true });
+        break;
+      }
       case 'close-room-details':
         this.roomDetailsOpen = false;
         this.render();

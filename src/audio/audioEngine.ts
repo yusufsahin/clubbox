@@ -590,14 +590,18 @@ export class AudioEngine {
 
   // --- Soundboard Synthesizers & Sampler ---
 
-  public playSoundEffect(effectId: string): void {
+  public playSoundEffect(effectId: string, opts?: { localOnly?: boolean }): void {
     const fx = this.soundEffects.find((s) => s.id === effectId);
     if (!fx) return;
 
     const ctx = this.initContextIfNeeded();
     const padGain = ctx.createGain();
     padGain.gain.value = Math.max(0, Math.min(1, fx.volume ?? 1));
-    padGain.connect(this.soundpadGain!);
+    if (opts?.localOnly) {
+      padGain.connect(ctx.destination);
+    } else {
+      padGain.connect(this.soundpadGain!);
+    }
 
     if (fx.audioBuffer) {
       const src = ctx.createBufferSource();

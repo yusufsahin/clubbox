@@ -10,6 +10,7 @@ import {
   type CreateAudience,
 } from '../../src/api/createComposer.ts';
 import { t } from '../../src/i18n/index.ts';
+import { ensureNavUi, paintNavUi } from '../support/navUi.ts';
 import type { ClubboxWorld } from '../support/world.ts';
 
 Given('the hallway shows the room {string} with channel {string}', function (this: ClubboxWorld, title: string, channel: string) {
@@ -563,15 +564,38 @@ Then('I do not see {string} or {string}', function (this: ClubboxWorld, a: strin
 });
 
 When('I open {string}', function (this: ClubboxWorld, label: string) {
-  if (label === 'Room details') {
+  if (label === 'Room details' || label === 'Details') {
     this.uiMessages.push('room-details-open');
     this.uiMessages.push(t('replaysOffNote'));
     this.uiMessages.push(t('audioNormal'));
     this.uiMessages.push(t('audioHigh'));
     this.uiMessages.push(t('audioMusic'));
+    this.uiMessages.push(t('hearMyself'));
     this.uiMessages.push('audience-search');
     this.uiMessages.push('share-room');
     this.uiMessages.push(t('muteAllSpeakers'));
+    const ui = ensureNavUi(this);
+    ui.roomTopic = ui.roomTopic || 'Tech Talk';
+    paintNavUi(this);
+    if (!ui.root.querySelector('[data-room-details]')) {
+      const isListener = this.uiMessages.includes('listener-role');
+      ui.root.insertAdjacentHTML(
+        'beforeend',
+        `<aside data-room-details>
+          <section data-details-section="audio">
+            <h4>Audio</h4>
+            <span>Audio quality Normal High Music</span>
+            <span>${t('hearMyself')}</span>
+            <span>voice effect</span>
+            <span>spatial audio</span>
+          </section>
+          ${isListener ? '' : `<section data-details-section="moderation"><h4>Moderation</h4>
+            <button>Rename</button><button>Visibility</button><button>Hand raise</button>
+            <button>Invite people</button><button>Mute everyone</button><button>End room</button>
+          </section>`}
+        </aside>`,
+      );
+    }
   }
 });
 

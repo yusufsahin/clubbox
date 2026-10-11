@@ -7,7 +7,6 @@ import { settingsView } from '../../src/ui/views/settings.ts';
 import { cockpitBar } from '../../src/ui/components/cockpitBar.ts';
 import { exploreView } from '../../src/ui/views/explore.ts';
 import { messagesView } from '../../src/ui/views/messages.ts';
-import { soundboardView } from '../../src/ui/views/soundboard.ts';
 import { defaultHallwayPrefs } from '../../src/hallway/hallwayPrefs.ts';
 import { DEFAULT_SHORTCUTS } from '../../src/shortcuts.ts';
 import type { ClubboxWorld } from './world.ts';
@@ -67,9 +66,7 @@ export function paintNavUi(world: ClubboxWorld): NavUi {
             ? t('messages')
             : ui.currentTab === 'activity'
               ? t('activity')
-              : ui.currentTab === 'soundboard'
-                ? t('soundboard')
-                : ui.currentTab === 'stage'
+              : ui.currentTab === 'stage'
                   ? t('liveStage')
                   : t('hallway');
   const topBar = onRoomPage
@@ -101,8 +98,8 @@ export function paintNavUi(world: ClubboxWorld): NavUi {
       null,
       [],
       null,
-      false,
-      'none',
+      [],
+      null,
     ))
     : ui.currentTab === 'discover'
       ? markup(discoverView('', 'top', null, false, { suggestions: 0, talkPartners: [], houses: [] }))
@@ -132,9 +129,7 @@ export function paintNavUi(world: ClubboxWorld): NavUi {
             threadNote: '',
             unreadById: {},
           }))
-          : ui.currentTab === 'soundboard'
-            ? markup(soundboardView([], null, 1))
-            : ui.currentTab === 'explore'
+          : ui.currentTab === 'explore'
               ? markup(exploreView([], [], [], {
                 canJoin: true,
                 canCreate: true,
@@ -146,7 +141,6 @@ export function paintNavUi(world: ClubboxWorld): NavUi {
   const cockpit = ui.roomTopic
     ? markup(cockpitBar({
       muted: true,
-      musicMode: false,
       recording: false,
       handRaised: false,
       handDisabled: false,
@@ -155,16 +149,19 @@ export function paintNavUi(world: ClubboxWorld): NavUi {
       isSpeaker: false,
       inRoom: true,
       roomTitle: ui.roomTopic,
-      effects: [],
+      effects: [{ id: 'applause', name: 'Applause', icon: '👏', hotkey: '1', type: 'synth', synthType: 'applause', volume: 1 }],
       latestChat: '',
       unreadChat: 0,
       chatOpen: false,
       canChat: true,
-      canClip: false,
-      canRecord: false,
+      canClip: true,
+      canRecord: true,
       recordHint: '',
-      micVolume: 1,
-      monitorEnabled: false,
+      reactionsOpen: false,
+      soundsOpen: false,
+      canReact: true,
+      canGifReact: true,
+      overflowOpen: false,
     }))
     : '';
   ui.root.innerHTML = `${sidebar}${topBar}<div id="view-root">${page}</div>${cockpit}`;

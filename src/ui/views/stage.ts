@@ -89,53 +89,6 @@ export function stageColumn(state: StageState): SafeHtml {
               </div>
               <span style="font-size:12px; color:var(--text-dim);">${state.audioDisconnected ? t('audioDisconnected') : t('roomAudio')}</span>
             </div>
-            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; align-items:center;">
-              <button class="btn btn-secondary" type="button" data-action="refresh-stage" title="Ctrl+P">${t('refreshStage')}</button>
-              ${state.moderator && state.canRename ? html`<button class="btn btn-secondary" type="button" data-action="rename-room">${t('renameRoom')}</button>` : ''}
-              ${state.moderator && state.canPing ? html`<button class="btn btn-secondary" type="button" data-action="open-ping-panel">${t('invitePeople')}</button>` : ''}
-              ${state.moderator && state.canMuteEveryone ? html`<button class="btn btn-secondary" type="button" data-action="mute-everyone">${t('muteEveryone')}</button>` : ''}
-              ${state.moderator && state.canEnd ? html`<button class="btn btn-danger" type="button" data-action="end-room">${t('endRoom')}</button>` : ''}
-              ${state.moderator && state.canChangeVisibility ? html`
-                <label class="handraise-select">
-                  <span>${t('roomVisibility')}</span>
-                  <select data-action="set-room-visibility" aria-label="${t('roomVisibility')}">
-                    <option value="open" ${state.visibilityMode === 'open' ? 'selected' : ''}>${t('roomVisibilityOpen')}</option>
-                    <option value="social" ${state.visibilityMode === 'social' ? 'selected' : ''}>${t('roomVisibilitySocial')}</option>
-                  </select>
-                </label>
-              ` : ''}
-              ${state.moderator && state.canHandraise ? html`
-                <label class="handraise-select">
-                  <span>${t('handRaisePermission')}</span>
-                  <select data-action="set-handraise" aria-label="${t('handRaisePermission')}">
-                    <option value="off" ${state.handraiseMode === 'off' ? 'selected' : ''}>${t('handRaiseOff')}</option>
-                    <option value="1" ${state.handraiseMode === '1' ? 'selected' : ''}>${t('handRaiseEveryone')}</option>
-                    <option value="2" ${state.handraiseMode === '2' ? 'selected' : ''}>${t('handRaiseFriendsOfSpeakers')}</option>
-                  </select>
-                </label>
-              ` : ''}
-              ${state.canReact ? html`
-                <div class="reaction-pad" role="group" aria-label="${t('sendReaction')}">
-                  ${['👏', '❤️', '🔥', '😂'].map((emoji) => html`
-                    <button class="btn btn-secondary reaction-btn" type="button" data-action="send-reaction" data-emoji="${emoji}">${emoji}</button>
-                  `)}
-                </div>
-              ` : ''}
-              ${state.canGifReact ? html`
-                <div class="gif-reaction-row">
-                  <input
-                    class="form-input"
-                    id="gif-reaction-input"
-                    type="url"
-                    placeholder="${t('gifReactionPlaceholder')}"
-                    aria-label="${t('gifReactionLabel')}"
-                  />
-                  <button class="btn btn-secondary" type="button" data-action="send-gif-reaction">${t('gifReactionSend')}</button>
-                </div>
-              ` : ''}
-              ${state.moderator && !state.canEnd && !state.canMuteEveryone && !state.canInvite && !state.canHandraise && !state.canRename ? unverifiedAction() : ''}
-            </div>
-
             <div class="speakers-grid">
               ${speakers.map((speaker) => html`
                 <div class="speaker-card ${speaker.is_speaking ? 'speaking' : ''} ${speaker.user_id === state.me?.user_id ? 'me-speaker' : ''}" data-action="open-profile" data-user-id="${speaker.user_id}">

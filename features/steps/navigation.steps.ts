@@ -24,20 +24,19 @@ Given('the navigation shell is ready', function (this: ClubboxWorld) {
 });
 
 Then(
-  'the sidebar shows exactly {string}, {string}, {string}, {string} and {string} in that order',
+  'the sidebar shows exactly {string}, {string}, {string} and {string} in that order',
   function (
     this: ClubboxWorld,
     a: string,
     b: string,
     c: string,
     d: string,
-    e: string,
   ) {
     const ui = paintNavUi(this);
     const labels = [...ui.root.querySelectorAll('[data-nav-place] .nav-place-label')]
       .map((el) => el.textContent?.trim() ?? '');
-    assert.deepEqual(labels, [a, b, c, d, e]);
-    assert.deepEqual(sidebarPlaceLabels(), [a, b, c, d, e]);
+    assert.deepEqual(labels, [a, b, c, d]);
+    assert.deepEqual(sidebarPlaceLabels(), [a, b, c, d]);
   },
 );
 
@@ -158,10 +157,10 @@ Then('{string} shows a dot', function (this: ClubboxWorld, place: string) {
   }
 });
 
-Then('{string}, {string} and {string} show no badge', function (this: ClubboxWorld, a: string, b: string, c: string) {
+Then('{string} and {string} show no badge', function (this: ClubboxWorld, a: string, b: string) {
   const ui = paintNavUi(this);
-  for (const place of [a, b, c]) {
-    const key = place === 'Hallway' ? 'hallway' : place === 'Discover' ? 'discover' : 'soundboard';
+  for (const place of [a, b]) {
+    const key = place === 'Hallway' ? 'hallway' : 'discover';
     const item = ui.root.querySelector(`[data-nav-place="${key}"]`);
     assert.ok(item, `missing ${place}`);
     assert.equal(item.querySelector('.count-badge, .nav-dot'), null, `${place} should have no badge`);
@@ -173,7 +172,7 @@ When('I open each place', function (this: ClubboxWorld) {
 });
 
 Then('the page content never repeats the top bar title as a heading', function (this: ClubboxWorld) {
-  const places = ['explore', 'discover', 'messages', 'activity', 'soundboard'] as const;
+  const places = ['explore', 'discover', 'messages', 'activity'] as const;
   for (const tab of places) {
     const ui = ensureNavUi(this);
     ui.currentTab = tab;

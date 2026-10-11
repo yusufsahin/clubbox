@@ -1,7 +1,7 @@
 import { t } from '../../i18n';
 import type { AppPrefs } from '../../app/appPrefs';
 import type { ClubhouseConfig } from '../../api/client';
-import type { MeSettings } from '../../api/types';
+import type { MeSettings, SoundEffectItem } from '../../api/types';
 import { SHORTCUT_ACTIONS, type ShortcutAction, type ShortcutMap } from '../../shortcuts';
 import { html, type SafeHtml } from '../html';
 
@@ -63,8 +63,8 @@ export function settingsView(
   account: AccountReadout | null,
   apiHealth: ApiHealthRow[] = [],
   appPrefs: AppPrefs | null = null,
-  spatialAudio = false,
-  voiceEffect: 'none' | 'radio' | 'deep' | 'robot' | 'echo' = 'none',
+  soundEffects: SoundEffectItem[] = [],
+  editingSoundId: string | null = null,
 ): SafeHtml {
   return html`
     <div style="max-width:780px; margin:0 auto;" data-page="settings" data-nav-contains="api-config">
@@ -125,25 +125,7 @@ export function settingsView(
           </select>
           <p id="output-device-note" hidden style="font-size:12px; color:var(--text-dim); margin-top:8px;">${t('outputUnsupported')}</p>
         </div>
-        <label style="display:flex; align-items:flex-start; gap:8px; margin-top:16px; cursor:pointer;">
-          <input type="checkbox" id="cfg-spatial-audio" ${spatialAudio ? 'checked' : ''} />
-          <span><strong>${t('spatialAudio')}</strong><br />${t('spatialAudioHelp')}</span>
-        </label>
-        <div class="form-group" style="margin-top:16px;">
-          <label class="form-label" for="cfg-voice-effect">${t('voiceEffects')}</label>
-          <select class="form-input" id="cfg-voice-effect" data-action="pick-voice-effect">
-            <option value="none" ${voiceEffect === 'none' ? 'selected' : ''}>${t('voiceEffectNone')}</option>
-            <option value="radio" ${voiceEffect === 'radio' ? 'selected' : ''}>${t('voiceEffectRadio')}</option>
-            <option value="deep" ${voiceEffect === 'deep' ? 'selected' : ''}>${t('voiceEffectDeep')}</option>
-            <option value="robot" ${voiceEffect === 'robot' ? 'selected' : ''}>${t('voiceEffectRobot')}</option>
-            <option value="echo" ${voiceEffect === 'echo' ? 'selected' : ''}>${t('voiceEffectEcho')}</option>
-          </select>
-          <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
-            <button class="btn btn-secondary" type="button" data-action="preview-voice-effect">${t('voiceEffectPreview')}</button>
-            <button class="btn btn-primary" type="button" data-action="apply-voice-effect">${t('voiceEffectApply')}</button>
-          </div>
-          <p style="font-size:12px; color:var(--text-muted); margin-top:8px;">${t('voiceEffectsHelp')}</p>
-        </div>
+        <p class="list-note" style="margin-top:12px;">${t('recordingNeedsConsent')}</p>
       </div>
 
       <div style="background:var(--bg-card); border:1px solid var(--border-subtle); border-radius:var(--radius-lg); padding:24px; margin-bottom:20px;">
@@ -162,6 +144,29 @@ export function settingsView(
           </div>
         `)}
       </div>
+      </section>
+
+      <section data-settings-section="sounds">
+        <h3 class="settings-section-title">${t('settingsSounds')}</h3>
+        <div style="background:var(--bg-card); border:1px solid var(--border-subtle); border-radius:var(--radius-lg); padding:24px; margin-bottom:20px;" data-settings-sounds>
+          <p class="list-note">${t('soundboardHelp')}</p>
+          <label class="btn btn-primary" style="cursor:pointer; margin:12px 0; display:inline-flex;">
+            ${t('uploadSound')}
+            <input type="file" id="sound-upload-input" accept="audio/*" style="display:none;" />
+          </label>
+          <div class="soundboard-grid">
+            ${(soundEffects ?? []).map((fx) => html`
+              <div class="soundpad-tile ${fx.id === editingSoundId ? 'editing' : ''}">
+                <button class="soundpad-play" type="button" data-action="preview-sound" data-fx-id="${fx.id}">
+                  <span class="soundpad-hotkey">${fx.hotkey || t('noHotkey')}</span>
+                  <span class="soundpad-icon">${fx.icon}</span>
+                  <span class="soundpad-name">${fx.name}</span>
+                </button>
+                <button class="soundpad-edit-btn" type="button" data-action="edit-sound" data-fx-id="${fx.id}">${t('editSound')}</button>
+              </div>
+            `)}
+          </div>
+        </div>
       </section>
 
       <section data-settings-section="account">

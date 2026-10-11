@@ -10,7 +10,6 @@ export const SIDEBAR_PLACES = [
   { tab: 'discover', icon: '🔍', labelKey: 'discover' as const },
   { tab: 'messages', icon: '💬', labelKey: 'messages' as const },
   { tab: 'activity', icon: '🔔', labelKey: 'activity' as const },
-  { tab: 'soundboard', icon: '🎛️', labelKey: 'soundboard' as const },
 ] as const;
 
 export type SidebarChromeState = {
