@@ -14,7 +14,10 @@ export interface MessagesState {
   playbackRate: number;
   presence: PresenceFriend[];
   canCreateVm: boolean;
+  canReact: boolean;
 }
+
+const THREAD_REACTIONS = ['❤️', '👏', '🔥', '😂'] as const;
 
 function formatRelative(value: string): string {
   const date = new Date(value);
@@ -127,6 +130,20 @@ function threadPanel(item: CHConversation, state: MessagesState): SafeHtml {
                   </div>
                   ${segment.text ? html`<div class="thread-transcript">${segment.text}</div>` : ''}
                 ` : html`<div class="thread-bubble">${segment.text}</div>`}
+                ${state.canReact ? html`
+                  <div class="thread-react-pad" role="group" aria-label="${t('reactToSegment')}">
+                    ${THREAD_REACTIONS.map((emoji) => html`
+                      <button
+                        class="speed-chip"
+                        type="button"
+                        data-action="react-thread-segment"
+                        data-conversation-id="${item.conversation_id}"
+                        data-segment-id="${segment.id}"
+                        data-emoji="${emoji}"
+                      >${emoji}</button>
+                    `)}
+                  </div>
+                ` : ''}
               </div>
             `)}
           </div>

@@ -181,6 +181,26 @@ export function liveMessageBlocked(this: ClubboxApp) : boolean {
     return true;
   }
 
+export async function reactToThreadSegment(
+  this: ClubboxApp,
+  conversationId: string | undefined,
+  segmentId: string | undefined,
+  emoji: string | undefined,
+): Promise<void> {
+    if (!conversationId || !segmentId || !emoji) return;
+    if (!clubhouseClient.supports('send_conversation_emoji_reaction')) {
+      this.showToast(t('unverifiedAction'), '🔒');
+      return;
+    }
+    try {
+      await clubhouseClient.sendConversationEmojiReaction(conversationId, segmentId, emoji);
+      this.showToast(t('reactionSent'), emoji);
+    } catch (err) {
+      // 400 (and other failures) are recorded in API Health by the client; surface them.
+      this.reportApiError(err);
+    }
+  }
+
 export function wireMessagesCtl(proto: ClubboxApp): void {
   proto.loadConversations = loadConversations;
   proto.openConversationThread = openConversationThread;
@@ -189,4 +209,5 @@ export function wireMessagesCtl(proto: ClubboxApp): void {
   proto.addThreadMember = addThreadMember;
   proto.runThreadPermission = runThreadPermission;
   proto.liveMessageBlocked = liveMessageBlocked;
+  proto.reactToThreadSegment = reactToThreadSegment;
 }

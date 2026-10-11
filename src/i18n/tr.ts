@@ -315,6 +315,8 @@ export const tr: Record<MessageKey, string> = {
   renameRoomPrompt: 'Oda başlığı',
   roomRenamed: 'Oda başlığı güncellendi',
   sendReaction: 'Tepki gönder',
+  reactToSegment: 'Bu mesaja tepki ver',
+  reactionSent: 'Tepki gönderildi',
   invitePeople: 'Kişi davet et',
   invitePeopleHelp: 'Arkadaşları bu odaya ping’le. Canlı davet için Experimental actions gerekir.',
   invitePeopleSearch: 'İsim veya bio ile ara',

@@ -896,6 +896,7 @@ export class ClubboxApp {
         playbackRate: this.voiceRate,
         presence: clubhouseClient.getSandbox()?.presence() ?? [],
         canCreateVm: !!clubhouseClient.getSandbox() || clubhouseClient.supports('create_conversation'),
+        canReact: clubhouseClient.supports('send_conversation_emoji_reaction'),
       });
     } else if (this.currentTab === 'activity') {
       return activityView({
@@ -1321,6 +1322,9 @@ export class ClubboxApp {
         }
         break;
       }
+      case 'react-thread-segment':
+        void this.reactToThreadSegment(el.dataset.conversationId, el.dataset.segmentId, el.dataset.emoji);
+        break;
       case 'refresh-messages':
         void this.loadConversations();
         if (this.openConversationId) void this.openConversationThread(this.openConversationId);

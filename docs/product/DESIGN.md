@@ -116,7 +116,7 @@ Legend — Evidence: O observed · B bundle call site · C community · ? to dis
 | mark_conversation_segment_listened | POST | conversation_id, segment_id | ack | O | ✅ on voice play | MessagesCtl |
 | add_conversation_segment | POST | ? | segment | B (no body) | 🧪 (G-05) | Composer |
 | create_conversation | POST | ? | conversation | B (no body) | 🧪 | New VM |
-| send_conversation_emoji_reaction | POST | ? (400 observed) | ack | O-error | ❌ | Thread |
+| send_conversation_emoji_reaction | POST | conversation_id, segment_id, emoji | ack | B (400 observed historically) | ✅ thread react pad; failures → API Health | Thread |
 | update_conversation_title / delete_conversation / delete_conversation_segment | POST | ? | ack | B (no body) | ❌ | Thread menu |
 | get_conversation_unread_summary | POST | ? | counts | B | ✅ badge via readUnreadSummary (falls back to me) | Badge |
 

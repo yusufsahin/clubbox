@@ -13,8 +13,8 @@ Do these before continuing the Autonomous plan, then tick them:
 
 ### Last autonomous run (2026-10-11)
 
-- Autonomous plan already **Done** through **11.8 (strict)**; this devam wired RL-12 replay/highlight playback.
-- Done: Replay player (`get_replay_channel` / `get_highlight`) with 1x/1.5x/2x and ±15s; discover + paste-link open path; sandbox tone when no audio URL; DESIGN Today updated.
+- Autonomous plan already **Done** through **11.8 (strict)**; this devam wired Messages segment reactions.
+- Done: Thread react pad (`send_conversation_emoji_reaction`); failures surface via toast + API Health; DESIGN Today updated.
 - Tests: `npm test` — **120** unit + **123 BDD** + trace strict; tsc/lint/build green.
 - Blocked: `test:e2e:packaged`; owner live room capture (0.9 S1–S3); topic-chip request body uncaptured.
 - Still @pending: ST-9 deferred; room_host DX-1/DX-3.

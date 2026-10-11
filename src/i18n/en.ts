@@ -313,6 +313,8 @@ export const en = {
   renameRoomPrompt: 'Room title',
   roomRenamed: 'Room title updated',
   sendReaction: 'Send a reaction',
+  reactToSegment: 'React to this message',
+  reactionSent: 'Reaction sent',
   invitePeople: 'Invite people',
   invitePeopleHelp: 'Ping friends into this room. Experimental actions required for live invites.',
   invitePeopleSearch: 'Search by name or bio',

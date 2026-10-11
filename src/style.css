@@ -2541,6 +2541,7 @@ button.profile-stat-box:hover .stat-value {
 .messages-page .presence-row,
 .thread-actions,
 .thread-speeds,
+.thread-react-pad,
 .message-filters,
 .thread-composer,
 .presence-actions {
@@ -2548,6 +2549,10 @@ button.profile-stat-box:hover .stat-value {
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
+}
+
+.thread-react-pad {
+  margin-top: 6px;
 }
 
 .presence-row {

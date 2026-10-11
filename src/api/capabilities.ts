@@ -34,6 +34,8 @@ const SANDBOX_ENDPOINTS = new Set([
   'get_notifications',
   'get_events',
   'get_conversations',
+  'get_conversation',
+  'send_conversation_emoji_reaction',
   'get_conversation_unread_summary',
   'get_user_social_clubs',
   'get_social_club',
