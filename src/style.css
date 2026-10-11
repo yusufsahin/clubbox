@@ -249,6 +249,7 @@ body {
 }
 
 .nav-item {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -1716,21 +1717,18 @@ body {
   font-size: 13px;
 }
 
+/* Unread Activity signal — must stay on the Activity row (never position against #app). */
 .nav-dot {
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
+  margin-left: auto;
+  width: 8px;
+  height: 8px;
+  min-width: 8px;
+  padding: 0;
   border-radius: 999px;
-  background: var(--badge-live-bg);
-  color: var(--badge-live-fg);
-  border: 2px solid var(--bg-topbar);
+  background: var(--accent-emerald);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-emerald) 22%, transparent);
   box-sizing: border-box;
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 12px;
+  flex-shrink: 0;
 }
 
 .top-icon-btn svg {
