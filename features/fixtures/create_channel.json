@@ -1,27 +1,690 @@
 {
-  "success": true,
-  "channel": "morning-show",
-  "topic": "Morning show",
-  "token": "agora_create_token_fixture",
-  "rtm_token": "rtm_token_fixture",
-  "pubnub_token": "pubnub_token_fixture",
-  "user_capabilities": {
-    "can_end_room": true,
-    "can_mute_speakers": true,
-    "can_remove_speakers": true,
-    "can_invite": true,
-    "can_edit_room_title": true,
-    "can_post_to_chat": true
+  "creator_user_profile_id": 1,
+  "channel_id": 2,
+  "channel": "PG2LoOww",
+  "time_created": "<redacted>T09:57:14.295383Z",
+  "language": "en",
+  "topic": "test",
+  "privacy_settings": {
+    "type": "friend_of_friend",
+    "display_text": "your friends of friends",
+    "tooltip_text": "this room is open to your friends of friends"
   },
-  "users": [
+  "is_private": false,
+  "is_social_mode": false,
+  "is_social_club_lounge": false,
+  "url": "https://www.clubhouse.com/room/G39clnVDWWtrgBWpA:xvPM_yGMUSSm1s6rh8q3zYxarR9M-3fpPrAD_gezFHA?utm_medium=ch_instant_invite&utm_campaign=nuBblL0zLJaRQmEljazl7A-2511477&chs=p7wCwqOZoJ%3AvdywmOKFY0jymA5rdTtX3uu_IUh-D1Oew1pYfSsoUxQ",
+  "feature_flags": [
+    "AGORA_AUDIO_PROFILE_MUSIC_STANDARD_STEREO",
+    "MUSIC_STANDARD_STEREO"
+  ],
+  "handraise_queue_setting": 0,
+  "handraise_queue_options": [
     {
-      "user_id": 42,
-      "name": "Me",
-      "username": "me",
-      "is_speaker": true,
-      "is_moderator": true
+      "value": 0,
+      "label": "open stage",
+      "short_label": "open stage",
+      "sub_label": "anyone can speak"
+    },
+    {
+      "value": 2,
+      "label": "request to join",
+      "short_label": "request to join",
+      "sub_label": "anyone can request, mods approve"
+    },
+    {
+      "value": 1,
+      "label": "invite only",
+      "short_label": "invite only",
+      "sub_label": "only mods can invite to stage"
     }
   ],
-  "num_speakers": 1,
-  "num_all": 1
+  "is_handraise_enabled": false,
+  "handraise_permission": 0,
+  "is_handraise_available": false,
+  "is_topics_available": false,
+  "is_automatic_speaker_approval_available": true,
+  "is_pinned_links_available": true,
+  "are_games_available": false,
+  "is_overflow_menu_available": true,
+  "is_room_chat_available": true,
+  "is_suggested_links_available": false,
+  "show_last_speaker_warning": true,
+  "is_trending_topic_channel": false,
+  "hide_moderator_indicator": false,
+  "is_nsfw": false,
+  "is_preview": false,
+  "users": [
+    {
+      "user_id": 3,
+      "name": "user_18",
+      "photo_url": null,
+      "is_speaker": true,
+      "is_moderator": true,
+      "time_joined_as_speaker": "<redacted>T09:57:14.320026+00:00",
+      "is_followed_by_speaker": true,
+      "is_cofollowed_by_speaker": true,
+      "first_name": "user_5",
+      "channel_emoji": null,
+      "username": "user_6",
+      "skintone": 3,
+      "twitter": null,
+      "is_social_club_member": false,
+      "is_web_listener": false,
+      "selected_poll_option_id": null,
+      "is_photo_nsfw": false,
+      "is_opted_out_of_highlights": false,
+      "full_photo_url": null,
+      "is_invited_as_speaker": false,
+      "is_eligible_for_paid_reactions": false
+    }
+  ],
+  "club": null,
+  "social_club": null,
+  "welcome_for_user_profile": null,
+  "is_club_follower": false,
+  "is_club_member": false,
+  "is_club_admin": false,
+  "is_club_pending_accept": false,
+  "is_pending_accept_club_rules": false,
+  "clips_permission": 0,
+  "is_replay_enabled": false,
+  "can_disable_replay": false,
+  "are_highlights_enabled": false,
+  "is_replay_hidden_from_profile": false,
+  "is_chat_enabled": false,
+  "chat_permission": 1,
+  "chat_permission_options": [
+    {
+      "value": 1,
+      "label": "open chat",
+      "short_label": "open chat",
+      "sub_label": "anyone can chat"
+    },
+    {
+      "value": 2,
+      "label": "followers of the host",
+      "short_label": "followers of the host",
+      "sub_label": "anyone who follows the host can chat"
+    },
+    {
+      "value": 3,
+      "label": "trusted followers of the host",
+      "short_label": "trusted followers",
+      "sub_label": "friends, verified followers with enough karma or Clubhouse Plus subscriptions"
+    }
+  ],
+  "is_web_listening_enabled": true,
+  "is_gif_enabled": true,
+  "emoji_reaction_options": [
+    "❤️",
+    "🙏",
+    "💀",
+    "😂",
+    "👀",
+    "👋",
+    "👍",
+    "👎",
+    "🙌",
+    "‼️",
+    "😢",
+    "🫠",
+    "💯",
+    "🌶️",
+    "🌷",
+    "🚩",
+    "❌",
+    "😡",
+    "😱",
+    "🙄",
+    "💅",
+    "👩",
+    "🐦‍🔥",
+    "🌸"
+  ],
+  "topics": [],
+  "is_saved": false,
+  "can_save": false,
+  "user_capabilities": {
+    "can_end_room": true,
+    "can_save": false,
+    "can_disable_replay": false,
+    "can_share": true,
+    "can_invite": true,
+    "can_edit_pinned_links": true,
+    "can_disable_room_chat": true,
+    "can_change_enable_web_listening": true,
+    "can_remove_speakers": true,
+    "can_mute_speakers": true,
+    "can_edit_handraise_queue": true,
+    "can_edit_background_music": true,
+    "can_edit_room_title": true,
+    "can_update_suggested_links": false,
+    "can_post_to_chat": false,
+    "can_speak": true,
+    "can_gif_react": true,
+    "can_send_paid_reacts": false,
+    "can_send_paid_react_thanks": true,
+    "can_view_moderator_actions_history": true,
+    "can_edit_host_banner": true,
+    "stage_removed": false,
+    "can_rejoin_stage_directly": false,
+    "can_update_highlights_settings": false,
+    "can_create_highlights": false,
+    "can_manage_channel_user_poll": true,
+    "can_view_channel_user_poll_votes": false
+  },
+  "share_menu_options": [
+    "external_share",
+    "copy_link",
+    "ping"
+  ],
+  "ping_bar": {
+    "mode": "show_ping_bar_with_contacts",
+    "title": "Invite friends to join in"
+  },
+  "paid_tier": 0,
+  "emoji_reactions": {
+    "channel_reactions": [
+      "❤️",
+      "😂",
+      "👍",
+      "🙌",
+      "👏",
+      "💯",
+      "🔥",
+      "🌶️",
+      "😢",
+      "👀",
+      "🥳",
+      "💀",
+      "👎",
+      "🙄",
+      "❌",
+      "😡"
+    ],
+    "audio_reactions": [
+      "🛎️",
+      "🚨",
+      "✨",
+      "⏪",
+      "💰",
+      "🦗",
+      "🥳",
+      "🥁",
+      "🛬",
+      "😱",
+      "🔥",
+      "👏"
+    ],
+    "profile_reactions": [
+      "❤️",
+      "😂",
+      "👍",
+      "💀",
+      "💯",
+      "🔥"
+    ]
+  },
+  "reactions": {
+    "channel_reactions": [
+      {
+        "id": 4,
+        "sort_priority": 0,
+        "emoji": "❤️"
+      },
+      {
+        "id": 5,
+        "sort_priority": 1,
+        "emoji": "😂"
+      },
+      {
+        "id": 6,
+        "sort_priority": 2,
+        "emoji": "👍"
+      },
+      {
+        "id": 7,
+        "sort_priority": 3,
+        "emoji": "🙌"
+      },
+      {
+        "id": 8,
+        "sort_priority": 4,
+        "emoji": "👏"
+      },
+      {
+        "id": 9,
+        "sort_priority": 5,
+        "emoji": "💯"
+      },
+      {
+        "id": 10,
+        "sort_priority": 6,
+        "emoji": "🔥"
+      },
+      {
+        "id": 11,
+        "sort_priority": 7,
+        "emoji": "🌶️"
+      },
+      {
+        "id": 12,
+        "sort_priority": 8,
+        "emoji": "😢"
+      },
+      {
+        "id": 13,
+        "sort_priority": 9,
+        "emoji": "👀"
+      },
+      {
+        "id": 14,
+        "sort_priority": 10,
+        "emoji": "🥳"
+      },
+      {
+        "id": 15,
+        "sort_priority": 11,
+        "emoji": "💀"
+      },
+      {
+        "id": 16,
+        "sort_priority": 12,
+        "emoji": "👎"
+      },
+      {
+        "id": 17,
+        "sort_priority": 13,
+        "emoji": "🙄"
+      },
+      {
+        "id": 18,
+        "sort_priority": 14,
+        "emoji": "❌"
+      },
+      {
+        "id": 19,
+        "sort_priority": 15,
+        "emoji": "😡"
+      }
+    ],
+    "audio_reactions": [
+      {
+        "id": 20,
+        "sort_priority": 0,
+        "emoji": "🛎️"
+      },
+      {
+        "id": 21,
+        "sort_priority": 1,
+        "emoji": "🚨"
+      },
+      {
+        "id": 22,
+        "sort_priority": 2,
+        "emoji": "✨"
+      },
+      {
+        "id": 23,
+        "sort_priority": 3,
+        "emoji": "⏪"
+      },
+      {
+        "id": 24,
+        "sort_priority": 4,
+        "emoji": "💰"
+      },
+      {
+        "id": 25,
+        "sort_priority": 5,
+        "emoji": "🦗"
+      },
+      {
+        "id": 26,
+        "sort_priority": 6,
+        "emoji": "🥳"
+      },
+      {
+        "id": 27,
+        "sort_priority": 7,
+        "emoji": "🥁"
+      },
+      {
+        "id": 28,
+        "sort_priority": 8,
+        "emoji": "🛬"
+      },
+      {
+        "id": 29,
+        "sort_priority": 9,
+        "emoji": "😱"
+      },
+      {
+        "id": 30,
+        "sort_priority": 10,
+        "emoji": "🔥"
+      },
+      {
+        "id": 31,
+        "sort_priority": 11,
+        "emoji": "👏"
+      }
+    ],
+    "profile_reactions": [
+      {
+        "id": 32,
+        "sort_priority": 0,
+        "emoji": "❤️"
+      },
+      {
+        "id": 33,
+        "sort_priority": 1,
+        "emoji": "😂"
+      },
+      {
+        "id": 34,
+        "sort_priority": 2,
+        "emoji": "👍"
+      },
+      {
+        "id": 35,
+        "sort_priority": 3,
+        "emoji": "💀"
+      },
+      {
+        "id": 36,
+        "sort_priority": 4,
+        "emoji": "💯"
+      },
+      {
+        "id": 37,
+        "sort_priority": 5,
+        "emoji": "🔥"
+      }
+    ],
+    "paid_reactions": [
+      {
+        "id": 38,
+        "image_url": "user_238",
+        "coins_price": 5,
+        "title": "heart",
+        "sort_priority": 1
+      },
+      {
+        "id": 39,
+        "image_url": "user_239",
+        "coins_price": 10,
+        "title": "love it",
+        "sort_priority": 2
+      },
+      {
+        "id": 40,
+        "image_url": "user_240",
+        "coins_price": 10,
+        "title": "gift",
+        "sort_priority": 3
+      },
+      {
+        "id": 41,
+        "image_url": "user_241",
+        "coins_price": 10,
+        "title": "drool",
+        "sort_priority": 4
+      },
+      {
+        "id": 42,
+        "image_url": "user_242",
+        "coins_price": 25,
+        "title": "that's tea",
+        "sort_priority": 5
+      },
+      {
+        "id": 43,
+        "image_url": "user_243",
+        "coins_price": 25,
+        "title": "you're cooking",
+        "sort_priority": 6
+      },
+      {
+        "id": 44,
+        "image_url": "user_244",
+        "coins_price": 25,
+        "title": "applause",
+        "sort_priority": 7
+      },
+      {
+        "id": 45,
+        "image_url": "user_245",
+        "coins_price": 50,
+        "title": "rip",
+        "sort_priority": 8
+      },
+      {
+        "id": 46,
+        "image_url": "user_246",
+        "coins_price": 50,
+        "title": "timer",
+        "sort_priority": 9
+      },
+      {
+        "id": 47,
+        "image_url": "user_247",
+        "coins_price": 50,
+        "title": "announcement",
+        "sort_priority": 10
+      },
+      {
+        "id": 48,
+        "image_url": "user_248",
+        "coins_price": 100,
+        "title": "genius",
+        "sort_priority": 11
+      },
+      {
+        "id": 49,
+        "image_url": "user_249",
+        "coins_price": 100,
+        "title": "kaboom",
+        "sort_priority": 12
+      },
+      {
+        "id": 50,
+        "image_url": "user_250",
+        "coins_price": 200,
+        "title": "love gem",
+        "sort_priority": 13
+      },
+      {
+        "id": 51,
+        "image_url": "user_251",
+        "coins_price": 200,
+        "title": "party hat",
+        "sort_priority": 14
+      },
+      {
+        "id": 52,
+        "image_url": "user_252",
+        "coins_price": 300,
+        "title": "cheers",
+        "sort_priority": 15
+      },
+      {
+        "id": 53,
+        "image_url": "user_253",
+        "coins_price": 300,
+        "title": "angry",
+        "sort_priority": 16
+      },
+      {
+        "id": 54,
+        "image_url": "user_254",
+        "coins_price": 400,
+        "title": "game over",
+        "sort_priority": 17
+      },
+      {
+        "id": 55,
+        "image_url": "user_255",
+        "coins_price": 400,
+        "title": "sleep mode",
+        "sort_priority": 18
+      },
+      {
+        "id": 56,
+        "image_url": "user_256",
+        "coins_price": 500,
+        "title": "brilliant",
+        "sort_priority": 19
+      },
+      {
+        "id": 57,
+        "image_url": "user_257",
+        "coins_price": 500,
+        "title": "money bag",
+        "sort_priority": 20
+      },
+      {
+        "id": 58,
+        "image_url": "user_258",
+        "coins_price": 800,
+        "title": "deceased",
+        "sort_priority": 21
+      },
+      {
+        "id": 59,
+        "image_url": "user_259",
+        "coins_price": 1000,
+        "title": "amen",
+        "sort_priority": 22
+      },
+      {
+        "id": 60,
+        "image_url": "user_260",
+        "coins_price": 1000,
+        "title": "groovin",
+        "sort_priority": 23
+      },
+      {
+        "id": 61,
+        "image_url": "user_261",
+        "coins_price": 2000,
+        "title": "love potion",
+        "sort_priority": 24
+      },
+      {
+        "id": 62,
+        "image_url": "user_262",
+        "coins_price": 3000,
+        "title": "birthday",
+        "sort_priority": 25
+      },
+      {
+        "id": 63,
+        "image_url": "user_263",
+        "coins_price": 5000,
+        "title": "hall of fame",
+        "sort_priority": 26
+      },
+      {
+        "id": 64,
+        "image_url": "user_264",
+        "coins_price": 10000,
+        "title": "crowned",
+        "sort_priority": 27
+      },
+      {
+        "id": 65,
+        "image_url": "user_265",
+        "coins_price": 25000,
+        "title": "legend",
+        "sort_priority": 28
+      }
+    ],
+    "paid_profile_reactions": [
+      {
+        "id": 66,
+        "image_url": "user_242",
+        "coins_price": 25,
+        "title": "that's tea",
+        "sort_priority": 5
+      },
+      {
+        "id": 67,
+        "image_url": "user_248",
+        "coins_price": 100,
+        "title": "genius",
+        "sort_priority": 11
+      },
+      {
+        "id": 68,
+        "image_url": "user_250",
+        "coins_price": 200,
+        "title": "love gem",
+        "sort_priority": 13
+      },
+      {
+        "id": 69,
+        "image_url": "user_256",
+        "coins_price": 500,
+        "title": "brilliant",
+        "sort_priority": 19
+      },
+      {
+        "id": 70,
+        "image_url": "user_260",
+        "coins_price": 1000,
+        "title": "groovin",
+        "sort_priority": 23
+      }
+    ]
+  },
+  "is_channel_user_poll_enabled": true,
+  "channel_user_poll": {
+    "poll_metadata": null,
+    "poll_results": null,
+    "poll_upsell_card": {
+      "title": "start a poll",
+      "subtitle": "get the room's opinions"
+    },
+    "poll_validation_rules": {
+      "title_characters_min": 5,
+      "title_characters_max": 80,
+      "title_warning_threshold": 70,
+      "option_characters_min": 5,
+      "option_characters_max": 30,
+      "option_warning_threshold": 25
+    },
+    "poll_colors": [
+      {
+        "light_hex": "#80DFB3",
+        "dark_hex": "#5C957A"
+      },
+      {
+        "light_hex": "#85C5FF",
+        "dark_hex": "#5F85A7"
+      },
+      {
+        "light_hex": "#CDAEEF",
+        "dark_hex": "#9B85B0"
+      },
+      {
+        "light_hex": "#FFCD8A",
+        "dark_hex": "#A98A61"
+      }
+    ]
+  },
+  "channel_paid_reactions_active_speaker_limit": 20,
+  "channel_paid_reactions_ticker_duration_ms": 4000,
+  "success": true,
+  "should_join_muted": false,
+  "rtm_token": null,
+  "token": null,
+  "pubnub_token": null,
+  "pubnub_origin": "clubhouse.pubnubapi.com",
+  "pubnub_heartbeat_value": 20,
+  "pubnub_heartbeat_interval": 9,
+  "pubnub_time_token": null,
+  "pubnub_enable": true,
+  "agora_native_mute": true
 }

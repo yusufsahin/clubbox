@@ -11,6 +11,25 @@ const USER_IDS: Record<string, number> = {
 When('I open the profile of user {string}', async function (this: ClubboxWorld, username: string) {
   const userId = USER_IDS[username] ?? Number(username);
   assert.ok(Number.isFinite(userId), `unknown user ${username}`);
+  // Shared fixture is capture-shaped (often empty mutuals). Scenario needs two named mutuals.
+  this.transport.setFixture('get_profile', {
+    success: true,
+    user_profile: {
+      user_id: userId,
+      name: 'Ayse',
+      username,
+      photo_url: null,
+      bio: 'hello',
+      num_followers: 12,
+      num_following: 34,
+      num_cofollows: 5,
+      mutual_follows_count: 5,
+      mutual_follows: [
+        { user_id: 2, name: 'A', username: 'a', photo_url: null },
+        { user_id: 3, name: 'B', username: 'b', photo_url: null },
+      ],
+    },
+  });
   const res = await this.client.getProfile(userId);
   this.profileOpen = { username, userId };
   const profile = res.user_profile;

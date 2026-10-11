@@ -8,11 +8,11 @@ _Last reviewed: 2026-10-11. “Uygulandı” means the code is in the tree. “C
 
 Hallway filter fixed by the owner session in 9bd6525. Do Phase 13 (13.1 → 13.2 → 13.3) now; fix every bug it surfaces with a failing test first; commit per item; then stop and write the summary.
 - [x] 13.1 type checking back on for src/app/*
-- [ ] 13.2 fixtures from real captures + shape test
+- [x] 13.2 fixtures from real captures + shape test
 - [ ] 13.3 BDD steps call real code + guard test
 ### Last autonomous run (2026-10-11)
 
-- In progress: Phase 13. Done 13.1 (`@ts-nocheck` removed; `ctlMethods` merge; `check-nocheck` in npm test). Next: 13.2.
+- In progress: Phase 13. Done 13.1 + 13.2 (`make-fixtures`, shape test, feed fixtures without room `topic_key`). Next: 13.3.
 
 ## Status
 

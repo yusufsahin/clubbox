@@ -2,20 +2,251 @@
   "success": true,
   "conversations": [
     {
-      "conversation_id": "c1",
-      "title": "Thread",
-      "short_title": "Thread",
-      "preview_segment_text": "Hi",
-      "creator_user_profile": { "user_id": 1, "name": "Ayse", "username": "ayse", "photo_url": null },
-      "segments_authors": [],
-      "is_subscribed": true,
-      "is_permanent_social_club_conversation": false,
-      "preview_segment_type": "TEXT",
-      "is_archived": false,
-      "permissions": { "can_reply": true, "can_add_members": false, "can_invite": false, "can_delete": false, "can_leave": true, "cant_reply_reason": "" },
-      "privacy_settings": { "display_text": "Private", "tooltip_text": "" },
+      "conversation_id": "eff8a79c-dedb-4897-be8a-f3cb39396bfd",
+      "title": "user_1",
+      "summary": "There is not enough context. Maybe you should say something?",
+      "time_created": "<redacted>T00:07:00.219023Z",
+      "time_content_updated": "<redacted>T09:32:user_82.580806Z",
+      "creator_user_profile": {
+        "user_id": 1,
+        "name": "user_1",
+        "username": "user_2",
+        "photo_url": "user_3",
+        "bio": "Deneyen,Girişimci,IT Danışmanı ve Eğitmen\n—\nDene,Hata yap,Öğren,İlerle\n—\nVolunta…",
+        "emoji": ""
+      },
+      "social_club": null,
+      "segments_authors": [
+        {
+          "user_id": 2,
+          "name": "user_1",
+          "username": "user_2",
+          "photo_url": "user_4",
+          "bio": "Deneyen,Girişimci,IT Danışmanı ve Eğitmen\n—\nDene,Hata yap,Öğren,İlerle\n—\nVolunta…",
+          "emoji": ""
+        }
+      ],
+      "segments_authors_count": 1,
+      "share_url": "",
+      "last_segment_id": null,
       "has_new_segments": false,
-      "time_content_updated": "2026-10-11T12:00:00.000Z"
+      "is_subscribed": false,
+      "permissions": {
+        "can_reply": true,
+        "can_change_title": false,
+        "cant_reply_reason": "",
+        "chat_post_block": null,
+        "can_quote": true,
+        "can_delete": true,
+        "can_invite": false,
+        "can_share": null,
+        "can_allow_members_to_speak": null,
+        "can_add_members": null,
+        "can_remove_members": null,
+        "can_leave": null,
+        "can_view_outside_reactions": null
+      },
+      "target_type": "private",
+      "pending_participants": [
+        {
+          "user_id": 3,
+          "name": "user_5",
+          "username": "user_6",
+          "photo_url": null,
+          "bio": null,
+          "emoji": "",
+          "fallback_number_hash": null,
+          "fallback_message": null
+        }
+      ],
+      "short_title": "user_1",
+      "social_club_id": null,
+      "social_club_name": null,
+      "social_club_photo_url": null,
+      "is_permanent_social_club_conversation": false,
+      "privacy_settings": {
+        "type": "DM",
+        "display_text": "private",
+        "tooltip_text": "this conversation is private"
+      },
+      "allow_members_to_speak": null,
+      "logging_context": {
+        "entity_uuid": "eff8a79c-dedb-4897-be8a-f3cb39396bfd",
+        "rank": 0,
+        "batch_id": "7b4dbf70-6e81-4cbe-ae9b-6409a5f90bc9",
+        "type": 16,
+        "entity": "conversation",
+        "last_segment_id": null,
+        "has_new_segments": false,
+        "has_listened": true
+      },
+      "preview_segment_text": "Test cevap",
+      "preview_segment_type": "TEXT_TO_SPEECH",
+      "is_archived": false
+    },
+    {
+      "conversation_id": "5b99beb2-bf5b-48e5-9b1e-c2b7a97ea25c",
+      "title": "user_7",
+      "summary": "There is not enough context. Maybe you should say something?",
+      "time_created": "<redacted>T23:30:43.497670Z",
+      "time_content_updated": "<redacted>T23:31:22.969605Z",
+      "creator_user_profile": {
+        "user_id": 4,
+        "name": "user_5",
+        "username": "user_6",
+        "photo_url": null,
+        "bio": null,
+        "emoji": ""
+      },
+      "social_club": null,
+      "segments_authors": [
+        {
+          "user_id": 5,
+          "name": "user_5",
+          "username": "user_6",
+          "photo_url": null,
+          "bio": null,
+          "emoji": ""
+        }
+      ],
+      "segments_authors_count": 1,
+      "share_url": "",
+      "last_segment_id": null,
+      "has_new_segments": false,
+      "is_subscribed": true,
+      "permissions": {
+        "can_reply": true,
+        "can_change_title": true,
+        "cant_reply_reason": "",
+        "chat_post_block": null,
+        "can_quote": true,
+        "can_delete": true,
+        "can_invite": false,
+        "can_share": null,
+        "can_allow_members_to_speak": null,
+        "can_add_members": null,
+        "can_remove_members": null,
+        "can_leave": null,
+        "can_view_outside_reactions": null
+      },
+      "target_type": "private",
+      "pending_participants": [
+        {
+          "user_id": 6,
+          "name": "user_7",
+          "username": "user_8",
+          "photo_url": "user_9",
+          "bio": "🎭 \n\nhttps://youtu.be/mJxabMpu4QQ",
+          "emoji": "",
+          "fallback_number_hash": null,
+          "fallback_message": null
+        }
+      ],
+      "short_title": "user_7",
+      "social_club_id": null,
+      "social_club_name": null,
+      "social_club_photo_url": null,
+      "is_permanent_social_club_conversation": false,
+      "privacy_settings": {
+        "type": "DM",
+        "display_text": "private",
+        "tooltip_text": "this conversation is private"
+      },
+      "allow_members_to_speak": null,
+      "logging_context": {
+        "entity_uuid": "5b99beb2-bf5b-48e5-9b1e-c2b7a97ea25c",
+        "rank": 1,
+        "batch_id": "7b4dbf70-6e81-4cbe-ae9b-6409a5f90bc9",
+        "type": 16,
+        "entity": "conversation",
+        "last_segment_id": null,
+        "has_new_segments": false,
+        "has_listened": true
+      },
+      "preview_segment_text": "you: Babalarımızı kullanıyorsun iletişime geçmek için bunu da diyeceksin. Umrumda değil öyle bir ama",
+      "preview_segment_type": "TEXT_TO_SPEECH",
+      "is_archived": false
+    },
+    {
+      "conversation_id": "3a1c3e0d-f1f7-44de-94d<redacted>e126",
+      "title": "user_13 - Product Updates",
+      "summary": "There is not enough context. Maybe you should say something?",
+      "time_created": "<redacted>T03:04:58.668132Z",
+      "time_content_updated": "<redacted>T19:35:57.496453Z",
+      "creator_user_profile": {
+        "user_id": 7,
+        "name": "user_10",
+        "username": "user_11",
+        "photo_url": "user_12",
+        "bio": "Cofounder at Clubhouse with @rohan. Previously founder at Highlight and other fu…",
+        "emoji": ""
+      },
+      "social_club": {
+        "social_club_id": 8,
+        "name": "user_13",
+        "is_membership_open": true,
+        "photo_url": "user_14",
+        "share_url": "https://www.clubhouse.com/house/clubhousehq?chs=p7wCwqOZoJ%3AvdywmOKFY0jymA5rdTtX3uu_IUh-D1Oew1pYfSsoUxQ&utm_medium=ch_general_house_vm"
+      },
+      "segments_authors": [
+        {
+          "user_id": 9,
+          "name": "user_10",
+          "username": "user_11",
+          "photo_url": "user_15",
+          "bio": "Cofounder at Clubhouse with @rohan. Previously founder at Highlight and other fu…",
+          "emoji": ""
+        }
+      ],
+      "segments_authors_count": 0,
+      "share_url": "https://www.clubhouse.com/convo/3a1c3e0d-f1f7-44de-94d<redacted>e126",
+      "last_segment_id": null,
+      "has_new_segments": false,
+      "is_subscribed": false,
+      "permissions": {
+        "can_reply": true,
+        "can_change_title": false,
+        "cant_reply_reason": "",
+        "chat_post_block": null,
+        "can_quote": true,
+        "can_delete": false,
+        "can_invite": false,
+        "can_share": null,
+        "can_allow_members_to_speak": null,
+        "can_add_members": null,
+        "can_remove_members": null,
+        "can_leave": null,
+        "can_view_outside_reactions": null
+      },
+      "target_type": "social_club",
+      "pending_participants": [],
+      "short_title": "",
+      "social_club_id": 10,
+      "social_club_name": "user_13",
+      "social_club_photo_url": "user_16",
+      "is_permanent_social_club_conversation": true,
+      "privacy_settings": {
+        "type": "SOCIAL_CLUB_MEMBERS",
+        "display_text": "user_13",
+        "tooltip_text": "this conversation is visible to user_13's members"
+      },
+      "allow_members_to_speak": null,
+      "logging_context": {
+        "entity_uuid": "3a1c3e0d-f1f7-44de-94d<redacted>e126",
+        "rank": 2,
+        "batch_id": "7b4dbf70-6e81-4cbe-ae9b-6409a5f90bc9",
+        "type": 16,
+        "entity": "conversation",
+        "social_club_id": 11,
+        "last_segment_id": null,
+        "has_new_segments": false,
+        "has_listened": true
+      },
+      "photo_url": "user_17",
+      "preview_segment_type": "VOICE_REPLY",
+      "is_archived": false
     }
-  ]
+  ],
+  "next_cursor": null,
+  "new_dm_requests_count": 0
 }

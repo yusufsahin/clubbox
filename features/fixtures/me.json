@@ -1,9 +1,166 @@
 {
-  "success": true,
+  "needs_age_verification": false,
+  "requested_following_ids": [],
+  "has_unread_notifications": true,
+  "notifications_enabled": false,
   "user_profile": {
-    "user_id": 42,
-    "name": "Test User",
-    "username": "testuser",
-    "photo_url": null
-  }
+    "user_id": 1,
+    "name": "user_18",
+    "photo_url": null,
+    "username": "user_6",
+    "share_url": "https://www.clubhouse.com/@user_6?utm_medium=general_invite&utm_campaign=nuBblL0zLJaRQmEljazl7A-2511495&chs=p7wCwqOZoJ%3AvdywmOKFY0jymA5rdTtX3uu_IUh-D1Oew1pYfSsoUxQ"
+  },
+  "following_ids": [],
+  "blocked_ids": [],
+  "eligible_for_topics_upsell": false,
+  "can_toggle_message_requests": true,
+  "is_admin": false,
+  "email": null,
+  "is_under_18": false,
+  "is_new": false,
+  "phone_number": null,
+  "auto_join_after_preview_for_x_seconds": 3,
+  "enable_sound_effect": true,
+  "pubnub_token": null,
+  "pubnub_origin": "clubhouse.pubnubapi.com",
+  "can_delete_contacts": true,
+  "user_settings": {
+    "contact_upload_enabled": false,
+    "follower_requests_enabled": true,
+    "private_conversations_enabled": false
+  },
+  "feature_flags": [
+    "REPLAYS_DEFAULT_OFF",
+    "ENABLE_AUDIO_SPATIALIZATION",
+    "ENABLE_MEDIA_VOLUME_IN_BLUETOOTH",
+    "ENABLE_NOTIFICATION_REBASELINE",
+    "ENABLE_UPGRADED_USER_EXPERIENCE",
+    "ENABLE_PUBLIC_FIGURE_2_HOUSE_CREATION",
+    "ENABLE_NEW_REPORTING_TARGETS",
+    "ENABLE_REPLAYS_IN_PUBLIC_ROOMS",
+    "ENABLE_DISCOVERY_IN_HALLWAY_ANDROID",
+    "ENABLE_DISCOVERY_TAB_ANDROID"
+  ],
+  "experiments": {
+    "exp-audio-spatialization-stage-size": {
+      "behavior": "70",
+      "log": null
+    },
+    "exp-audio-spatialization-stage-slots": {
+      "behavior": "15",
+      "log": "15"
+    },
+    "exp-audio-spatialization-rotation-speed": {
+      "behavior": "0.01",
+      "log": "0.01"
+    },
+    "auto-exp-explore-houses-rename-join-button": {
+      "behavior": "enabled",
+      "log": "enabled"
+    },
+    "auto-exp-new-listener-reaction-u-i": {
+      "behavior": "disabled",
+      "log": null
+    },
+    "auto-exp-audio-cache-i-o-s": {
+      "behavior": "disabled",
+      "log": null
+    },
+    "auto-exp-channel-surfer-mute-by-default-i-o-s": {
+      "behavior": "enabled",
+      "log": null
+    },
+    "auto-exp-android-exoplayer-data-cache": {
+      "behavior": "enabled",
+      "log": null
+    },
+    "auto-exp-android-cache-feed-and-conversation2": {
+      "behavior": "enabled",
+      "log": null
+    },
+    "auto-exp-friends-notification-reminder": {
+      "behavior": "enabled",
+      "log": null
+    },
+    "auto-exp-live-room-p-t-t": {
+      "behavior": "enabled",
+      "log": null
+    },
+    "auto-exp-share-without-voice": {
+      "behavior": "enabled",
+      "log": null
+    },
+    "auto-exp-max-segment-length": {
+      "behavior": "enabled",
+      "log": null
+    },
+    "auto-exp-common-rooms-anyone-can-create": {
+      "behavior": "enabled",
+      "log": null
+    },
+    "auto-exp-android-open-channel-banner": {
+      "behavior": "enabled",
+      "log": null
+    }
+  },
+  "paid_ua_ad_set_ids": {
+    "dating_relationships": [
+      null
+    ],
+    "us_politics": [
+      null,
+      null
+    ],
+    "business": [
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "default_room_title_options": [
+    "Join the conversation",
+    "Come hang out",
+    "Let’s chat",
+    "Drop in and say hi",
+    "Let’s talk",
+    "Hanging out",
+    "What’s on your mind?",
+    "Let’s talk about it",
+    "Thoughts?",
+    "Random conversations",
+    "Community chat",
+    "Open room",
+    "Open discussion",
+    "Open chat",
+    "Join us",
+    "Talk time",
+    "Chatting live",
+    "Open mic — join in",
+    "Live conversation now"
+  ],
+  "has_unread_user_profile_actions": false,
+  "blockchain_config": {},
+  "connected_wallets": [],
+  "is_onboarding": false,
+  "unread_conversations_count": 0,
+  "force_refresh_feed": false,
+  "should_show_explore_public_hallway": true,
+  "should_show_explore_search_bar": true,
+  "common_topic_toast_duration_ms": 30000,
+  "anonymous_settings": {
+    "is_enabled": false,
+    "emoji": "🕶️"
+  },
+  "revenue_cat_custom_attributes": {
+    "username": "user_6",
+    "full_name": "user_18",
+    "phone_number": null,
+    "time_first_active": "<redacted>T17:18:50.310579Z",
+    "invited_by_user_id": 2,
+    "email": null
+  },
+  "incentive_invite_referral_counts": {},
+  "success": true
 }

@@ -1,35 +1,258 @@
 {
-  "success": true,
-  "channels": [
+  "items": [
     {
-      "channel": "abc123",
-      "channel_id": "abc123",
-      "topic": "Tech Talk",
-      "club_name": "Builders",
-      "is_replay_enabled": true,
-      "is_clipping_enabled": true,
-      "time_created": "2026-10-11T11:00:00.000Z",
-      "num_all": 42,
-      "num_speakers": 3,
-      "url": "https://www.clubhouse.com/room/abc123",
-      "topic_key": "tech"
+      "channel": {
+        "creator_user_profile_id": 1,
+        "channel_id": 2,
+        "channel": "mZWDd3be",
+        "topic": "Test",
+        "visited": true,
+        "privacy_settings": {
+          "type": "public",
+          "display_text": "public",
+          "tooltip_text": "anyone can join this room"
+        },
+        "is_private": false,
+        "url": "https://www.clubhouse.com/room/mZWDd3be?utm_medium=ch_room_tr&utm_campaign=nuBblL0zLJaRQmEljazl7A-2511495&chs=p7wCwqOZoJ%3AvdywmOKFY0jymA5rdTtX3uu_IUh-D1Oew1pYfSsoUxQ",
+        "num_speakers": 2,
+        "num_all": 3,
+        "is_replay_enabled": true,
+        "users": [
+          {
+            "user_id": 3,
+            "name": "user_18",
+            "username": "user_6",
+            "photo_url": null,
+            "is_speaker": true
+          },
+          {
+            "user_id": 4,
+            "name": "user_1",
+            "username": "user_2",
+            "photo_url": "user_3",
+            "is_speaker": true
+          }
+        ],
+        "social_club": null,
+        "logging_context": {
+          "entity_id": 5,
+          "batch_id": "auser_82fc1fd-5f9f-4ab2-93e3-48a1a36f18e8",
+          "feed_rank": 0,
+          "type": 1,
+          "entity": "channel",
+          "speaker_ids": [
+            909585031,
+            1176575090
+          ],
+          "reasons": [
+            19,
+            11,
+            35,
+            36
+          ],
+          "social_club_id": null,
+          "topic_key": null
+        },
+        "is_social_mode": false,
+        "is_active_trending_topic_channel": false
+      }
     },
     {
-      "channel": "music1",
-      "channel_id": "music1",
-      "topic": "Music Night",
-      "club_name": "DJs",
-      "is_replay_enabled": false,
-      "is_clipping_enabled": false,
-      "time_created": "2026-10-11T11:30:00.000Z",
-      "num_all": 10,
-      "num_speakers": 2,
-      "url": "https://www.clubhouse.com/room/music1",
-      "topic_key": "music"
+      "channel": {
+        "creator_user_profile_id": 6,
+        "channel_id": 7,
+        "channel": "PYGjEB3G",
+        "topic": "💘🕊️ MALAYALAM SONGS 💎WHERE DREAMS BLOOM 🎶❤️‍🔥",
+        "visited": false,
+        "privacy_settings": {
+          "type": "house",
+          "display_text": "user_34",
+          "tooltip_text": "this room is open to everyone"
+        },
+        "is_private": true,
+        "url": "https://www.clubhouse.com/room/PYGjEB3G?utm_medium=ch_room_pm&utm_campaign=nuBblL0zLJaRQmEljazl7A-2511495&chs=p7wCwqOZoJ%3AvdywmOKFY0jymA5rdTtX3uu_IUh-D1Oew1pYfSsoUxQ",
+        "num_speakers": 15,
+        "num_all": 41,
+        "is_replay_enabled": false,
+        "users": [
+          {
+            "user_id": 8,
+            "name": "user_19",
+            "username": "user_20",
+            "photo_url": "user_21",
+            "is_speaker": true
+          },
+          {
+            "user_id": 9,
+            "name": "user_28",
+            "username": "user_29",
+            "photo_url": "user_30",
+            "is_speaker": true
+          },
+          {
+            "user_id": 10,
+            "name": "user_236",
+            "username": "user_237",
+            "photo_url": "user_238",
+            "is_speaker": true
+          },
+          {
+            "user_id": 11,
+            "name": "user_22",
+            "username": "user_23",
+            "photo_url": "user_24",
+            "is_speaker": true
+          },
+          {
+            "user_id": 12,
+            "name": "user_278",
+            "username": "user_279",
+            "photo_url": "user_280",
+            "is_speaker": true
+          }
+        ],
+        "social_club": {
+          "social_club_id": 13,
+          "name": "user_34",
+          "photo_url": "user_35",
+          "social_club_event_id": null
+        },
+        "logging_context": {
+          "entity_id": 14,
+          "batch_id": "auser_82fc1fd-5f9f-4ab2-93e3-48a1a36f18e8",
+          "feed_rank": 1,
+          "type": 1,
+          "entity": "channel",
+          "speaker_ids": [
+            348461550,
+            633327563,
+            1720851750,
+            1133574982,
+            872961623
+          ],
+          "reasons": [
+            28
+          ],
+          "social_club_id": 15,
+          "topic_key": null
+        },
+        "is_social_mode": false,
+        "is_active_trending_topic_channel": false
+      }
+    },
+    {
+      "channel": {
+        "creator_user_profile_id": 16,
+        "channel_id": 17,
+        "channel": "M1Q2rE1q",
+        "topic": "🎶YASH 💘LET THE MUSIC REMEMBER WHAT YOU FORGOT💎",
+        "visited": false,
+        "privacy_settings": {
+          "type": "house",
+          "display_text": "user_51",
+          "tooltip_text": "this room is open to everyone"
+        },
+        "is_private": true,
+        "url": "https://www.clubhouse.com/room/M1Q2rE1q?utm_medium=ch_room_pm&utm_campaign=nuBblL0zLJaRQmEljazl7A-2511495&chs=p7wCwqOZoJ%3AvdywmOKFY0jymA5rdTtX3uu_IUh-D1Oew1pYfSsoUxQ",
+        "num_speakers": 9,
+        "num_all": 44,
+        "is_replay_enabled": false,
+        "users": [
+          {
+            "user_id": 18,
+            "name": "user_239",
+            "username": "user_240",
+            "photo_url": "user_241",
+            "is_speaker": true
+          },
+          {
+            "user_id": 19,
+            "name": "user_45",
+            "username": "user_46",
+            "photo_url": "user_47",
+            "is_speaker": true
+          },
+          {
+            "user_id": 20,
+            "name": "user_42",
+            "username": "user_43",
+            "photo_url": "user_44",
+            "is_speaker": true
+          },
+          {
+            "user_id": 21,
+            "name": "user_287",
+            "username": "user_288",
+            "photo_url": "user_289",
+            "is_speaker": true
+          },
+          {
+            "user_id": 22,
+            "name": "user_48",
+            "username": "user_49",
+            "photo_url": "user_50",
+            "is_speaker": true
+          }
+        ],
+        "social_club": {
+          "social_club_id": 23,
+          "name": "user_51",
+          "photo_url": "user_52",
+          "social_club_event_id": null
+        },
+        "logging_context": {
+          "entity_id": 24,
+          "batch_id": "auser_82fc1fd-5f9f-4ab2-93e3-48a1a36f18e8",
+          "feed_rank": 2,
+          "type": 1,
+          "entity": "channel",
+          "speaker_ids": [
+            1027070866,
+            31030304,
+            951413166,
+            794188646,
+            534264994
+          ],
+          "reasons": [
+            28
+          ],
+          "social_club_id": 25,
+          "topic_key": null
+        },
+        "is_social_mode": false,
+        "is_active_trending_topic_channel": false
+      }
     }
   ],
   "available_topics": [
-    { "key": "tech", "display_name": "tech" },
-    { "key": "music", "display_name": "music" }
-  ]
+    {
+      "key": "user_220",
+      "display_name": "user_220"
+    },
+    {
+      "key": "science_user_221nology",
+      "display_name": "user_221"
+    },
+    {
+      "key": "user_222",
+      "display_name": "user_222"
+    },
+    {
+      "key": "us_user_223",
+      "display_name": "user_223"
+    },
+    {
+      "key": "live_user_224",
+      "display_name": "user_224"
+    },
+    {
+      "key": "dating_user_225",
+      "display_name": "user_225"
+    },
+    {
+      "key": "user_226_spirituality",
+      "display_name": "user_226"
+    }
+  ],
+  "next_cursor": null
 }

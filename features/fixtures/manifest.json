@@ -1,0 +1,816 @@
+{
+  "get_channels": {
+    "captureEndpoint": "get_feed_v3",
+    "synthetic": false,
+    "sourceFile": "2026-10-11T10-13-37-101Z-solo.jsonl",
+    "shape": {
+      "available_topics": [
+        {
+          "display_name": "string",
+          "key": "string"
+        }
+      ],
+      "items": [
+        {
+          "channel": {
+            "channel": "string",
+            "channel_id": "number",
+            "creator_user_profile_id": "number",
+            "is_active_trending_topic_channel": "boolean",
+            "is_private": "boolean",
+            "is_replay_enabled": "boolean",
+            "is_social_mode": "boolean",
+            "logging_context": "object",
+            "num_all": "number",
+            "num_speakers": "number",
+            "privacy_settings": "object",
+            "social_club": "null",
+            "topic": "string",
+            "url": "string",
+            "users": "array",
+            "visited": "boolean"
+          }
+        }
+      ],
+      "next_cursor": "null"
+    }
+  },
+  "me": {
+    "captureEndpoint": "me",
+    "synthetic": false,
+    "sourceFile": "2026-10-11T10-13-37-101Z-solo.jsonl",
+    "shape": {
+      "anonymous_settings": {
+        "emoji": "string",
+        "is_enabled": "boolean"
+      },
+      "auto_join_after_preview_for_x_seconds": "number",
+      "blockchain_config": {},
+      "blocked_ids": "array",
+      "can_delete_contacts": "boolean",
+      "can_toggle_message_requests": "boolean",
+      "common_topic_toast_duration_ms": "number",
+      "connected_wallets": "array",
+      "default_room_title_options": [
+        "string"
+      ],
+      "eligible_for_topics_upsell": "boolean",
+      "email": "null",
+      "enable_sound_effect": "boolean",
+      "experiments": {
+        "auto-exp-android-cache-feed-and-conversation2": {
+          "behavior": "string",
+          "log": "null"
+        },
+        "auto-exp-android-exoplayer-data-cache": {
+          "behavior": "string",
+          "log": "null"
+        },
+        "auto-exp-android-open-channel-banner": {
+          "behavior": "string",
+          "log": "null"
+        },
+        "auto-exp-audio-cache-i-o-s": {
+          "behavior": "string",
+          "log": "null"
+        },
+        "auto-exp-channel-surfer-mute-by-default-i-o-s": {
+          "behavior": "string",
+          "log": "null"
+        },
+        "auto-exp-common-rooms-anyone-can-create": {
+          "behavior": "string",
+          "log": "null"
+        },
+        "auto-exp-explore-houses-rename-join-button": {
+          "behavior": "string",
+          "log": "string"
+        },
+        "auto-exp-friends-notification-reminder": {
+          "behavior": "string",
+          "log": "null"
+        },
+        "auto-exp-live-room-p-t-t": {
+          "behavior": "string",
+          "log": "null"
+        },
+        "auto-exp-max-segment-length": {
+          "behavior": "string",
+          "log": "null"
+        },
+        "auto-exp-new-listener-reaction-u-i": {
+          "behavior": "string",
+          "log": "null"
+        },
+        "auto-exp-share-without-voice": {
+          "behavior": "string",
+          "log": "null"
+        },
+        "exp-audio-spatialization-rotation-speed": {
+          "behavior": "string",
+          "log": "string"
+        },
+        "exp-audio-spatialization-stage-size": {
+          "behavior": "string",
+          "log": "null"
+        },
+        "exp-audio-spatialization-stage-slots": {
+          "behavior": "string",
+          "log": "string"
+        }
+      },
+      "feature_flags": [
+        "string"
+      ],
+      "following_ids": "array",
+      "force_refresh_feed": "boolean",
+      "has_unread_notifications": "boolean",
+      "has_unread_user_profile_actions": "boolean",
+      "incentive_invite_referral_counts": {},
+      "is_admin": "boolean",
+      "is_new": "boolean",
+      "is_onboarding": "boolean",
+      "is_under_18": "boolean",
+      "needs_age_verification": "boolean",
+      "notifications_enabled": "boolean",
+      "paid_ua_ad_set_ids": {
+        "business": [
+          "null"
+        ],
+        "dating_relationships": [
+          "null"
+        ],
+        "us_politics": [
+          "null"
+        ]
+      },
+      "phone_number": "null",
+      "pubnub_origin": "string",
+      "pubnub_token": "null",
+      "requested_following_ids": "array",
+      "revenue_cat_custom_attributes": {
+        "email": "null",
+        "full_name": "string",
+        "invited_by_user_id": "number",
+        "phone_number": "null",
+        "time_first_active": "string",
+        "username": "string"
+      },
+      "should_show_explore_public_hallway": "boolean",
+      "should_show_explore_search_bar": "boolean",
+      "success": "boolean",
+      "unread_conversations_count": "number",
+      "user_profile": {
+        "name": "string",
+        "photo_url": "null",
+        "share_url": "string",
+        "user_id": "number",
+        "username": "string"
+      },
+      "user_settings": {
+        "contact_upload_enabled": "boolean",
+        "follower_requests_enabled": "boolean",
+        "private_conversations_enabled": "boolean"
+      }
+    }
+  },
+  "get_conversations": {
+    "captureEndpoint": "get_conversations",
+    "synthetic": false,
+    "sourceFile": "2026-10-11T10-13-37-101Z-solo.jsonl",
+    "shape": {
+      "conversations": [
+        {
+          "allow_members_to_speak": "null",
+          "conversation_id": "string",
+          "creator_user_profile": {
+            "bio": "string",
+            "emoji": "string",
+            "name": "string",
+            "photo_url": "string",
+            "user_id": "number",
+            "username": "string"
+          },
+          "has_new_segments": "boolean",
+          "is_archived": "boolean",
+          "is_permanent_social_club_conversation": "boolean",
+          "is_subscribed": "boolean",
+          "last_segment_id": "null",
+          "logging_context": {
+            "batch_id": "string",
+            "entity": "string",
+            "entity_uuid": "string",
+            "has_listened": "boolean",
+            "has_new_segments": "boolean",
+            "last_segment_id": "null",
+            "rank": "number",
+            "type": "number"
+          },
+          "pending_participants": [
+            "object"
+          ],
+          "permissions": {
+            "can_add_members": "null",
+            "can_allow_members_to_speak": "null",
+            "can_change_title": "boolean",
+            "can_delete": "boolean",
+            "can_invite": "boolean",
+            "can_leave": "null",
+            "can_quote": "boolean",
+            "can_remove_members": "null",
+            "can_reply": "boolean",
+            "can_share": "null",
+            "can_view_outside_reactions": "null",
+            "cant_reply_reason": "string",
+            "chat_post_block": "null"
+          },
+          "preview_segment_text": "string",
+          "preview_segment_type": "string",
+          "privacy_settings": {
+            "display_text": "string",
+            "tooltip_text": "string",
+            "type": "string"
+          },
+          "segments_authors": [
+            "object"
+          ],
+          "segments_authors_count": "number",
+          "share_url": "string",
+          "short_title": "string",
+          "social_club": "null",
+          "social_club_id": "null",
+          "social_club_name": "null",
+          "social_club_photo_url": "null",
+          "summary": "string",
+          "target_type": "string",
+          "time_content_updated": "string",
+          "time_created": "string",
+          "title": "string"
+        }
+      ],
+      "new_dm_requests_count": "number",
+      "next_cursor": "null",
+      "success": "boolean"
+    }
+  },
+  "get_conversation": {
+    "captureEndpoint": "get_conversation",
+    "synthetic": false,
+    "sourceFile": "2026-10-11T09-56-29-495Z-solo.jsonl",
+    "shape": {
+      "allow_members_to_speak": "null",
+      "conversation_id": "string",
+      "creator_user_profile": {
+        "bio": "string",
+        "emoji": "string",
+        "name": "string",
+        "photo_url": "string",
+        "user_id": "number",
+        "username": "string"
+      },
+      "emoji_reaction_options": [
+        "string"
+      ],
+      "has_new_segments": "boolean",
+      "is_archived": "boolean",
+      "is_first_visit": "null",
+      "is_permanent_social_club_conversation": "boolean",
+      "is_speaker_actions_enabled": "boolean",
+      "is_subscribed": "boolean",
+      "last_segment_id": "null",
+      "listeners": [
+        {
+          "can_be_invited": "null",
+          "last_segment_id": "null",
+          "reaction_emoji": "null",
+          "user_profile": {
+            "bio": "string",
+            "emoji": "string",
+            "name": "string",
+            "photo_url": "string",
+            "user_id": "number",
+            "username": "string"
+          }
+        }
+      ],
+      "listeners_count": "number",
+      "next_cursor": "null",
+      "pending_participants": [
+        {
+          "bio": "null",
+          "emoji": "string",
+          "fallback_message": "null",
+          "fallback_number_hash": "null",
+          "name": "string",
+          "photo_url": "null",
+          "user_id": "number",
+          "username": "string"
+        }
+      ],
+      "permissions": {
+        "can_add_members": "boolean",
+        "can_allow_members_to_speak": "boolean",
+        "can_change_title": "boolean",
+        "can_delete": "boolean",
+        "can_invite": "boolean",
+        "can_leave": "boolean",
+        "can_quote": "boolean",
+        "can_remove_members": "boolean",
+        "can_reply": "boolean",
+        "can_share": "boolean",
+        "can_view_outside_reactions": "boolean",
+        "cant_reply_reason": "string",
+        "chat_post_block": "null"
+      },
+      "preview_segment_text": "string",
+      "preview_segment_type": "string",
+      "previous_cursor": "null",
+      "privacy_settings": {
+        "display_text": "string",
+        "tooltip_text": "string",
+        "type": "string"
+      },
+      "pubnub_settings": {
+        "is_live_replies_enabled": "boolean",
+        "pubnub_origin": "string",
+        "pubnub_token": "null",
+        "utc_token_expiration_datetime": "null"
+      },
+      "segments": [
+        {
+          "attached_url": "null",
+          "audio_status": "string",
+          "caption_status": "string",
+          "client_reference_id": "string",
+          "creator_user_profile": {
+            "bio": "string",
+            "emoji": "string",
+            "name": "string",
+            "photo_url": "string",
+            "user_id": "number",
+            "username": "string"
+          },
+          "duration": "number",
+          "full_size_photo_url": "null",
+          "has_listened": "boolean",
+          "permissions": {
+            "can_delete": "boolean",
+            "can_update_attachment": "boolean"
+          },
+          "photo_url": "null",
+          "reactions": "array",
+          "segment_audio_url": "string",
+          "segment_id": "null",
+          "share_url": "string",
+          "shared_without_voice": "boolean",
+          "time_created": "string",
+          "transcription": [
+            "object"
+          ],
+          "user_text": "string"
+        }
+      ],
+      "segments_authors": [
+        {
+          "bio": "string",
+          "emoji": "string",
+          "name": "string",
+          "photo_url": "string",
+          "user_id": "number",
+          "username": "string"
+        }
+      ],
+      "segments_authors_count": "number",
+      "share_url": "string",
+      "short_title": "string",
+      "social_club": "null",
+      "social_club_id": "null",
+      "social_club_name": "null",
+      "social_club_photo_url": "null",
+      "success": "boolean",
+      "summary": "string",
+      "target_type": "string",
+      "time_content_updated": "string",
+      "time_created": "string",
+      "title": "string"
+    }
+  },
+  "get_profile": {
+    "captureEndpoint": "get_profile",
+    "synthetic": false,
+    "sourceFile": "2026-10-10T21-14-22-579Z.jsonl",
+    "shape": {
+      "chatting_with": "null",
+      "success": "boolean",
+      "user_profile": {
+        "bio": "string",
+        "bio_links": "array",
+        "can_chat": "boolean",
+        "can_dm": "boolean",
+        "can_receive_direct_payment": "boolean",
+        "can_wave": "boolean",
+        "club_details_on_profile": "boolean",
+        "clubs": "array",
+        "clubs_details_title": "string",
+        "conversation_request_mode": "string",
+        "direct_payment_fee_fixed": "number",
+        "direct_payment_fee_rate": "number",
+        "displayname": "null",
+        "follow_status": "string",
+        "follows_me": "boolean",
+        "has_protected_profile": "boolean",
+        "instagram": "null",
+        "invited_by_club": "null",
+        "invited_by_user_profile": "null",
+        "is_blocked_by_network": "boolean",
+        "is_guest_user": "boolean",
+        "is_public_figure": "null",
+        "legacy_links": "array",
+        "max_links": "number",
+        "mutual_cofollows": "array",
+        "mutual_cofollows_count": "number",
+        "mutual_follows": "array",
+        "mutual_follows_count": "number",
+        "name": "string",
+        "notification_type": "number",
+        "num_cofollows": "number",
+        "num_followers": "number",
+        "num_following": "number",
+        "photo_url": "string",
+        "recent_photo_urls": [
+          "string"
+        ],
+        "recently_viewed_you": "boolean",
+        "social_clubs": [
+          {
+            "creator_profile_id": "number",
+            "description": "null",
+            "is_automatic_invites_enabled": "boolean",
+            "is_membership_hidden": "boolean",
+            "is_membership_open": "boolean",
+            "is_public_content": "boolean",
+            "is_waitlist_answer_required": "boolean",
+            "name": "string",
+            "num_members": "number",
+            "permanent_conversation_id": "string",
+            "photo_url": "string",
+            "share_url": "string",
+            "slug": "string",
+            "social_club_id": "number",
+            "url": "string",
+            "viewer_is_waitlisted": "boolean",
+            "waitlist_enabled": "boolean",
+            "waitlist_question": "string",
+            "waitlist_question_enabled": "boolean"
+          }
+        ],
+        "social_clubs_count": "number",
+        "time_created": "string",
+        "topics": "array",
+        "twitter": "null",
+        "upcoming_events": "array",
+        "url": "string",
+        "user_id": "number",
+        "username": "string"
+      }
+    }
+  },
+  "create_channel": {
+    "captureEndpoint": "create_channel",
+    "synthetic": false,
+    "sourceFile": "2026-10-11T09-56-29-495Z-solo.jsonl",
+    "shape": {
+      "agora_native_mute": "boolean",
+      "are_games_available": "boolean",
+      "are_highlights_enabled": "boolean",
+      "can_disable_replay": "boolean",
+      "can_save": "boolean",
+      "channel": "string",
+      "channel_id": "number",
+      "channel_paid_reactions_active_speaker_limit": "number",
+      "channel_paid_reactions_ticker_duration_ms": "number",
+      "channel_user_poll": {
+        "poll_colors": [
+          {
+            "dark_hex": "string",
+            "light_hex": "string"
+          }
+        ],
+        "poll_metadata": "null",
+        "poll_results": "null",
+        "poll_upsell_card": {
+          "subtitle": "string",
+          "title": "string"
+        },
+        "poll_validation_rules": {
+          "option_characters_max": "number",
+          "option_characters_min": "number",
+          "option_warning_threshold": "number",
+          "title_characters_max": "number",
+          "title_characters_min": "number",
+          "title_warning_threshold": "number"
+        }
+      },
+      "chat_permission": "number",
+      "chat_permission_options": [
+        {
+          "label": "string",
+          "short_label": "string",
+          "sub_label": "string",
+          "value": "number"
+        }
+      ],
+      "clips_permission": "number",
+      "club": "null",
+      "creator_user_profile_id": "number",
+      "emoji_reaction_options": [
+        "string"
+      ],
+      "emoji_reactions": {
+        "audio_reactions": [
+          "string"
+        ],
+        "channel_reactions": [
+          "string"
+        ],
+        "profile_reactions": [
+          "string"
+        ]
+      },
+      "feature_flags": [
+        "string"
+      ],
+      "handraise_permission": "number",
+      "handraise_queue_options": [
+        {
+          "label": "string",
+          "short_label": "string",
+          "sub_label": "string",
+          "value": "number"
+        }
+      ],
+      "handraise_queue_setting": "number",
+      "hide_moderator_indicator": "boolean",
+      "is_automatic_speaker_approval_available": "boolean",
+      "is_channel_user_poll_enabled": "boolean",
+      "is_chat_enabled": "boolean",
+      "is_club_admin": "boolean",
+      "is_club_follower": "boolean",
+      "is_club_member": "boolean",
+      "is_club_pending_accept": "boolean",
+      "is_gif_enabled": "boolean",
+      "is_handraise_available": "boolean",
+      "is_handraise_enabled": "boolean",
+      "is_nsfw": "boolean",
+      "is_overflow_menu_available": "boolean",
+      "is_pending_accept_club_rules": "boolean",
+      "is_pinned_links_available": "boolean",
+      "is_preview": "boolean",
+      "is_private": "boolean",
+      "is_replay_enabled": "boolean",
+      "is_replay_hidden_from_profile": "boolean",
+      "is_room_chat_available": "boolean",
+      "is_saved": "boolean",
+      "is_social_club_lounge": "boolean",
+      "is_social_mode": "boolean",
+      "is_suggested_links_available": "boolean",
+      "is_topics_available": "boolean",
+      "is_trending_topic_channel": "boolean",
+      "is_web_listening_enabled": "boolean",
+      "language": "string",
+      "paid_tier": "number",
+      "ping_bar": {
+        "mode": "string",
+        "title": "string"
+      },
+      "privacy_settings": {
+        "display_text": "string",
+        "tooltip_text": "string",
+        "type": "string"
+      },
+      "pubnub_enable": "boolean",
+      "pubnub_heartbeat_interval": "number",
+      "pubnub_heartbeat_value": "number",
+      "pubnub_origin": "string",
+      "pubnub_time_token": "null",
+      "pubnub_token": "null",
+      "reactions": {
+        "audio_reactions": [
+          {
+            "emoji": "string",
+            "id": "number",
+            "sort_priority": "number"
+          }
+        ],
+        "channel_reactions": [
+          {
+            "emoji": "string",
+            "id": "number",
+            "sort_priority": "number"
+          }
+        ],
+        "paid_profile_reactions": [
+          {
+            "coins_price": "number",
+            "id": "number",
+            "image_url": "string",
+            "sort_priority": "number",
+            "title": "string"
+          }
+        ],
+        "paid_reactions": [
+          {
+            "coins_price": "number",
+            "id": "number",
+            "image_url": "string",
+            "sort_priority": "number",
+            "title": "string"
+          }
+        ],
+        "profile_reactions": [
+          {
+            "emoji": "string",
+            "id": "number",
+            "sort_priority": "number"
+          }
+        ]
+      },
+      "rtm_token": "null",
+      "share_menu_options": [
+        "string"
+      ],
+      "should_join_muted": "boolean",
+      "show_last_speaker_warning": "boolean",
+      "social_club": "null",
+      "success": "boolean",
+      "time_created": "string",
+      "token": "null",
+      "topic": "string",
+      "topics": "array",
+      "url": "string",
+      "user_capabilities": {
+        "can_change_enable_web_listening": "boolean",
+        "can_create_highlights": "boolean",
+        "can_disable_replay": "boolean",
+        "can_disable_room_chat": "boolean",
+        "can_edit_background_music": "boolean",
+        "can_edit_handraise_queue": "boolean",
+        "can_edit_host_banner": "boolean",
+        "can_edit_pinned_links": "boolean",
+        "can_edit_room_title": "boolean",
+        "can_end_room": "boolean",
+        "can_gif_react": "boolean",
+        "can_invite": "boolean",
+        "can_manage_channel_user_poll": "boolean",
+        "can_mute_speakers": "boolean",
+        "can_post_to_chat": "boolean",
+        "can_rejoin_stage_directly": "boolean",
+        "can_remove_speakers": "boolean",
+        "can_save": "boolean",
+        "can_send_paid_react_thanks": "boolean",
+        "can_send_paid_reacts": "boolean",
+        "can_share": "boolean",
+        "can_speak": "boolean",
+        "can_update_highlights_settings": "boolean",
+        "can_update_suggested_links": "boolean",
+        "can_view_channel_user_poll_votes": "boolean",
+        "can_view_moderator_actions_history": "boolean",
+        "stage_removed": "boolean"
+      },
+      "users": [
+        {
+          "channel_emoji": "null",
+          "first_name": "string",
+          "full_photo_url": "null",
+          "is_cofollowed_by_speaker": "boolean",
+          "is_eligible_for_paid_reactions": "boolean",
+          "is_followed_by_speaker": "boolean",
+          "is_invited_as_speaker": "boolean",
+          "is_moderator": "boolean",
+          "is_opted_out_of_highlights": "boolean",
+          "is_photo_nsfw": "boolean",
+          "is_social_club_member": "boolean",
+          "is_speaker": "boolean",
+          "is_web_listener": "boolean",
+          "name": "string",
+          "photo_url": "null",
+          "selected_poll_option_id": "null",
+          "skintone": "number",
+          "time_joined_as_speaker": "string",
+          "twitter": "null",
+          "user_id": "number",
+          "username": "string"
+        }
+      ],
+      "welcome_for_user_profile": "null"
+    }
+  },
+  "join_channel": {
+    "captureEndpoint": "join_channel",
+    "synthetic": true,
+    "sourceFile": null,
+    "shape": {
+      "channel": "string",
+      "num_all": "number",
+      "num_speakers": "number",
+      "pubnub_heartbeat_interval": "number",
+      "pubnub_heartbeat_value": "number",
+      "pubnub_origin": "string",
+      "pubnub_time_token": "string",
+      "pubnub_token": "string",
+      "success": "boolean",
+      "token": "string",
+      "topic": "string",
+      "users": [
+        {
+          "is_moderator": "boolean",
+          "is_speaker": "boolean",
+          "name": "string",
+          "user_id": "number",
+          "username": "string"
+        }
+      ]
+    }
+  },
+  "search_users": {
+    "captureEndpoint": "search",
+    "synthetic": false,
+    "sourceFile": "2026-10-11T09-56-29-495Z-solo.jsonl",
+    "shape": {
+      "items": [
+        {
+          "channel": {
+            "channel": "string",
+            "channel_id": "number",
+            "club": "null",
+            "creator_user_profile_id": "number",
+            "feature_flags": "array",
+            "handraise_permission": "number",
+            "is_automatic_speaker_approval_available": "boolean",
+            "is_club_admin": "boolean",
+            "is_club_follower": "boolean",
+            "is_club_member": "boolean",
+            "is_club_pending_accept": "boolean",
+            "is_handraise_available": "boolean",
+            "is_handraise_enabled": "boolean",
+            "is_nsfw": "boolean",
+            "is_pending_accept_club_rules": "boolean",
+            "is_private": "boolean",
+            "is_social_mode": "boolean",
+            "is_topics_available": "boolean",
+            "language": "string",
+            "num_all": "number",
+            "num_speakers": "number",
+            "show_lock": "boolean",
+            "topic": "string",
+            "url": "string",
+            "users": "array",
+            "welcome_for_user_profile": "null"
+          },
+          "logging_context": {
+            "channel_id": "number",
+            "entity": "string",
+            "entity_id": "number",
+            "is_replay": "boolean",
+            "query": "string",
+            "query_id": "null",
+            "result_object_id": "string",
+            "search_rank": "number",
+            "search_tab": "number",
+            "type": "number"
+          }
+        }
+      ],
+      "success": "boolean"
+    }
+  },
+  "get_channel_messages": {
+    "captureEndpoint": "get_channel_messages",
+    "synthetic": true,
+    "sourceFile": null,
+    "shape": {
+      "messages": "array",
+      "success": "boolean"
+    }
+  },
+  "get_social_club_messages": {
+    "captureEndpoint": "get_social_club_messages",
+    "synthetic": true,
+    "sourceFile": null,
+    "shape": {
+      "can_post": "boolean",
+      "messages": [
+        {
+          "message": "string",
+          "message_id": "string",
+          "time_created": "string",
+          "user_profile": {
+            "name": "string",
+            "username": "string"
+          }
+        }
+      ],
+      "success": "boolean"
+    }
+  }
+}

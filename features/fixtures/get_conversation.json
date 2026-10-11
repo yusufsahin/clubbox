@@ -1,19 +1,200 @@
 {
+  "conversation_id": "eff8a79c-dedb-4897-be8a-f3cb39396bfd",
+  "title": "user_1",
+  "summary": "There is not enough context. Maybe you should say something?",
+  "time_created": "<redacted>T00:07:00.219023Z",
+  "time_content_updated": "<redacted>T09:32:user_299.580806Z",
+  "creator_user_profile": {
+    "user_id": 1,
+    "name": "user_1",
+    "username": "user_2",
+    "photo_url": "user_3",
+    "bio": "Deneyen,Girişimci,IT Danışmanı ve Eğitmen\n—\nDene,Hata yap,Öğren,İlerle\n—\nVolunta…",
+    "emoji": ""
+  },
+  "social_club": null,
+  "segments_authors": [
+    {
+      "user_id": 2,
+      "name": "user_1",
+      "username": "user_2",
+      "photo_url": "user_4",
+      "bio": "Deneyen,Girişimci,IT Danışmanı ve Eğitmen\n—\nDene,Hata yap,Öğren,İlerle\n—\nVolunta…",
+      "emoji": ""
+    }
+  ],
+  "segments_authors_count": 1,
+  "share_url": "",
+  "last_segment_id": null,
+  "has_new_segments": true,
+  "is_subscribed": false,
+  "permissions": {
+    "can_reply": true,
+    "can_change_title": false,
+    "cant_reply_reason": "only people invited can reply",
+    "chat_post_block": null,
+    "can_quote": true,
+    "can_delete": true,
+    "can_invite": false,
+    "can_share": false,
+    "can_allow_members_to_speak": false,
+    "can_add_members": false,
+    "can_remove_members": false,
+    "can_leave": false,
+    "can_view_outside_reactions": false
+  },
+  "target_type": "private",
+  "pending_participants": [
+    {
+      "user_id": 3,
+      "name": "user_5",
+      "username": "user_6",
+      "photo_url": null,
+      "bio": null,
+      "emoji": "",
+      "fallback_number_hash": null,
+      "fallback_message": null
+    }
+  ],
+  "short_title": "user_1",
+  "social_club_id": null,
+  "social_club_name": null,
+  "social_club_photo_url": null,
+  "is_permanent_social_club_conversation": false,
+  "privacy_settings": {
+    "type": "DM",
+    "display_text": "private",
+    "tooltip_text": "this conversation is private"
+  },
+  "allow_members_to_speak": null,
+  "is_speaker_actions_enabled": false,
+  "preview_segment_text": "Test cevap",
+  "preview_segment_type": "TEXT_TO_SPEECH",
+  "is_archived": false,
   "success": true,
-  "conversation": {
-    "conversation_id": "c1",
-    "segments": [
-      {
-        "segment_id": "seg-1",
-        "transcription": "Hello there",
-        "text": "Hello there",
-        "reactions": ["❤️"]
+  "segments": [
+    {
+      "segment_id": null,
+      "creator_user_profile": {
+        "user_id": 4,
+        "name": "user_1",
+        "username": "user_2",
+        "photo_url": "user_3",
+        "bio": "Deneyen,Girişimci,IT Danışmanı ve Eğitmen\n—\nDene,Hata yap,Öğren,İlerle\n—\nVolunta…",
+        "emoji": ""
       },
-      {
-        "segment_id": "seg-voice-1",
-        "transcription": "Voice note",
-        "kind": "voice"
-      }
-    ]
-  }
+      "time_created": "<redacted>T00:07:04.230076Z",
+      "has_listened": false,
+      "segment_audio_url": "user_775",
+      "share_url": "",
+      "duration": 5000,
+      "permissions": {
+        "can_update_attachment": false,
+        "can_delete": false
+      },
+      "reactions": [],
+      "attached_url": null,
+      "transcription": [
+        {
+          "text": "Test",
+          "start_ms": 0,
+          "end_ms": 5000
+        }
+      ],
+      "photo_url": null,
+      "full_size_photo_url": null,
+      "shared_without_voice": true,
+      "audio_status": "audio_generating",
+      "caption_status": "caption_ready",
+      "user_text": "Test",
+      "client_reference_id": "447c2066-f17f-40a7-9ead-6afad1430ae5"
+    },
+    {
+      "segment_id": null,
+      "creator_user_profile": {
+        "user_id": 5,
+        "name": "user_1",
+        "username": "user_2",
+        "photo_url": "user_3",
+        "bio": "Deneyen,Girişimci,IT Danışmanı ve Eğitmen\n—\nDene,Hata yap,Öğren,İlerle\n—\nVolunta…",
+        "emoji": ""
+      },
+      "time_created": "<redacted>T09:32:user_299.580806Z",
+      "has_listened": false,
+      "segment_audio_url": "user_776",
+      "share_url": "",
+      "duration": 5000,
+      "permissions": {
+        "can_update_attachment": false,
+        "can_delete": false
+      },
+      "reactions": [],
+      "attached_url": null,
+      "transcription": [
+        {
+          "text": "Test cevap",
+          "start_ms": 0,
+          "end_ms": 5000
+        }
+      ],
+      "photo_url": null,
+      "full_size_photo_url": null,
+      "shared_without_voice": true,
+      "audio_status": "audio_generating",
+      "caption_status": "caption_ready",
+      "user_text": "Test cevap",
+      "client_reference_id": "aae3a0e1-9ed4-user_299b5-9752-b62e726bfea1"
+    }
+  ],
+  "listeners": [
+    {
+      "user_profile": {
+        "user_id": 6,
+        "name": "user_1",
+        "username": "user_2",
+        "photo_url": "user_3",
+        "bio": "Deneyen,Girişimci,IT Danışmanı ve Eğitmen\n—\nDene,Hata yap,Öğren,İlerle\n—\nVolunta…",
+        "emoji": ""
+      },
+      "last_segment_id": null,
+      "can_be_invited": null,
+      "reaction_emoji": null
+    }
+  ],
+  "listeners_count": 1,
+  "emoji_reaction_options": [
+    "❤️",
+    "🙏",
+    "💀",
+    "😂",
+    "👀",
+    "👋",
+    "👍",
+    "👎",
+    "🙌",
+    "‼️",
+    "😢",
+    "🫠",
+    "💯",
+    "🌶️",
+    "🏝️",
+    "🚩",
+    "❌",
+    "😡",
+    "😱",
+    "🙄",
+    "💅",
+    "👩",
+    "🔥",
+    "🌊"
+  ],
+  "pubnub_settings": {
+    "pubnub_token": null,
+    "pubnub_origin": "clubhouse.pubnubapi.com",
+    "utc_token_expiration_datetime": null,
+    "is_live_replies_enabled": true
+  },
+  "previous_cursor": null,
+  "next_cursor": null,
+  "is_first_visit": null
 }

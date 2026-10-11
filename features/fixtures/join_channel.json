@@ -25,5 +25,6 @@
     }
   ],
   "num_speakers": 1,
-  "num_all": 1
+  "num_all": 1,
+  "synthetic": true
 }

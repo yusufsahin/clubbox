@@ -1,8 +1,336 @@
 {
   "success": true,
-  "hits": [
-    { "kind": "user", "user": { "user_id": 7, "name": "Jazz Fan", "username": "jazz" }, "followsMe": false },
-    { "kind": "channel", "channel": { "channel": "j1", "topic": "Jazz Room" } },
-    { "kind": "club", "club": { "club_id": 9, "name": "Jazz House" } }
+  "items": [
+    {
+      "logging_context": {
+        "query": "test",
+        "search_rank": 0,
+        "query_id": null,
+        "entity": "channel",
+        "entity_id": 1,
+        "result_object_id": "LiveChannel-<redacted>",
+        "type": 2,
+        "channel_id": 2,
+        "search_tab": 4,
+        "is_replay": false
+      },
+      "channel": {
+        "creator_user_profile_id": 3,
+        "channel_id": 4,
+        "channel": "mZWDd3be",
+        "language": "en",
+        "topic": "Test",
+        "show_lock": false,
+        "url": "https://www.clubhouse.com/room/mZWDd3be?utm_medium=ch_room_tr&utm_campaign=nuBblL0zLJaRQmEljazl7A-2511489&chs=p7wCwqOZoJ%3AvdywmOKFY0jymA5rdTtX3uu_IUh-D1Oew1pYfSsoUxQ",
+        "feature_flags": [
+          "AGORA_AUDIO_PROFILE_MUSIC_STANDARD_STEREO",
+          "MUSIC_STANDARD_STEREO"
+        ],
+        "club": null,
+        "num_speakers": 1,
+        "num_all": 1,
+        "is_nsfw": false,
+        "users": [
+          {
+            "user_id": 5,
+            "name": "user_1",
+            "photo_url": "user_3",
+            "is_speaker": true,
+            "is_moderator": true,
+            "time_joined_as_speaker": "<redacted>T10:07:08.277443+00:00"
+          }
+        ],
+        "is_handraise_enabled": false,
+        "is_handraise_available": false,
+        "is_topics_available": false,
+        "is_automatic_speaker_approval_available": true,
+        "handraise_permission": 0,
+        "is_private": false,
+        "is_social_mode": false,
+        "welcome_for_user_profile": null,
+        "is_club_member": false,
+        "is_club_admin": false,
+        "is_club_follower": false,
+        "is_club_pending_accept": false,
+        "is_pending_accept_club_rules": false
+      }
+    },
+    {
+      "logging_context": {
+        "query": "test",
+        "search_rank": 1,
+        "query_id": null,
+        "entity": "channel",
+        "entity_id": 6,
+        "result_object_id": "LiveChannel-<redacted>",
+        "type": 2,
+        "channel_id": 7,
+        "search_tab": 4,
+        "is_replay": false
+      },
+      "channel": {
+        "creator_user_profile_id": 8,
+        "channel_id": 9,
+        "channel": "xBZ46Lq2",
+        "language": "en",
+        "topic": "Kurt’s Test Room v2",
+        "show_lock": false,
+        "url": "https://www.clubhouse.com/room/xBZ46Lq2?utm_medium=ch_room_pt&utm_campaign=nuBblL0zLJaRQmEljazl7A-2511489&chs=p7wCwqOZoJ%3AvdywmOKFY0jymA5rdTtX3uu_IUh-D1Oew1pYfSsoUxQ",
+        "feature_flags": [
+          "AGORA_AUDIO_PROFILE_MUSIC_STANDARD_STEREO",
+          "MUSIC_STANDARD_STEREO"
+        ],
+        "club": null,
+        "num_speakers": 1,
+        "num_all": 1,
+        "is_nsfw": false,
+        "users": [
+          {
+            "user_id": 10,
+            "name": "user_686",
+            "photo_url": "user_687",
+            "is_speaker": true,
+            "is_moderator": true,
+            "time_joined_as_speaker": "<redacted>T15:57:08.094719+00:00"
+          }
+        ],
+        "is_handraise_enabled": false,
+        "is_handraise_available": true,
+        "is_topics_available": false,
+        "is_automatic_speaker_approval_available": false,
+        "handraise_permission": 1,
+        "is_private": false,
+        "is_social_mode": false,
+        "welcome_for_user_profile": null,
+        "is_club_member": false,
+        "is_club_admin": false,
+        "is_club_follower": false,
+        "is_club_pending_accept": false,
+        "is_pending_accept_club_rules": false
+      }
+    },
+    {
+      "logging_context": {
+        "query": "test",
+        "search_rank": 2,
+        "query_id": null,
+        "entity": "replay",
+        "entity_id": 11,
+        "result_object_id": "Replay-<redacted>",
+        "type": 2,
+        "channel_id": 12,
+        "search_tab": 4,
+        "is_replay": true
+      },
+      "replay": {
+        "channel": {
+          "creator_user_profile_id": 13,
+          "channel": "M8ZEW8ob",
+          "topic": "Test",
+          "is_private": false,
+          "is_social_mode": false,
+          "url": "https://www.clubhouse.com/room/M8ZEW8ob?utm_medium=ch_room_xr&utm_campaign=nuBblL0zLJaRQmEljazl7A-2511489&chs=p7wCwqOZoJ%3AvdywmOKFY0jymA5rdTtX3uu_IUh-D1Oew1pYfSsoUxQ",
+          "social_club": null
+        },
+        "duration_ms": 987754,
+        "start_time": "<redacted>T16:30:46.347001-08:00",
+        "speakers": [
+          {
+            "user_id": 14,
+            "name": "user_688",
+            "first_name": "user_689",
+            "username": "user_690",
+            "photo_url": "user_691",
+            "is_valid": true,
+            "channel_emoji": null
+          },
+          {
+            "user_id": 15,
+            "name": "user_692",
+            "first_name": "user_693",
+            "username": "user_694",
+            "photo_url": "user_695",
+            "is_valid": true,
+            "channel_emoji": null
+          },
+          {
+            "user_id": 16,
+            "name": "user_696",
+            "first_name": "user_440",
+            "username": "user_697",
+            "photo_url": "user_698",
+            "is_valid": true,
+            "channel_emoji": null
+          },
+          {
+            "user_id": 17,
+            "name": "user_699",
+            "first_name": "user_700",
+            "username": "user_701",
+            "photo_url": "user_702",
+            "is_valid": true,
+            "channel_emoji": null
+          }
+        ],
+        "num_speakers": 9,
+        "num_all": 581,
+        "is_saved": false,
+        "can_save": true,
+        "has_recap": false,
+        "can_delete_replay": false,
+        "can_hide_replay": false,
+        "can_download_full_audio": false
+      }
+    },
+    {
+      "logging_context": {
+        "query": "test",
+        "search_rank": 3,
+        "query_id": null,
+        "entity": "replay",
+        "entity_id": 18,
+        "result_object_id": "Replay-56915147",
+        "type": 2,
+        "channel_id": 19,
+        "search_tab": 4,
+        "is_replay": true
+      },
+      "replay": {
+        "channel": {
+          "creator_user_profile_id": 20,
+          "channel": "mWy1OoLx",
+          "topic": "test",
+          "is_private": false,
+          "is_social_mode": false,
+          "url": "https://www.clubhouse.com/room/mWy1OoLx?utm_medium=ch_room_xr&utm_campaign=nuBblL0zLJaRQmEljazl7A-2511489&chs=p7wCwqOZoJ%3AvdywmOKFY0jymA5rdTtX3uu_IUh-D1Oew1pYfSsoUxQ",
+          "social_club": null
+        },
+        "duration_ms": 37641792,
+        "start_time": "<redacted>T15:50:50.248575-08:00",
+        "speakers": [
+          {
+            "user_id": 21,
+            "name": "user_703",
+            "first_name": "user_704",
+            "username": "user_705",
+            "photo_url": "user_706",
+            "is_valid": true,
+            "channel_emoji": null
+          },
+          {
+            "user_id": 22,
+            "name": "user_707",
+            "first_name": "user_708",
+            "username": "user_709",
+            "photo_url": "user_710",
+            "is_valid": true,
+            "channel_emoji": null
+          },
+          {
+            "user_id": 23,
+            "name": "user_711",
+            "first_name": "user_773",
+            "username": "user_712",
+            "photo_url": "user_713",
+            "is_valid": true,
+            "channel_emoji": null
+          },
+          {
+            "user_id": 24,
+            "name": "user_714",
+            "first_name": "user_715",
+            "username": "user_716",
+            "photo_url": "user_717",
+            "is_valid": true,
+            "channel_emoji": null
+          }
+        ],
+        "num_speakers": 7,
+        "num_all": 281,
+        "is_saved": false,
+        "can_save": true,
+        "has_recap": false,
+        "can_delete_replay": false,
+        "can_hide_replay": false,
+        "can_download_full_audio": false
+      }
+    },
+    {
+      "logging_context": {
+        "query": "test",
+        "search_rank": 4,
+        "query_id": null,
+        "entity": "replay",
+        "entity_id": 25,
+        "result_object_id": "Replay-<redacted>",
+        "type": 2,
+        "channel_id": 26,
+        "search_tab": 4,
+        "is_replay": true
+      },
+      "replay": {
+        "channel": {
+          "creator_user_profile_id": 27,
+          "channel": "MzDAK0e2",
+          "topic": "Test",
+          "is_private": false,
+          "is_social_mode": false,
+          "url": "https://www.clubhouse.com/room/MzDAK0e2?utm_medium=ch_room_xr&utm_campaign=nuBblL0zLJaRQmEljazl7A-2511489&chs=p7wCwqOZoJ%3AvdywmOKFY0jymA5rdTtX3uu_IUh-D1Oew1pYfSsoUxQ",
+          "social_club": {
+            "social_club_id": 28,
+            "name": "user_718",
+            "photo_url": null
+          }
+        },
+        "duration_ms": 3257770,
+        "start_time": "<redacted>T08:45:11.059127-08:00",
+        "speakers": [
+          {
+            "user_id": 29,
+            "name": "user_719",
+            "first_name": "user_720",
+            "username": "user_721",
+            "photo_url": "user_722",
+            "is_valid": true,
+            "channel_emoji": null
+          },
+          {
+            "user_id": 30,
+            "name": "user_723",
+            "first_name": "user_724",
+            "username": "user_725",
+            "photo_url": "user_726",
+            "is_valid": true,
+            "channel_emoji": null
+          },
+          {
+            "user_id": 31,
+            "name": "user_727",
+            "first_name": "user_728",
+            "username": "user_729",
+            "photo_url": "user_730",
+            "is_valid": true,
+            "channel_emoji": null
+          },
+          {
+            "user_id": 32,
+            "name": "user_731",
+            "first_name": "user_732",
+            "username": "user_733",
+            "photo_url": "user_734",
+            "is_valid": true,
+            "channel_emoji": null
+          }
+        ],
+        "num_speakers": 6,
+        "num_all": 295,
+        "is_saved": false,
+        "can_save": true,
+        "has_recap": false,
+        "can_delete_replay": false,
+        "can_hide_replay": false,
+        "can_download_full_audio": false
+      }
+    }
   ]
 }
