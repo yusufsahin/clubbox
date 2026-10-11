@@ -1,32 +1,49 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { PubNubRoomSource } from '../src/api/pubnubRoomSource.ts';
+import { FakePubNub } from '../features/support/fakePubnub.ts';
 
-test('PubNub source connects with join token and stays connected across pause', () => {
-  let disconnected = false;
-  const source = new PubNubRoomSource({
-    connect: () => ({
-      disconnect: () => {
-        disconnected = true;
-      },
-    }),
+test('PubNub source connects with join token and stays connected across pause', async () => {
+  const hub = new FakePubNub();
+  const source = new PubNubRoomSource({ hub, myUserId: 42 });
+  source.setChannel({
+    channel: 'abc123',
+    channel_id: 'abc123',
+    topic: 'Test',
+    users: [],
+    num_speakers: 0,
+    num_all: 0,
+    pubnub_token: 'pubnub_token_fixture',
+    pubnub_origin: 'clubhouse.pubnubapi.com',
   });
   source.setToken('pubnub_token_fixture');
   source.start('abc123');
+  await new Promise((resolve) => setTimeout(resolve, 0));
   assert.equal(source.isConnected(), true);
   source.pause();
   assert.equal(source.isConnected(), false);
   assert.equal(source.resume(), true);
   assert.equal(source.isConnected(), true);
   source.stop();
-  assert.equal(disconnected, true);
   assert.equal(source.isConnected(), false);
 });
 
 test('unknown PubNub types report type and keys only', () => {
   const seen: Array<{ type: string; keys: string[] }> = [];
+  const hub = new FakePubNub();
   const source = new PubNubRoomSource({
+    hub,
+    myUserId: 42,
     onUnknownMessage: (message) => seen.push(message),
+  });
+  source.setChannel({
+    channel: 'abc123',
+    channel_id: 'abc123',
+    topic: 'Test',
+    users: [],
+    num_speakers: 0,
+    num_all: 0,
+    pubnub_token: 'token',
   });
   source.handleMessage({ type: 'channel_message', channel: 'x', text: 'hi' });
   source.handleMessage({ type: 'weird_event', foo: 1, bar: 2 });

@@ -42,6 +42,11 @@ interface ElectronAPI {
   closeOfficialSignIn?: () => Promise<{ ok: boolean }>;
   onWebSessionMaybe?: (callback: () => void) => void;
   onAgoraAppId?: (callback: (appId: string) => void) => () => void;
+  pubnubSubscribe?: (params: import('../api/realtimeHub.ts').PubNubSubscribeParams) => Promise<{ ok: boolean }>;
+  pubnubResubscribe?: () => Promise<{ ok: boolean }>;
+  pubnubUnsubscribe?: () => Promise<{ ok: boolean }>;
+  onPubNubMessage?: (callback: (message: Record<string, unknown>) => void) => () => void;
+  onPubNubStatus?: (callback: (status: import('../api/realtimeHub.ts').RealtimeHubStatus) => void) => () => void;
   clearWebSession?: () => Promise<{ ok: boolean }>;
   appendApiLog?: (record: {
     endpoint: string;
@@ -166,6 +171,25 @@ export class ClubboxApp {
         appVersion: clubhouseClient.getConfig().appVersion,
       });
     },
+    onChatMessage: (message) => {
+      if (this.chatMessages.some((entry) => entry.id === message.id)) return;
+      this.chatMessages.push(message);
+      if (this.currentTab === 'stage' && this.chatOpen) this.renderChat();
+      else this.unreadChat += 1;
+    },
+    onReaction: (emoji, targetName) => {
+      this.showToast(`${emoji} → ${targetName}`, emoji);
+    },
+    onReconnecting: (reconnecting) => {
+      const banner = document.getElementById('realtime-banner');
+      if (banner) banner.hidden = !reconnecting;
+    },
+    onRoomEnded: () => {
+      void this.releaseRoomLocally({ skipServer: true }).then(() => {
+        this.afterRoomExit(true, false, true);
+        this.showToast(t('roomEndedByHost'), '🏁');
+      });
+    },
   });
   private audioPrefs: AudioPrefs = readAudioPrefs();
   private shortcuts: ShortcutMap = readShortcuts();
@@ -177,6 +201,7 @@ export class ClubboxApp {
     this.ensureProfileDrawer();
     clubhouseClient.onAuthExpired(() => this.handleAuthExpired());
     roomSync.onUpdate((detail) => this.applyRoomUpdate(detail));
+    this.pubnubSource.onUpdate((detail) => this.applyRoomUpdate(detail));
     window.addEventListener('beforeunload', () => this.handleBeforeUnload());
     document.addEventListener('visibilitychange', () => this.onVisibilityChange());
     this.init();

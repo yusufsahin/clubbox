@@ -81,13 +81,14 @@ export function startRoomPresence(this: ClubboxApp, channelId: string) : void {
         });
       }, 30000);
     }
-    const pubnubToken = this.currentChannel?.pubnub_token;
+    const channel = this.currentChannel;
+    if (channel) this.pubnubSource.setChannel(channel);
+    const pubnubToken = channel?.pubnub_token;
     this.pubnubSource.setToken(pubnubToken);
+    this.pubnubSource.setChatOpen(this.chatOpen);
     this.pubnubSource.start(channelId);
     if (this.pollsPaused) return;
     this.syncChatPolling();
-    // Polling fallback when PubNub token is missing (Ctrl+P still refreshes).
-    if (!pubnubToken) roomSync.start(channelId);
   }
 
 export function stopChatPolling(this: ClubboxApp) : void {
@@ -98,10 +99,12 @@ export function stopChatPolling(this: ClubboxApp) : void {
   }
 
 export function syncChatPolling(this: ClubboxApp) : void {
+    this.pubnubSource.setChatOpen(this.chatOpen);
     const open = !!this.currentChannel
       && !this.pollsPaused
       && this.chatOpen
-      && this.currentChannel.is_chat_enabled !== false;
+      && this.currentChannel.is_chat_enabled !== false
+      && this.pubnubSource.shouldPollChat();
     if (!open) {
       this.stopChatPolling();
       return;
@@ -353,11 +356,9 @@ export async function muteEveryone(this: ClubboxApp) : Promise<void> {
 export async function refreshStageManual(this: ClubboxApp) : Promise<void> {
     if (!this.currentChannel) return;
     try {
-      if (clubhouseClient.supports('get_channel')) {
-        const detail = await clubhouseClient.getChannel(this.channelApiId(this.currentChannel));
-        this.currentChannel = detail;
-        this.renderStage();
-      }
+      await this.pubnubSource.resubscribe();
+      await this.refreshChat();
+      this.renderStage();
     } catch (err) {
       this.reportApiError(err);
     }
@@ -502,6 +503,8 @@ export async function joinRoom(this: ClubboxApp, channelId: string, preset?: CHC
         }
       }
       this.currentChannel = joined;
+      this.pubnubSource.setChannel(joined);
+      if (joined.agora_native_mute === true) agoraVoice.setNativeMuteSignalling(true);
       if (joined.is_chat_enabled === false) this.chatOpen = false;
       if (joined.should_join_muted === true) audioEngine.setMuted(true);
     } catch (err) {

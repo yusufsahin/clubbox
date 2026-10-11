@@ -26,4 +26,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   clearWebSession: () => ipcRenderer.invoke('clubbox:clear-web-session'),
   appendApiLog: (record) => ipcRenderer.invoke('clubbox:api-log-append', record),
+  pubnubSubscribe: (params) => ipcRenderer.invoke('clubbox:pubnub-subscribe', params),
+  pubnubResubscribe: () => ipcRenderer.invoke('clubbox:pubnub-resubscribe'),
+  pubnubUnsubscribe: () => ipcRenderer.invoke('clubbox:pubnub-unsubscribe'),
+  onPubNubMessage: (callback) => {
+    const listener = (_event, message) => callback(message);
+    ipcRenderer.on('clubbox:pubnub-message', listener);
+    return () => ipcRenderer.removeListener('clubbox:pubnub-message', listener);
+  },
+  onPubNubStatus: (callback) => {
+    const listener = (_event, status) => callback(status);
+    ipcRenderer.on('clubbox:pubnub-status', listener);
+    return () => ipcRenderer.removeListener('clubbox:pubnub-status', listener);
+  },
 });

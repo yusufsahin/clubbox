@@ -23,6 +23,7 @@ export class AgoraVoiceEngine {
   private currentChannel: string | null = null;
   private onSpeakerVolumeCallbacks: ((speakers: { uid: string | number; level: number }[]) => void)[] = [];
   private sdkPromise: Promise<AgoraSdk> | null = null;
+  private nativeMuteSignalling = false;
 
   // Same default as ClubhouseConfig.agoraAppId. See docs/api/realtime.md.
   public appId: string = '3489b00d5d104a45a00513316a32d3e4';
@@ -207,9 +208,17 @@ export class AgoraVoiceEngine {
     this.currentChannel = null;
   }
 
-  public async setMuted(_muted: boolean): Promise<void> {
-    // Mute is the mic gain ramp in AudioEngine. Disabling this track would
-    // also silence soundboard effects on the shared send bus.
+  public setNativeMuteSignalling(enabled: boolean): void {
+    this.nativeMuteSignalling = enabled;
+  }
+
+  public async setMuted(muted: boolean): Promise<void> {
+    if (!this.nativeMuteSignalling || !this.localAudioTrack) return;
+    try {
+      await this.localAudioTrack.setMuted(muted);
+    } catch (err) {
+      console.warn('[AgoraRTC] Track mute failed:', err);
+    }
   }
 
   public onVolumeLevels(cb: (speakers: { uid: string | number; level: number }[]) => void): () => void {

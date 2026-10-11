@@ -6,6 +6,7 @@ const { pathToFileURL } = require('url');
 const { isAllowedEndpoint, isPlainPayload, pickHeaders } = require('./ipcGuard.cjs');
 const { appendApiLog } = require('./apiLog.cjs');
 const { createBundleCrawler } = require('./bundleCrawler.cjs');
+const { createPubNubClient } = require('./pubnubClient.cjs');
 
 const REQUEST_TIMEOUT_MS = 20000;
 const DEV_SERVER_ORIGIN = 'http://localhost:5173';
@@ -331,6 +332,42 @@ const WEB_SESSION_PATHS = require('./webApiRoutes.json');
 let signInWindow = null;
 let lastSignInNotice = '';
 let bundleCrawlInFlight = null;
+let pubnubClient = null;
+
+function readRealtimeConfig() {
+  try {
+    const file = path.join(app.getPath('userData'), 'realtime-config.json');
+    if (!fs.existsSync(file)) return {};
+    return JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch {
+    return {};
+  }
+}
+
+function pushAgoraAppIdFromConfig() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  const config = readRealtimeConfig();
+  const appId = typeof config.agoraAppId === 'string' ? config.agoraAppId : null;
+  if (appId && /^[a-fA-F0-9]{32}$/.test(appId)) {
+    mainWindow.webContents.send('clubbox:agora-app-id', appId);
+  }
+}
+
+function ensurePubNubClient() {
+  if (pubnubClient) return pubnubClient;
+  pubnubClient = createPubNubClient({
+    fetchFn: (url, init) => session.defaultSession.fetch(url, init),
+    onMessage: (message) => {
+      if (!mainWindow || mainWindow.isDestroyed()) return;
+      mainWindow.webContents.send('clubbox:pubnub-message', message);
+    },
+    onStatus: (status) => {
+      if (!mainWindow || mainWindow.isDestroyed()) return;
+      mainWindow.webContents.send('clubbox:pubnub-status', status);
+    },
+  });
+  return pubnubClient;
+}
 
 function scheduleBundleCrawl() {
   if (bundleCrawlInFlight) return;
@@ -352,6 +389,7 @@ function scheduleBundleCrawl() {
     } else {
       console.warn('[Clubbox] bundle crawl skipped:', result.reason);
     }
+    pushAgoraAppIdFromConfig();
   }).catch((err) => {
     console.warn('[Clubbox] bundle crawl failed:', err instanceof Error ? err.message : err);
   }).finally(() => {
@@ -526,6 +564,39 @@ async function postWithWebSession(endpoint, body) {
   }
   return { ok: response.ok, status: response.status, body: text };
 }
+
+ipcMain.handle('clubbox:pubnub-subscribe', async (event, payload) => {
+  if (!isTrustedSender(event)) return { ok: false };
+  const config = readRealtimeConfig();
+  const subscribeKey = typeof config.pubnubSubscribeKey === 'string' ? config.pubnubSubscribeKey : null;
+  if (!subscribeKey || !payload || typeof payload !== 'object') return { ok: false };
+  const channelId = String(payload.channelId || '');
+  const token = String(payload.token || '');
+  const origin = String(payload.origin || 'clubhouse.pubnubapi.com');
+  const uuid = String(payload.uuid || 'clubbox');
+  if (!channelId || !token) return { ok: false };
+  ensurePubNubClient().start({
+    channelId,
+    token,
+    origin,
+    uuid,
+    heartbeat: payload.heartbeat,
+    timeToken: payload.timeToken,
+  }, subscribeKey);
+  return { ok: true };
+});
+
+ipcMain.handle('clubbox:pubnub-resubscribe', async (event) => {
+  if (!isTrustedSender(event)) return { ok: false };
+  ensurePubNubClient().resubscribe();
+  return { ok: true };
+});
+
+ipcMain.handle('clubbox:pubnub-unsubscribe', async (event) => {
+  if (!isTrustedSender(event)) return { ok: false };
+  ensurePubNubClient().stop();
+  return { ok: true };
+});
 
 ipcMain.handle('ch:request', async (event, payload) => {
   if (!isTrustedSender(event)) {

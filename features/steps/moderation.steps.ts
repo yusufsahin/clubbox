@@ -9,6 +9,11 @@ Given('my user_capabilities have {string} {word}', function (this: ClubboxWorld,
 
 Given('{string} is on stage', async function (this: ClubboxWorld, name: string) {
   this.onStageUsers.push({ name, userId: 99 });
+  if (this.realtimeRoom.channel) {
+    this.realtimeRoom.handleType('speaker_added', name);
+    this.syncFromRealtime();
+    return;
+  }
   if (!this.session.channelId) {
     await this.session.startFriendsOfFriendsRoom('Morning show', { replayEnabled: true, chatEnabled: true });
     this.syncFromSession();

@@ -38,6 +38,7 @@ export function emptyStageView(): SafeHtml {
 export function stageView(column: SafeHtml, messages: SafeHtml, chatOpen: boolean): SafeHtml {
   return html`
     <div class="stage-main-wrapper">
+      <div id="realtime-banner" hidden class="rec-banner" style="margin: 0 0 8px;">${t('realtimeReconnecting')}</div>
       <div class="stage-content-col" id="stage-column">
         ${column}
       </div>

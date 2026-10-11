@@ -74,7 +74,10 @@ export interface CHChannel {
   users: CHUser[];
   token?: string; // Agora RTC token
   pubnub_token?: string;
+  pubnub_origin?: string;
+  pubnub_heartbeat_value?: number;
   pubnub_heartbeat_interval?: number;
+  pubnub_time_token?: string;
 }
 
 export type UserCapabilities = Record<string, boolean | undefined>;

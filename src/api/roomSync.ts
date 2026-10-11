@@ -1,11 +1,7 @@
-import { clubhouseClient } from './client';
-import { createSingleFlight } from './guards';
 import type { CHChannelDetail } from './types';
 
 /**
- * Room state source. A PubNub subscriber can replace polling later by
- * implementing this same start / stop / onUpdate boundary and emitting
- * CHChannelDetail snapshots (the join response includes pubnub_token).
+ * Room state source. PubNub (PubNubRoomSource) replaces get_channel polling on web.
  */
 export interface RoomUpdateSource {
   start(channelId: string): void;
@@ -21,21 +17,14 @@ export class RoomSync implements RoomUpdateSource {
   private generation = 0;
   private warnedUnsupported = false;
   private callbacks: ((detail: CHChannelDetail) => void)[] = [];
-  private intervalMs: number;
-  private flight = createSingleFlight();
-
-  constructor(intervalMs = 15000) {
-    this.intervalMs = intervalMs;
-  }
 
   start(channelId: string): void {
     this.stop();
     this.channelId = channelId;
-    const generation = this.generation;
-    void this.poll(generation);
+    void this.poll();
     this.timer = window.setInterval(() => {
-      void this.poll(generation);
-    }, this.intervalMs);
+      void this.poll();
+    }, 15_000);
   }
 
   stop(): void {
@@ -56,11 +45,10 @@ export class RoomSync implements RoomUpdateSource {
 
   resume(): boolean {
     if (!this.channelId || this.timer !== null) return false;
-    const generation = this.generation;
-    void this.poll(generation);
+    void this.poll();
     this.timer = window.setInterval(() => {
-      void this.poll(generation);
-    }, this.intervalMs);
+      void this.poll();
+    }, 15_000);
     return true;
   }
 
@@ -71,29 +59,13 @@ export class RoomSync implements RoomUpdateSource {
     };
   }
 
-  private async poll(generation: number): Promise<void> {
-    await this.flight.run(async () => {
-      const channelId = this.channelId;
-      if (!channelId || generation !== this.generation) return;
-
-      if (!clubhouseClient.supports('get_channel')) {
-        if (!this.warnedUnsupported) {
-          this.warnedUnsupported = true;
-          console.warn('[RoomSync] Live updates unavailable in web sign-in');
-        }
-        return;
-      }
-
-      try {
-        const detail = await clubhouseClient.getChannel(channelId);
-        if (generation !== this.generation) return;
-        this.callbacks.forEach((cb) => cb(detail));
-      } catch (err) {
-        console.warn('[RoomSync] poll failed:', err);
-      }
-    });
+  private async poll(): Promise<void> {
+    if (!this.warnedUnsupported) {
+      this.warnedUnsupported = true;
+      console.warn('[RoomSync] Stage polling disabled; use PubNub realtime');
+    }
   }
 }
 
-// TODO: swap this polling source for a PubNub subscriber that implements RoomUpdateSource.
+/** Legacy hook — prefer PubNubRoomSource. Kept for pause/resume wiring only. */
 export const roomSync: RoomUpdateSource = new RoomSync();

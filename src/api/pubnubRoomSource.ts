@@ -1,5 +1,9 @@
-import type { CHChannelDetail } from './types';
+import type { CHChannelDetail, CHChatMessage } from './types';
 import type { RoomUpdateSource } from './roomSync';
+import { RealtimeRoomCoordinator } from './realtimeRoomCoordinator.ts';
+import type { RealtimeHub } from './realtimeHub.ts';
+import { createElectronRealtimeHub } from './realtimeHub.ts';
+import { clubhouseClient } from './client';
 
 export type PubNubMessageHandler = (message: {
   type: string;
@@ -9,66 +13,97 @@ export type PubNubMessageHandler = (message: {
 export type PubNubRoomSourceOptions = {
   origin?: string;
   onUnknownMessage?: PubNubMessageHandler;
-  /** Injected for tests — production uses a real PubNub client later. */
-  connect?: (input: {
-    origin: string;
-    token: string;
-    channelId: string;
-  }) => { disconnect: () => void };
+  hub?: RealtimeHub;
+  myUserId?: number;
+  onChatMessage?: (message: CHChatMessage) => void;
+  onReaction?: (emoji: string, targetName: string) => void;
+  onReconnecting?: (reconnecting: boolean) => void;
+  onRoomEnded?: () => void;
 };
 
+function electronHub(): RealtimeHub | null {
+  const api = (globalThis as typeof globalThis & { electronAPI?: unknown }).electronAPI as
+    | Parameters<typeof createElectronRealtimeHub>[0]
+    | undefined;
+  if (!api?.pubnubSubscribe) return null;
+  return createElectronRealtimeHub(api);
+}
+
 /**
- * RoomUpdateSource backed by clubhouse.pubnubapi.com.
- * Subscribe tokens come from join/create responses (pubnub_* fields).
+ * RoomUpdateSource backed by PubNub (DESIGN §5.1).
  */
 export class PubNubRoomSource implements RoomUpdateSource {
   private channelId: string | null = null;
   private token: string | null = null;
-  private connected = false;
   private paused = false;
-  private disconnectFn: (() => void) | null = null;
   private callbacks: ((detail: CHChannelDetail) => void)[] = [];
   private readonly origin: string;
   private readonly onUnknownMessage?: PubNubMessageHandler;
-  private readonly connectFn: NonNullable<PubNubRoomSourceOptions['connect']>;
+  private readonly hub: RealtimeHub;
+  private coordinator: RealtimeRoomCoordinator | null = null;
+  private channelSnapshot: CHChannelDetail | null = null;
 
   constructor(options: PubNubRoomSourceOptions = {}) {
     this.origin = options.origin ?? 'clubhouse.pubnubapi.com';
     this.onUnknownMessage = options.onUnknownMessage;
-    this.connectFn = options.connect ?? (() => ({ disconnect: () => undefined }));
+    this.hub = options.hub ?? electronHub() ?? createElectronRealtimeHub(null);
+    const myUserId = options.myUserId ?? clubhouseClient.getCurrentUserId() ?? 0;
+    this.coordinator = new RealtimeRoomCoordinator({
+      client: clubhouseClient,
+      hub: this.hub,
+      myUserId,
+      callbacks: {
+        onChannelUpdate: (detail) => {
+          this.channelSnapshot = detail;
+          if (!this.paused) this.callbacks.forEach((cb) => cb(detail));
+        },
+        onUnknown: (type, keys) => this.onUnknownMessage?.({ type, keys }),
+        onChatMessage: (message) => options.onChatMessage?.(message),
+        onReaction: (emoji, target) => options.onReaction?.(emoji, target),
+        onStatus: (reconnecting) => options.onReconnecting?.(reconnecting),
+        onRoomEnded: () => options.onRoomEnded?.(),
+      },
+    });
+  }
+
+  setChannel(detail: CHChannelDetail | null): void {
+    this.channelSnapshot = detail;
+    if (this.coordinator) this.coordinator.channel = detail;
   }
 
   setToken(token: string | null | undefined): void {
     this.token = token ?? null;
   }
 
+  setChatOpen(open: boolean): void {
+    this.coordinator?.setChatOpen(open);
+  }
+
   isConnected(): boolean {
-    return this.connected && !this.paused;
+    return !!this.token && this.hub.isConnected() && !this.paused;
+  }
+
+  async resubscribe(): Promise<void> {
+    await this.coordinator?.refresh();
   }
 
   start(channelId: string): void {
-    this.stop();
     this.channelId = channelId;
     this.paused = false;
-    if (!this.token) {
-      this.connected = false;
+    if (!this.token || !this.channelSnapshot || !this.coordinator) {
       return;
     }
-    const handle = this.connectFn({
-      origin: this.origin,
-      token: this.token,
-      channelId,
-    });
-    this.disconnectFn = handle.disconnect;
-    this.connected = true;
+    const detail = {
+      ...this.channelSnapshot,
+      pubnub_origin: this.channelSnapshot.pubnub_origin ?? this.origin,
+    };
+    void this.coordinator.enter(detail);
   }
 
   stop(): void {
-    this.disconnectFn?.();
-    this.disconnectFn = null;
-    this.connected = false;
-    this.paused = false;
+    this.coordinator?.stop();
     this.channelId = null;
+    this.token = null;
   }
 
   pause(): void {
@@ -78,8 +113,10 @@ export class PubNubRoomSource implements RoomUpdateSource {
   resume(): boolean {
     if (!this.channelId || !this.token) return false;
     this.paused = false;
-    if (!this.connected) this.start(this.channelId);
-    return this.connected;
+    if (!this.hub.isConnected() && this.channelSnapshot) {
+      this.start(this.channelId);
+    }
+    return this.isConnected();
   }
 
   onUpdate(cb: (detail: CHChannelDetail) => void): () => void {
@@ -89,18 +126,12 @@ export class PubNubRoomSource implements RoomUpdateSource {
     };
   }
 
-  /** Handle a PubNub envelope; known types update stage/chat, unknowns go to API Health. */
+  /** Handle a PubNub envelope (tests / IPC bridge). */
   handleMessage(raw: Record<string, unknown>): void {
-    const type = typeof raw.type === 'string'
-      ? raw.type
-      : typeof raw.message_type === 'string'
-        ? raw.message_type
-        : 'unknown';
-    const keys = Object.keys(raw).sort();
-    if (type === 'channel_message' || type === 'channel_reaction') {
-      // Stage/chat patches land via callbacks when a full channel snapshot is available.
-      return;
-    }
-    this.onUnknownMessage?.({ type, keys });
+    this.coordinator?.handleRaw(raw);
+  }
+
+  shouldPollChat(): boolean {
+    return this.coordinator?.shouldPollChat() ?? false;
   }
 }

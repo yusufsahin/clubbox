@@ -353,6 +353,8 @@ export const tr: Record<MessageKey, string> = {
   endRoomConfirm: 'Bu oda herkes için bitsin mi?',
   leaveEndsRoomConfirm: 'Tek moderatör sensin. Ayrılmak odayı bitirir.',
   endedRoom: 'Oda bitti',
+  roomEndedByHost: 'Oda sona erdi',
+  realtimeReconnecting: 'Yeniden bağlanıyor…',
   messageFilterAll: 'Tümü',
   messageFilterHouse: 'Kulüp',
   messageFilterVm: 'Sesli mesaj',

@@ -5,6 +5,9 @@
   "token": "agora_rtc_token_fixture",
   "pubnub_token": "pubnub_token_fixture",
   "pubnub_origin": "clubhouse.pubnubapi.com",
+  "pubnub_heartbeat_value": 20,
+  "pubnub_heartbeat_interval": 9,
+  "pubnub_time_token": "0",
   "users": [
     {
       "user_id": 1,
@@ -12,6 +15,13 @@
       "username": "host",
       "is_speaker": true,
       "is_moderator": true
+    },
+    {
+      "user_id": 42,
+      "name": "Me",
+      "username": "me",
+      "is_speaker": false,
+      "is_moderator": false
     }
   ],
   "num_speakers": 1,

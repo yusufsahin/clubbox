@@ -351,6 +351,8 @@ export const en = {
   endRoomConfirm: 'End this room for everyone?',
   leaveEndsRoomConfirm: 'You are the only moderator. Leaving ends the room.',
   endedRoom: 'Room ended',
+  roomEndedByHost: 'The room has ended',
+  realtimeReconnecting: 'Reconnecting…',
   messageFilterAll: 'All',
   messageFilterHouse: 'House',
   messageFilterVm: 'Voice messages',

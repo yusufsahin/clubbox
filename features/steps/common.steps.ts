@@ -22,7 +22,9 @@ Given('I am signed in with a web session', function (this: ClubboxWorld) {
 When('{int} seconds pass', function (this: ClubboxWorld, seconds: number) {
   this.clock.advance(seconds * 1000);
   this.clientNow.t = this.clock.now();
-  if (this.session.shouldPollChat()) {
+  if (this.realtimeRoom.shouldPollChat()) {
+    void this.client.getChannelMessages(this.realtimeRoom.channel!.channel ?? 'abc123');
+  } else if (this.session.shouldPollChat()) {
     void this.client.getChannelMessages(this.session.channelId!);
   }
 });
@@ -88,6 +90,16 @@ Then('the body field {string} is {}', function (this: ClubboxWorld, field: strin
 
 Then('no {string} request is sent', function (this: ClubboxWorld, endpoint: string) {
   assert.equal(this.transport.requestsNamed(endpoint).length, 0);
+});
+
+Then('no {string} request is ever sent', function (this: ClubboxWorld, endpoint: string) {
+  assert.equal(this.transport.requestsNamed(endpoint).length, 0);
+});
+
+Then('I see {string} and {string}', function (this: ClubboxWorld, first: string, second: string) {
+  for (const message of [first, second]) {
+    assert.ok(this.uiMessages.includes(message) || this.session.uiMessages.includes(message));
+  }
 });
 
 Then('no new request is sent', function (this: ClubboxWorld) {

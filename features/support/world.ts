@@ -10,6 +10,8 @@ import webApiRoutes from '../../electron/webApiRoutes.json' with { type: 'json' 
 import { FakeAgora } from './fakeAgora.ts';
 import { FakeClock } from './fakeClock.ts';
 import { FakeTransport } from './fakeTransport.ts';
+import { FakePubNub } from './fakePubnub.ts';
+import { RealtimeRoomCoordinator } from '../../src/api/realtimeRoomCoordinator.ts';
 
 export type ApiHealthEntry = {
   endpoint: string;
@@ -77,6 +79,8 @@ export class ClubboxWorld extends World {
   client: ClubhouseApiClient;
   clock: FakeClock;
   agora: FakeAgora;
+  pubnub: FakePubNub;
+  realtimeRoom: RealtimeRoomCoordinator;
   session: RoomSessionController;
   visibilityState: DocumentVisibilityState = 'visible';
   experimentalActions = false;
@@ -150,6 +154,7 @@ export class ClubboxWorld extends World {
     this.transport = new FakeTransport();
     this.clock = new FakeClock();
     this.agora = new FakeAgora();
+    this.pubnub = new FakePubNub();
     this.clientNow = { t: this.clock.now() };
     this.client = new ClubhouseApiClient({
       useSandbox: false,
@@ -160,17 +165,59 @@ export class ClubboxWorld extends World {
       transport: this.transport,
       now: () => this.clientNow.t,
     });
+    this.realtimeRoom = new RealtimeRoomCoordinator({
+      client: this.client,
+      hub: this.pubnub,
+      myUserId: this.myUserId,
+      setInterval: (fn, ms) => this.clock.setInterval(fn, ms),
+      clearInterval: (id) => this.clock.clearInterval(id),
+      callbacks: {
+        onUiMessage: (message) => this.uiMessages.push(message),
+        onInvite: () => {
+          this.invitedToSpeak = true;
+          this.uiMessages.push('Accept');
+          this.uiMessages.push('Decline');
+        },
+        onRoomEnded: () => {
+          this.agora.leave();
+          this.realtimeRoom.stop();
+        },
+        onStatus: (reconnecting) => {
+          if (reconnecting) this.uiMessages.push('Reconnecting…');
+        },
+      },
+    });
     this.session = new RoomSessionController({
       client: this.client,
       agora: this.agora,
       myUserId: this.myUserId,
       setInterval: (fn, ms) => this.clock.setInterval(fn, ms),
       clearInterval: (id) => this.clock.clearInterval(id),
+      realtime: {
+        subscribe: (channelId: string) => {
+          this.pubnub.subscribe({
+            channelId,
+            token: 'pubnub_token_fixture',
+            origin: 'clubhouse.pubnubapi.com',
+            uuid: String(this.myUserId),
+            heartbeat: 20,
+            heartbeatInterval: 9,
+          });
+        },
+        unsubscribe: () => this.pubnub.unsubscribe(),
+      },
     });
     this.client.onAuthExpired(() => {
       this.signedIn = false;
     });
     this.unfollowDocumented = 'unfollow' in (webApiRoutes as Record<string, unknown>);
+  }
+
+  syncFromRealtime(): void {
+    this.currentRoom = this.realtimeRoom.channel?.channel ?? null;
+    this.chatPanelOpen = this.realtimeRoom.chatOpen;
+    this.presenceTimer = this.realtimeRoom.presenceActive ? 1 : null;
+    this.invitedToSpeak = this.realtimeRoom.inviteVisible();
   }
 
   syncFromSession(): void {
