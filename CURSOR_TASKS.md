@@ -4,20 +4,13 @@ Each task below is a self-contained prompt. Paste one task at a time into Cursor
 
 _Last reviewed: 2026-10-11. “Uygulandı” means the code is in the tree. “Canlı doğrulandı” means it was exercised against the official Clubhouse web session. This pass is implemented; the live room, hand, invite, and chat capture is still outstanding._
 
-### Next run (owner instruction, 2026-10-12 #6)
+### Next run (owner instruction, 2026-10-12 #7)
 
-Owner review of Phases 15–17: unit/BDD/trace are green, but the real-UI checks were not run after Phase 16.
-- `npm run test:e2e` fails: tests/e2e/sandbox-smoke.spec.ts still clicks the removed sidebar items (`data-tab="friends"`, sidebar `data-tab="settings"`). Phase 16/17 were marked done without running e2e.
-- reports/theme/*.png were taken at 23:23, before Phase 16 (23:35) — they show the old 12-item sidebar, ✉/🔔 in the top bar and "API & Config".
-- In VS Code / Cursor terminals ELECTRON_RUN_AS_NODE=1 is set, so Electron starts as plain Node and every e2e launch fails with "Process failed to launch".
-
-Do:
-- [ ] Make e2e immune to the env: in launchClubbox() pass an env that removes ELECTRON_RUN_AS_NODE (and do the same in scripts that spawn Electron: desktop, api:record, api:discover).
-- [ ] Update tests/e2e to the v2 shell (NAVIGATION.md): five places, profile card, ⚙ Settings, Discover sections instead of Friends/Houses, Activity instead of Events, bottom room bar, Esc/← back, simple composer (room type list → Go live), Room details panel.
-- [ ] Re-run `npm run test:e2e` until green; regenerate reports/theme/ for light and dark: hallway, discover, a house page, messages + open conversation, activity, room (stage + bottom bar + room details panel), composer, settings (with Advanced open), a toast.
-- [ ] Definition of done from now on: a phase that changes UI is only done after `npm run test:e2e` passes and fresh screenshots exist. Add this line to the Hard rules in .cursor/rules/clubbox.mdc.
-- [ ] Note: navigation.feature got new "Given the navigation shell is ready" steps during Phase 16. Setup steps are fine; never change Then-assertions. Write any wording change you need under "Questions for the owner" instead.
-- [ ] Commit per item; write the summary with the screenshot list; stop.
+Soundboard and in-room settings belong in the room (owner review). Do Phase 18 at the end of this file:
+- [ ] 18.1 room bar + Sounds panel + Reactions popover; remove the Soundboard place
+- [ ] 18.2 Room details: About · Audio · Moderation · Audience search; clean the stage page
+- [ ] 18.3 Settings › Sounds; remove voice effect / spatial audio from Settings; NAV-1 + NAV-9 (four places)
+- [ ] npm run test:e2e green + fresh light/dark screenshots (UI phases are only done with both); commit per item; summary; stop
 ### Last autonomous run (2026-10-11)
 
 - Done: Next run #5 already complete (Phases 15–17). Re-checked `npm run api:triage` → NO NEW FAILURES. No new owner checklist.
@@ -1217,4 +1210,36 @@ A "Room details" side sheet opened from the room header (replaces scattered room
 ```
 Where a person appears (Discover results, profile sheet, room cards' people list): if follows_me is true and I do not follow them, the primary button is "Follow back" (same follow request, body {user_id, source}). After following, show "Following" (non-clickable in live mode, as decided for unfollow).
 Acceptance (Phase 17): the three scenario groups green; e2e: composer → pick My friends → Go live (sandbox) and Room details panel open/close in light and dark mode.
+```
+
+---
+
+## Phase 18 — Room-centred controls (NAVIGATION.md §4, v2.1)
+
+Owner review 2026-10-12: Soundboard is a sidebar place although pads only matter in a room; voice effect and spatial audio sit in Settings; Music mode, Mute everyone and the chat toggle each exist twice; the stage page carries a moderator toolbar, a reactions row and a GIF field. Acceptance: `features/room_controls.feature` (all @pending) + NAV-1 and NAV-9 (re-pended: four places, no Soundboard badge). Prefer moving and deleting code over adding.
+
+### Task 18.1 — Room bar and Sounds panel (RH-15, ST-3)
+
+```
+1. Room bar order: ● room title (→ room page) · Mic · Hand · Reactions · Sounds · Record/Clip · Chat · Details · Leave. Remove Music Mode and Hear myself from the bar.
+2. Reactions = popover with the free emoji reactions and the GIF input (moved from the stage page).
+3. Sounds = panel with all pads (+ hotkeys), soundpad volume, Stop all, Duck — the play part of today's Soundboard page. Hotkeys 1–9 only fire while in a room as a speaker.
+4. Remove the Soundboard sidebar place and its page.
+```
+
+### Task 18.2 — Room details holds audio and moderation (RH-13, RH-15)
+
+```
+1. Room details sections: About (replay status, share) · Audio (quality Normal/High/Music — the only music-mode control —, Hear myself, voice effect, spatial audio) · Moderation (moderators only: rename, visibility, hand raise, invite people, mute everyone, end room) · Audience search.
+2. Delete the stage-page moderator toolbar, reactions row and GIF field; Refresh stage stays as Ctrl+P.
+3. Each control exactly once (scenario outline in room_controls.feature).
+```
+
+### Task 18.3 — Settings › Sounds and settings cleanup (ST-10)
+
+```
+1. Settings › Sounds: upload, rename, icon, hotkey, volume, loop, delete, preview (local output only — never into a room).
+2. Remove voice effect and spatial audio from Settings (now in Room details › Audio); keep audio devices and the recording permission.
+3. NAV-1 / NAV-9: sidebar Hallway, Discover, Messages, Activity; badges only on Messages and Activity.
+Acceptance (Phase 18): room_controls.feature and navigation.feature green; npm run test:e2e green with the new room bar; fresh light/dark screenshots of the room page, Sounds panel, Reactions popover, Room details (all sections) and Settings › Sounds.
 ```

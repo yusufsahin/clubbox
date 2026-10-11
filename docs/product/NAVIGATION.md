@@ -59,3 +59,21 @@ Five places, one action, one room bar, one way back.
 7. Keep existing hotkeys (Space, H, R, C, 1–9). Add only **Esc** (back/close) and **Ctrl+N** (start a room).
 
 Not doing (kept out on purpose): URL routes, forward history, mouse back/forward buttons, Backspace navigation, global Ctrl+K search (Discover already has search; pasting a link there keeps working), section shortcuts, a Recordings page, six settings sections.
+
+## 4. v2.1 — Room-centred controls (2026-10-12)
+
+Owner review: the soundboard and several in-room settings live in global places although they only matter inside a room, and the same control appears twice.
+
+| Problem | Today | Decision |
+| --- | --- | --- |
+| Soundboard is a sidebar place | Pads go to the room's broadcast mix; outside a room playing them is only a local preview. While in a room you must leave the room page to reach all pads. | **Remove Soundboard from the sidebar.** In a room: a **Sounds** button in the room bar opens the pad panel (all pads, volume, stop all, duck). Managing pads (upload, rename, hotkey, volume, delete, local preview) moves to **Settings › Sounds**. Hotkeys 1–9 keep working in a room. |
+| In-room audio settings in Settings | Voice effect and spatial audio are in Settings. | Move to **Room details › Audio** (with audio quality / music mode and "hear myself"). Settings keeps only devices and defaults. |
+| Duplicates | Music mode in the room bar **and** audio quality in Room details; "Mute everyone" on the stage **and** in Room details; chat toggle in the room bar **and** on the stage. | One place each: audio quality (incl. Music) and "hear myself" only in Room details › Audio; mute everyone only in Room details › Moderation; chat toggle only in the room bar. |
+| Moderator toolbar on the stage | Refresh, Rename, Invite people, Mute everyone, End room, Visibility, Hand raise, reactions row and GIF field above the speakers. | Stage shows only speakers, audience and chat. Moderator tools go to **Room details › Moderation**; reactions and GIF go to a **Reactions** button in the room bar (like the app's heart button). Refresh stage stays as Ctrl+P only. |
+
+Room bar (bottom, every page while in a room), left → right:
+`● Room title` · 🎙 Mic · ✋ Hand · 😀 Reactions · 🎛 Sounds · ⏺ Record/Clip · 💬 Chat · ⓘ Details · Leave
+
+Room details panel sections: **About** (replay status, share) · **Audio** (quality Normal/High/Music, hear myself, voice effect, spatial audio) · **Moderation** — moderators only (rename, visibility, hand raise, invite people, mute all, end room) · **Audience search**.
+
+Sidebar becomes four places: Hallway, Discover, Messages, Activity (+ profile card and ⚙).

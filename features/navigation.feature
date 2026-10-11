@@ -7,9 +7,9 @@ Feature: Navigation
   Background:
     Given I am signed in with a web session
 
-  @NAV-1
-  Scenario: Five places in the sidebar
-    Then the sidebar shows exactly "Hallway", "Discover", "Messages", "Activity" and "Soundboard" in that order
+  @pending @NAV-1
+  Scenario: Four places in the sidebar
+    Then the sidebar shows exactly "Hallway", "Discover", "Messages" and "Activity" in that order
     And the sidebar ends with my profile card and a settings button
 
   @NAV-2
@@ -64,12 +64,12 @@ Feature: Navigation
     Then my profile card is highlighted
     And no sidebar place is highlighted
 
-  @NAV-9
+  @pending @NAV-9
   Scenario: Badges only signal attention
     Given I have 3 unread conversations and unread activity
     Then "Messages" shows the badge "3"
     And "Activity" shows a dot
-    And "Hallway", "Discover" and "Soundboard" show no badge
+    And "Hallway" and "Discover" show no badge
 
   @NAV-10
   Scenario: Settings for users, Advanced for developers
