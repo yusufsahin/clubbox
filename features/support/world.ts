@@ -209,6 +209,10 @@ export class ClubboxWorld extends World {
   windowMinimized = false;
   pendingPingRoomTitle: string | null = null;
   searchRequestsSnapshot = 0;
+  composerTargets: import('../../src/api/createComposer.ts').CreateChannelTargets | null = null;
+  composerAudience: import('../../src/api/createComposer.ts').CreateAudience | null = null;
+  composerShowsTopicPicker = false;
+  composerShowsAutoApprove = false;
 
   constructor(options: IWorldOptions) {
     super(options);

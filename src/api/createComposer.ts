@@ -1,3 +1,5 @@
+import webApiRoutes from '../../electron/webApiRoutes.json' with { type: 'json' };
+
 /** Privacy choices aligned with get_create_channel_targets.channel_capabilities keys. */
 export type CreateAudience =
   | 'public'
@@ -25,7 +27,54 @@ export type CreateChannelTargets = {
   clubs?: Array<{ social_club_id?: number; name?: string }>;
   events?: unknown[];
   targets?: unknown[];
+  /** Topic catalog when a dedicated list endpoint is ever bound; unused today. */
+  topics?: Array<{ topic_id?: number; id?: number; name?: string; title?: string }>;
 };
+
+/** Candidate topic-list endpoints — none are in the web client module today (DX-1). */
+export const TOPIC_LIST_ENDPOINT_CANDIDATES = [
+  'get_topics',
+  'get_available_topics',
+  'get_channel_topics',
+  'search_topics',
+] as const;
+
+/** Create-body keys that would mean auto-approve speakers (DX-3). None documented yet. */
+export const AUTOMATIC_SPEAKER_APPROVAL_BODY_KEYS = [
+  'is_automatic_speaker_approval',
+  'automatic_speaker_approval',
+  'auto_speaker_approval',
+] as const;
+
+export function topicListEndpointDocumented(
+  routes: Record<string, { path?: string }> = webApiRoutes as Record<string, { path?: string }>,
+): boolean {
+  return TOPIC_LIST_ENDPOINT_CANDIDATES.some((name) => Boolean(routes[name]?.path));
+}
+
+export function automaticSpeakerApprovalBodyKeyDocumented(
+  routeBodyKeys: string[] | undefined = (webApiRoutes as Record<string, { bodyKeys?: string[] }>).create_channel?.bodyKeys,
+): boolean {
+  const keys = new Set(routeBodyKeys ?? []);
+  return AUTOMATIC_SPEAKER_APPROVAL_BODY_KEYS.some((key) => keys.has(key));
+}
+
+export function showTopicPicker(
+  targets: CreateChannelTargets | null | undefined,
+  audience: CreateAudience,
+  routes: Record<string, { path?: string }> = webApiRoutes as Record<string, { path?: string }>,
+): boolean {
+  return topicListEndpointDocumented(routes)
+    && capabilityForAudience(targets, audience)?.is_topics_available === true;
+}
+
+export function showAutomaticSpeakerApproval(
+  targets: CreateChannelTargets | null | undefined,
+  audience: CreateAudience,
+): boolean {
+  return automaticSpeakerApprovalBodyKeyDocumented()
+    && capabilityForAudience(targets, audience)?.is_automatic_speaker_approval_available === true;
+}
 
 /** Body key for house rooms (bundle call site). */
 export const CLUB_CREATE_BODY_KEY = 'social_club_id';

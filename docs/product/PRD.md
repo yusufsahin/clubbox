@@ -161,9 +161,9 @@ These appear in `create_channel` / `me` responses (`user_capabilities`, `channel
 
 | ID | Capability (response field) | Decision | Priority |
 | --- | --- | --- | --- |
-| DX-1 | Room topics (`is_topics_available`, `topic_ids`) | Composer topic picker when the crawler finds the topic list endpoint; otherwise hidden | P2 |
+| DX-1 | Room topics (`is_topics_available`, `topic_ids`) | Composer picker gated on a topic-list endpoint (none in web client today → hidden); `topic_ids` still sent when chosen | P2 |
 | DX-2 | Pinned links (`can_edit_pinned_links`, `is_pinned_links_available`) | Same as RH-12 | P2 |
-| DX-3 | Automatic speaker approval (`is_automatic_speaker_approval_available`) | Composer toggle if the crawler finds the create body key | P2 |
+| DX-3 | Automatic speaker approval (`is_automatic_speaker_approval_available`) | Composer toggle gated on a documented create body key (none yet → hidden) | P2 |
 | DX-4 | Background music (`can_edit_background_music`) | Not built: the Clubbox soundboard covers it client-side | Won't |
 | DX-5 | Games (`are_games_available`, `display_games`) | Not built | Won't |
 | DX-6 | Polls (`selected_poll_option_id`, profile polls) | Read-only on profiles if the crawler finds the endpoint | P3 |

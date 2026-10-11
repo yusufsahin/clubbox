@@ -3,6 +3,8 @@ import {
   capabilityForAudience,
   composerPrivacyOptions,
   createDefaults,
+  showAutomaticSpeakerApproval,
+  showTopicPicker,
 } from '../../api/createComposer';
 import { t } from '../../i18n';
 import { html, markup } from '../html';
@@ -27,6 +29,12 @@ export function mountCreateModal(config: CreateModalConfig): HTMLElement {
   const defaults = createDefaults(config.targets, initialAudience);
   const initialCap = capabilityForAudience(config.targets, initialAudience);
   const showReplays = initialCap?.is_replay_available === true;
+  const showTopics = showTopicPicker(config.targets, initialAudience);
+  const showAutoApprove = showAutomaticSpeakerApproval(config.targets, initialAudience);
+  const topicChoices = (config.targets?.topics ?? []).filter(
+    (topic) => typeof (topic.topic_id ?? topic.id) === 'number'
+      && typeof (topic.name ?? topic.title) === 'string',
+  );
   const clubs = (config.targets?.clubs ?? []).filter(
     (club) => typeof club.social_club_id === 'number' && typeof club.name === 'string',
   );
@@ -99,6 +107,28 @@ export function mountCreateModal(config: CreateModalConfig): HTMLElement {
         <div class="form-group" id="new-room-link-group">
           <label class="form-label" for="new-room-link">${t('pinnedLinkAtCreate')}</label>
           <input class="form-input" id="new-room-link" type="url" placeholder="${t('pinnedLinkPlaceholder')}" />
+        </div>
+      ` : ''}
+
+      ${showTopics && topicChoices.length > 0 ? html`
+        <div class="form-group" id="new-room-topics-group">
+          <label class="form-label">${t('topicsAtCreate')}</label>
+          <div class="topic-chips" id="new-room-topics">
+            ${topicChoices.map((topic) => {
+              const id = topic.topic_id ?? topic.id;
+              const label = topic.name ?? topic.title ?? '';
+              return html`<label class="topic-chip"><input type="checkbox" name="new-room-topic-id" value="${id}" /> ${label}</label>`;
+            })}
+          </div>
+        </div>
+      ` : ''}
+
+      ${showAutoApprove ? html`
+        <div class="form-group" id="new-room-auto-approve-group">
+          <label class="form-label">
+            <input type="checkbox" id="new-room-auto-approve" />
+            ${t('approveSpeakersAutomatically')}
+          </label>
         </div>
       ` : ''}
 

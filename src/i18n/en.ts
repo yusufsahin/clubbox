@@ -45,6 +45,8 @@ export const en = {
   handraiseFriendsOfSpeakers: 'Friends of speakers',
   pinnedLinkAtCreate: 'Pinned link',
   pinnedLinkPlaceholder: 'https://…',
+  topicsAtCreate: 'Topics',
+  approveSpeakersAutomatically: 'Approve speakers automatically',
   replaysOn: 'Replays on',
   replaysOff: 'Replays off',
   clipsOn: 'Clips on',

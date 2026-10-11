@@ -1,5 +1,13 @@
 import assert from 'node:assert/strict';
 import { Given, When, Then } from '@cucumber/cucumber';
+import {
+  automaticSpeakerApprovalBodyKeyDocumented,
+  buildCreateChannelBody,
+  showAutomaticSpeakerApproval,
+  showTopicPicker,
+  topicListEndpointDocumented,
+  type CreateAudience,
+} from '../../src/api/createComposer.ts';
 import { t } from '../../src/i18n/index.ts';
 import type { ClubboxWorld } from '../support/world.ts';
 
@@ -246,6 +254,73 @@ When(
       replayEnabled: true,
       chatEnabled: true,
     });
+  },
+);
+
+Given('get_create_channel_targets says topics are available for {string}', function (
+  this: ClubboxWorld,
+  privacyKey: string,
+) {
+  this.composerTargets = {
+    channel_capabilities: {
+      [privacyKey]: { is_topics_available: true },
+    },
+  };
+});
+
+Given(
+  'get_create_channel_targets says automatic speaker approval is available for {string}',
+  function (this: ClubboxWorld, privacyKey: string) {
+    this.composerTargets = {
+      channel_capabilities: {
+        [privacyKey]: { is_automatic_speaker_approval_available: true },
+      },
+    };
+  },
+);
+
+When('I open the room composer and choose {string}', function (this: ClubboxWorld, audienceLabel: string) {
+  const audience: CreateAudience = audienceLabel === 'friends of friends'
+    ? 'friends-of-friends'
+    : audienceLabel === 'friends'
+      ? 'friends'
+      : 'public';
+  this.composerAudience = audience;
+  this.composerShowsTopicPicker = showTopicPicker(this.composerTargets, audience);
+  this.composerShowsAutoApprove = showAutomaticSpeakerApproval(this.composerTargets, audience);
+  if (this.composerShowsAutoApprove) this.uiMessages.push('Approve speakers automatically');
+});
+
+Then('I can pick topics when the topic list endpoint is documented', function (this: ClubboxWorld) {
+  if (topicListEndpointDocumented()) {
+    assert.equal(this.composerShowsTopicPicker, true);
+  } else {
+    assert.equal(this.composerShowsTopicPicker, false);
+  }
+});
+
+Then('the picker is hidden when it is not documented', function (this: ClubboxWorld) {
+  if (!topicListEndpointDocumented()) {
+    assert.equal(this.composerShowsTopicPicker, false);
+  }
+});
+
+Then('chosen topics are sent in {string}', function (this: ClubboxWorld, key: string) {
+  assert.equal(key, 'topic_ids');
+  assert.deepEqual(buildCreateChannelBody('Morning show', { topicIds: [1, 2] }).topic_ids, [1, 2]);
+});
+
+Then(
+  'I see {string} only when its create body key is documented',
+  function (this: ClubboxWorld, label: string) {
+    assert.equal(label, 'Approve speakers automatically');
+    const documented = automaticSpeakerApprovalBodyKeyDocumented();
+    if (!documented) {
+      assert.equal(this.composerShowsAutoApprove, false);
+      assert.equal(this.uiMessages.includes(label), false);
+      return;
+    }
+    assert.equal(this.uiMessages.includes(label), this.composerShowsAutoApprove);
   },
 );
 

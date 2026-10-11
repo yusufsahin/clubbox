@@ -76,7 +76,7 @@ Feature: Host and moderate a room
     Then I do not see "Mute everyone", "End room" or "Invite to stage"
     And I see "Available in the Clubhouse app" where those controls would be
 
-  @pending @DX-1
+  @bundle @DX-1
   Scenario: Room topics in the composer
     Given get_create_channel_targets says topics are available for "public"
     When I open the room composer and choose "public"
@@ -84,7 +84,7 @@ Feature: Host and moderate a room
     And the picker is hidden when it is not documented
     And chosen topics are sent in "topic_ids"
 
-  @pending @DX-3
+  @bundle @DX-3
   Scenario: Automatic speaker approval toggle
     Given get_create_channel_targets says automatic speaker approval is available for "friend_of_friend"
     When I open the room composer and choose "friends of friends"

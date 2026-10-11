@@ -47,6 +47,8 @@ export const tr: Record<MessageKey, string> = {
   handraiseFriendsOfSpeakers: 'Konuşmacıların arkadaşları',
   pinnedLinkAtCreate: 'Sabitlenmiş bağlantı',
   pinnedLinkPlaceholder: 'https://…',
+  topicsAtCreate: 'Konular',
+  approveSpeakersAutomatically: 'Konuşmacıları otomatik onayla',
   replaysOn: 'Tekrarlar açık',
   replaysOff: 'Tekrarlar kapalı',
   clipsOn: 'Klipler açık',
