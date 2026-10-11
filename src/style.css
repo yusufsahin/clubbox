@@ -2320,6 +2320,12 @@ body {
   position: relative;
 }
 
+.modal-content.create-modal-simple {
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 .modal-header {
   display: flex;
   align-items: center;
