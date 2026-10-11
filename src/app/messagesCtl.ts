@@ -73,6 +73,7 @@ export async function openConversationThread(this: ClubboxApp, conversationId: s
     this.openConversationId = conversationId;
     this.previewMember = null;
     this.openConversationThreadData = null;
+    this.threadLiveNote = '';
     const sandboxThread = clubhouseClient.getSandbox()?.thread(conversationId) ?? null;
     if (sandboxThread) {
       this.openConversationThreadData = sandboxThread;
@@ -80,6 +81,7 @@ export async function openConversationThread(this: ClubboxApp, conversationId: s
       return;
     }
     if (!clubhouseClient.supports('get_conversation')) {
+      this.threadLiveNote = t('threadLiveNote');
       this.render();
       return;
     }
@@ -92,6 +94,7 @@ export async function openConversationThread(this: ClubboxApp, conversationId: s
         this.openConversationThreadData = { segments: [], members: [] };
       }
     } catch (err) {
+      this.threadLiveNote = t('threadLiveNote');
       this.reportApiError(err);
     }
     if (this.openConversationId === conversationId) this.render();
@@ -171,6 +174,8 @@ export function runThreadPermission(this: ClubboxApp, conversationId: string | u
     if (this.openConversationId === conversationId) {
       this.openConversationId = null;
       this.previewMember = null;
+      this.openConversationThreadData = null;
+      this.threadLiveNote = '';
     }
     void this.loadConversations();
   }

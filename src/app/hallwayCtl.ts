@@ -105,9 +105,15 @@ export function liveUpdatesUnavailable(this: ClubboxApp) : boolean {
   }
 
 export async function refreshCurrentRoom(this: ClubboxApp) : Promise<void> {
-    if (!this.currentChannel || !clubhouseClient.supports('get_channel')) return;
-    const detail = await clubhouseClient.getChannel(this.channelApiId(this.currentChannel));
-    this.applyRoomUpdate(detail);
+    if (!this.currentChannel) return;
+    // Web has no get_channel (G-03). PubNub is the room source; resubscribe pulls the latest stream.
+    if (clubhouseClient.supports('get_channel')) {
+      const detail = await clubhouseClient.getChannel(this.channelApiId(this.currentChannel));
+      this.applyRoomUpdate(detail);
+      return;
+    }
+    await this.pubnubSource.resubscribe();
+    if (this.currentTab === 'stage') this.renderStage();
   }
 
 export function hallwayNotices(this: ClubboxApp) : string[] {

@@ -113,6 +113,7 @@ export class ClubboxApp {
   private messageFilter: 'all' | 'house' | 'vm' = 'all';
   private openConversationId: string | null = null;
   openConversationThreadData: ConversationThread | null = null;
+  threadLiveNote = '';
   private previewMember: string | null = null;
   private voiceRate = 1;
   private privateVoice = false;
@@ -898,6 +899,7 @@ export class ClubboxApp {
         presence: clubhouseClient.getSandbox()?.presence() ?? [],
         canCreateVm: !!clubhouseClient.getSandbox() || clubhouseClient.supports('create_conversation'),
         canReact: clubhouseClient.supports('send_conversation_emoji_reaction'),
+        threadNote: this.threadLiveNote,
       });
     } else if (this.currentTab === 'activity') {
       return activityView({
@@ -1310,6 +1312,8 @@ export class ClubboxApp {
       }
       case 'close-conversation':
         this.openConversationId = null;
+        this.openConversationThreadData = null;
+        this.threadLiveNote = '';
         this.previewMember = null;
         this.render();
         break;

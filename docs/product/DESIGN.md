@@ -79,7 +79,7 @@ Legend — Evidence: O observed · B bundle call site · C community · ? to dis
 | hide_channel | POST | channel, hide | ack | C | ✅ hallway hide | HallwayCtl |
 | get_events | GET | is_filtered, page_size, page | events | C | ✅ experimental Events tab | Events |
 | get_notifications | GET | page_size, page | notifications | C | ✅ experimental merge into Activity | ActivityCtl |
-| get_online_friends | POST | {} | users + current channel | C | 🧪 | Presence |
+| get_online_friends | POST | {} | users + current channel | C | ✅ experimental presence (G-07 closed) | Presence |
 
 ### 3.3 Room
 
@@ -114,8 +114,8 @@ Legend — Evidence: O observed · B bundle call site · C community · ? to dis
 | get_conversations | POST | is_private_only | conversations[] (permissions, preview, segments_authors) | O | ✅ list | MessagesCtl |
 | get_conversation | POST | conversation_id | segments[] (+ transcription, reactions), emoji_reaction_options | O | ✅ live thread via readConversationThread (G-05) | MessagesCtl |
 | mark_conversation_segment_listened | POST | conversation_id, segment_id | ack | O | ✅ on voice play | MessagesCtl |
-| add_conversation_segment | POST | ? | segment | B (no body) | 🧪 (G-05) | Composer |
-| create_conversation | POST | ? | conversation | B (no body) | 🧪 | New VM |
+| add_conversation_segment | POST | documented keys in documentedBodies | segment | B | ✅ live send when supported (G-05 closed) | Composer |
+| create_conversation | POST | documented keys in documentedBodies | conversation | B | ✅ new VM when supported (G-05 closed) | New VM |
 | send_conversation_emoji_reaction | POST | conversation_id, segment_id, emoji | ack | B (400 observed historically) | ✅ thread react pad; failures → API Health | Thread |
 | update_conversation_title / delete_conversation / delete_conversation_segment | POST | ? | ack | B (no body) | ❌ | Thread menu |
 | get_conversation_unread_summary | POST | ? (live 400: conversation_id required) | counts | B | 🟡 not called for badge until body captured; me.unread_conversations_count | Badge |
@@ -166,7 +166,7 @@ Rules:
 - Message types known (B): `channel_message`, `channel_reaction`. Others (join/leave, hand raise, invite, role change, room ended) are mapped when discovered; unknown types are logged as shape only.
 
 ### 5.2 Agora
-- App id: bundle env `NEXT_PUBLIC_AGORA_KEY` (B). Today it is a code constant in `agoraVoice.ts` / `client.ts` (with a STALE list), so a Clubhouse deploy that rotates the key breaks audio until a code change — G-06.
+- App id: bundle env `NEXT_PUBLIC_AGORA_KEY` (B). Loaded into `userData/realtime-config.json` via the bundle crawler + IPC `clubbox:agora-app-id` (G-06 closed).
 - Token: from create/join response (`token`); `rtm_token` reserved for Agora RTM if the room chunks show RTM usage.
 - `agora_native_mute` from the response decides whether mute is signalled through Agora (`setMuted` on the track) instead of only the local gain — G-09.
 - SDK lazy-loaded on first room entry.

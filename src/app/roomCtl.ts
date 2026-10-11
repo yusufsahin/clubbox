@@ -254,6 +254,8 @@ export async function inviteToStage(this: ClubboxApp, userId: number) : Promise<
     if (!this.allowAction('invite_speaker')) return;
     try {
       await clubhouseClient.inviteSpeaker(this.channelApiId(this.currentChannel), userId);
+      const invited = this.currentChannel.users.find((user) => user.user_id === userId);
+      if (invited) invited.is_invited_to_speak = true;
       this.showToast(t('invitedToSpeakToast'), '🎙️');
       await this.refreshCurrentRoom();
     } catch (err) {
@@ -276,6 +278,17 @@ export async function moderateSpeaker(this: ClubboxApp, userId: number, action: 
       else if (action === 'block') await clubhouseClient.blockFromChannel(channelId, userId);
       else await clubhouseClient.uninviteSpeaker(channelId, userId);
       this.openSpeakerMenuId = null;
+      const target = this.currentChannel.users.find((user) => user.user_id === userId);
+      if (action === 'block') {
+        this.currentChannel.users = this.currentChannel.users.filter((user) => user.user_id !== userId);
+      } else if (target) {
+        if (action === 'mute') target.is_muted = true;
+        else if (action === 'moderator') target.is_moderator = true;
+        else if (action === 'audience') {
+          target.is_speaker = false;
+          target.is_moderator = false;
+        }
+      }
       await this.refreshCurrentRoom();
     } catch (err) {
       this.reportApiError(err);
@@ -312,6 +325,11 @@ export async function acceptSpeakerInvite(this: ClubboxApp) : Promise<void> {
     try {
       await clubhouseClient.becomeSpeaker(this.channelApiId(this.currentChannel));
       this.closeSpeakerInvite();
+      const mine = this.currentChannel.users.find((user) => user.user_id === this.me?.user_id);
+      if (mine) {
+        mine.is_speaker = true;
+        mine.is_invited_to_speak = false;
+      }
       await this.refreshCurrentRoom();
       if (!clubhouseClient.getConfig().useSandbox && agoraVoice.getIsJoined()) {
         await agoraVoice.promoteToSpeaker();
@@ -512,6 +530,7 @@ export async function muteEveryone(this: ClubboxApp) : Promise<void> {
     for (const speaker of speakers) {
       try {
         await clubhouseClient.muteSpeaker(this.channelApiId(this.currentChannel), speaker.user_id);
+        speaker.is_muted = true;
         await new Promise((resolve) => window.setTimeout(resolve, 300));
       } catch (err) {
         this.reportApiError(err);

@@ -110,7 +110,7 @@ Legend — Today: ✅ works live · 🧪 sandbox/UI only · ❌ missing. Evidenc
 | RL-8 | Emoji reactions to a speaker | ✓ | | ✅ | B (emoji_reaction) | P1 |
 | RL-9 | Private chat with a person in the room (text) | ✓ | ✓ | ✅ | O (conversations) | P2 |
 | RL-10 | Audience search by name/bio (Ctrl+S) | | ✓ | ✅ | — (client side on room users) | P1 |
-| RL-11 | Spatial audio (local) | ✓ | ✓ | ✅ | — | P2 |
+| RL-11 | Spatial audio (local) | ✓ | ✓ | 🧪 | — | P2 |
 | RL-12 | Replays: play saved replays | ✓ | ✓ | ✅ | B (get_replay_channel) | P2 |
 
 ### 4.4 Room — host & moderator
@@ -140,7 +140,7 @@ Legend — Today: ✅ works live · 🧪 sandbox/UI only · ❌ missing. Evidenc
 | ST-4 | Recording (opt-in, replays-on rooms, compressed/lossless) | | ✓ | ✅ | — | P1 |
 | ST-5 | Chapters: Ctrl+T adds a timestamp; export YouTube + Spotify chapter file | | ✓ | ✅ | — | P1 |
 | ST-6 | Clip (5–55 s) from local buffer, only when allowed | ✓ | ✓ | ✅ | — | P2 |
-| ST-7 | Voice effects (preview, apply, none) | | ✓ | ✅ | — | P2 |
+| ST-7 | Voice effects (preview, apply, none) | | ✓ | 🧪 | — | P2 |
 | ST-8 | Global shortcuts (mute, hand, accept/decline invite, pads) | | ✓ | ✅ | — | P1 |
 | ST-9 | Restream RTMP output | | ✓ | ❌ | — | P3 |
 

@@ -15,6 +15,7 @@ export interface MessagesState {
   presence: PresenceFriend[];
   canCreateVm: boolean;
   canReact: boolean;
+  threadNote?: string;
 }
 
 const THREAD_REACTIONS = ['❤️', '👏', '🔥', '😂'] as const;
@@ -108,6 +109,7 @@ function threadPanel(item: CHConversation, state: MessagesState): SafeHtml {
       </div>
 
       <div class="thread-scroll">
+        ${state.threadNote ? html`<p class="list-note">${state.threadNote}</p>` : ''}
         ${thread == null ? html`<p class="list-note">${t('threadLoading')}</p>` : segments.length === 0 ? html`<p class="list-empty">${t('threadEmpty')}</p>` : html`
           <div class="thread-segments">
             ${segments.map((segment) => html`
