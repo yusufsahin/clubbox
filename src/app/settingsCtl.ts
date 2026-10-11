@@ -12,7 +12,8 @@ import type { ClubboxApp } from './clubboxApp.ts';
 
 const GUIDELINES_KEY = 'clubbox-guidelines-accepted';
 const ADOPT_RETRY_MS = 2500;
-const ADOPT_RETRY_MAX = 24;
+/** ~3 minutes — SMS entry + Clubhouse redirects can be slow. */
+const ADOPT_RETRY_MAX = 72;
 
 export function isAuthGated(this: ClubboxApp): boolean {
     const api = electronAPI();
@@ -70,6 +71,7 @@ export async function syncEmbeddedSignIn(this: ClubboxApp): Promise<void> {
     this.loginNotice = t('embeddedSignInUnavailable');
     return;
   }
+  this.adoptRetryCount = 0;
   await show(bounds);
   this.startAdoptRetry();
 }
@@ -181,16 +183,23 @@ export async function tryAdoptOfficialSession(this: ClubboxApp, options?: { from
     try {
       const adopted = await clubhouseClient.adoptWebSession();
       if (!adopted) {
+        // Stay calm while the user is still typing the SMS code on /signin.
+        // Only the timed-out retry loop (or a late manual retry) shows the hard fail.
         if (options?.fromRetry) {
           this.adoptRetryCount += 1;
           if (this.adoptRetryCount >= ADOPT_RETRY_MAX) {
             this.stopAdoptRetry();
             this.loginNotice = t('signInAdoptFailed');
             this.render();
+          } else if (this.loginNotice !== t('officialSignInWaiting')) {
+            this.loginNotice = t('officialSignInWaiting');
           }
-        } else {
+        } else if (this.adoptRetryCount >= ADOPT_RETRY_MAX) {
           this.loginNotice = t('signInAdoptFailed');
           this.render();
+        } else {
+          this.loginNotice = t('officialSignInWaiting');
+          this.startAdoptRetry();
         }
         return;
       }

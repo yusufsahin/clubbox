@@ -480,6 +480,8 @@ function showEmbeddedSignIn(bounds) {
   lastSignInNotice = '';
   signInView = new BrowserView({
     webPreferences: {
+      // Same jar as ch:request /web_api calls — required for adoptWebSession.
+      session: session.defaultSession,
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,
@@ -653,6 +655,14 @@ function scheduleBundleCrawlRetry() {
   }, delay);
 }
 
+function notifyWebSessionMaybe(reason) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (reason && lastSignInNotice === reason) return;
+  if (reason) lastSignInNotice = reason;
+  mainWindow.webContents.send('clubbox:web-session-maybe');
+  scheduleBundleCrawl();
+}
+
 function maybeNotifyWebSession(target) {
   if (!isClubhouseHttps(target) || !mainWindow || mainWindow.isDestroyed()) return;
   let url;
@@ -662,11 +672,28 @@ function maybeNotifyWebSession(target) {
     return;
   }
   const path = url.pathname.toLowerCase();
+  // Still notify after leaving the phone/code steps. Cookie watcher covers
+  // SPA sign-in that never changes the path.
   if (path === '/signin' || path.startsWith('/signin/') || path === '/login' || path.startsWith('/login/')) return;
-  if (lastSignInNotice === url.href) return;
-  lastSignInNotice = url.href;
-  mainWindow.webContents.send('clubbox:web-session-maybe');
-  scheduleBundleCrawl();
+  notifyWebSessionMaybe(url.href);
+}
+
+let cookieNotifyTimer = null;
+let cookieWatchArmed = false;
+
+function armWebSessionCookieWatch() {
+  if (cookieWatchArmed) return;
+  cookieWatchArmed = true;
+  session.defaultSession.cookies.on('changed', (_event, cookie, _cause, removed) => {
+    if (removed || !cookie || !signInView) return;
+    const domain = String(cookie.domain || '').toLowerCase();
+    if (!domain.includes('clubhouse.com')) return;
+    if (cookieNotifyTimer) clearTimeout(cookieNotifyTimer);
+    cookieNotifyTimer = setTimeout(() => {
+      cookieNotifyTimer = null;
+      notifyWebSessionMaybe(`cookie:${cookie.name}`);
+    }, 500);
+  });
 }
 
 async function extractAgoraAppIdFromSignIn(view) {
@@ -977,6 +1004,7 @@ app.whenReady().then(() => {
   if (!hasSingleInstanceLock) return;
   const savedShortcuts = readShortcutFile();
   if (savedShortcuts) applyGlobalShortcuts(savedShortcuts);
+  armWebSessionCookieWatch();
   createWindow();
   startRecorderIfAllowed(process.argv);
   // Returning signed-in users never reopen /signin — still need PubNub/Agora keys in userData.
