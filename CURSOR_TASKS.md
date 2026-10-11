@@ -9,13 +9,14 @@ _Last reviewed: 2026-10-11. “Uygulandı” means the code is in the tree. “C
 The owner session committed realtime fixes (bbd3369 production Agora/PubNub keys, 4700857 real PubNub channels + action payloads). Re-read docs/api/realtime.md. Then:
 - [x] Task 14.1 — remote mute state from Agora (TDD + BDD scenario)
 - [x] Task 14.2 — sync DESIGN/PRD with the owner fixes
-- [ ] Run `npm run api:triage`; turn any new live failure or unknown realtime action into a failing test, then fix
-- [ ] Commit per item, write the summary, stop
+- [x] Run `npm run api:triage`; turn any new live failure or unknown realtime action into a failing test, then fix
+- [x] Commit per item, write the summary, stop
 ### Last autonomous run (2026-10-11)
 
-- Done: Phase 13 already complete; force-tracked `reports/bdd-audit.md` (gitignored `reports/` otherwise). `npm run api:triage` → NO NEW FAILURES.
-- Still @pending: ST-9 deferred only. Autonomous plan + Next run #3 exhausted — stopped.
-- Questions for the owner: none. Schedule ST-9 or use the app (triage promotions) for more work.
+- Done: Phase 14 — 14.1 Agora remote mute → room `is_muted` + BDD; 14.2 DESIGN §5.1/§5.2 + G-03/G-06 closed in 4700857/bbd3369; PRD RL-4/RH-2 ✅*.
+- Tests: unit + BDD + trace/lint/build green. `npm run api:triage` → NO NEW FAILURES.
+- Still @pending: ST-9 deferred only.
+- Questions for the owner: none.
 
 ## Status
 
@@ -25,7 +26,7 @@ Legend: **Uygulandı** = code is in the tree. **Canlı doğrulandı** = exercise
 | --- | --- | --- |
 | 1 | **0.7 Review fixes (2026-10-11 #2)** — navigation guard, packaged recorder, clip worklet path, auto-armed clip buffer, 429/visibility, CORS proxy token leak | Uygulandı |
 | 1b | **0.8 Followers / following / friends lists** — bundle scan + labeled UI hunt; live UI uses only counts + mutual lists | Uygulandı for counts, mutual names, and chat people. The public web bundle does not contain get_followers, get_following, or get_online_friends. get_friend_zone_match and get_social_club_members are in-bundle and not called. The labeled click-through still needs a signed-in session. |
-| 0 | **Autonomous plan** (see `.cursor/rules/clubbox.mdc`): 10.1 → 11.8 (warn mode) → 10.2 → 10.5 → 11.0 → 11.1 → 11.2 → 11.3 → 11.4 → 10.4 → 11.5 → 11.6 → 11.7 → 11.9 → 11.10 → 11.8 (strict). Acceptance files: account, hallway, room_listener, room_realtime, room_host, room_moderation, audio_studio, studio, social, messages, houses_events_replays, api_health. Requirements: `docs/product/PRD.md`; design + gap list G-01…G-18: `docs/product/DESIGN.md`; acceptance: `features/*.feature` | **Done** through Phase 12 + **Phase 13** (test fidelity). Pending @feature: ST-9 deferred only. |
+| 0 | **Autonomous plan** (see `.cursor/rules/clubbox.mdc`): 10.1 → 11.8 (warn mode) → 10.2 → 10.5 → 11.0 → 11.1 → 11.2 → 11.3 → 11.4 → 10.4 → 11.5 → 11.6 → 11.7 → 11.9 → 11.10 → 11.8 (strict). Acceptance files: account, hallway, room_listener, room_realtime, room_host, room_moderation, audio_studio, studio, social, messages, houses_events_replays, api_health. Requirements: `docs/product/PRD.md`; design + gap list G-01…G-18: `docs/product/DESIGN.md`; acceptance: `features/*.feature` | **Done** through Phase 12–**14** (realtime mute + doc sync). Pending @feature: ST-9 deferred only. |
 | — | **10.1** / **10.2** / **10.4** / **10.5** / **11.0** / **11.8 (warn)** | Uygulandı |
 | 1c | **0.9 / 12.2 Verified by use** — request log + in-app triage (no recorder) | Uygulandı. Verified by use: endpoints the owner exercises become `observed` via userData `api-log` + startup triage / `npm run api:triage` (list grows with normal use). |
 | 2 | **0.6 Community Guidelines risk** — hidden reCAPTCHA sign-in, polling, recording, distribution | Uygulandı (code). Sign-in is a visible clubhouse.com window, polling pauses when the window is hidden, recording is opt-in, and there is no publish config. A public release is still your decision. |
