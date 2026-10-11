@@ -320,7 +320,7 @@ export const tr: Record<MessageKey, string> = {
   experimentalActionsHelp: 'Eski Clubhouse istemcilerinden tahmin edilen community uçlarını açar. İlk kullanımda onay ister. Hatalar API Sağlığına düşer.',
   experimentalConfirm: 'Deneysel: bu işlem eski Clubhouse istemcilerinden tahmin edildi ve başarısız olabilir',
   requestLogging: 'Kanıt için istekleri günlüğe yaz',
-  requestLoggingHelp: 'Redakte edilmiş istek kayıtları (yalnızca anahtarlar) yazar; 2xx bir rotayı observed yapabilir.',
+  requestLoggingHelp: 'Varsayılan açık. Redakte kayıtları (yalnızca anahtarlar) api-log’a yazar; api:triage 2xx’i observed yapabilir.',
   apiHealthTitle: 'API Sağlığı',
   apiHealthHelp: 'Son canlı hatalar. Raporlar redakte edilir: uç, yöntem, durum, gövde anahtarları ve hata — asla token veya isim yok.',
   apiHealthEmpty: 'Bu oturumda kayıtlı hata yok.',

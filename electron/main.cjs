@@ -4,6 +4,7 @@ const fs = require('fs');
 const os = require('os');
 const { pathToFileURL } = require('url');
 const { isAllowedEndpoint, isPlainPayload, pickHeaders } = require('./ipcGuard.cjs');
+const { appendApiLog } = require('./apiLog.cjs');
 
 const REQUEST_TIMEOUT_MS = 20000;
 const DEV_SERVER_ORIGIN = 'http://localhost:5173';
@@ -276,6 +277,28 @@ ipcMain.handle('clubbox:close-signin', (event) => {
   return { ok: true };
 });
 
+ipcMain.handle('clubbox:api-log-append', (event, record) => {
+  if (!isTrustedSender(event)) return { ok: false };
+  try {
+    appendApiLog(app.getPath('userData'), {
+      endpoint: String(record?.endpoint || ''),
+      body: record?.bodyKeys
+        ? Object.fromEntries((record.bodyKeys || []).map((key) => [key, 'redacted']))
+        : {},
+      status: Number(record?.status) || 0,
+      ok: record?.ok !== false,
+      responseBody: typeof record?.error === 'string' ? JSON.stringify({ error_message: record.error }) : '{}',
+      appVersion: String(record?.appVersion || CH_WEB_APP_VERSION),
+      kind: String(record?.kind || 'web_api'),
+      timestamp: record?.timestamp,
+    });
+    return { ok: true };
+  } catch (err) {
+    console.warn('[Clubbox] api-log-append failed:', err);
+    return { ok: false };
+  }
+});
+
 ipcMain.handle('clubbox:clear-web-session', async (event) => {
   if (!isTrustedSender(event)) return { ok: false };
   try {
@@ -456,6 +479,21 @@ async function postWithWebSession(endpoint, body) {
   const text = await response.text();
   console.log('[web]', endpoint, response.status);
   logResponseShape(endpoint, text);
+  try {
+    appendApiLog(app.getPath('userData'), {
+      endpoint,
+      body: body && typeof body === 'object' ? Object.fromEntries(
+        Object.keys(body).map((key) => [key, typeof body[key]]),
+      ) : {},
+      status: response.status,
+      ok: response.ok,
+      responseBody: text,
+      appVersion: CH_WEB_APP_VERSION,
+      kind: 'web_api',
+    });
+  } catch (err) {
+    console.warn('[Clubbox] api-log write failed:', err);
+  }
   return { ok: response.ok, status: response.status, body: text };
 }
 

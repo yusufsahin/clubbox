@@ -94,6 +94,12 @@ npm run build
 
 ---
 
+## How live failures are fixed
+
+While you use Clubbox, each live `web_api` call appends one redacted JSONL line under the app userData `api-log/` folder (keys and shapes only — never tokens, phones, or message text). Run `npm run api:triage` to turn new failure groups into failing tests under `tests/live-failures/`, promote successful bundle/community routes to `observed`, and note unknown PubNub types in `docs/api/realtime.md`. A second run prints `NO NEW FAILURES` when nothing changed.
+
+---
+
 ## ⌨️ Global Shortcuts
 
 * `Space` — Toggle Microphone (Mute / Unmute)

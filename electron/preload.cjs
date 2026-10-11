@@ -25,4 +25,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('clubbox:agora-app-id', listener);
   },
   clearWebSession: () => ipcRenderer.invoke('clubbox:clear-web-session'),
+  appendApiLog: (record) => ipcRenderer.invoke('clubbox:api-log-append', record),
 });

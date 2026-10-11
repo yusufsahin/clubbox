@@ -318,7 +318,7 @@ export const en = {
   experimentalActionsHelp: 'Allow community endpoints guessed from older Clubhouse clients. First use asks for confirmation. Failures go to API Health.',
   experimentalConfirm: 'Experimental: this action is guessed from older Clubhouse clients and may fail',
   requestLogging: 'Log requests for evidence',
-  requestLoggingHelp: 'Write redacted request records (keys only) so a 2xx can promote a route to observed.',
+  requestLoggingHelp: 'On by default. Writes redacted request records (keys only) to api-log so api:triage can promote a 2xx to observed.',
   apiHealthTitle: 'API Health',
   apiHealthHelp: 'Recent live failures. Reports are redacted: endpoint, method, status, body keys, and error message — never tokens or names.',
   apiHealthEmpty: 'No failures recorded this session.',

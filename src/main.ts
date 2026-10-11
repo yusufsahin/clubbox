@@ -42,6 +42,16 @@ interface ElectronAPI {
   onWebSessionMaybe?: (callback: () => void) => void;
   onAgoraAppId?: (callback: (appId: string) => void) => () => void;
   clearWebSession?: () => Promise<{ ok: boolean }>;
+  appendApiLog?: (record: {
+    endpoint: string;
+    status: number;
+    ok?: boolean;
+    bodyKeys?: string[];
+    error?: string;
+    kind?: string;
+    appVersion?: string;
+    timestamp?: string;
+  }) => Promise<{ ok: boolean }>;
 }
 
 function recordingFilename(topic: string | undefined, kind: 'recording' | 'clip' = 'recording'): string {
@@ -144,6 +154,15 @@ class ClubboxApp {
   private pubnubSource = new PubNubRoomSource({
     onUnknownMessage: ({ type, keys }) => {
       clubhouseClient.noteApiHealth('pubnub', `Unknown realtime message type: ${type}`, keys);
+      void electronAPI()?.appendApiLog?.({
+        endpoint: type,
+        status: 0,
+        ok: false,
+        bodyKeys: keys,
+        error: 'unknown pubnub type',
+        kind: 'pubnub-unknown',
+        appVersion: clubhouseClient.getConfig().appVersion,
+      });
     },
   });
   private audioPrefs: AudioPrefs = readAudioPrefs();

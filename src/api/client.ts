@@ -102,7 +102,7 @@ const DEFAULT_CONFIG: ClubhouseConfig = {
   allowUnverified: false,
   allowLocalRecording: false,
   experimentalActions: false,
-  requestLogging: false,
+  requestLogging: true,
   unsupportedRoutes: {},
   evidenceOverrides: {},
   confirmedExperimentalRoutes: [],
