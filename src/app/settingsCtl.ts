@@ -26,19 +26,6 @@ export function isAuthGated(this: ClubboxApp): boolean {
     });
   }
 
-function readEmbedBounds(): { x: number; y: number; width: number; height: number } | null {
-  const host = document.getElementById('embedded-signin-host');
-  if (!host) return null;
-  const rect = host.getBoundingClientRect();
-  if (rect.width < 80 || rect.height < 80) return null;
-  return {
-    x: Math.round(rect.left),
-    y: Math.round(rect.top),
-    width: Math.round(rect.width),
-    height: Math.round(rect.height),
-  };
-}
-
 export function stopAdoptRetry(this: ClubboxApp): void {
   if (this.adoptRetryTimer != null) {
     window.clearInterval(this.adoptRetryTimer);
@@ -63,8 +50,6 @@ export async function syncEmbeddedSignIn(this: ClubboxApp): Promise<void> {
     await api.hideEmbeddedSignIn?.();
     return;
   }
-  const bounds = readEmbedBounds();
-  if (!bounds) return;
   this.loginNotice = this.loginNotice || t('officialSignInWaiting');
   const show = api.showEmbeddedSignIn ?? api.openOfficialSignIn;
   if (!show) {
@@ -72,7 +57,7 @@ export async function syncEmbeddedSignIn(this: ClubboxApp): Promise<void> {
     return;
   }
   this.adoptRetryCount = 0;
-  await show(bounds);
+  await show();
   this.startAdoptRetry();
 }
 

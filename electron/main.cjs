@@ -1,4 +1,4 @@
-const { app, BrowserWindow, BrowserView, session, ipcMain, globalShortcut, shell, Notification, nativeTheme } = require('electron');
+const { app, BrowserWindow, session, ipcMain, globalShortcut, shell, Notification, nativeTheme } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -430,7 +430,8 @@ const WEB_AUTH_ENDPOINTS = {
 // web sign-in shows that live updates are unavailable instead of failing silently.
 const WEB_SESSION_PATHS = require('./webApiRoutes.json');
 
-let signInView = null;
+let signInWindow = null;
+let signInAuthReady = false;
 let lastSignInNotice = '';
 let bundleCrawlInFlight = null;
 let bundleCrawlAttempt = 0;
@@ -444,93 +445,101 @@ function normalizeBounds(bounds) {
   return { x, y, width, height };
 }
 
+function markSignInAuthReady(reason) {
+  if (signInAuthReady) {
+    notifyWebSessionMaybe(`ready:${reason}:${Date.now()}`, { force: true });
+    return;
+  }
+  signInAuthReady = true;
+  console.log('[web] auth ready:', reason);
+  notifyWebSessionMaybe(`ready:${reason}:${Date.now()}`, { force: true });
+}
+
 function hideEmbeddedSignIn() {
-  if (!signInView) return;
-  try {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.removeBrowserView(signInView);
-    }
-  } catch {
-    // ignore
-  }
-  try {
-    if (!signInView.webContents.isDestroyed()) {
-      signInView.webContents.destroy();
-    }
-  } catch {
-    // ignore
-  }
-  signInView = null;
-  lastSignInNotice = '';
-}
-
-function setEmbeddedSignInBounds(bounds) {
-  if (!signInView) return;
-  try {
-    signInView.setBounds(bounds);
-  } catch {
-    // ignore
-  }
-}
-
-function showEmbeddedSignIn(bounds) {
-  if (!mainWindow || mainWindow.isDestroyed()) return;
-  if (signInView) {
-    setEmbeddedSignInBounds(bounds);
+  if (signInWindow && !signInWindow.isDestroyed()) {
     try {
-      mainWindow.setBrowserView(signInView);
+      signInWindow.close();
     } catch {
       // ignore
     }
-    return;
   }
+  signInWindow = null;
+  signInAuthReady = false;
   lastSignInNotice = '';
+}
+
+function setEmbeddedSignInBounds(_bounds) {
+  // Sign-in uses a dedicated BrowserWindow (not BrowserView bounds).
+}
+
+function showEmbeddedSignIn(_bounds) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
   try {
     session.defaultSession.setUserAgent(PAGE_UA);
   } catch {
     // ignore
   }
-  signInView = new BrowserView({
+  if (signInWindow && !signInWindow.isDestroyed()) {
+    signInWindow.show();
+    signInWindow.focus();
+    return;
+  }
+  lastSignInNotice = '';
+  signInAuthReady = false;
+  // Full BrowserWindow — BrowserView broke SMS complete (WidgetHost) and never got a session cookie.
+  // Same pattern as the API recorder window that successfully captured live /web_api/me.
+  signInWindow = new BrowserWindow({
+    show: true,
+    width: 480,
+    height: 820,
+    parent: mainWindow,
+    modal: false,
+    title: 'Clubhouse',
+    autoHideMenuBar: true,
     webPreferences: {
-      // Same jar as ch:request /web_api calls — required for adoptWebSession.
       session: session.defaultSession,
       nodeIntegration: false,
       contextIsolation: true,
-      // Match the API recorder window: sandbox can interfere with auth cookies.
       sandbox: false,
     },
   });
-  mainWindow.setBrowserView(signInView);
-  signInView.setBounds(bounds);
-  signInView.webContents.setUserAgent(PAGE_UA);
-  // Keep Clubhouse's SMS/code steps in the same BrowserView — never spawn a popup window.
-  signInView.webContents.setWindowOpenHandler(({ url }) => {
-    if (isClubhouseHttps(url) && signInView && !signInView.webContents.isDestroyed()) {
-      void signInView.webContents.loadURL(url);
+  signInWindow.webContents.setUserAgent(PAGE_UA);
+  signInWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (isClubhouseHttps(url) && signInWindow && !signInWindow.isDestroyed()) {
+      void signInWindow.webContents.loadURL(url);
     }
     return { action: 'deny' };
   });
-  signInView.webContents.on('will-navigate', (event, url) => {
+  signInWindow.webContents.on('will-navigate', (event, url) => {
     if (!isClubhouseHttps(url)) event.preventDefault();
   });
-  const notice = (_event, url) => maybeNotifyWebSession(url);
-  signInView.webContents.on('did-navigate', notice);
-  signInView.webContents.on('did-redirect-navigation', notice);
-  signInView.webContents.on('did-navigate-in-page', notice);
-  signInView.webContents.on('did-finish-load', () => {
-    void extractAgoraAppIdFromSignIn(signInView);
-    const url = signInView.webContents.getURL();
-    // After SMS verify Clubhouse often lands on /home — adopt immediately.
+  const notice = (_event, url) => {
+    maybeNotifyWebSession(url);
+    try {
+      const path = new URL(url).pathname.toLowerCase();
+      if (path && path !== '/signin' && !path.startsWith('/signin/') && path !== '/login' && !path.startsWith('/login/')) {
+        markSignInAuthReady(`navigate:${path}`);
+      }
+    } catch {
+      // ignore
+    }
+  };
+  signInWindow.webContents.on('did-navigate', notice);
+  signInWindow.webContents.on('did-redirect-navigation', notice);
+  signInWindow.webContents.on('did-navigate-in-page', notice);
+  signInWindow.webContents.on('did-finish-load', () => {
+    void extractAgoraAppIdFromSignIn(signInWindow);
+    const url = signInWindow.webContents.getURL();
     if (url && !/\/signin|\/login/i.test(url)) {
-      notifyWebSessionMaybe(url, { force: true });
+      markSignInAuthReady('load-off-signin');
     }
   });
-  signInView.webContents.on('destroyed', () => {
-    signInView = null;
+  signInWindow.on('closed', () => {
+    signInWindow = null;
     lastSignInNotice = '';
   });
   armSignInNetworkWatch();
-  void signInView.webContents.loadURL('https://www.clubhouse.com/signin', {
+  void signInWindow.webContents.loadURL('https://www.clubhouse.com/signin', {
     userAgent: PAGE_UA,
     httpReferrer: 'https://www.clubhouse.com/',
   });
@@ -710,19 +719,21 @@ function armWebSessionCookieWatch() {
   if (cookieWatchArmed) return;
   cookieWatchArmed = true;
   session.defaultSession.cookies.on('changed', (_event, cookie, _cause, removed) => {
-    if (removed || !cookie || !signInView) return;
+    if (removed || !cookie || !signInWindow) return;
     const domain = String(cookie.domain || '').toLowerCase();
     if (!domain.includes('clubhouse.com')) return;
     const name = String(cookie.name || '');
-    // Auth-ish cookies are the signal that SMS verify landed.
-    if (/session|auth|token|csrf/i.test(name)) {
-      console.log('[web] cookie set:', name);
+    console.log('[web] cookie set:', name);
+    // Real session cookies — not analytics / csrf alone.
+    if (/sessionid|^session$|auth|jwt|refresh/i.test(name) && !/csrf/i.test(name)) {
+      markSignInAuthReady(`cookie:${name}`);
     }
     if (cookieNotifyTimer) clearTimeout(cookieNotifyTimer);
     cookieNotifyTimer = setTimeout(() => {
       cookieNotifyTimer = null;
-      // Force: the same cookie name may update several times during SMS verify.
-      notifyWebSessionMaybe(`cookie:${cookie.name}:${Date.now()}`, { force: true });
+      if (signInAuthReady) {
+        notifyWebSessionMaybe(`cookie:${cookie.name}:${Date.now()}`, { force: true });
+      }
     }, 500);
   });
 }
@@ -733,12 +744,14 @@ function armSignInNetworkWatch() {
   session.defaultSession.webRequest.onCompleted(
     { urls: ['https://www.clubhouse.com/web_api/*', 'https://clubhouse.com/web_api/*'] },
     (details) => {
-      if (!signInView) return;
+      if (!signInWindow) return;
       const path = String(details.url || '');
-      if (!/web_api\/(me|complete_phone|start_phone|resend_phone)/i.test(path)) return;
       console.log('[web] xhr', details.method, path.replace(/^https:\/\/www\.clubhouse\.com/, ''), details.statusCode);
-      if (details.statusCode >= 200 && details.statusCode < 400 && /complete_phone|me/i.test(path)) {
-        notifyWebSessionMaybe(`xhr:${details.statusCode}:${Date.now()}`, { force: true });
+      if (details.statusCode >= 200 && details.statusCode < 400 && /complete_phone/i.test(path)) {
+        markSignInAuthReady('complete_phone');
+      }
+      if (signInAuthReady && details.statusCode >= 200 && details.statusCode < 400 && /\/me\b/i.test(path)) {
+        notifyWebSessionMaybe(`xhr-me:${details.statusCode}:${Date.now()}`, { force: true });
       }
     },
   );
@@ -840,8 +853,8 @@ function logResponseShape(endpoint, text) {
 }
 
 function authSession() {
-  if (signInView && !signInView.webContents.isDestroyed()) {
-    return signInView.webContents.session;
+  if (signInWindow && !signInWindow.isDestroyed()) {
+    return signInWindow.webContents.session;
   }
   return session.defaultSession;
 }
@@ -884,9 +897,9 @@ async function syncClubhouseCookiesToDefault(sourceSession) {
 }
 
 async function probeMeInSignInPage() {
-  if (!signInView || signInView.webContents.isDestroyed()) return null;
+  if (!signInWindow || signInWindow.isDestroyed()) return null;
   try {
-    return await signInView.webContents.executeJavaScript(`
+    return await signInWindow.webContents.executeJavaScript(`
       (async () => {
         const match = document.cookie.split(';').map((s) => s.trim()).find((s) => s.startsWith('csrftoken='));
         const csrf = match ? decodeURIComponent(match.slice('csrftoken='.length)) : '';
@@ -921,6 +934,14 @@ async function postWithWebSession(endpoint, body) {
       body: JSON.stringify({ error_message: 'This action is not available on the web session yet.' }),
     };
   }
+  // Do not hammer /me with 403 while the user is still typing the SMS code.
+  if (endpoint === 'me' && signInWindow && !signInWindow.isDestroyed() && !signInAuthReady) {
+    return {
+      ok: false,
+      status: 0,
+      body: JSON.stringify({ error_message: 'waiting_for_signin' }),
+    };
+  }
   const sess = authSession();
   const allCookies = await listClubhouseCookies(sess);
   const csrf = allCookies.find((cookie) => cookie.name === 'csrftoken')?.value || '';
@@ -929,8 +950,8 @@ async function postWithWebSession(endpoint, body) {
     allCookies.map((cookie) => cookie.name).join(',') || '(none)',
     'csrf',
     csrf ? 'yes' : 'no',
-    'fromSignInView',
-    sess !== session.defaultSession,
+    'authReady',
+    signInAuthReady,
   );
   const method = route.method || 'POST';
   let pathName;
@@ -949,9 +970,9 @@ async function postWithWebSession(endpoint, body) {
   let ok = false;
   let text = '';
 
-  // Prefer an in-page fetch while the sign-in BrowserView is open — it sends
+  // Prefer an in-page fetch while the sign-in window is open — it sends
   // HttpOnly cookies the same way the Clubhouse SPA does.
-  if (endpoint === 'me' && signInView && !signInView.webContents.isDestroyed()) {
+  if (endpoint === 'me' && signInWindow && !signInWindow.isDestroyed() && signInAuthReady) {
     const probed = await probeMeInSignInPage();
     if (probed && typeof probed.status === 'number') {
       status = probed.status;

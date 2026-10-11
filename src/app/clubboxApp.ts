@@ -104,7 +104,6 @@ export class ClubboxApp {
   loginNotice = '';
   adoptRetryTimer: number | null = null;
   adoptRetryCount = 0;
-  embedBoundsObserver: ResizeObserver | null = null;
   adoptInFlight = false;
   guidelinesOpen = false;
   pendingLive = false;
@@ -640,34 +639,12 @@ export class ClubboxApp {
     this.renderGuidelines();
     if (this.isProfileDrawerOpen) this.renderProfileDrawer();
     this.renderRoomDetails();
-    this.bindEmbeddedSignInHost();
     if (gated && this.guidelinesAccepted() && this.currentTab === 'login') {
       void this.syncEmbeddedSignIn();
     } else if (!gated) {
       this.stopAdoptRetry();
       void electronAPI()?.hideEmbeddedSignIn?.();
     }
-  }
-
-  bindEmbeddedSignInHost(): void {
-    const host = document.getElementById('embedded-signin-host');
-    if (!host || !this.isAuthGated()) {
-      this.embedBoundsObserver?.disconnect();
-      this.embedBoundsObserver = null;
-      return;
-    }
-    if (this.embedBoundsObserver) return;
-    this.embedBoundsObserver = new ResizeObserver(() => {
-      const rect = host.getBoundingClientRect();
-      if (rect.width < 80 || rect.height < 80) return;
-      void electronAPI()?.setEmbeddedSignInBounds?.({
-        x: Math.round(rect.left),
-        y: Math.round(rect.top),
-        width: Math.round(rect.width),
-        height: Math.round(rect.height),
-      });
-    });
-    this.embedBoundsObserver.observe(host);
   }
 
   renderRoomDetails(): void {

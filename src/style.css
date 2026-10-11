@@ -626,19 +626,10 @@ body {
   margin-bottom: 12px;
 }
 
-.embedded-signin-host {
-  width: 100%;
-  min-height: 520px;
-  height: min(640px, calc(100vh - 280px));
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-subtle);
-  background: var(--bg-card);
-  margin-bottom: 12px;
-}
-
 .login-actions {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
   margin-bottom: 20px;
 }
 

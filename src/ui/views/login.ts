@@ -16,8 +16,8 @@ export function loginView(state: LoginState): SafeHtml {
       <p class="list-note login-one-device">${t('oneDeviceWarning')}</p>
       ${state.notice ? html`<div class="login-notice">${state.notice}</div>` : ''}
       ${state.desktop ? html`
-        <div id="embedded-signin-host" class="embedded-signin-host" aria-label="${t('openWebSignIn')}"></div>
         <div class="login-actions">
+          <button class="btn btn-primary" type="button" data-action="open-official-signin" ${busy}>${t('openWebSignIn')}</button>
           <button class="btn btn-secondary" type="button" data-action="retry-adopt-session" ${busy}>${t('signInRetry')}</button>
         </div>
       ` : html`
