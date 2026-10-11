@@ -17,6 +17,10 @@ Owner added Phase 22 (HAL-9 room type chips). Continue from there:
 - Blocked / deferred: ST-9 Restream (`@pending @deferred`) until you schedule it.
 - Questions for the owner: schedule ST-9, or add the next phase to CURSOR_TASKS.md.
 
+### Questions for the owner
+
+- **ACC-1 wording:** Sign-in is now a visible Clubhouse `/signin` surface embedded in the main window (BrowserView), not a separate BrowserWindow. Should `features/account.feature` ACC-1 say “visible Clubhouse sign-in surface” instead of “visible window”? (Feature file not edited by the agent.)
+
 
 ## Status
 

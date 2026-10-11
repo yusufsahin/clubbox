@@ -604,6 +604,65 @@ body {
   line-height: 1.45;
 }
 
+.login-shell {
+  max-width: 720px;
+  margin: 24px auto 40px;
+  padding: 0 16px;
+}
+
+.login-title {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.login-help {
+  color: var(--text-muted);
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.login-one-device {
+  margin-bottom: 12px;
+}
+
+.embedded-signin-host {
+  width: 100%;
+  min-height: 520px;
+  height: min(640px, calc(100vh - 280px));
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-card);
+  margin-bottom: 12px;
+}
+
+.login-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.login-sandbox {
+  padding-top: 8px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.login-sandbox .btn {
+  margin-top: 8px;
+}
+
+.app-login-only .sidebar {
+  display: none;
+}
+
+.app-login-only .studio-main {
+  width: 100%;
+}
+
+.app-login-only #cockpit-root {
+  display: none;
+}
+
 .sidebar-user-info {
   flex: 1;
   overflow: hidden;

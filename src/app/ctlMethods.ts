@@ -130,6 +130,10 @@ export type ClubboxAppCtlMethods = {
   endRoom: typeof roomCtl.endRoom;
   sendChatMessage: typeof roomCtl.sendChatMessage;
   confirmCreateRoom: typeof roomCtl.confirmCreateRoom;
+  isAuthGated: typeof settingsCtl.isAuthGated;
+  stopAdoptRetry: typeof settingsCtl.stopAdoptRetry;
+  startAdoptRetry: typeof settingsCtl.startAdoptRetry;
+  syncEmbeddedSignIn: typeof settingsCtl.syncEmbeddedSignIn;
   finishSignIn: typeof settingsCtl.finishSignIn;
   guidelinesAccepted: typeof settingsCtl.guidelinesAccepted;
   acceptGuidelines: typeof settingsCtl.acceptGuidelines;
@@ -138,6 +142,7 @@ export type ClubboxAppCtlMethods = {
   renderGuidelines: typeof settingsCtl.renderGuidelines;
   openOfficialSignIn: typeof settingsCtl.openOfficialSignIn;
   tryAdoptOfficialSession: typeof settingsCtl.tryAdoptOfficialSession;
+  continueInSandbox: typeof settingsCtl.continueInSandbox;
   logOut: typeof settingsCtl.logOut;
   saveSettings: typeof settingsCtl.saveSettings;
   switchRuntimeMode: typeof settingsCtl.switchRuntimeMode;

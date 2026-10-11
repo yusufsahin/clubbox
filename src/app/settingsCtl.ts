@@ -1,4 +1,5 @@
 import { clubhouseClient } from '../api/client.ts';
+import { needsAuthGate } from './authGate.ts';
 import { readAppPrefs, syncSystemThemeListener, writeAppPrefs } from './appPrefs.ts';
 import { electronAPI } from './electronApi.ts';
 import { mergeProfile, profileCountsMissing, readProfile } from '../api/relationship.ts';
@@ -10,9 +11,72 @@ import { settingsView } from '../ui/views/settings.ts';
 import type { ClubboxApp } from './clubboxApp.ts';
 
 const GUIDELINES_KEY = 'clubbox-guidelines-accepted';
+const ADOPT_RETRY_MS = 2500;
+const ADOPT_RETRY_MAX = 24;
 
+export function isAuthGated(this: ClubboxApp): boolean {
+    const api = electronAPI();
+    const config = clubhouseClient.getConfig();
+    return needsAuthGate({
+      isElectron: !!api?.isElectron,
+      forceSandbox: api?.forceSandbox === true,
+      useSandbox: config.useSandbox,
+      webSession: config.webSession,
+    });
+  }
+
+function readEmbedBounds(): { x: number; y: number; width: number; height: number } | null {
+  const host = document.getElementById('embedded-signin-host');
+  if (!host) return null;
+  const rect = host.getBoundingClientRect();
+  if (rect.width < 80 || rect.height < 80) return null;
+  return {
+    x: Math.round(rect.left),
+    y: Math.round(rect.top),
+    width: Math.round(rect.width),
+    height: Math.round(rect.height),
+  };
+}
+
+export function stopAdoptRetry(this: ClubboxApp): void {
+  if (this.adoptRetryTimer != null) {
+    window.clearInterval(this.adoptRetryTimer);
+    this.adoptRetryTimer = null;
+  }
+  this.adoptRetryCount = 0;
+}
+
+export function startAdoptRetry(this: ClubboxApp): void {
+  if (this.adoptRetryTimer != null) return;
+  if (!this.isAuthGated() || !this.guidelinesAccepted()) return;
+  this.adoptRetryTimer = window.setInterval(() => {
+    void this.tryAdoptOfficialSession({ fromRetry: true });
+  }, ADOPT_RETRY_MS);
+}
+
+export async function syncEmbeddedSignIn(this: ClubboxApp): Promise<void> {
+  const api = electronAPI();
+  if (!api?.isElectron) return;
+  if (!this.isAuthGated() || this.currentTab !== 'login' || !this.guidelinesAccepted()) {
+    this.stopAdoptRetry();
+    await api.hideEmbeddedSignIn?.();
+    return;
+  }
+  const bounds = readEmbedBounds();
+  if (!bounds) return;
+  this.loginNotice = this.loginNotice || t('officialSignInWaiting');
+  const show = api.showEmbeddedSignIn ?? api.openOfficialSignIn;
+  if (!show) {
+    this.loginNotice = t('embeddedSignInUnavailable');
+    return;
+  }
+  await show(bounds);
+  this.startAdoptRetry();
+}
 
 export async function finishSignIn(this: ClubboxApp) : Promise<void> {
+    this.stopAdoptRetry();
+    await electronAPI()?.hideEmbeddedSignIn?.();
     await this.refreshMe();
     try {
       await this.reloadChannels();
@@ -50,14 +114,26 @@ export function acceptGuidelines(this: ClubboxApp) : void {
   }
 
 export async function startLiveAfterGuidelines(this: ClubboxApp) : Promise<void> {
-    await this.switchRuntimeMode(false);
-    if (electronAPI()?.isElectron) await clubhouseClient.adoptWebSession();
-    await this.finishSignIn();
+    await clubhouseClient.updateConfig({ useSandbox: false });
+    audioEngine.setSimulateMeterOnFailure(false);
+    this.updateModeBadge();
+    this.currentTab = 'login';
+    this.render();
+    if (electronAPI()?.isElectron) {
+      const adopted = await clubhouseClient.adoptWebSession();
+      if (adopted) {
+        await this.finishSignIn();
+        return;
+      }
+      await this.syncEmbeddedSignIn();
+      this.render();
+    }
   }
 
 export function declineGuidelines(this: ClubboxApp) : void {
     this.guidelinesOpen = false;
     this.pendingLive = false;
+    this.currentTab = 'login';
     this.render();
   }
 
@@ -91,37 +167,62 @@ export async function openOfficialSignIn(this: ClubboxApp) : Promise<void> {
       this.render();
       return;
     }
-    const api = electronAPI();
     this.currentTab = 'login';
-    if (!api?.openOfficialSignIn) {
-      this.loginNotice = t('signInHelperDesktop');
-      this.render();
-      return;
-    }
-    if (!window.confirm(t('oneDeviceWarning'))) {
-      this.loginNotice = t('signInHelperDesktop');
-      this.render();
-      return;
-    }
     this.loginNotice = t('officialSignInWaiting');
     this.render();
-    await api.openOfficialSignIn();
+    await this.syncEmbeddedSignIn();
   }
 
-export async function tryAdoptOfficialSession(this: ClubboxApp) : Promise<void> {
+export async function tryAdoptOfficialSession(this: ClubboxApp, options?: { fromRetry?: boolean }) : Promise<void> {
     if (!this.guidelinesAccepted()) return;
     if (this.adoptInFlight || clubhouseClient.getConfig().webSession) return;
     this.adoptInFlight = true;
-    this.loginBusy = true;
+    if (!options?.fromRetry) this.loginBusy = true;
     try {
       const adopted = await clubhouseClient.adoptWebSession();
-      if (!adopted) return;
-      await electronAPI()?.closeOfficialSignIn?.();
+      if (!adopted) {
+        if (options?.fromRetry) {
+          this.adoptRetryCount += 1;
+          if (this.adoptRetryCount >= ADOPT_RETRY_MAX) {
+            this.stopAdoptRetry();
+            this.loginNotice = t('signInAdoptFailed');
+            this.render();
+          }
+        } else {
+          this.loginNotice = t('signInAdoptFailed');
+          this.render();
+        }
+        return;
+      }
+      this.stopAdoptRetry();
+      await electronAPI()?.hideEmbeddedSignIn?.();
       await this.finishSignIn();
     } finally {
       this.adoptInFlight = false;
       this.loginBusy = false;
     }
+  }
+
+export async function continueInSandbox(this: ClubboxApp): Promise<void> {
+    this.stopAdoptRetry();
+    await electronAPI()?.hideEmbeddedSignIn?.();
+    if (this.currentChannel || this.joinInFlight) {
+      await this.leaveRoom({ silent: true });
+    }
+    await clubhouseClient.updateConfig({ useSandbox: true, webSession: false });
+    audioEngine.setSimulateMeterOnFailure(true);
+    this.loginNotice = '';
+    this.authCleanupStarted = false;
+    this.currentTab = 'explore';
+    await this.refreshMe();
+    try {
+      await this.reloadChannels();
+    } catch (err) {
+      this.reportApiError(err);
+    }
+    this.updateModeBadge();
+    this.showToast(t('sandboxSwitched'), '🧪');
+    this.render();
   }
 
 export async function logOut(this: ClubboxApp) : Promise<void> {
@@ -130,20 +231,28 @@ export async function logOut(this: ClubboxApp) : Promise<void> {
       await this.leaveRoom({ silent: true });
     }
     this.stopRoomPresence();
+    this.stopAdoptRetry();
     await electronAPI()?.clearWebSession?.();
-    await clubhouseClient.updateConfig({ webSession: false });
+    await clubhouseClient.updateConfig({ webSession: false, useSandbox: false });
+    audioEngine.setSimulateMeterOnFailure(false);
     this.me = null;
+    this.authCleanupStarted = false;
     this.currentTab = 'login';
+    this.loginNotice = '';
     this.render();
+    if (this.guidelinesAccepted()) await this.syncEmbeddedSignIn();
   }
 
 export async function saveSettings(this: ClubboxApp) : Promise<void> {
     const appBuild = (document.getElementById('cfg-app-build') as HTMLInputElement)?.value;
     const appVersion = (document.getElementById('cfg-app-version') as HTMLInputElement)?.value;
     const agoraAppId = (document.getElementById('cfg-agora-app-id') as HTMLInputElement)?.value;
+    // Desktop may enter sandbox from the login CTA; keep that choice unless the live radio is selected.
+    const sandboxRadio = (document.getElementById('radio-sandbox') as HTMLInputElement | null)?.checked === true;
+    const liveRadio = (document.getElementById('radio-live') as HTMLInputElement | null)?.checked === true;
     const isSandbox = electronAPI()?.isElectron
-      ? false
-      : (document.getElementById('radio-sandbox') as HTMLInputElement)?.checked === true;
+      ? (liveRadio ? false : (sandboxRadio || clubhouseClient.getConfig().useSandbox))
+      : sandboxRadio;
     const experimentalActions = (document.getElementById('cfg-experimental-actions') as HTMLInputElement | null)?.checked === true;
     const requestLogging = (document.getElementById('cfg-request-logging') as HTMLInputElement | null)?.checked === true;
     const allowLocalRecording = (document.getElementById('cfg-allow-recording') as HTMLInputElement | null)?.checked === true;
@@ -186,7 +295,6 @@ export async function saveSettings(this: ClubboxApp) : Promise<void> {
   }
 
 export async function switchRuntimeMode(this: ClubboxApp, useSandbox: boolean) : Promise<void> {
-    if (electronAPI()?.isElectron && useSandbox) return;
     if (!useSandbox && !this.guidelinesAccepted()) {
       this.pendingLive = true;
       this.guidelinesOpen = true;
@@ -194,10 +302,18 @@ export async function switchRuntimeMode(this: ClubboxApp, useSandbox: boolean) :
       return;
     }
     if (this.currentChannel || this.joinInFlight) await this.leaveRoom({ silent: true });
-    await clubhouseClient.updateConfig({ useSandbox });
+    this.stopAdoptRetry();
+    if (useSandbox) await electronAPI()?.hideEmbeddedSignIn?.();
+    await clubhouseClient.updateConfig({ useSandbox, webSession: useSandbox ? false : clubhouseClient.getConfig().webSession });
     audioEngine.setSimulateMeterOnFailure(useSandbox);
     this.updateModeBadge();
     this.showToast(useSandbox ? t('sandboxSwitched') : t('liveSwitched'), useSandbox ? '🧪' : '🌐');
+    if (!useSandbox && this.isAuthGated()) {
+      this.currentTab = 'login';
+      this.render();
+      await this.syncEmbeddedSignIn();
+      return;
+    }
     this.render();
   }
 
@@ -207,10 +323,13 @@ export function handleAuthExpired(this: ClubboxApp) : void {
     void this.releaseRoomLocally();
     this.stopActivityRefresh();
     this.me = null;
-    void clubhouseClient.updateConfig({ webSession: false });
+    this.stopAdoptRetry();
+    void electronAPI()?.hideEmbeddedSignIn?.();
+    void clubhouseClient.updateConfig({ webSession: false, useSandbox: false });
     this.showToast(t('sessionExpired'), '🔑');
     this.currentTab = 'login';
     this.render();
+    if (this.guidelinesAccepted()) void this.syncEmbeddedSignIn();
   }
 
 export async function refreshMe(this: ClubboxApp, options?: { quiet?: boolean }) : Promise<void> {
@@ -312,7 +431,7 @@ export function renderSettingsView(this: ClubboxApp) {
     clubhouseClient.getConfig(),
     this.shortcuts,
     this.recordingShortcut,
-    !!electronAPI()?.isElectron,
+    false,
     this.me ? {
       settings: this.meSettings,
       notificationsEnabled: this.notificationsEnabled,
@@ -372,6 +491,10 @@ export async function refreshConnectionStatus(this: ClubboxApp): Promise<void> {
 }
 
 export function wireSettingsCtl(proto: ClubboxApp): void {
+  proto.isAuthGated = isAuthGated;
+  proto.stopAdoptRetry = stopAdoptRetry;
+  proto.startAdoptRetry = startAdoptRetry;
+  proto.syncEmbeddedSignIn = syncEmbeddedSignIn;
   proto.finishSignIn = finishSignIn;
   proto.guidelinesAccepted = guidelinesAccepted;
   proto.acceptGuidelines = acceptGuidelines;
@@ -380,6 +503,7 @@ export function wireSettingsCtl(proto: ClubboxApp): void {
   proto.renderGuidelines = renderGuidelines;
   proto.openOfficialSignIn = openOfficialSignIn;
   proto.tryAdoptOfficialSession = tryAdoptOfficialSession;
+  proto.continueInSandbox = continueInSandbox;
   proto.logOut = logOut;
   proto.saveSettings = saveSettings;
   proto.switchRuntimeMode = switchRuntimeMode;

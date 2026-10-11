@@ -1,4 +1,4 @@
-const { app, BrowserWindow, session, ipcMain, globalShortcut, shell, Notification, nativeTheme } = require('electron');
+const { app, BrowserWindow, BrowserView, session, ipcMain, globalShortcut, shell, Notification, nativeTheme } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -303,9 +303,27 @@ ipcMain.handle('clubbox:shortcuts-set', (event, shortcuts) => {
   return { ok: true, failed: applyGlobalShortcuts(clean) };
 });
 
-ipcMain.handle('clubbox:open-signin', (event) => {
+ipcMain.handle('clubbox:open-signin', (event, bounds) => {
   if (!isTrustedSender(event)) return { ok: false };
-  openOfficialSignIn();
+  showEmbeddedSignIn(normalizeBounds(bounds));
+  return { ok: true };
+});
+
+ipcMain.handle('clubbox:embedded-signin-show', (event, bounds) => {
+  if (!isTrustedSender(event)) return { ok: false };
+  showEmbeddedSignIn(normalizeBounds(bounds));
+  return { ok: true };
+});
+
+ipcMain.handle('clubbox:embedded-signin-hide', (event) => {
+  if (!isTrustedSender(event)) return { ok: false };
+  hideEmbeddedSignIn();
+  return { ok: true };
+});
+
+ipcMain.handle('clubbox:embedded-signin-set-bounds', (event, bounds) => {
+  if (!isTrustedSender(event)) return { ok: false };
+  setEmbeddedSignInBounds(normalizeBounds(bounds));
   return { ok: true };
 });
 
@@ -340,7 +358,7 @@ ipcMain.handle('clubbox:desktop-notification', (event, payload) => {
 
 ipcMain.handle('clubbox:close-signin', (event) => {
   if (!isTrustedSender(event)) return { ok: false };
-  if (signInWindow && !signInWindow.isDestroyed()) signInWindow.close();
+  hideEmbeddedSignIn();
   return { ok: true };
 });
 
@@ -378,6 +396,7 @@ ipcMain.handle('clubbox:run-api-triage', (event) => {
 
 ipcMain.handle('clubbox:clear-web-session', async (event) => {
   if (!isTrustedSender(event)) return { ok: false };
+  hideEmbeddedSignIn();
   try {
     await session.defaultSession.clearStorageData({
       origin: 'https://www.clubhouse.com',
@@ -404,11 +423,90 @@ const WEB_AUTH_ENDPOINTS = {
 // web sign-in shows that live updates are unavailable instead of failing silently.
 const WEB_SESSION_PATHS = require('./webApiRoutes.json');
 
-let signInWindow = null;
+let signInView = null;
 let lastSignInNotice = '';
 let bundleCrawlInFlight = null;
 let bundleCrawlAttempt = 0;
 let pubnubClient = null;
+
+function normalizeBounds(bounds) {
+  const x = Math.max(0, Math.round(Number(bounds?.x) || 0));
+  const y = Math.max(0, Math.round(Number(bounds?.y) || 0));
+  const width = Math.max(120, Math.round(Number(bounds?.width) || 480));
+  const height = Math.max(160, Math.round(Number(bounds?.height) || 640));
+  return { x, y, width, height };
+}
+
+function hideEmbeddedSignIn() {
+  if (!signInView) return;
+  try {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.removeBrowserView(signInView);
+    }
+  } catch {
+    // ignore
+  }
+  try {
+    if (!signInView.webContents.isDestroyed()) {
+      signInView.webContents.destroy();
+    }
+  } catch {
+    // ignore
+  }
+  signInView = null;
+  lastSignInNotice = '';
+}
+
+function setEmbeddedSignInBounds(bounds) {
+  if (!signInView) return;
+  try {
+    signInView.setBounds(bounds);
+  } catch {
+    // ignore
+  }
+}
+
+function showEmbeddedSignIn(bounds) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (signInView) {
+    setEmbeddedSignInBounds(bounds);
+    try {
+      mainWindow.setBrowserView(signInView);
+    } catch {
+      // ignore
+    }
+    return;
+  }
+  lastSignInNotice = '';
+  signInView = new BrowserView({
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true,
+    },
+  });
+  mainWindow.setBrowserView(signInView);
+  signInView.setBounds(bounds);
+  signInView.webContents.setWindowOpenHandler(({ url }) => {
+    if (isClubhouseHttps(url)) return { action: 'allow' };
+    return { action: 'deny' };
+  });
+  signInView.webContents.on('will-navigate', (event, url) => {
+    if (!isClubhouseHttps(url)) event.preventDefault();
+  });
+  const notice = (_event, url) => maybeNotifyWebSession(url);
+  signInView.webContents.on('did-navigate', notice);
+  signInView.webContents.on('did-redirect-navigation', notice);
+  signInView.webContents.on('did-navigate-in-page', notice);
+  signInView.webContents.on('did-finish-load', () => {
+    void extractAgoraAppIdFromSignIn(signInView);
+  });
+  signInView.webContents.on('destroyed', () => {
+    signInView = null;
+    lastSignInNotice = '';
+  });
+  void signInView.webContents.loadURL('https://www.clubhouse.com/signin');
+}
 
 function readRealtimeConfig() {
   try {
@@ -568,50 +666,10 @@ function maybeNotifyWebSession(target) {
   scheduleBundleCrawl();
 }
 
-function openOfficialSignIn() {
-  if (signInWindow && !signInWindow.isDestroyed()) {
-    signInWindow.show();
-    signInWindow.focus();
-    return;
-  }
-  lastSignInNotice = '';
-  signInWindow = new BrowserWindow({
-    show: true,
-    width: 480,
-    height: 800,
-    title: 'Clubhouse',
-    autoHideMenuBar: true,
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-      sandbox: true,
-    },
-  });
-  signInWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (isClubhouseHttps(url)) return { action: 'allow' };
-    return { action: 'deny' };
-  });
-  signInWindow.webContents.on('will-navigate', (event, url) => {
-    if (!isClubhouseHttps(url)) event.preventDefault();
-  });
-  const notice = (_event, url) => maybeNotifyWebSession(url);
-  signInWindow.webContents.on('did-navigate', notice);
-  signInWindow.webContents.on('did-redirect-navigation', notice);
-  signInWindow.webContents.on('did-navigate-in-page', notice);
-  signInWindow.on('closed', () => {
-    signInWindow = null;
-    lastSignInNotice = '';
-  });
-  signInWindow.webContents.on('did-finish-load', () => {
-    void extractAgoraAppIdFromSignIn(signInWindow);
-  });
-  void signInWindow.loadURL('https://www.clubhouse.com/signin');
-}
-
-async function extractAgoraAppIdFromSignIn(win) {
-  if (!win || win.isDestroyed() || !mainWindow || mainWindow.isDestroyed()) return;
+async function extractAgoraAppIdFromSignIn(view) {
+  if (!view?.webContents || view.webContents.isDestroyed() || !mainWindow || mainWindow.isDestroyed()) return;
   try {
-    const appId = await win.webContents.executeJavaScript(`
+    const appId = await view.webContents.executeJavaScript(`
       (() => {
         const patterns = [
           /NEXT_PUBLIC_AGORA_KEY["']?\\s*[:=]\\s*["']([a-fA-F0-9]{32})["']/,

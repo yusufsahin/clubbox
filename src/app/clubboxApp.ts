@@ -102,6 +102,9 @@ export class ClubboxApp {
   selectedProfile: CHUser | null = null;
   loginBusy = false;
   loginNotice = '';
+  adoptRetryTimer: number | null = null;
+  adoptRetryCount = 0;
+  embedBoundsObserver: ResizeObserver | null = null;
   adoptInFlight = false;
   guidelinesOpen = false;
   pendingLive = false;
@@ -279,8 +282,10 @@ export class ClubboxApp {
       if (!this.guidelinesAccepted()) {
         this.pendingLive = true;
         this.guidelinesOpen = true;
+        this.currentTab = 'login';
       } else {
-        await clubhouseClient.adoptWebSession();
+        const adopted = await clubhouseClient.adoptWebSession();
+        if (!adopted) this.currentTab = 'login';
       }
       await this.runStartupApiTriage();
     } else if (!this.guidelinesAccepted() && !clubhouseClient.getConfig().useSandbox) {
@@ -288,13 +293,15 @@ export class ClubboxApp {
       this.guidelinesOpen = true;
       await clubhouseClient.updateConfig({ useSandbox: true });
     }
-    if (forceSandbox || !(desktop && !this.guidelinesAccepted())) {
+    if (!this.isAuthGated() && (forceSandbox || !(desktop && !this.guidelinesAccepted()))) {
       await this.refreshMe();
       try {
         await this.reloadChannels();
       } catch (err) {
         this.reportApiError(err);
       }
+    } else if (this.isAuthGated()) {
+      this.currentTab = 'login';
     }
 
     // Hook audio engine callbacks
@@ -328,10 +335,10 @@ export class ClubboxApp {
 
     audioEngine.setSimulateMeterOnFailure(clubhouseClient.getConfig().useSandbox);
 
-    if (this.currentTab === 'stage') {
-      const config = clubhouseClient.getConfig();
-      const needsLiveLogin = !!electronAPI()?.isElectron && !config.useSandbox && !config.webSession;
-      this.currentTab = needsLiveLogin ? 'login' : 'explore';
+    if (this.isAuthGated()) {
+      this.currentTab = 'login';
+    } else if (this.currentTab === 'stage' || this.currentTab === 'login') {
+      this.currentTab = 'explore';
     }
 
     try {
@@ -343,7 +350,9 @@ export class ClubboxApp {
 
     // Render even when the network failed so the shell is never blank.
     this.render();
-
+    if (this.isAuthGated() && this.guidelinesAccepted()) {
+      void this.syncEmbeddedSignIn();
+    }
   }
 
 
@@ -616,6 +625,12 @@ export class ClubboxApp {
 
   public render() {
     this.ensureShell();
+    const gated = this.isAuthGated();
+    if (gated) {
+      this.currentTab = 'login';
+      this.selfProfileOpen = false;
+    }
+    document.getElementById('app')?.classList.toggle('app-login-only', gated);
     this.renderSidebar();
     this.renderTopBar();
     this.renderView();
@@ -625,6 +640,34 @@ export class ClubboxApp {
     this.renderGuidelines();
     if (this.isProfileDrawerOpen) this.renderProfileDrawer();
     this.renderRoomDetails();
+    this.bindEmbeddedSignInHost();
+    if (gated && this.guidelinesAccepted() && this.currentTab === 'login') {
+      void this.syncEmbeddedSignIn();
+    } else if (!gated) {
+      this.stopAdoptRetry();
+      void electronAPI()?.hideEmbeddedSignIn?.();
+    }
+  }
+
+  bindEmbeddedSignInHost(): void {
+    const host = document.getElementById('embedded-signin-host');
+    if (!host || !this.isAuthGated()) {
+      this.embedBoundsObserver?.disconnect();
+      this.embedBoundsObserver = null;
+      return;
+    }
+    if (this.embedBoundsObserver) return;
+    this.embedBoundsObserver = new ResizeObserver(() => {
+      const rect = host.getBoundingClientRect();
+      if (rect.width < 80 || rect.height < 80) return;
+      void electronAPI()?.setEmbeddedSignInBounds?.({
+        x: Math.round(rect.left),
+        y: Math.round(rect.top),
+        width: Math.round(rect.width),
+        height: Math.round(rect.height),
+      });
+    });
+    this.embedBoundsObserver.observe(host);
   }
 
   renderRoomDetails(): void {
@@ -948,7 +991,7 @@ export class ClubboxApp {
           <div class="top-actions">
             ${onRoomPage ? html`
               <button class="btn btn-secondary" type="button" data-action="minimize-room">${t('minimize')}</button>
-            ` : html`
+            ` : this.isAuthGated() ? '' : html`
               ${clubhouseClient.supports('create_channel') ? html`
                 <button class="btn btn-primary" data-action="create-room" data-start-room="top">${icon('plus')} ${t('startRoom')}</button>
               ` : html`
@@ -1406,6 +1449,17 @@ export class ClubboxApp {
   }
 
   handleAction(action: string, el: HTMLElement): void {
+    if (this.isAuthGated()
+      && action !== 'accept-guidelines'
+      && action !== 'decline-guidelines'
+      && action !== 'continue-sandbox'
+      && action !== 'retry-adopt-session'
+      && action !== 'open-official-signin'
+      && action !== 'log-out') {
+      this.currentTab = 'login';
+      this.render();
+      return;
+    }
     const tab = el.dataset.tab;
     if (action === 'nav' && (tab === 'stage' || tab === 'explore' || tab === 'discover' || tab === 'friends' || tab === 'messages' || tab === 'activity' || tab === 'houses' || tab === 'events' || tab === 'soundboard' || tab === 'settings' || tab === 'login')) {
       this.selfProfileOpen = false;
@@ -2057,6 +2111,12 @@ export class ClubboxApp {
       case 'open-login':
       case 'open-official-signin':
         void this.openOfficialSignIn();
+        break;
+      case 'continue-sandbox':
+        void this.continueInSandbox();
+        break;
+      case 'retry-adopt-session':
+        void this.tryAdoptOfficialSession();
         break;
       case 'accept-guidelines':
         this.acceptGuidelines();

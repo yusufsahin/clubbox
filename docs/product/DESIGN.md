@@ -15,6 +15,7 @@ This document describes how Clubbox binds to the Clubhouse web API, what the tar
 | C3 | Community Guidelines forbid bots/scripts/browser automation against the service | No scripted live actions, no reCAPTCHA automation, official polling rates |
 | C4 | Owner should not be needed in the loop | Discovery from static bundles (§6), self-healing log + triage (Task 10.5), BDD on fakes |
 | C5 | One active Clubhouse device at a time (Clubdeck manual) | Tell the user at sign-in that the phone may be signed out |
+| C6 | Live sign-in uses a visible clubhouse.com `/signin` surface (BrowserView in the login shell); cookies + `POST /web_api/me`. No hidden reCAPTCHA automation, no mobile-token path. Desktop without `webSession` and without sandbox is login-only. | ACC-1 / ACC-7 |
 
 ---
 

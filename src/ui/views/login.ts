@@ -10,14 +10,23 @@ export interface LoginState {
 export function loginView(state: LoginState): SafeHtml {
   const busy = state.busy ? 'disabled' : '';
   return html`
-    <div style="max-width:460px; margin:40px auto;">
-      <h2 style="font-size:22px; font-weight:700; margin-bottom:4px;">${t('signInTitle')}</h2>
-      <p style="color:var(--text-muted); font-size:13px; margin-bottom:24px;">${state.desktop ? t('signInHelp') : t('signInHelperDesktop')}</p>
-      <p class="list-note">${t('tokenSignInUnsupported')}</p>
+    <div class="login-shell">
+      <h2 class="login-title">${t('signInTitle')}</h2>
+      <p class="login-help">${state.desktop ? t('signInHelp') : t('signInHelperDesktop')}</p>
+      <p class="list-note login-one-device">${t('oneDeviceWarning')}</p>
       ${state.notice ? html`<div class="login-notice">${state.notice}</div>` : ''}
       ${state.desktop ? html`
-        <button class="btn btn-primary" data-action="open-official-signin" ${busy}>${t('openWebSignIn')}</button>
-      ` : ''}
+        <div id="embedded-signin-host" class="embedded-signin-host" aria-label="${t('openWebSignIn')}"></div>
+        <div class="login-actions">
+          <button class="btn btn-secondary" type="button" data-action="retry-adopt-session" ${busy}>${t('signInRetry')}</button>
+        </div>
+      ` : html`
+        <p class="list-note">${t('embeddedSignInUnavailable')}</p>
+      `}
+      <div class="login-sandbox">
+        <p class="list-note">${t('continueInSandboxHelp')}</p>
+        <button class="btn btn-secondary" type="button" data-action="continue-sandbox" ${busy}>${t('continueInSandbox')}</button>
+      </div>
     </div>
   `;
 }

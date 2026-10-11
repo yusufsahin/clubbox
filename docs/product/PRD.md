@@ -74,7 +74,7 @@ Legend — Today: ✅ works live · ✅* wired (live verification pending) · �
 
 | ID | Feature | HC | CD | Today | Evidence | Priority |
 | --- | --- | --- | --- | --- | --- | --- |
-| ACC-1 | Sign in in a visible clubhouse.com window | ✓ | ✓ | ✅ | O | P0 |
+| ACC-1 | Sign in in a visible clubhouse.com surface (embedded BrowserView in the login shell; was a separate window) | ✓ | ✓ | ✅ | O | P0 |
 | ACC-2 | First-run notice (unofficial, guidelines risk) | | | ✅ | — | P0 |
 | ACC-3 | Log out (clear cookies + local state) | ✓ | ✓ | ✅ | — | P0 |
 | ACC-4 | Light / dark / system theme | ✓ | ✓ | ✅ | — | P2 |

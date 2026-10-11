@@ -13,8 +13,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('clubbox:global-shortcut', listener);
     return () => ipcRenderer.removeListener('clubbox:global-shortcut', listener);
   },
-  openOfficialSignIn: () => ipcRenderer.invoke('clubbox:open-signin'),
+  openOfficialSignIn: (bounds) => ipcRenderer.invoke('clubbox:open-signin', bounds),
   closeOfficialSignIn: () => ipcRenderer.invoke('clubbox:close-signin'),
+  showEmbeddedSignIn: (bounds) => ipcRenderer.invoke('clubbox:embedded-signin-show', bounds),
+  hideEmbeddedSignIn: () => ipcRenderer.invoke('clubbox:embedded-signin-hide'),
+  setEmbeddedSignInBounds: (bounds) => ipcRenderer.invoke('clubbox:embedded-signin-set-bounds', bounds),
   onWebSessionMaybe: (callback) => {
     const listener = () => callback();
     ipcRenderer.on('clubbox:web-session-maybe', listener);

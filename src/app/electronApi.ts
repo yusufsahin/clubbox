@@ -9,8 +9,11 @@ export type ElectronAPI = {
   setGlobalShortcuts: (shortcuts: ShortcutMap) => Promise<{ ok: boolean; failed: string[] }>;
   onGlobalShortcut: (callback: (action: string) => void) => void;
   setZoomFactor?: (factor: number) => Promise<unknown> | unknown;
-  openOfficialSignIn?: () => Promise<{ ok: boolean }>;
+  openOfficialSignIn?: (bounds?: { x: number; y: number; width: number; height: number }) => Promise<{ ok: boolean }>;
   closeOfficialSignIn?: () => Promise<{ ok: boolean }>;
+  showEmbeddedSignIn?: (bounds: { x: number; y: number; width: number; height: number }) => Promise<{ ok: boolean }>;
+  hideEmbeddedSignIn?: () => Promise<{ ok: boolean }>;
+  setEmbeddedSignInBounds?: (bounds: { x: number; y: number; width: number; height: number }) => Promise<{ ok: boolean }>;
   onWebSessionMaybe?: (callback: () => void) => void;
   onAgoraAppId?: (callback: (appId: string) => void) => () => void;
   pubnubSubscribe?: (params: PubNubSubscribeParams) => Promise<{ ok: boolean; reason?: string }>;
