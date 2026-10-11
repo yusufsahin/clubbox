@@ -16,7 +16,8 @@ Do these before continuing the Autonomous plan, then tick them:
 - Autonomous plan already **Done** through **11.8 (strict)**; this devam applied Phase 8 Help Center copy.
 - Done: Audience / Messages / Clips / replays-default i18n (en+tr); Status row 8 updated; `createDefaults` regression test.
 - Remaining product gaps need undocumented bodies (`gif_reaction`, conversation delete/title, replay chunk) or owner capture / packaged e2e / ST-9 & DX.
-- Tests: `npm test` — **119** unit + **123 BDD** + trace strict; tsc/lint/build green. Stopped: no further shippable work without inventing bodies or owner capture.
+- Tests: `npm test` — **119** unit (+ createDefaults) + **123 BDD** + trace strict; tsc/lint/build green.
+- **Stopped:** no further shippable work without inventing endpoint bodies or owner capture / packaged e2e.
 - Blocked: `test:e2e:packaged`; owner live room capture (0.9 S1–S3); topic-chip request body uncaptured.
 - Still @pending: ST-9 deferred; room_host DX-1/DX-3.
 - Questions for the owner: Capture a topic-chip click on clubhouse.com (`get_feed_v3` body) so Hallway topics can filter server-side. Also capture conversation delete/title bodies and a replay chunk if those UIs should ship next.
