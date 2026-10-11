@@ -925,6 +925,11 @@ export class ClubboxApp {
   private stageColumn(): ReturnType<typeof html> {
     if (!this.currentChannel) return html``;
     const controls = stageControlFlags(this);
+    const handraiseOn = this.currentChannel.is_handraise_enabled !== false;
+    const permission = this.currentChannel.handraise_permission;
+    const handraiseMode: 'off' | '1' | '2' = !handraiseOn
+      ? 'off'
+      : (permission === 2 ? '2' : '1');
     return stageColumn({
       channel: this.currentChannel,
       me: this.me,
@@ -934,6 +939,7 @@ export class ClubboxApp {
       ...controls,
       canFollow: clubhouseClient.evidence('follow') === 'observed',
       audienceSearch: this.audienceSearchQuery,
+      handraiseMode,
     });
   }
 
@@ -1097,8 +1103,13 @@ export class ClubboxApp {
       }
     });
     document.addEventListener('change', (event) => {
-      const target = event.target as HTMLInputElement | null;
+      const target = event.target as HTMLInputElement | HTMLSelectElement | null;
       if (!target) return;
+      const action = target.getAttribute('data-action');
+      if (action === 'set-handraise' && target instanceof HTMLSelectElement) {
+        void this.setHandRaisePermission(target.value);
+        return;
+      }
       if (target.id === 'radio-sandbox' || target.id === 'radio-live') {
         void this.switchRuntimeMode(target.id === 'radio-sandbox');
       } else if (target.id === 'cfg-input-device') {
@@ -1215,6 +1226,12 @@ export class ClubboxApp {
         break;
       case 'mute-everyone':
         void this.muteEveryone();
+        break;
+      case 'rename-room':
+        void this.renameRoom();
+        break;
+      case 'send-reaction':
+        void this.sendReaction(el.dataset.emoji);
         break;
       case 'refresh-stage':
         void this.refreshStageManual();

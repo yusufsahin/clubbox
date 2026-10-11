@@ -29,6 +29,9 @@ interface SandboxInput {
   talkUserUsername?: string;
   cursor?: string;
   socialClubSlug?: string;
+  title?: string;
+  isEnabled?: boolean;
+  handraisePermission?: number;
 }
 
 function readRequestBody(body: RequestBody | undefined): SandboxInput {
@@ -48,6 +51,9 @@ function readRequestBody(body: RequestBody | undefined): SandboxInput {
     talkUserUsername: typeof record.talk_user_username === 'string' ? record.talk_user_username : undefined,
     cursor: typeof record.next_cursor === 'string' && record.next_cursor.length > 0 ? record.next_cursor : undefined,
     socialClubSlug: typeof record.social_club_slug === 'string' ? record.social_club_slug : undefined,
+    title: typeof record.title === 'string' ? record.title : undefined,
+    isEnabled: typeof record.is_enabled === 'boolean' ? record.is_enabled : undefined,
+    handraisePermission: typeof record.handraise_permission === 'number' ? record.handraise_permission : undefined,
   };
 }
 
@@ -504,6 +510,24 @@ export class SandboxBackend {
         } as T;
 
       case 'hide_channel':
+        return { success: true } as T;
+
+      case 'change_handraise_settings': {
+        const channel = this.mockChannels.find((entry) => entry.channel === input.channel);
+        if (channel) {
+          channel.is_handraise_enabled = input.isEnabled === true;
+          channel.handraise_permission = input.handraisePermission === 2 ? 2 : 1;
+        }
+        return { success: true } as T;
+      }
+
+      case 'set_channel_title': {
+        const channel = this.mockChannels.find((entry) => entry.channel === input.channel);
+        if (channel && input.title) channel.topic = input.title;
+        return { success: true } as T;
+      }
+
+      case 'emoji_reaction':
         return { success: true } as T;
 
       case 'get_conversations':

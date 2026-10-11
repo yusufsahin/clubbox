@@ -1136,7 +1136,7 @@ export class ClubhouseApiClient {
 
   public async changeHandraiseSettings(
     channelId: string,
-    options: { isEnabled: boolean; handraisePermission: string },
+    options: { isEnabled: boolean; handraisePermission: number },
   ): Promise<ApiAck> {
     return this.call('change_handraise_settings', {
       channel: channelId,

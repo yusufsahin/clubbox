@@ -11,6 +11,8 @@ export type RoomControlFlags = {
   canMuteEveryone: boolean;
   canBlock: boolean;
   canRename: boolean;
+  canHandraise: boolean;
+  canReact: boolean;
 };
 
 function capAllows(caps: UserCapabilities | undefined, key: string): boolean {
@@ -33,6 +35,8 @@ export function roomControlFlags(
     canMuteEveryone: gate('can_mute_speakers', 'mute_speaker'),
     canBlock: gate('can_remove_speakers', 'block_from_channel'),
     canRename: gate('can_edit_room_title', 'set_channel_title'),
+    canHandraise: gate('can_edit_handraise_queue', 'change_handraise_settings'),
+    canReact: supports('emoji_reaction'),
   };
 }
 

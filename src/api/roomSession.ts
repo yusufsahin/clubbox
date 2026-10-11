@@ -273,7 +273,7 @@ export class RoomSessionController {
     if (!this.channelId) return;
     await this.client.changeHandraiseSettings(this.channelId, {
       isEnabled: true,
-      handraisePermission: 'friends_of_speakers',
+      handraisePermission: 2,
     });
   }
 

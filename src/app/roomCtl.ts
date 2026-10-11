@@ -335,6 +335,59 @@ export async function declineSpeakerInvite(this: ClubboxApp) : Promise<void> {
     }
   }
 
+export async function setHandRaisePermission(this: ClubboxApp, mode: string): Promise<void> {
+    if (!this.currentChannel || !this.isMeModerator()) return;
+    if (!this.allowAction('change_handraise_settings')) return;
+    const isEnabled = mode !== 'off';
+    const handraisePermission = mode === '2' ? 2 : 1;
+    try {
+      await clubhouseClient.changeHandraiseSettings(this.channelApiId(this.currentChannel), {
+        isEnabled,
+        handraisePermission,
+      });
+      this.currentChannel = {
+        ...this.currentChannel,
+        is_handraise_enabled: isEnabled,
+        handraise_permission: handraisePermission,
+      };
+      this.renderStage();
+      this.showToast(
+        !isEnabled ? t('handRaiseOff') : handraisePermission === 2 ? t('handRaiseFriendsOfSpeakers') : t('handRaiseEveryone'),
+        '✋',
+      );
+    } catch (err) {
+      this.reportApiError(err);
+    }
+  }
+
+export async function renameRoom(this: ClubboxApp): Promise<void> {
+    if (!this.currentChannel || !this.isMeModerator()) return;
+    if (!this.allowAction('set_channel_title')) return;
+    const next = window.prompt(t('renameRoomPrompt'), this.currentChannel.topic || '');
+    if (next == null) return;
+    const title = next.trim();
+    if (!title || title === this.currentChannel.topic) return;
+    try {
+      await clubhouseClient.setChannelTitle(this.channelApiId(this.currentChannel), title);
+      this.currentChannel = { ...this.currentChannel, topic: title };
+      this.render();
+      this.showToast(t('roomRenamed'), '✏️');
+    } catch (err) {
+      this.reportApiError(err);
+    }
+  }
+
+export async function sendReaction(this: ClubboxApp, emoji: string | undefined): Promise<void> {
+    if (!this.currentChannel || !emoji) return;
+    if (!this.allowAction('emoji_reaction')) return;
+    try {
+      await clubhouseClient.emojiReaction(this.channelApiId(this.currentChannel), emoji);
+      this.showToast(emoji, emoji);
+    } catch (err) {
+      this.reportApiError(err);
+    }
+  }
+
 export async function muteEveryone(this: ClubboxApp) : Promise<void> {
     if (!this.currentChannel || !this.isMeModerator()) return;
     if (!this.allowAction('mute_speaker')) return;
@@ -796,6 +849,9 @@ export function wireRoomCtl(proto: ClubboxApp): void {
   proto.acceptSpeakerInvite = acceptSpeakerInvite;
   proto.declineSpeakerInvite = declineSpeakerInvite;
   proto.muteEveryone = muteEveryone;
+  proto.setHandRaisePermission = setHandRaisePermission;
+  proto.renameRoom = renameRoom;
+  proto.sendReaction = sendReaction;
   proto.refreshStageManual = refreshStageManual;
   proto.toggleHandRaise = toggleHandRaise;
   proto.recordingAllowed = recordingAllowed;

@@ -544,6 +544,35 @@ body {
   border-radius: var(--radius-full);
 }
 
+.handraise-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.handraise-select select {
+  min-width: 160px;
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--input-bg);
+  color: var(--text-main);
+  color-scheme: dark;
+}
+
+.reaction-pad {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.reaction-btn {
+  min-width: 36px;
+  padding: 6px 8px;
+}
+
 /* Speakers Grid */
 .speakers-grid {
   display: grid;

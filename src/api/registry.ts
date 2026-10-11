@@ -146,7 +146,8 @@ const REQUEST_BUILDERS: Partial<Record<string, (params: RequestBody) => RequestB
   change_handraise_settings: (params) => ({
     channel: requireString(params, 'channel'),
     is_enabled: params.isEnabled === true,
-    handraise_permission: requireString(params, 'handraisePermission'),
+    // Community clients (stypr/clubhouse-py): 1 = everyone, 2 = friends of speakers.
+    handraise_permission: requireNumber(params, 'handraisePermission'),
   }),
   hide_channel: (params) => ({
     channel: requireString(params, 'channel'),
@@ -293,7 +294,7 @@ export const CONTRACT_SAMPLE_PARAMS: Record<ContractEndpointName, RequestBody> =
   change_handraise_settings: {
     channel: 'abc123',
     isEnabled: true,
-    handraisePermission: 'friends_of_speakers',
+    handraisePermission: 2,
   },
   hide_channel: { channel: 'abc123', hide: true },
   get_online_friends: {},

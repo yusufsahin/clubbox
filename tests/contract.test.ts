@@ -81,7 +81,7 @@ const CONTRACT_CALLS: ContractCall[] = [
     endpoint: 'change_handraise_settings',
     call: (client) => client.changeHandraiseSettings('abc123', {
       isEnabled: true,
-      handraisePermission: 'friends_of_speakers',
+      handraisePermission: 2,
     }),
   },
   { name: 'hide_channel', endpoint: 'hide_channel', call: (client) => client.hideChannel('abc123', true) },

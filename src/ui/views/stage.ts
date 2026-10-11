@@ -18,8 +18,12 @@ export interface StageState {
   canEnd: boolean;
   canMuteEveryone: boolean;
   canBlock: boolean;
+  canRename: boolean;
+  canHandraise: boolean;
+  canReact: boolean;
   canFollow: boolean;
   audienceSearch: string;
+  handraiseMode: 'off' | '1' | '2';
 }
 
 function unverifiedAction(): SafeHtml {
@@ -81,11 +85,29 @@ export function stageColumn(state: StageState): SafeHtml {
               </div>
               <span style="font-size:12px; color:var(--text-dim);">${state.audioDisconnected ? t('audioDisconnected') : t('roomAudio')}</span>
             </div>
-            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
+            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; align-items:center;">
               <button class="btn btn-secondary" type="button" data-action="refresh-stage" title="Ctrl+P">${t('refreshStage')}</button>
+              ${state.moderator && state.canRename ? html`<button class="btn btn-secondary" type="button" data-action="rename-room">${t('renameRoom')}</button>` : ''}
               ${state.moderator && state.canMuteEveryone ? html`<button class="btn btn-secondary" type="button" data-action="mute-everyone">${t('muteEveryone')}</button>` : ''}
               ${state.moderator && state.canEnd ? html`<button class="btn btn-danger" type="button" data-action="end-room">${t('endRoom')}</button>` : ''}
-              ${state.moderator && !state.canEnd && !state.canMuteEveryone && !state.canInvite ? unverifiedAction() : ''}
+              ${state.moderator && state.canHandraise ? html`
+                <label class="handraise-select">
+                  <span>${t('handRaisePermission')}</span>
+                  <select data-action="set-handraise" aria-label="${t('handRaisePermission')}">
+                    <option value="off" ${state.handraiseMode === 'off' ? 'selected' : ''}>${t('handRaiseOff')}</option>
+                    <option value="1" ${state.handraiseMode === '1' ? 'selected' : ''}>${t('handRaiseEveryone')}</option>
+                    <option value="2" ${state.handraiseMode === '2' ? 'selected' : ''}>${t('handRaiseFriendsOfSpeakers')}</option>
+                  </select>
+                </label>
+              ` : ''}
+              ${state.canReact ? html`
+                <div class="reaction-pad" role="group" aria-label="${t('sendReaction')}">
+                  ${['👏', '❤️', '🔥', '😂'].map((emoji) => html`
+                    <button class="btn btn-secondary reaction-btn" type="button" data-action="send-reaction" data-emoji="${emoji}">${emoji}</button>
+                  `)}
+                </div>
+              ` : ''}
+              ${state.moderator && !state.canEnd && !state.canMuteEveryone && !state.canInvite && !state.canHandraise && !state.canRename ? unverifiedAction() : ''}
             </div>
 
             <div class="speakers-grid">

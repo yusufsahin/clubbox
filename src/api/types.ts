@@ -58,6 +58,8 @@ export interface CHChannel {
   };
   is_clips_enabled?: boolean;
   is_handraise_enabled?: boolean;
+  /** Community: 1 = everyone, 2 = friends of speakers (when handraise is on). */
+  handraise_permission?: number;
   is_chat_enabled?: boolean;
   should_join_muted?: boolean;
   creator_user_profile_id?: number;

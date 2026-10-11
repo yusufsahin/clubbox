@@ -94,12 +94,12 @@ Legend — Evidence: O observed · B bundle call site · C community · ? to dis
 | reject_speaker_invite | POST | channel, user_id | ack | C | ❌ | RoomCtl |
 | send_channel_message | POST | channel, message | ack | O | ✅ | ChatStream |
 | get_channel_messages | GET | channel | messages[] | O | ✅ | ChatStream (fallback) |
-| emoji_reaction | POST | channel, emoji | ack | B | ❌ | Reactions |
+| emoji_reaction | POST | channel, emoji | ack | B | ✅ stage reaction pad | Reactions |
 | gif_reaction | POST | ? | ack | B (no body) | ❌ | — (P3) |
-| set_channel_title | POST | channel, title | ack | B | ❌ | RoomCtl |
+| set_channel_title | POST | channel, title | ack | B | ✅ rename on stage | RoomCtl |
 | invite_speaker / uninvite_speaker / mute_speaker / make_moderator / block_from_channel | POST | channel, user_id | ack | C | 🟡 | RoomCtl (mod) |
 | invite_to_existing_channel | POST | channel, user_id | ack | C | ❌ | Ping |
-| change_handraise_settings | POST | channel, is_enabled, handraise_permission | ack | C | ❌ | RoomCtl (mod) |
+| change_handraise_settings | POST | channel, is_enabled, handraise_permission (1=everyone, 2=friends of speakers) | ack | C | ✅ experimental stage select (RH-7) | RoomCtl (mod) |
 | end_channel | POST | channel, channel_id | ack | C | ✅ experimental + capabilities (G-04 closed) | RoomCtl |
 | make_channel_public / make_channel_social | POST | channel, channel_id | ack | C | ❌ | RoomCtl (mod) |
 | get_channel | POST | channel | channel detail | C (not in web bundle) | 🟡 used by RoomSync but not callable on web (G-03) | — replace with PubNub |

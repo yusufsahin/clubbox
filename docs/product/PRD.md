@@ -123,7 +123,7 @@ Legend — Today: ✅ works live · 🧪 sandbox/UI only · ❌ missing. Evidenc
 | RH-4 | Hand queue list + invite to stage | ✓ | ✓ | 🧪 | C (invite_speaker) | P1 |
 | RH-5 | Mute speaker / mute everyone | ✓ | ✓ | 🧪 | C (mute_speaker ×N) | P1 |
 | RH-6 | Make moderator / move to audience / block from room | ✓ | ✓ | 🧪 | C | P1 |
-| RH-7 | Hand-raise permission (off / everyone / friends of speakers) | ✓ | ✓ | ❌ | C (change_handraise_settings) | P1 |
+| RH-7 | Hand-raise permission (off / everyone / friends of speakers) | ✓ | ✓ | ✅ | C (change_handraise_settings) | P1 |
 | RH-8 | Chat on/off, delete a message | ✓ | ✓ | 🧪 | N for delete | P2 |
 | RH-9 | Ping people into the room (multi-select, search by bio) | ✓ | ✓ | ✅ | C (invite_to_existing_channel) | P1 |
 | RH-10 | Room visibility change | | ✓ | ✅ | C (make_channel_public/social) | P2 |

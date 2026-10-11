@@ -13,9 +13,9 @@ Do these before continuing the Autonomous plan, then tick them:
 
 ### Last autonomous run (2026-10-11)
 
-- Autonomous plan already **Done** through **11.8 (strict)**; this devam shipped Houses/Events UI + unread badge.
-- Done: Houses tab (`get_user_social_clubs` / detail / host room); Events tab + `.ics` + copy link (experimental `get_events`); Messages unread badge prefers `get_conversation_unread_summary` with `me` fallback; DESIGN Today columns updated.
-- Tests: `npm test` — **111** unit + **123 BDD** + trace strict; tsc/lint/build green.
+- Autonomous plan already **Done** through **11.8 (strict)**; this devam closed PRD RH-7 and stage chrome gaps.
+- Done: Hand-raise permission select (community numeric 1/2 + off); stage Rename (`set_channel_title`); reaction pad (`emoji_reaction`); sandbox routes for those three; DESIGN/PRD Today updated.
+- Tests: `npm test` — **113** unit + **123 BDD** + trace strict; tsc/lint/build green.
 - Blocked: `test:e2e:packaged`; owner live room capture (0.9 S1–S3); topic-chip request body uncaptured.
 - Still @pending: ST-9 deferred; room_host DX-1/DX-3.
 - Questions for the owner: Capture a topic-chip click on clubhouse.com (`get_feed_v3` body) so Hallway topics can filter server-side.
