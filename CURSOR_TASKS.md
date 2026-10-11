@@ -15,10 +15,9 @@ Light mode is broken and dark mode has contrast failures (owner screenshot + aud
 - [x] Attach light/dark screenshots (reports/theme/) in the summary; commit per item; stop
 ### Last autonomous run (2026-10-11)
 
-- Done: Phase 15 (themes), 16 (NAV v2), 17 (simple composer, room details panel, follow back). Screenshots: `reports/theme/{light,dark}-*.png`.
-- Tests: 163 unit, 161 BDD, theme-audit + trace strict green.
-- Still @pending: ST-9 deferred only.
-- Questions for the owner: none.
+- Done: Next run #5 already complete (Phases 15–17). Re-checked `npm run api:triage` → NO NEW FAILURES. No new owner checklist.
+- Still @pending: ST-9 deferred only. Autonomous plan exhausted — stopped.
+- Questions for the owner: none. Schedule ST-9 or use the app (triage promotions) for more work.
 
 ## Status
 
