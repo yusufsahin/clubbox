@@ -8,7 +8,7 @@ _Last reviewed: 2026-10-11. “Uygulandı” means the code is in the tree. “C
 
 The owner session committed realtime fixes (bbd3369 production Agora/PubNub keys, 4700857 real PubNub channels + action payloads). Re-read docs/api/realtime.md. Then:
 - [x] Task 14.1 — remote mute state from Agora (TDD + BDD scenario)
-- [ ] Task 14.2 — sync DESIGN/PRD with the owner fixes
+- [x] Task 14.2 — sync DESIGN/PRD with the owner fixes
 - [ ] Run `npm run api:triage`; turn any new live failure or unknown realtime action into a failing test, then fix
 - [ ] Commit per item, write the summary, stop
 ### Last autonomous run (2026-10-11)

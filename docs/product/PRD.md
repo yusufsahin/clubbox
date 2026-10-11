@@ -68,7 +68,7 @@ Realtime: PubNub origin `clubhouse.pubnubapi.com` (B); room message types `chann
 
 ## 4. Feature catalog
 
-Legend — Today: ✅ works live · 🧪 sandbox/UI only · ❌ missing. Evidence: O / B / C / — (none needed, local) / N (no source).
+Legend — Today: ✅ works live · ✅* wired (live verification pending) · 🧪 sandbox/UI only · ❌ missing. Evidence: O / B / C / — (none needed, local) / N (no source).
 
 ### 4.1 Account & app
 
@@ -103,7 +103,7 @@ Legend — Today: ✅ works live · 🧪 sandbox/UI only · ❌ missing. Evidenc
 | RL-1 | Join a room and hear audio | ✓ | ✓ | 🧪 | B (join_channel) + Agora | P0 |
 | RL-2 | Leave quietly | ✓ | ✓ | 🧪 | B | P0 |
 | RL-3 | Stay connected (active_ping 30 s) | | | 🧪 | B | P0 |
-| RL-4 | Live stage/audience updates | ✓ | ✓ | ✅ | B/C (PubNub) | P0 |
+| RL-4 | Live stage/audience updates | ✓ | ✓ | ✅* | B/C (PubNub) | P0 |
 | RL-5 | Room chat read + send, unread count | ✓ | ✓ | ✅ | B | P0 |
 | RL-6 | Raise / lower hand | ✓ | ✓ | 🧪 | B (audience_reply) | P0 |
 | RL-7 | Accept / decline stage invite | ✓ | ✓ | 🧪 | B (become_speaker) / C | P0 |
@@ -118,7 +118,7 @@ Legend — Today: ✅ works live · 🧪 sandbox/UI only · ❌ missing. Evidenc
 | ID | Feature | HC | CD | Today | Evidence | Priority |
 | --- | --- | --- | --- | --- | --- | --- |
 | RH-1 | Start room: audience (friends / friends of friends / house / public), title, replays, chat | ✓ | ✓ | ✅ | O | P0 |
-| RH-2 | Speak: Agora publish with mic + soundboard mix | ✓ | ✓ | 🧪 | O (token in create) | P0 |
+| RH-2 | Speak: Agora publish with mic + soundboard mix | ✓ | ✓ | ✅* | O (token in create) | P0 |
 | RH-3 | Edit room title | ✓ | ✓ | 🧪 | B (set_channel_title) | P1 |
 | RH-4 | Hand queue list + invite to stage | ✓ | ✓ | 🧪 | C (invite_speaker) | P1 |
 | RH-5 | Mute speaker / mute everyone | ✓ | ✓ | 🧪 | C (mute_speaker ×N) | P1 |

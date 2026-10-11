@@ -162,15 +162,16 @@ Rules:
 
 ### 5.1 PubNub
 - Origin `clubhouse.pubnubapi.com` (B). Credentials per user/room from `me` and create/join responses: `pubnub_token`, `pubnub_origin`, `pubnub_heartbeat_value`, `pubnub_heartbeat_interval`, `pubnub_time_token`, `pubnub_enable`.
-- Subscribe key: in the web bundle (B, value not in docs). Read it with the Agora key (§5.2).
-- Implementation: main-process `PubNubClient` using the PubNub REST subscribe long-poll (`/v2/subscribe/{sub_key}/{channels}/0?auth=…&uuid=…&heartbeat=…&tt=…`) — no SDK in the renderer, no secrets in the renderer. Emits typed events over IPC.
-- Channel names: discovered by the bundle crawler from the room chunks (§6); until then, mark the subscriber "community" and log unknown channels/messages to API Health.
-- Message types known (B): `channel_message`, `channel_reaction`. Others (join/leave, hand raise, invite, role change, room ended) are mapped when discovered; unknown types are logged as shape only.
+- Subscribe / publish keys: production config block in the web bundle (the object whose Stripe key is `pk_live_…`; see §5.2). Values go only to `userData/realtime-config.json` — never to docs or git.
+- Implementation: main-process `PubNubClient` using PubNub REST v2 subscribe (`/v2/subscribe/{sub_key}/{channels}/0?auth=…&uuid=…&heartbeat=…&tt=…&tr=…`) — response shape `{ t: { t, r }, m: [ { c, d } ] }`; echo `tt`/`tr` on the next poll. No SDK in the renderer, no secrets in the renderer. Emits typed events over IPC.
+- Room channels (C — Houseclub / clubhouse-web; confirm in live log): `users.{myUserId}`, `channel_user.{channel}.{myUserId}`, `channel_all.{channel}`, and `channel_speakers.{channel}` for moderators only (subscribing without the grant fails the whole request). Details: `docs/api/realtime.md`.
+- Bundle-known message types (B): `channel_message`, `channel_reaction`. Stage updates use Clubhouse `action` payloads (`join_channel`, `leave_channel`, `raise_hands`, `add_speaker`, …) matched by `user_id`; ignore envelopes whose `channel` is another room. Unknown actions are logged as shape only to API Health.
 
 ### 5.2 Agora
-- App id: bundle env `NEXT_PUBLIC_AGORA_KEY` (B). Loaded into `userData/realtime-config.json` via the bundle crawler + IPC `clubbox:agora-app-id` (G-06 closed).
+- App id: production config block in the bundle (same live-Stripe block as PubNub keys; clubhouse-py `AGORA_KEY` matches). Loaded into `userData/realtime-config.json` via the bundle crawler + IPC `clubbox:agora-app-id` (G-06 closed in bbd3369). A saved dev/staging id is migrated to production.
 - Token: from create/join response (`token`); `rtm_token` reserved for Agora RTM if the room chunks show RTM usage.
 - `agora_native_mute` from the response decides whether mute is signalled through Agora (`setMuted` on the track) instead of only the local gain — G-09.
+- Remote mute / speaking: Agora `user-info-updated` (`mute-audio` / `unmute-audio`), audio publish/unpublish, and `volume-indicator` — not PubNub (Phase 14.1).
 - SDK lazy-loaded on first room entry.
 
 ---
@@ -211,10 +212,10 @@ Severity: **S1** blocks a P0 flow · **S2** wrong/unsafe behaviour · **S3** mis
 | --- | --- | --- | --- | --- |
 | G-01 | Live `create_channel` only accepts friends-of-friends + replays off + chat off; any other choice throws "Not captured". All body keys are observed — only values vary. | `src/api/roomActions.ts capturedCreateBody` | S1 | Closed in a8c8ad2 — `createComposer` + registry body for all privacy levels; house uses `social_club_id` when clubs[] present |
 | G-02 | `join_channel`, `leave_channel`, `active_ping`, `audience_reply`, `become_speaker`, chat send/read are blocked as "configured-unverified" though the bundle gives exact bodies | capabilities / routes | S1 | Closed in 0fcb781 (10.2 evidence `bundle`) |
-| G-03 | RoomSync polls `get_channel`, which the web bundle does not contain → stage never updates on web | `src/api/roomSync.ts` | S1 | Closed in 6ba85d9 — PubNub hub + `RealtimeRoomCoordinator`; `get_channel` removed from RoomSync |
+| G-03 | RoomSync polls `get_channel`, which the web bundle does not contain → stage never updates on web | `src/api/roomSync.ts` | S1 | Closed in 4700857 / bbd3369 — real PubNub room channels + v2 subscribe + Clubhouse `action` payloads; earlier hub in 6ba85d9 |
 | G-04 | `endChannel` throws in live mode; hosts cannot end rooms | `client.ts endChannel` | S1 | Closed in a8c8ad2 — registry `end_channel` + experimental + `user_capabilities.can_end_room` |
 | G-05 | Messages: thread, send text/voice, add member, start VM are sandbox-only (`sandboxThread`, `sandboxAppendSegment`, `sandboxStartVm`…); live users see an empty thread | `client.ts`, `messagesCtl.ts` | S1 (R4) / S3 | Closed in Task 11.6 — live `get_conversation`, mark listened, bundle send/react/VM via registry |
-| G-06 | Agora app id is a code constant; it must follow the bundle value `NEXT_PUBLIC_AGORA_KEY` per Clubhouse build | `agoraVoice.ts`, `client.ts` | S1 | Closed in 6ba85d9 — `userData/realtime-config.json` via bundle crawl + IPC `clubbox:agora-app-id` |
+| G-06 | Agora app id is a code constant; it must follow the bundle value `NEXT_PUBLIC_AGORA_KEY` per Clubhouse build | `agoraVoice.ts`, `client.ts` | S1 | Closed in 4700857 / bbd3369 — production config block (live Stripe) for Agora/PubNub keys; crawl + IPC from 6ba85d9 |
 | G-07 | Presence (online friends, "in a room → join") is sandbox-only | `client.sandboxPresence` | S3 | Closed in Task 11.5 — experimental `get_online_friends` + BDD panel; messages presence row uses live API when on |
 | G-08 | `acceptSpeakerInvite` maps to `/web_api/become_speaker` with `{channel}` but the name/route mixes app and web semantics; decline missing | `client.ts`, routes | S2 | Closed in a8c8ad2 — route key `become_speaker` (B) + `reject_speaker_invite` (C) |
 | G-09 | Mute is only a local gain ramp; others never see my mute state; `agora_native_mute` ignored | `agoraVoice.setMuted` | S2 | Closed in 6ba85d9 — `agora_native_mute` enables Agora track mute alongside local gain |
