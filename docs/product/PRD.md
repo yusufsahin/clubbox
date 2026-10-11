@@ -148,7 +148,7 @@ Legend — Today: ✅ works live · 🧪 sandbox/UI only · ❌ missing. Evidenc
 
 | ID | Feature | HC | CD | Today | Evidence | Priority |
 | --- | --- | --- | --- | --- | --- | --- |
-| SO-1 | Profile: counts, mutuals, bio, follow | ✓ | ✓ | ✅ | O | P1 |
+| SO-1 | Profile: counts, mutuals, bio, follow (unfollow not in web client → non-clickable “Following”) | ✓ | ✓ | ✅ | O | P1 |
 | SO-2 | Followers / following lists | ✓ | ✓ | ✅ | N on web | P3 |
 | SO-3 | Online friends + "in a room → join" | ✓ | ✓ | ✅ | C (get_online_friends) | P2 |
 | SO-4 | Messages: VMs + house chats, text, voice | ✓ | ✓ | ✅ | O/B | P2 |
@@ -188,6 +188,8 @@ These appear in `create_channel` / `me` responses (`user_capabilities`, `channel
 | Mobile API (clubhouseapi.com), token sign-in | Off-policy, superseded by web session |
 | Followers/following list scraping via guessed paths | No source; guidelines risk |
 | Clubhouse Talk / paid advisor (`talk/*`) | Payments and advisor flows are out of product scope (DX-15) |
+| Unfollow API | Not in the web client; live UI keeps a non-clickable “Following” control (SO-1 decided) |
+| `gif_reaction` picker | Body documented (`channel`, `giphy_id`) but needs a Giphy UI without a new third-party key — stays hidden (P3) |
 
 ## 5. Releases
 

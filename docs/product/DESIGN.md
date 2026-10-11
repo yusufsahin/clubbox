@@ -228,6 +228,20 @@ Severity: **S1** blocks a P0 flow · **S2** wrong/unsafe behaviour · **S3** mis
 | G-17 | Discovery depends on the owner browsing; only 1 chunk scanned | recorder | S2 (process) | Closed in aab24e4 (11.0 bundle crawler) |
 | G-18 | Clubdeck-level studio features missing: chapters, paste link, audience search, keyword filters, mute everyone, ping multi-select | — | S3 | Closed in Task 11.5 — ping multi-select (RH-9); mute everyone was 11.3 |
 
+### Phase 12 decisions (closed — not blockers)
+
+Recorded from `docs/api/web-client-methods.md` (Task 12.1). Do not re-open as capture waits.
+
+| Decision | Final behaviour |
+| --- | --- |
+| Topic chips (HAL-1) | `get_feed_v3` body is `{next_cursor}` only — no server topic filter. Chips filter the loaded feed locally. |
+| Unfollow (SO-1) | Not in the web client. Live profile shows non-clickable “Following”; no unfollow call. |
+| Mid-room mod / end / hide / online friends / events / notifications / `get_channel` | Not in the web client → stay `community` (experimental) or unused (`get_channel`: PubNub is the room source). |
+| Clubhouse Talk (`talk/*`) | Out of scope (payments) — PRD DX-15 Won't. |
+| `gif_reaction` | Body `{channel, giphy_id}` is documented (bundle) but UI stays hidden (P3) until a Giphy picker exists without a new third-party API key. |
+| Guest / web-listener joins | reCAPTCHA — out of scope. |
+| `delete_conversation_segment` | In-bundle name only; no body in the web API module → unsupported. |
+
 ---
 
 ## 9. Implementation order
