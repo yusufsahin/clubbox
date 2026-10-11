@@ -15,8 +15,8 @@ Do these before continuing the Autonomous plan, then tick them:
 
 - Autonomous plan already **Done** through **11.8 (strict)**; triage **NO NEW FAILURES**.
 - Done (local polish, no new API bodies):
-  - `open-profile` works from Activity / House members (cache + stub fallback); failed `openHouse` clears stale detail
-  - Messages filter clears open thread when it leaves the filter; non-joinable hallway cards are static; stage chat ✕ tooltip is Close
+  - Re-opening the same House keeps members/chat open; replay speed no longer remounts `<audio>`
+  - Share-room clipboard toast waits for success/failure; Talk Live sandbox title encoding fixed
 - Tests: unit 128 pass · BDD 123 scenarios / 717 steps · trace strict 0 errors · lint + build green.
 - **Stopped:** no further shippable product work without inventing endpoint bodies or owner capture.
 - Blocked: owner live room capture (0.9 S1–S3); topic-chip **server** `get_feed_v3` body; conversation delete/title + unread-summary body; replay chunk; `gif_reaction` body; unfollow omitted from web routes (capture needed).

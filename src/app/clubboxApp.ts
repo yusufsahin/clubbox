@@ -1519,8 +1519,11 @@ export class ClubboxApp {
           this.showToast(t('noShareLink'), '🔗');
           return;
         }
-        void navigator.clipboard?.writeText(link);
-        this.showToast(t('linkCopied'), '📋');
+        void navigator.clipboard?.writeText(link).then(() => {
+          this.showToast(t('linkCopied'), '📋');
+        }).catch(() => {
+          this.showToast(t('somethingWrong'), '🔗');
+        });
         break;
       }
       case 'toggle-mic':

@@ -73,18 +73,26 @@ export async function loadHouses(this: ClubboxApp): Promise<void> {
 export async function openHouse(this: ClubboxApp, slug: string | undefined): Promise<void> {
     if (!slug || !clubhouseClient.supports('get_social_club')) return;
     this.currentTab = 'houses';
-    this.houseChatOpen = false;
-    this.houseChatMessages = null;
-    this.houseChatCanPost = false;
-    this.houseMembersOpen = false;
-    this.houseMembers = null;
-    this.selectedHouse = null;
+    const sameHouse = this.selectedHouse?.slug === slug;
+    if (!sameHouse) {
+      this.houseChatOpen = false;
+      this.houseChatMessages = null;
+      this.houseChatCanPost = false;
+      this.houseMembersOpen = false;
+      this.houseMembers = null;
+      this.selectedHouse = null;
+    }
     this.render();
     try {
       const res = await clubhouseClient.getSocialClub(slug);
       this.selectedHouse = readHouseDetail(res);
     } catch (err) {
       this.selectedHouse = null;
+      this.houseChatOpen = false;
+      this.houseChatMessages = null;
+      this.houseChatCanPost = false;
+      this.houseMembersOpen = false;
+      this.houseMembers = null;
       this.reportApiError(err);
     }
     this.render();

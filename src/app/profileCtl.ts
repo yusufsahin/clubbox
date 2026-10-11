@@ -242,7 +242,7 @@ export async function talkLive(this: ClubboxApp, userId: string | undefined, nam
     const id = Number(userId);
     if (!name || !username || !Number.isFinite(id)) return;
     try {
-      const created = await clubhouseClient.createChannel(`Talk Live ┬╖ ${name}`, {
+      const created = await clubhouseClient.createChannel(`Talk Live - ${name}`, {
         audience: 'friends',
         replayEnabled: false,
         chatEnabled: false,

@@ -266,8 +266,11 @@ export function setReplayRate(this: ClubboxApp, rateRaw: string | undefined): vo
     if (![1, 1.5, 2].includes(rate)) return;
     this.replayRate = rate;
     this.applyReplayRate();
-    if (this.currentTab === 'replay') this.render();
-    queueMicrotask(() => this.applyReplayRate());
+    document.querySelectorAll<HTMLElement>('[data-action="set-replay-rate"]').forEach((btn) => {
+      const active = Number(btn.dataset.rate) === rate;
+      btn.classList.toggle('btn-primary', active);
+      btn.classList.toggle('btn-secondary', !active);
+    });
   }
 
 export function skipReplay(this: ClubboxApp, secondsRaw: string | undefined): void {
