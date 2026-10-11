@@ -1,13 +1,16 @@
 import type { ActivityItem } from '../../api/activityFeed';
+import type { EventListItem } from '../../api/communityLists';
 import { t } from '../../i18n';
 import { avatarHtml } from '../avatar';
-import { html, type SafeHtml } from '../html';
+import { html, safeUrl, type SafeHtml } from '../html';
 
 export type ActivityViewState = {
   items: ActivityItem[] | null;
   unread: boolean;
   experimentalOn: boolean;
   notificationsSupported: boolean;
+  events?: EventListItem[] | null;
+  eventsSupported?: boolean;
 };
 
 function formatRelative(value: string): string {
@@ -46,13 +49,26 @@ function activityRow(item: ActivityItem): SafeHtml {
   `;
 }
 
+function formatWhen(value: string): string {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 export function activityView(state: ActivityViewState): SafeHtml {
   const items = state.items;
+  const events = state.events;
   return html`
-    <div class="list-page activity-page">
+    <div class="list-page activity-page" data-page="activity">
       <header class="activity-header">
         <div>
-          <h2>${t('activity')}</h2>
           <p class="list-note">${t('activityHelp')}</p>
         </div>
         <div class="activity-header-actions">
@@ -75,6 +91,32 @@ export function activityView(state: ActivityViewState): SafeHtml {
           ${items.map((item) => activityRow(item))}
         </div>
       `}
+
+      <section class="discover-home-section" data-nav-contains="events">
+        <h3>${t('events')}</h3>
+        <p class="list-note">${t('eventsHelp')}</p>
+        ${state.eventsSupported === false ? html`
+          <p class="list-note">${state.experimentalOn ? t('eventsUnavailable') : t('activityEnableExperimental')}</p>
+        ` : events == null ? html`<p class="list-empty">${t('listLoading')}</p>` : events.length === 0 ? html`
+          <p class="list-empty">${t('eventsEmpty')}</p>
+        ` : html`
+          <div class="event-list">
+            ${events.map((event) => html`
+              <div class="event-row">
+                <div class="event-copy">
+                  <div class="conversation-title">${event.title}</div>
+                  <div class="conversation-meta">${formatWhen(event.timeStart)}${event.houseName ? html` · ${event.houseName}` : ''}</div>
+                </div>
+                <div class="event-actions">
+                  ${safeUrl(event.url) ? html`
+                    <button class="btn btn-secondary" type="button" data-action="copy-event-link" data-event-url="${event.url}">${t('copyLink')}</button>
+                  ` : ''}
+                </div>
+              </div>
+            `)}
+          </div>
+        `}
+      </section>
     </div>
   `;
 }

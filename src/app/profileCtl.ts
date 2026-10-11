@@ -17,6 +17,7 @@ export function inspectProfile(this: ClubboxApp, user: CHUser) {
     const isSelf = user.user_id === this.me?.user_id;
     if (isSelf) {
       this.closeProfileDrawer();
+      if (!this.selfProfileOpen) this.pushCurrentView();
       this.selfProfileOpen = true;
       this.render();
     } else {

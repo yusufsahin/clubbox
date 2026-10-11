@@ -71,6 +71,7 @@ export async function loadHouses(this: ClubboxApp): Promise<void> {
 
 export async function openHouse(this: ClubboxApp, slug: string | undefined): Promise<void> {
     if (!slug || !clubhouseClient.supports('get_social_club')) return;
+    if (this.currentTab !== 'houses') this.pushCurrentView();
     this.currentTab = 'houses';
     const sameHouse = this.selectedHouse?.slug === slug;
     if (!sameHouse) {

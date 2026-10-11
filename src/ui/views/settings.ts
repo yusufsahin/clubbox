@@ -67,30 +67,49 @@ export function settingsView(
   voiceEffect: 'none' | 'radio' | 'deep' | 'robot' | 'echo' = 'none',
 ): SafeHtml {
   return html`
-    <div style="max-width:780px; margin:0 auto;">
-      <h2 style="font-size:22px; font-weight:700; margin-bottom:4px;">${t('settingsTitle')}</h2>
+    <div style="max-width:780px; margin:0 auto;" data-page="settings" data-nav-contains="api-config">
       <p style="color:var(--text-muted); font-size:13px; margin-bottom:28px;">${t('settingsHelp')}</p>
 
-      <div class="settings-signin-banner">
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:16px;">
-          <div>
-            <div style="display:flex; align-items:center; gap:8px;">
-              <span style="font-size:18px;">⚡</span>
-              <h3 class="settings-signin-title">${t('signInHelper')}</h3>
-            </div>
-            <p style="font-size:12px; color:var(--text-muted); margin-top:6px; line-height:1.5;">
-              ${t('signInHelperHelp')}
-            </p>
+      <section data-settings-section="general">
+        <h3 class="settings-section-title">${t('settingsGeneral')}</h3>
+        ${appPrefs ? html`
+        <div style="background:var(--bg-card); border:1px solid var(--border-subtle); border-radius:var(--radius-lg); padding:24px; margin-bottom:20px;">
+          <div class="form-group">
+            <label class="form-label" for="cfg-language">${t('language')}</label>
+            <select class="form-input" id="cfg-language">
+              <option value="en" ${config.language === 'en' ? 'selected' : ''}>English</option>
+              <option value="tr" ${config.language === 'tr' ? 'selected' : ''}>Türkçe</option>
+            </select>
           </div>
-          <div style="display:flex; flex-direction:column; gap:8px; flex-shrink:0;">
-            <button class="btn btn-primary" data-action="open-official-signin">${t('openWebSignIn')}</button>
-            ${account ? html`<button class="btn btn-secondary" data-action="log-out">${t('logOut')}</button>` : ''}
+          <div class="form-group">
+            <label class="form-label" for="cfg-theme">${t('themeLabel')}</label>
+            <select class="form-input" id="cfg-theme">
+              <option value="light" ${appPrefs.theme === 'light' ? 'selected' : ''}>${t('themeLight')}</option>
+              <option value="dark" ${appPrefs.theme === 'dark' ? 'selected' : ''}>${t('themeDark')}</option>
+              <option value="system" ${appPrefs.theme === 'system' ? 'selected' : ''}>${t('themeSystem')}</option>
+            </select>
+          </div>
+          <label style="display:flex; align-items:flex-start; gap:8px; margin-top:12px; cursor:pointer;">
+            <input type="checkbox" id="cfg-desktop-notifications" ${appPrefs.desktopNotifications ? 'checked' : ''} />
+            <span><strong>${t('desktopNotifications')}</strong><br />${t('desktopNotificationsHelp')}</span>
+          </label>
+          <p style="font-size:12px; color:var(--text-muted); margin-top:12px;">${t('zoomLevel')}: ${appPrefs.zoomPercent}% (Ctrl+= / Ctrl+- / Ctrl+0)</p>
+        </div>
+        ` : html`
+        <div style="background:var(--bg-card); border:1px solid var(--border-subtle); border-radius:var(--radius-lg); padding:24px; margin-bottom:20px;">
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label" for="cfg-language">${t('language')}</label>
+            <select class="form-input" id="cfg-language">
+              <option value="en" ${config.language === 'en' ? 'selected' : ''}>English</option>
+              <option value="tr" ${config.language === 'tr' ? 'selected' : ''}>Türkçe</option>
+            </select>
           </div>
         </div>
-      </div>
+        `}
+      </section>
 
-      ${accountSection(account)}
-
+      <section data-settings-section="audio">
+        <h3 class="settings-section-title">${t('settingsAudio')}</h3>
       <div style="background:var(--bg-card); border:1px solid var(--border-subtle); border-radius:var(--radius-lg); padding:24px; margin-bottom:20px;">
         <h3 style="font-size:16px; font-weight:700; margin-bottom:16px;">${t('audioDevices')}</h3>
         <div class="form-group">
@@ -143,7 +162,32 @@ export function settingsView(
           </div>
         `)}
       </div>
+      </section>
 
+      <section data-settings-section="account">
+        <h3 class="settings-section-title">${t('settingsAccount')}</h3>
+        <div class="settings-signin-banner">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:16px;">
+            <div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size:18px;">⚡</span>
+                <h3 class="settings-signin-title">${t('signInHelper')}</h3>
+              </div>
+              <p style="font-size:12px; color:var(--text-muted); margin-top:6px; line-height:1.5;">
+                ${t('signInHelperHelp')}
+              </p>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:8px; flex-shrink:0;">
+              <button class="btn btn-primary" data-action="open-official-signin">${t('openWebSignIn')}</button>
+              ${account ? html`<button class="btn btn-secondary" data-action="log-out">${t('logOut')}</button>` : ''}
+            </div>
+          </div>
+        </div>
+        ${accountSection(account)}
+      </section>
+
+      <details class="settings-advanced" data-settings-section="advanced">
+        <summary class="settings-section-title">${t('settingsAdvanced')}</summary>
       <div style="background:var(--bg-card); border:1px solid var(--border-subtle); border-radius:var(--radius-lg); padding:24px; margin-bottom:20px;">
         <h3 style="font-size:16px; font-weight:700; margin-bottom:16px;">${t('runtimeMode')}</h3>
         ${liveOnly ? html`<p class="list-note">${t('desktopLiveOnly')}</p>` : html`
@@ -195,35 +239,6 @@ export function settingsView(
         </div>
       </div>
 
-      ${appPrefs ? html`
-      <div style="background:var(--bg-card); border:1px solid var(--border-subtle); border-radius:var(--radius-lg); padding:24px; margin-bottom:20px;">
-        <h3 style="font-size:16px; font-weight:700; margin-bottom:16px;">${t('appearanceSection')}</h3>
-        <div class="form-group">
-          <label class="form-label" for="cfg-theme">${t('themeLabel')}</label>
-          <select class="form-input" id="cfg-theme">
-            <option value="light" ${appPrefs.theme === 'light' ? 'selected' : ''}>${t('themeLight')}</option>
-            <option value="dark" ${appPrefs.theme === 'dark' ? 'selected' : ''}>${t('themeDark')}</option>
-            <option value="system" ${appPrefs.theme === 'system' ? 'selected' : ''}>${t('themeSystem')}</option>
-          </select>
-        </div>
-        <label style="display:flex; align-items:flex-start; gap:8px; margin-top:12px; cursor:pointer;">
-          <input type="checkbox" id="cfg-desktop-notifications" ${appPrefs.desktopNotifications ? 'checked' : ''} />
-          <span><strong>${t('desktopNotifications')}</strong><br />${t('desktopNotificationsHelp')}</span>
-        </label>
-        <p style="font-size:12px; color:var(--text-muted); margin-top:12px;">${t('zoomLevel')}: ${appPrefs.zoomPercent}% (Ctrl+= / Ctrl+- / Ctrl+0)</p>
-      </div>
-      ` : ''}
-
-      <div style="background:var(--bg-card); border:1px solid var(--border-subtle); border-radius:var(--radius-lg); padding:24px; margin-bottom:20px;">
-        <div class="form-group" style="margin-bottom:0;">
-          <label class="form-label" for="cfg-language">${t('language')}</label>
-          <select class="form-input" id="cfg-language">
-            <option value="en" ${config.language === 'en' ? 'selected' : ''}>English</option>
-            <option value="tr" ${config.language === 'tr' ? 'selected' : ''}>Türkçe</option>
-          </select>
-        </div>
-      </div>
-
       <div style="background:var(--bg-card); border:1px solid var(--border-subtle); border-radius:var(--radius-lg); padding:24px; margin-bottom:20px;">
         <h3 style="font-size:16px; font-weight:700; margin-bottom:16px;">${t('headersTitle')}</h3>
 
@@ -245,6 +260,7 @@ export function settingsView(
 
         <button class="btn btn-primary" data-action="save-settings" style="margin-top:8px;">${t('saveSettings')}</button>
       </div>
+      </details>
 
       <p style="font-size:12px; color:var(--text-dim); text-align:center; margin-top:8px;">${t('unofficial')}</p>
     </div>

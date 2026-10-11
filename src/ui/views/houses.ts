@@ -69,7 +69,6 @@ export function housesView(state: HousesViewState): SafeHtml {
     <div class="list-page houses-page">
       <header class="activity-header">
         <div>
-          <h2>${t('houses')}</h2>
           <p class="list-note">${t('housesHelp')}</p>
         </div>
         <button class="btn btn-secondary" type="button" data-action="refresh-houses">${t('refresh')}</button>

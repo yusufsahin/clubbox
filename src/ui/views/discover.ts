@@ -1,9 +1,16 @@
 import { t } from '../../i18n';
-import type { SearchHit } from '../../api/types';
+import type { HouseListItem } from '../../api/communityLists';
+import type { CHUser, SearchHit } from '../../api/types';
 import { avatarHtml } from '../avatar';
 import { html, safeUrl, type SafeHtml } from '../html';
 
 export type DiscoverTab = 'top' | 'people' | 'rooms' | 'houses';
+
+export type DiscoverHomeState = {
+  suggestions: number | null;
+  talkPartners: CHUser[] | null;
+  houses: HouseListItem[] | null;
+};
 
 const TABS: DiscoverTab[] = ['top', 'people', 'rooms', 'houses'];
 
@@ -80,26 +87,84 @@ function hitRow(hit: SearchHit): SafeHtml {
   `;
 }
 
-export function discoverView(query: string, tab: DiscoverTab, hits: SearchHit[] | null, loading: boolean): SafeHtml {
-  const body = loading && !hits
-    ? html`<p class="list-empty">${t('discoverSearching')}</p>`
-    : !query
-      ? html`<p class="list-empty">${t('discoverPrompt')}</p>`
+function homeBody(home: DiscoverHomeState): SafeHtml {
+  const suggestionText = home.suggestions == null
+    ? t('listLoading')
+    : home.suggestions === 0
+      ? t('friendsEmpty')
+      : t('friendsCount', { count: home.suggestions });
+  const houses = home.houses;
+  return html`
+    <section class="discover-home-section" data-nav-contains="friends">
+      <h3>${t('suggestions')}</h3>
+      <p class="list-note">${t('peopleYouMayKnowHelp')}</p>
+      <p class="list-empty">${suggestionText}</p>
+      <h3>${t('peopleYouTalkTo')}</h3>
+      <p class="list-note">${t('peopleYouTalkToHelp')}</p>
+      ${home.talkPartners == null ? html`<p class="list-empty">${t('listLoading')}</p>` : ''}
+      ${home.talkPartners && home.talkPartners.length === 0 ? html`<p class="list-empty">${t('peopleYouTalkToEmpty')}</p>` : ''}
+      ${(home.talkPartners ?? []).map((user) => html`
+        <div class="discover-row">
+          <button class="discover-main" type="button" data-action="open-profile" data-user-id="${user.user_id}">
+            ${avatarHtml(user, 48, 'sidebar-user-avatar')}
+            <span class="discover-copy">
+              <strong>${user.name || user.username}</strong>
+              <span class="list-empty">@${user.username}</span>
+            </span>
+          </button>
+        </div>
+      `)}
+    </section>
+    <section class="discover-home-section" data-nav-contains="houses">
+      <h3>${t('houses')}</h3>
+      <p class="list-note">${t('housesHelp')}</p>
+      ${houses == null ? html`<p class="list-empty">${t('listLoading')}</p>` : houses.length === 0 ? html`
+        <p class="list-empty">${t('housesEmpty')}</p>
+      ` : html`
+        <div class="house-list">
+          ${houses.map((house) => html`
+            <button class="house-list-row" type="button" data-action="open-house" data-house-slug="${house.slug}" data-house-id="${house.id}">
+              <span class="discover-copy">
+                <strong>${house.name}</strong>
+                <span class="list-empty">${t('houseMembers', { count: house.members })}</span>
+              </span>
+            </button>
+          `)}
+        </div>
+      `}
+    </section>
+  `;
+}
+
+export function discoverView(
+  query: string,
+  tab: DiscoverTab,
+  hits: SearchHit[] | null,
+  loading: boolean,
+  home: DiscoverHomeState | null = null,
+): SafeHtml {
+  const body = query
+    ? (loading && !hits
+      ? html`<p class="list-empty">${t('discoverSearching')}</p>`
       : !hits || hits.length === 0
         ? html`<p class="list-empty">${loading ? t('discoverSearching') : t('discoverNone')}</p>`
-        : html`<div class="conversation-list">${hits.map((hit) => hitRow(hit))}</div>`;
+        : html`<div class="conversation-list">${hits.map((hit) => hitRow(hit))}</div>`)
+    : home
+      ? homeBody(home)
+      : html`<p class="list-empty">${t('discoverPrompt')}</p>`;
   return html`
-    <div class="list-page">
-      <h2>${t('discover')}</h2>
+    <div class="list-page" data-page="discover">
       <div class="discover-search">
         <input id="discover-query" type="search" value="${query}" placeholder="${t('discoverPrompt')}" />
         ${query ? html`<button class="btn btn-secondary" type="button" data-action="discover-clear">${t('discoverCancel')}</button>` : ''}
       </div>
-      <div class="discover-tabs">
-        ${TABS.map((item) => html`
-          <button class="discover-tab ${item === tab ? 'active' : ''}" type="button" data-action="discover-tab" data-discover="${item}">${tabLabel(item)}</button>
-        `)}
-      </div>
+      ${query ? html`
+        <div class="discover-tabs">
+          ${TABS.map((item) => html`
+            <button class="discover-tab ${item === tab ? 'active' : ''}" type="button" data-action="discover-tab" data-discover="${item}">${tabLabel(item)}</button>
+          `)}
+        </div>
+      ` : ''}
       ${body}
     </div>
   `;

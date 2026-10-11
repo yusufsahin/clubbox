@@ -322,6 +322,102 @@ body {
   gap: 8px;
 }
 
+.sidebar-footer-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sidebar-footer-row .sidebar-user {
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar-settings-btn {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-2);
+  color: var(--text-main);
+  font-size: 18px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.sidebar-settings-btn:hover,
+.sidebar-settings-btn.active {
+  background: var(--surface-active);
+  border-color: var(--border-focus);
+}
+
+.top-back-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-main);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 8px 4px 0;
+  margin-right: 4px;
+}
+
+.top-back-btn:hover {
+  color: var(--accent-purple-text);
+}
+
+.room-bar-title {
+  border: none;
+  background: transparent;
+  color: var(--text-main);
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px 8px;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.room-bar-title:hover {
+  color: var(--accent-purple-text);
+}
+
+.discover-home-section {
+  margin-top: 20px;
+}
+
+.discover-home-section h3 {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0 0 6px;
+  color: var(--text-main);
+}
+
+.settings-section-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0 0 12px;
+  color: var(--text-main);
+}
+
+.settings-advanced {
+  margin-top: 8px;
+  margin-bottom: 20px;
+}
+
+.settings-advanced > summary {
+  cursor: pointer;
+  list-style: disclosure-closed;
+  margin-bottom: 12px;
+}
+
+.settings-advanced[open] > summary {
+  list-style: disclosure-open;
+}
+
 .sidebar-user {
   margin-top: 0;
   display: flex;

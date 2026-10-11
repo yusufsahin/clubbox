@@ -53,6 +53,11 @@ export function setupHotkeys(this: ClubboxApp) {
         return;
       }
 
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'n' || e.key === 'N')) {
+        e.preventDefault();
+        this.openCreateModal();
+        return;
+      }
       if ((e.ctrlKey || e.metaKey) && (e.key === '=' || e.key === '+')) {
         e.preventDefault();
         const prefs = readAppPrefs();
@@ -126,23 +131,8 @@ export function setupHotkeys(this: ClubboxApp) {
       }
 
       if (e.key === 'Escape') {
-        if (this.isProfileDrawerOpen) {
-          this.closeProfileDrawer();
-        } else if (this.selfProfileOpen) {
-          this.selfProfileOpen = false;
-          this.render();
-        } else if (this.isCreateModalOpen) {
-          this.closeCreateModal();
-        } else if (this.speakerInviteVisible) {
-          this.closeSpeakerInvite();
-        } else if (this.openSpeakerMenuId != null) {
-          this.openSpeakerMenuId = null;
-          this.renderStage();
-        } else if (this.isSettingsModalOpen) {
-          this.closeSettingsModal();
-        } else if (this.currentChannel && window.confirm(t('leaveRoomConfirm'))) {
-          void this.leaveRoom();
-        }
+        e.preventDefault();
+        this.goBack();
       }
     });
   }

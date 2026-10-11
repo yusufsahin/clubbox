@@ -6,6 +6,10 @@ import type { ClubboxWorld } from '../support/world.ts';
 When('I open Messages', async function (this: ClubboxWorld) {
   await this.client.getConversations();
   this.messageFilter = 'all';
+  const navUi = (this as ClubboxWorld & { navUi?: { currentTab: string } }).navUi;
+  if (navUi) {
+    navUi.currentTab = 'messages';
+  }
 });
 
 When('I open the conversation {string}', async function (this: ClubboxWorld, id: string) {

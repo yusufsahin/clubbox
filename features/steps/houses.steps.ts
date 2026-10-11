@@ -8,6 +8,22 @@ When('I open Houses', async function (this: ClubboxWorld) {
 });
 
 When('I open the house {string}', async function (this: ClubboxWorld, slug: string) {
+  const nav = (this as ClubboxWorld & {
+    navUi?: { currentTab: string };
+    navStack?: import('../../src/app/viewStack.ts').ViewSnapshot[];
+  });
+  if (nav.navUi) {
+    const { pushView } = await import('../../src/app/viewStack.ts');
+    nav.navStack = pushView(nav.navStack ?? [], {
+      tab: nav.navUi.currentTab,
+      selfProfileOpen: false,
+      settingsOpen: false,
+      openConversationId: null,
+      selectedHouseId: null,
+      peopleListOpen: false,
+    });
+    nav.navUi.currentTab = 'houses';
+  }
   this.openHouseSlug = slug;
   await this.client.getSocialClub(slug);
 });

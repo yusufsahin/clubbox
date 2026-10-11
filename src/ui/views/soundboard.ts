@@ -10,7 +10,6 @@ export function soundboardView(effects: SoundEffectItem[], editingId: string | n
     <div style="max-width:1000px; margin:0 auto;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; gap:16px;">
         <div>
-          <h2 style="font-size:22px; font-weight:700;">${t('soundboard')}</h2>
           <p style="color:var(--text-muted); font-size:13px; margin-top:4px;">${t('soundboardHelp')}</p>
         </div>
         <div style="display:flex; gap:8px; flex-shrink:0;">

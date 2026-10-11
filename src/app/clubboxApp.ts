@@ -13,6 +13,7 @@ import { roomSync } from '../api/roomSync';
 import { audioEngine } from '../audio/audioEngine';
 import { readAudioPrefs, type AudioPrefs } from '../audio/audioPrefs';
 import { readAppPrefs, syncSystemThemeListener, zoomFactorFromPercent } from './appPrefs';
+import { popView, pushView, type ViewSnapshot } from './viewStack';
 import { readShortcuts, type ShortcutAction, type ShortcutMap } from '../shortcuts';
 import { agoraVoice } from '../audio/agoraVoice';
 import type { ActivityItem } from '../api/activityFeed';
@@ -20,19 +21,18 @@ import type { EventListItem, HouseChatMessage, HouseListItem, HouseMemberItem } 
 import type { PingCandidate } from '../api/pingInvites';
 import type { ReplayPlayback } from '../api/replayPlayback';
 import type { CHChannel, CHChannelDetail, CHChatMessage, CHConversation, ConversationThread, CHUser, FeedTopic, MeSettings, SearchHit } from '../api/types';
-import { eventsView } from '../ui/views/events';
 import { housesView } from '../ui/views/houses';
 import { replayView } from '../ui/views/replay';
 import { setLanguage, t } from '../i18n';
-import { avatarHtml, installAvatarFallback } from '../ui/avatar';
+import { installAvatarFallback } from '../ui/avatar';
 import { cockpitBar } from '../ui/components/cockpitBar';
 import { mountCreateModal } from '../ui/components/createModal';
 import { selfProfilePage } from '../ui/components/profileDrawer';
 import { showToast } from '../ui/components/toast';
 import { html, markup, safeUrl } from '../ui/html';
+import { renderSidebarChrome } from '../ui/shellChrome';
 import { activityView } from '../ui/views/activity';
 import { exploreView } from '../ui/views/explore';
-import { friendsView } from '../ui/views/friends';
 import { peopleListView } from '../ui/views/peopleList';
 import { discoverView, type DiscoverTab } from '../ui/views/discover';
 import { loginView } from '../ui/views/login';
@@ -45,7 +45,8 @@ import type { RecordingChapter } from '../studio/recordingChapters';
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging -- merged with ClubboxAppCtlMethods below (Task 13.1)
 export class ClubboxApp {
-  currentTab: 'stage' | 'explore' | 'discover' | 'friends' | 'messages' | 'activity' | 'houses' | 'events' | 'replay' | 'soundboard' | 'settings' | 'login' = 'stage';
+  currentTab: 'stage' | 'explore' | 'discover' | 'friends' | 'messages' | 'activity' | 'houses' | 'events' | 'replay' | 'soundboard' | 'settings' | 'login' = 'explore';
+  viewStack: ViewSnapshot[] = [];
   housesList: HouseListItem[] | null = null;
   selectedHouse: HouseListItem | null = null;
   houseChatOpen = false;
@@ -174,7 +175,7 @@ export class ClubboxApp {
     onRoomEnded: () => {
       void this.releaseRoomLocally({ skipServer: true }).then(() => {
         this.afterRoomExit(true, false, true);
-        this.showToast(t('roomEndedByHost'), '??');
+        this.showToast(t('roomEndedByHost'), '🚪');
       });
     },
   });
@@ -209,12 +210,12 @@ export class ClubboxApp {
       if (!result?.ok) return;
       const applied = clubhouseClient.promoteEndpointsLocally(result.promotions ?? []);
       if (applied.length) {
-        this.showToast(t('evidenceLogPromoted', { endpoints: applied.join(', ') }), '??');
+        this.showToast(t('evidenceLogPromoted', { endpoints: applied.join(', ') }), '🚪');
       }
       const failures = result.failures ?? [];
       if (failures.length) {
         clubhouseClient.importTriageFailures(failures);
-        this.showToast(t('evidenceLogPending', { count: failures.length }), '??');
+        this.showToast(t('evidenceLogPending', { count: failures.length }), '⚠️');
       }
     } catch (err) {
       console.warn('[Clubbox] startup triage failed', err);
@@ -629,132 +630,123 @@ export class ClubboxApp {
             <div style="font-size:11px; color:var(--text-dim); margin-top:2px;">${t('studioTagline')}</div>
           </div>
         </div>
-
-        <nav class="nav-section">
-          <div class="nav-label">${t('navigation')}</div>
-
-          <div class="nav-item ${this.currentTab === 'explore' ? 'active' : ''}" data-action="nav" data-tab="explore">
-            <span class="icon">🏠</span>
-            <span>${t('hallway')}</span>
-            <span class="count-badge">${this.channelsList.length}</span>
-          </div>
-
-          <div class="nav-item ${this.currentTab === 'discover' ? 'active' : ''}" data-action="nav" data-tab="discover">
-            <span class="icon">🔍</span>
-            <span>${t('discover')}</span>
-          </div>
-
-          <div class="nav-item ${this.currentTab === 'friends' ? 'active' : ''}" data-action="nav" data-tab="friends">
-            <span class="icon">🤝</span>
-            <span>${t('friends')}</span>
-          </div>
-
-          <div class="nav-item ${this.currentTab === 'houses' ? 'active' : ''}" data-action="nav" data-tab="houses">
-            <span class="icon">🏛</span>
-            <span>${t('houses')}</span>
-          </div>
-
-          <div class="nav-item ${this.currentTab === 'events' ? 'active' : ''}" data-action="nav" data-tab="events">
-            <span class="icon">📅</span>
-            <span>${t('events')}</span>
-          </div>
-
-          <div class="nav-item ${this.currentTab === 'messages' ? 'active' : ''}" data-action="nav" data-tab="messages">
-            <span class="icon">💬</span>
-            <span>${t('messages')}</span>
-            ${this.unreadConversations > 0 ? html`<span class="count-badge">${this.unreadConversations}</span>` : ''}
-          </div>
-
-          <div class="nav-label" style="margin-top:14px;">${t('studioTools')}</div>
-
-          <div class="nav-item ${this.currentTab === 'stage' ? 'active' : ''}" data-action="nav" data-tab="stage">
-            <span class="icon">📻</span>
-            <span>${t('liveStage')}</span>
-            ${this.currentChannel ? html`<span class="count-badge count-badge-live">${t('liveBadge')}</span>` : ''}
-          </div>
-
-          <div class="nav-item ${this.currentTab === 'soundboard' ? 'active' : ''}" data-action="nav" data-tab="soundboard">
-            <span class="icon">🎛️</span>
-            <span>${t('soundboardRack')}</span>
-            <span class="count-badge">${audioEngine.soundEffects.length}</span>
-          </div>
-
-          ${clubhouseClient.supports('create_channel') ? html`
-            <div class="nav-item" data-action="create-room">
-              <span class="icon">➕</span>
-              <span>${t('startRoom')}</span>
-            </div>
-          ` : html`
-            <div class="nav-item" title="${t('notVerifiedHint')}">
-              <span class="icon">➕</span>
-              <span>${t('notVerifiedYet')}</span>
-            </div>
-          `}
-
-          <div class="nav-item ${this.currentTab === 'settings' ? 'active' : ''}" data-action="nav" data-tab="settings">
-            <span class="icon">⚙️</span>
-            <span>${t('apiConfig')}</span>
-          </div>
-        </nav>
-
-        <div class="sidebar-footer">
-          ${this.currentChannel && this.currentTab !== 'stage' ? html`
-            <button class="mini-player" type="button" data-action="nav" data-tab="stage" title="${t('backToStage')}">
-              <span class="pulse-dot"></span>
-              <span class="mini-player-copy">
-                <span class="mini-player-topic">${this.currentChannel.topic}</span>
-                ${this.unreadChat > 0 ? html`<span class="mini-player-unread">${t('unreadChat', { count: this.unreadChat })}</span>` : ''}
-              </span>
-            </button>
-          ` : ''}
-          ${this.renderSidebarUser()}
-        </div>
+        ${renderSidebarChrome({
+          currentTab: this.currentTab,
+          selfProfileOpen: this.selfProfileOpen,
+          settingsOpen: this.currentTab === 'settings',
+          unreadConversations: this.unreadConversations,
+          unreadNotifications: this.unreadNotifications,
+          me: this.me,
+        })}
     `);
+  }
+
+  snapshotView(): ViewSnapshot {
+    return {
+      tab: this.currentTab,
+      selfProfileOpen: this.selfProfileOpen,
+      settingsOpen: this.currentTab === 'settings',
+      openConversationId: this.openConversationId,
+      selectedHouseId: this.selectedHouse?.id ?? null,
+      peopleListOpen: !!this.peopleList,
+    };
+  }
+
+  pushCurrentView(): void {
+    this.viewStack = pushView(this.viewStack, this.snapshotView());
+  }
+
+  restoreView(snap: ViewSnapshot): void {
+    this.selfProfileOpen = snap.selfProfileOpen;
+    this.openConversationId = snap.openConversationId;
+    if (snap.settingsOpen) this.currentTab = 'settings';
+    else this.currentTab = snap.tab as typeof this.currentTab;
+    if (!snap.selectedHouseId) {
+      this.selectedHouse = null;
+      this.houseChatOpen = false;
+      this.houseMembersOpen = false;
+    }
+    if (!snap.peopleListOpen) this.clearPeopleList();
+  }
+
+  goBack(): void {
+    if (this.isProfileDrawerOpen) {
+      this.closeProfileDrawer();
+      return;
+    }
+    if (this.isCreateModalOpen) {
+      this.closeCreateModal();
+      return;
+    }
+    if (this.speakerInviteVisible) {
+      this.closeSpeakerInvite();
+      return;
+    }
+    if (this.openSpeakerMenuId != null) {
+      this.openSpeakerMenuId = null;
+      this.render();
+      return;
+    }
+    const { stack, previous } = popView(this.viewStack);
+    this.viewStack = stack;
+    if (!previous) {
+      if (this.selfProfileOpen) {
+        this.selfProfileOpen = false;
+        this.render();
+      }
+      return;
+    }
+    this.restoreView(previous);
+    this.render();
+  }
+
+  canGoBack(): boolean {
+    return this.viewStack.length > 0
+      || this.selfProfileOpen
+      || this.currentTab === 'settings'
+      || this.currentTab === 'houses'
+      || this.currentTab === 'replay'
+      || !!this.openConversationId
+      || !!this.peopleList;
   }
 
   renderTopBar(): void {
     const el = document.getElementById('shell-topbar');
     if (!el) return;
+    const onRoomPage = !!this.currentChannel && this.currentTab === 'stage' && !this.selfProfileOpen;
+    const showBack = !onRoomPage && this.canGoBack();
     el.innerHTML = markup(html`
           <div class="room-meta">
-            ${this.currentChannel ? html`
+            ${showBack ? html`
+              <button class="top-back-btn" type="button" data-action="nav-back" aria-label="${t('back')}">←</button>
+            ` : ''}
+            ${onRoomPage ? html`
               <div class="live-indicator">
                 <span class="pulse-dot"></span> ${t('onAir')}
               </div>
               <div class="room-title-group">
-                <div class="room-club-badge">${this.roomHousePhoto()} ${this.currentChannel.club_name || t('publicStage')}</div>
-                <div class="room-topic">${this.currentChannel.topic}</div>
-                ${this.currentChannel.privacy_tooltip ? html`<span class="live-updates-note">${this.currentChannel.privacy_tooltip}</span>` : ''}
-                ${this.currentChannel.is_active_trending_topic_channel ? html`<span class="live-updates-note">${t('trending')}</span>` : ''}
-                ${this.currentChannel.is_replay_enabled ? html`<span class="live-updates-note">${t('replayAvailable')}</span>` : ''}
+                <div class="room-club-badge">${this.roomHousePhoto()} ${this.currentChannel!.club_name || t('publicStage')}</div>
+                <div class="room-topic" data-topbar-title>${this.currentChannel!.topic}</div>
+                ${this.currentChannel!.privacy_tooltip ? html`<span class="live-updates-note">${this.currentChannel!.privacy_tooltip}</span>` : ''}
+                ${this.currentChannel!.is_active_trending_topic_channel ? html`<span class="live-updates-note">${t('trending')}</span>` : ''}
+                ${this.currentChannel!.is_replay_enabled ? html`<span class="live-updates-note">${t('replayAvailable')}</span>` : ''}
                 ${this.liveUpdatesUnavailable() ? html`<span class="live-updates-note">${t('liveUpdatesNote')}</span>` : ''}
                 <span class="recording-badge" id="clip-armed-badge" ${audioEngine.isClipArmed() ? '' : 'hidden'}>● ${t('clipArmed')}</span>
                 <span class="recording-badge" id="recording-badge" ${audioEngine.getIsRecording() ? '' : 'hidden'}>● ${t('recording')}</span>
               </div>
             ` : html`
-              <div style="font-weight:700; font-size:16px;">${this.sectionTitle()}</div>
+              <div class="topbar-title" data-topbar-title style="font-weight:700; font-size:16px;">${this.sectionTitle()}</div>
             `}
           </div>
 
           <div class="top-actions">
-            <button class="top-icon-btn" type="button" data-action="nav" data-tab="messages" title="${t('messages')}">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4z"/><path d="m4 7 8 6 8-6"/></svg>
-              ${this.unreadConversations > 0 ? html`<span class="nav-dot">${this.unreadConversations}</span>` : ''}
-            </button>
-            <button class="top-icon-btn" type="button" data-action="nav" data-tab="activity" title="${t('activity')}">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18h12"/><path d="M8 18V10a4 4 0 0 1 8 0v8"/><path d="M10 18a2 2 0 0 0 4 0"/></svg>
-              ${this.unreadNotifications ? html`<span class="nav-dot"></span>` : ''}
-            </button>
-            <button class="top-avatar-btn ${this.selfProfileOpen ? 'active' : ''}" type="button" data-action="sidebar-user" title="${this.me ? this.me.name : t('signIn')}">
-              ${this.me ? avatarHtml(this.me, 36, 'top-avatar') : html`<span class="sidebar-user-placeholder">?</span>`}
-            </button>
-            ${this.currentChannel ? html`
-              ${this.currentTab === 'stage' ? html`<button class="btn btn-secondary" type="button" data-action="minimize-room">${t('minimize')}</button>` : ''}
+            ${onRoomPage ? html`
+              <button class="btn btn-secondary" type="button" data-action="minimize-room">${t('minimize')}</button>
               <button class="btn btn-secondary" data-action="share-room">🔗 ${t('link')}</button>
               <button class="btn btn-danger" data-action="leave-room">${t('leaveQuietly')}</button>
             ` : html`
               ${clubhouseClient.supports('create_channel') ? html`
-                <button class="btn btn-primary" data-action="create-room">➕ ${t('startRoom')}</button>
+                <button class="btn btn-primary" data-action="create-room" data-start-room="top">➕ ${t('startRoom')}</button>
               ` : html`
                 <button class="btn btn-secondary" type="button" disabled title="${t('notVerifiedHint')}">${t('notVerifiedYet')}</button>
               `}
@@ -834,34 +826,10 @@ export class ClubboxApp {
     if (this.currentTab === 'messages') return t('messages');
     if (this.currentTab === 'activity') return t('activity');
     if (this.currentTab === 'soundboard') return t('soundboard');
-    if (this.currentTab === 'settings') return t('apiConfig');
+    if (this.currentTab === 'settings') return t('settings');
     if (this.currentTab === 'stage') return t('liveStage');
     if (this.currentTab === 'login') return t('signIn');
     return t('hallway');
-  }
-
-  renderSidebarUser(): ReturnType<typeof html> {
-    if (!this.me) {
-      return html`
-        <div class="sidebar-user" data-action="sidebar-user">
-          <div class="sidebar-user-avatar sidebar-user-placeholder" aria-hidden="true">?</div>
-          <div class="sidebar-user-info">
-            <div class="sidebar-user-name">${t('signIn')}</div>
-            <div class="sidebar-user-role">${t('liveAccount')}</div>
-          </div>
-        </div>
-      `;
-    }
-
-    return html`
-      <div class="sidebar-user ${this.selfProfileOpen ? 'active' : ''}" data-action="sidebar-user">
-        ${avatarHtml(this.me, 38, 'sidebar-user-avatar')}
-        <div class="sidebar-user-info">
-          <div class="sidebar-user-name">${this.me.name}</div>
-          <div class="sidebar-user-role">@${this.me.username}</div>
-        </div>
-      </div>
-    `;
   }
 
   renderCurrentView(): ReturnType<typeof html> {
@@ -878,12 +846,17 @@ export class ClubboxApp {
       return this.renderStageView();
     } else if (this.currentTab === 'explore') {
       return this.renderExploreView();
-    } else if (this.currentTab === 'discover') {
-      return discoverView(this.discoverQuery, this.discoverTab, this.discoverHits, this.discoverLoading);
-    } else if (this.currentTab === 'friends') {
-      return friendsView(
-        this.suggestionsCount,
-        this.conversationsLoaded ? talkPartners(this.conversations, this.me?.user_id ?? null) : null,
+    } else if (this.currentTab === 'discover' || this.currentTab === 'friends') {
+      return discoverView(
+        this.discoverQuery,
+        this.discoverTab,
+        this.discoverHits,
+        this.discoverLoading,
+        {
+          suggestions: this.suggestionsCount,
+          talkPartners: this.conversationsLoaded ? talkPartners(this.conversations, this.me?.user_id ?? null) : null,
+          houses: this.housesList,
+        },
       );
     } else if (this.currentTab === 'messages') {
       return messagesView({
@@ -902,12 +875,14 @@ export class ClubboxApp {
         threadNote: this.threadLiveNote,
         unreadById: this.conversationUnreadById,
       });
-    } else if (this.currentTab === 'activity') {
+    } else if (this.currentTab === 'activity' || this.currentTab === 'events') {
       return activityView({
         items: this.activityItems,
         unread: this.unreadNotifications,
         experimentalOn: clubhouseClient.getConfig().experimentalActions === true,
         notificationsSupported: clubhouseClient.supports('get_notifications'),
+        events: this.eventsList,
+        eventsSupported: clubhouseClient.supports('get_events'),
       });
     } else if (this.currentTab === 'houses') {
       return housesView({
@@ -927,12 +902,6 @@ export class ClubboxApp {
         threadMessages: this.houseChatThreadMessages,
         membersOpen: this.houseMembersOpen,
         members: this.houseMembers,
-      });
-    } else if (this.currentTab === 'events') {
-      return eventsView({
-        items: this.eventsList,
-        experimentalOn: clubhouseClient.getConfig().experimentalActions === true,
-        supported: clubhouseClient.supports('get_events'),
       });
     } else if (this.currentTab === 'replay' && this.replayPlayback) {
       return replayView({ item: this.replayPlayback, rate: this.replayRate });
@@ -1046,6 +1015,7 @@ export class ClubboxApp {
       showAudioRetry: !!this.currentChannel && this.audioConnected === false && !clubhouseClient.getConfig().useSandbox,
       isSpeaker: this.isMeSpeaker(),
       inRoom: !!this.currentChannel,
+      roomTitle: this.currentChannel?.topic ?? '',
       effects: audioEngine.soundEffects,
       latestChat: this.currentTab === 'stage' && this.chatOpen ? '' : this.latestChatLine(),
       unreadChat: this.chatOpen && this.currentTab === 'stage' ? 0 : this.unreadChat,
@@ -1166,7 +1136,7 @@ export class ClubboxApp {
         this.saveAudioPrefs();
         this.showToast(
           this.audioPrefs.spatialAudioEnabled ? t('spatialAudioOn') : t('spatialAudioOff'),
-          '??',
+          '✨',
         );
         return;
       }
@@ -1200,7 +1170,7 @@ export class ClubboxApp {
       } else if (target instanceof HTMLInputElement && target.id === 'sound-upload-input' && target.files?.[0]) {
         const file = target.files[0];
         void audioEngine.loadCustomAudioFile(file, file.name.split('.')[0]).then(() => {
-          this.showToast(t('uploadedSound', { name: file.name }), '??');
+          this.showToast(t('uploadedSound', { name: file.name }), '⚠️');
           this.render();
         });
       }
@@ -1218,27 +1188,37 @@ export class ClubboxApp {
         void this.refreshExplore();
         this.stopActivityRefresh();
       } else {
-        this.currentTab = tab;
-        if (tab === 'stage') this.unreadChat = 0;
+        // Merged places (NAV-2): Friends → Discover, Events → Activity.
+        // Houses tab still opens house sub-pages; Discover is the list entry.
+        if (tab === 'friends') this.currentTab = 'discover';
+        else if (tab === 'events') this.currentTab = 'activity';
+        else this.currentTab = tab;
+        if (this.currentTab === 'stage') this.unreadChat = 0;
         this.render();
-        if (tab === 'messages') void this.loadConversations();
-        if (tab === 'activity') {
+        if (this.currentTab === 'messages') void this.loadConversations();
+        if (this.currentTab === 'activity') {
           void this.loadActivity();
+          void this.loadEvents();
           this.startActivityRefresh();
         } else {
           this.stopActivityRefresh();
         }
-        if (tab === 'friends') {
+        if (this.currentTab === 'discover') {
           void this.loadSuggestions();
           void this.loadConversations();
+          void this.loadHouses();
         }
-        if (tab === 'houses') void this.loadHouses();
-        if (tab === 'events') void this.loadEvents();
+        if (this.currentTab === 'houses') void this.loadHouses();
       }
       return;
     }
     switch (action) {
+      case 'nav-back':
+        this.goBack();
+        break;
+      case 'open-settings':
       case 'profile-settings':
+        this.pushCurrentView();
         this.selfProfileOpen = false;
         this.closeProfileDrawer();
         this.currentTab = 'settings';
@@ -1261,9 +1241,9 @@ export class ClubboxApp {
         const link = safeUrl(this.me?.share_url);
         if (!link) return;
         void navigator.clipboard.writeText(link).then(() => {
-          this.showToast(t('copiedProfile'), '??');
+          this.showToast(t('copiedProfile'), '🔗');
         }).catch(() => {
-          this.showToast(t('somethingWrong'), '??');
+          this.showToast(t('somethingWrong'), '⚠️');
         });
         break;
       }
@@ -1279,9 +1259,9 @@ export class ClubboxApp {
         const link = safeUrl(item?.share_url);
         if (!link) return;
         void navigator.clipboard.writeText(link).then(() => {
-          this.showToast(t('copiedLink'), '??');
+          this.showToast(t('copiedLink'), '🔗');
         }).catch(() => {
-          this.showToast(t('somethingWrong'), '??');
+          this.showToast(t('somethingWrong'), '⚠️');
         });
         break;
       }
@@ -1478,7 +1458,7 @@ export class ClubboxApp {
       case 'host-house-room': {
         const houseId = Number(el.dataset.houseId);
         if (!Number.isFinite(houseId) || !clubhouseClient.supports('create_channel')) {
-          this.showToast(t('unverifiedAction'), '??');
+          this.showToast(t('unverifiedAction'), '🔒');
           break;
         }
         void clubhouseClient.createChannel(t('hostInHouse'), {
@@ -1496,11 +1476,11 @@ export class ClubboxApp {
       case 'copy-event-link': {
         const link = safeUrl(el.dataset.eventUrl);
         if (!link) {
-          this.showToast(t('noShareLink'), '??');
+          this.showToast(t('noShareLink'), '⚠️');
           break;
         }
-        void navigator.clipboard.writeText(link).then(() => this.showToast(t('copiedLink'), '??'))
-          .catch(() => this.showToast(t('somethingWrong'), '??'));
+        void navigator.clipboard.writeText(link).then(() => this.showToast(t('copiedLink'), '🔗'))
+          .catch(() => this.showToast(t('somethingWrong'), '⚠️'));
         break;
       }
       case 'add-event-calendar':
@@ -1539,7 +1519,7 @@ export class ClubboxApp {
         void this.sendVm(el.dataset.userId, el.dataset.name, el.dataset.username);
         break;
       case 'talk-live':
-        this.showToast(t('unverifiedAction'), '??');
+        this.showToast(t('unverifiedAction'), '🔒');
         break;
       case 'private-mode':
         this.privateVoice = el.dataset.mode === 'voice';
@@ -1554,26 +1534,26 @@ export class ClubboxApp {
         const listed = this.channelsList.find((channel) => channel.channel === id || String(channel.channel_id) === id);
         const link = safeUrl(listed?.url);
         if (!link) {
-          this.showToast(t('noShareLink'), '??');
+          this.showToast(t('noShareLink'), '⚠️');
           return;
         }
         void navigator.clipboard.writeText(link).then(() => {
-          this.showToast(t('linkCopied'), '??');
+          this.showToast(t('linkCopied'), '🔗');
         }).catch(() => {
-          this.showToast(t('somethingWrong'), '??');
+          this.showToast(t('somethingWrong'), '⚠️');
         });
         break;
       }
       case 'share-room': {
         const link = safeUrl(this.currentChannel?.url);
         if (!link) {
-          this.showToast(t('noShareLink'), '??');
+          this.showToast(t('noShareLink'), '⚠️');
           return;
         }
         void navigator.clipboard?.writeText(link).then(() => {
-          this.showToast(t('linkCopied'), '??');
+          this.showToast(t('linkCopied'), '🔗');
         }).catch(() => {
-          this.showToast(t('somethingWrong'), '??');
+          this.showToast(t('somethingWrong'), '⚠️');
         });
         break;
       }
@@ -1605,7 +1585,7 @@ export class ClubboxApp {
             audioEngine.setMonitorEnabled(true);
             this.saveAudioPrefs();
           }
-          this.showToast(t('voiceEffectPreview'), '??');
+          this.showToast(t('voiceEffectPreview'), '🎙️');
           this.renderCockpit();
         });
         break;
@@ -1614,7 +1594,7 @@ export class ClubboxApp {
         const applied = audioEngine.getBroadcastEffect();
         this.audioPrefs.voiceEffectApplied = applied;
         this.saveAudioPrefs();
-        this.showToast(t('voiceEffectApply'), '???');
+        this.showToast(t('voiceEffectApply'), '🎙️');
         break;
       }
       case 'retry-audio':
@@ -1632,16 +1612,20 @@ export class ClubboxApp {
       case 'save-clip':
         void this.saveClip();
         break;
-      case 'minimize-room':
+      case 'minimize-room': {
         if (!this.currentChannel) return;
-        this.currentTab = 'explore';
+        const { stack, previous } = popView(this.viewStack);
+        this.viewStack = stack;
+        if (previous) this.restoreView(previous);
+        else this.currentTab = 'explore';
         this.render();
-        void this.refreshExplore();
+        if (this.currentTab === 'explore') void this.refreshExplore();
         break;
+      }
       case 'toggle-chat':
         if (!this.currentChannel) return;
         if (this.currentChannel.is_chat_enabled === false) {
-          this.showToast(t('chatOff'), '??');
+          this.showToast(t('chatOff'), '💬');
           return;
         }
         this.chatOpen = !this.chatOpen;
@@ -1679,7 +1663,7 @@ export class ClubboxApp {
       }
       case 'stop-sounds':
         audioEngine.stopAllSounds();
-        this.showToast(t('soundsStopped'), '?');
+        this.showToast(t('soundsStopped'), '🎵');
         break;
       case 'record-shortcut': {
         const action = el.dataset.shortcut;
@@ -1803,14 +1787,14 @@ export class ClubboxApp {
         const report = clubhouseClient.copyHealthReport();
         if (!report) break;
         void navigator.clipboard?.writeText(report).then(
-          () => this.showToast(t('apiHealthCopied'), '??'),
-          () => this.showToast(t('somethingWrong'), '??'),
+          () => this.showToast(t('apiHealthCopied'), '🔗'),
+          () => this.showToast(t('somethingWrong'), '⚠️'),
         );
         break;
       }
       case 'reset-unsupported-routes':
         clubhouseClient.resetUnsupportedRoutes();
-        this.showToast(t('apiHealthResetUnsupported'), '?');
+        this.showToast(t('apiHealthResetUnsupported'), '✅');
         this.render();
         break;
       case 'close-profile':

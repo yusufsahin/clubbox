@@ -172,16 +172,10 @@ export function exploreView(
         </div>
       ` : ''}
       `}
-      ${access.canCreate ? html`
-        <button class="host-room-fab btn btn-primary" type="button" data-action="create-room">➕ ${t('startRoom')}</button>
-      ` : html`
-        <button class="host-room-fab btn btn-secondary" type="button" disabled title="${t('notVerifiedHint')}">${t('notVerifiedYet')}</button>
-      `}
     </div>
   `;
-  // Narrow layouts pad the hallway so the optional FAB does not cover cards.
   queueMicrotask(() => {
-    document.getElementById('view-root')?.classList.toggle('has-fab-pad', access.canCreate);
+    document.getElementById('view-root')?.classList.remove('has-fab-pad');
   });
   return view;
 }

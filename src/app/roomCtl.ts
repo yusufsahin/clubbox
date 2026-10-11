@@ -15,6 +15,7 @@ import { mountSpeakerInvite } from '../ui/components/speakerInvite.ts';
 import { safeUrl } from '../ui/html.ts';
 import type { ClubboxApp } from './clubboxApp.ts';
 import { recordingFilename } from './recordingFilename.ts';
+import { popView } from './viewStack.ts';
 
 const CHAT_POLL_MS = 15_000;
 
@@ -703,6 +704,7 @@ export async function joinRoom(this: ClubboxApp, channelId: string, preset?: CHC
       }
     }
     if (this.roomSession.generation !== generation || !this.currentChannel) return;
+    if (this.currentTab !== 'stage') this.pushCurrentView();
     this.currentTab = 'stage';
     this.unreadChat = 0;
     if (this.currentChannel.is_chat_enabled !== false) this.chatOpen = true;
@@ -825,7 +827,10 @@ export async function leaveRoom(this: ClubboxApp, options: { silent?: boolean; e
   }
 
 export function afterRoomExit(this: ClubboxApp, hadRoom: boolean, silent: boolean, ended: boolean) : void {
-    this.currentTab = 'explore';
+    const { stack, previous } = popView(this.viewStack);
+    this.viewStack = stack;
+    if (previous) this.restoreView(previous);
+    else this.currentTab = 'explore';
     this.chatOpen = true;
     this.audienceSearchQuery = '';
     this.render();

@@ -33,6 +33,11 @@ Given('I am in the room {string}', function (this: ClubboxWorld, channel: string
   this.session.attachAsListener(channel);
   this.session.recording = true;
   this.syncFromSession();
+  const navUi = (this as ClubboxWorld & { navUi?: { roomTopic: string | null; currentTab: string } }).navUi;
+  if (navUi) {
+    navUi.roomTopic = channel;
+    navUi.currentTab = 'stage';
+  }
 });
 
 Given('I am in the room {string} as audience', function (this: ClubboxWorld, channel: string) {

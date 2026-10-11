@@ -184,20 +184,20 @@ These appear in `create_channel` / `me` responses (`user_capabilities`, `channel
 
 | ID | Feature | HC | CD | Today | Evidence | Priority |
 | --- | --- | --- | --- | --- | --- | --- |
-| NAV-1 | Sidebar: Hallway, Discover, Messages, Activity, Soundboard + profile card and ⚙ | | | ❌ | — | P1 |
-| NAV-2 | Friends + Houses merged into Discover; Events into Activity; API & Config into Settings | | | ❌ | — | P1 |
-| NAV-3 | One "Start a room" button (top bar) + Ctrl+N | | | ❌ | — | P1 |
-| NAV-4 | Room = bottom bar on every page; header keeps the current page | | | ❌ | — | P1 |
-| NAV-5 | Minimize and Leave return to the previous page | | | ❌ | — | P1 |
-| NAV-6 | Back arrow + Esc on every sub-page (simple previous-view stack) | | | ❌ | — | P1 |
-| NAV-7 | Exactly one highlighted item | | | ❌ | — | P1 |
+| NAV-1 | Sidebar: Hallway, Discover, Messages, Activity, Soundboard + profile card and ⚙ | | | 🧪 | — | P1 |
+| NAV-2 | Friends + Houses merged into Discover; Events into Activity; API & Config into Settings | | | 🧪 | — | P1 |
+| NAV-3 | One "Start a room" button (top bar) + Ctrl+N | | | 🧪 | — | P1 |
+| NAV-4 | Room = bottom bar on every page; header keeps the current page | | | 🧪 | — | P1 |
+| NAV-5 | Minimize and Leave return to the previous page | | | 🧪 | — | P1 |
+| NAV-6 | Back arrow + Esc on every sub-page (simple previous-view stack) | | | 🧪 | — | P1 |
+| NAV-7 | Exactly one highlighted item | | | 🧪 | — | P1 |
 | NAV-8 | Per-section state cache | | | ❌ | — | Won't |
-| NAV-9 | Badges only for Messages (count) and Activity (dot) | | | ❌ | — | P1 |
-| NAV-10 | Settings: General, Audio, Account + collapsed Advanced | | | ❌ | — | P1 |
+| NAV-9 | Badges only for Messages (count) and Activity (dot) | | | 🧪 | — | P1 |
+| NAV-10 | Settings: General, Audio, Account + collapsed Advanced | | | 🧪 | — | P1 |
 | NAV-11 | Global Ctrl+K search (Discover search covers it) | | | ❌ | — | Won't |
 | NAV-12 | Section shortcuts Ctrl+1…5 | | | ❌ | — | Won't |
-| NAV-13 | No duplicated page titles | | | ❌ | — | P2 |
-| NAV-14 | No placeholder "??" toast icons | | | ❌ | — | P1 |
+| NAV-13 | No duplicated page titles | | | 🧪 | — | P2 |
+| NAV-14 | No placeholder "??" toast icons | | | 🧪 | — | P1 |
 
 ### 4.7 Won't do (and why)
 

@@ -97,6 +97,7 @@ export async function renameConversation(this: ClubboxApp, conversationId: strin
   }
 
 export async function openConversationThread(this: ClubboxApp, conversationId: string): Promise<void> {
+    if (!this.openConversationId) this.pushCurrentView();
     this.openConversationId = conversationId;
     this.previewMember = null;
     this.openConversationThreadData = null;

@@ -12,6 +12,7 @@ export interface CockpitState {
   showAudioRetry: boolean;
   isSpeaker: boolean;
   inRoom: boolean;
+  roomTitle: string;
   effects: SoundEffectItem[];
   latestChat: string;
   unreadChat: number;
@@ -26,7 +27,10 @@ export interface CockpitState {
 
 export function cockpitBar(state: CockpitState): SafeHtml {
   return html`
-    <div class="cockpit-bar">
+    <div class="cockpit-bar" data-cockpit="room">
+      ${state.inRoom && state.roomTitle ? html`
+        <button class="room-bar-title" type="button" data-action="nav" data-tab="stage" data-room-title>${state.roomTitle}</button>
+      ` : ''}
       ${state.latestChat ? html`<button class="chat-ticker" type="button" data-action="nav" data-tab="stage">${state.latestChat}</button>` : ''}
       ${state.showAudioRetry ? html`
         <button class="btn btn-secondary audio-retry-btn" data-action="retry-audio" type="button">${t('retryAudio')}</button>

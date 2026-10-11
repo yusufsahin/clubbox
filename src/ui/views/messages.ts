@@ -237,7 +237,6 @@ export function messagesView(state: MessagesState): SafeHtml {
     <div class="messages-page">
       <header class="messages-header">
         <div>
-          <h2>${t('messages')}</h2>
           <p class="list-note">${t('privateConversationsOnly')}</p>
         </div>
         <div class="messages-header-actions">
