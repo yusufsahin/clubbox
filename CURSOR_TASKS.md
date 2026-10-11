@@ -4,15 +4,20 @@ Each task below is a self-contained prompt. Paste one task at a time into Cursor
 
 _Last reviewed: 2026-10-11. “Uygulandı” means the code is in the tree. “Canlı doğrulandı” means it was exercised against the official Clubhouse web session. This pass is implemented; the live room, hand, invite, and chat capture is still outstanding._
 
-### Next run (owner instruction, 2026-10-11 #5)
+### Next run (owner instruction, 2026-10-12 #6)
 
-Light mode is broken and dark mode has contrast failures (owner screenshot + audit). Do Phase 15 at the end of this file:
-- [x] 15.3 first: contrast test, theme-audit script, e2e axe checks for light and dark (they must fail at first)
-- [x] 15.1 semantic tokens for both themes; replace the 70 hard-coded colours and 3 undefined variables
-- [x] 15.2 system-theme listener + nativeTheme, remove/fix the overlapping "Start a Room" FAB, SVG icons in the top bar, HOST label contrast
-- [x] Phase 16 — simplified navigation (NAVIGATION.md v2): 16.1 new shell → 16.2 one way back, settings, toasts
-- [x] Phase 17 — mobile-app parity: simple composer (17.1), room details panel (17.2), follow back (17.3)
-- [x] Attach light/dark screenshots (reports/theme/) in the summary; commit per item; stop
+Owner review of Phases 15–17: unit/BDD/trace are green, but the real-UI checks were not run after Phase 16.
+- `npm run test:e2e` fails: tests/e2e/sandbox-smoke.spec.ts still clicks the removed sidebar items (`data-tab="friends"`, sidebar `data-tab="settings"`). Phase 16/17 were marked done without running e2e.
+- reports/theme/*.png were taken at 23:23, before Phase 16 (23:35) — they show the old 12-item sidebar, ✉/🔔 in the top bar and "API & Config".
+- In VS Code / Cursor terminals ELECTRON_RUN_AS_NODE=1 is set, so Electron starts as plain Node and every e2e launch fails with "Process failed to launch".
+
+Do:
+- [ ] Make e2e immune to the env: in launchClubbox() pass an env that removes ELECTRON_RUN_AS_NODE (and do the same in scripts that spawn Electron: desktop, api:record, api:discover).
+- [ ] Update tests/e2e to the v2 shell (NAVIGATION.md): five places, profile card, ⚙ Settings, Discover sections instead of Friends/Houses, Activity instead of Events, bottom room bar, Esc/← back, simple composer (room type list → Go live), Room details panel.
+- [ ] Re-run `npm run test:e2e` until green; regenerate reports/theme/ for light and dark: hallway, discover, a house page, messages + open conversation, activity, room (stage + bottom bar + room details panel), composer, settings (with Advanced open), a toast.
+- [ ] Definition of done from now on: a phase that changes UI is only done after `npm run test:e2e` passes and fresh screenshots exist. Add this line to the Hard rules in .cursor/rules/clubbox.mdc.
+- [ ] Note: navigation.feature got new "Given the navigation shell is ready" steps during Phase 16. Setup steps are fine; never change Then-assertions. Write any wording change you need under "Questions for the owner" instead.
+- [ ] Commit per item; write the summary with the screenshot list; stop.
 ### Last autonomous run (2026-10-11)
 
 - Done: Next run #5 already complete (Phases 15–17). Re-checked `npm run api:triage` → NO NEW FAILURES. No new owner checklist.
