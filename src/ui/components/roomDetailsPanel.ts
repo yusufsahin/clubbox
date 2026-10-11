@@ -1,6 +1,8 @@
 import { t } from '../../i18n';
 import { html, type SafeHtml } from '../html';
 
+export type ExternalAudioDeviceOption = { id: string; label: string };
+
 export type RoomDetailsState = {
   topic: string;
   replaysOn: boolean;
@@ -20,6 +22,18 @@ export type RoomDetailsState = {
   visibilityMode: 'open' | 'social';
   handraiseMode: 'off' | '1' | '2';
   helpUrl: string;
+  /** Show External audio controls only while the user is a speaker. */
+  showExternalAudio: boolean;
+  externalDevices: ExternalAudioDeviceOption[];
+  externalDeviceId: string;
+  externalVolume: number;
+  externalMuted: boolean;
+  externalMonitor: boolean;
+  externalDuck: boolean;
+  externalDuckDb: number;
+  externalActive: boolean;
+  systemAudioAvailable: boolean;
+  systemAudioBlockedReason: string;
 };
 
 export function roomDetailsPanel(state: RoomDetailsState): SafeHtml {
@@ -63,6 +77,64 @@ export function roomDetailsPanel(state: RoomDetailsState): SafeHtml {
         </label>
         <label class="form-label" for="room-mic-gain">${t('micLevel')}</label>
         <input type="range" id="room-mic-gain" data-action="set-mic-gain" min="0" max="1" step="0.05" />
+
+        ${state.showExternalAudio ? html`
+          <div class="external-audio-block" data-external-audio>
+            <h5 class="external-audio-title">${t('externalAudio')}</h5>
+            <label class="form-label" for="room-external-device">${t('externalAudioSource')}</label>
+            <select class="form-input" id="room-external-device" data-action="set-external-device">
+              <option value="">${t('externalAudioOff')}</option>
+              ${state.systemAudioAvailable ? html`
+                <option value="__system_audio__" ${state.externalDeviceId === '__system_audio__' ? 'selected' : ''}>
+                  ${t('externalSystemAudio')}
+                </option>
+              ` : ''}
+              ${state.externalDevices.map((device) => html`
+                <option value="${device.id}" ${state.externalDeviceId === device.id ? 'selected' : ''}>${device.label}</option>
+              `)}
+            </select>
+            ${!state.systemAudioAvailable && state.systemAudioBlockedReason ? html`
+              <p class="list-note" data-external-system-hint>${state.systemAudioBlockedReason}</p>
+            ` : ''}
+            <label class="form-label" for="room-external-vol">${t('externalVolume')}</label>
+            <input
+              type="range"
+              id="room-external-vol"
+              data-action="set-external-volume"
+              min="0"
+              max="1"
+              step="0.05"
+              value="${String(state.externalVolume)}"
+              ${state.externalActive ? '' : 'disabled'}
+            />
+            <div class="external-audio-meter" aria-hidden="true">
+              <span class="external-audio-meter-fill" data-external-meter style="width:${state.externalActive ? '8%' : '0%'}"></span>
+            </div>
+            <label class="form-label">
+              <input type="checkbox" data-action="toggle-external-mute" ${state.externalMuted ? 'checked' : ''} ${state.externalActive ? '' : 'disabled'} />
+              ${t('externalMute')}
+            </label>
+            <label class="form-label">
+              <input type="checkbox" data-action="toggle-external-monitor" ${state.externalMonitor ? 'checked' : ''} ${state.externalActive ? '' : 'disabled'} />
+              ${t('externalMonitor')}
+            </label>
+            <label class="form-label">
+              <input type="checkbox" data-action="toggle-external-duck" ${state.externalDuck ? 'checked' : ''} ${state.externalActive ? '' : 'disabled'} />
+              ${t('externalDuck')}
+            </label>
+            <label class="form-label" for="room-external-duck-db">${t('externalDuckAmount')}</label>
+            <input
+              type="range"
+              id="room-external-duck-db"
+              data-action="set-external-duck-db"
+              min="-24"
+              max="0"
+              step="1"
+              value="${String(state.externalDuckDb)}"
+              ${state.externalActive && state.externalDuck ? '' : 'disabled'}
+            />
+          </div>
+        ` : ''}
       </section>
 
       ${state.canModerate ? html`

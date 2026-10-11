@@ -147,7 +147,7 @@ Legend — Today: ✅ works live · ✅* wired (live verification pending) · �
 | ST-8 | Global shortcuts (mute, hand, accept/decline invite, pads) | | ✓ | ✅ | — | P1 |
 | ST-9 | Restream RTMP output | | ✓ | ❌ | — | P3 |
 | ST-10 | Sound pad library in Settings › Sounds (upload, rename, hotkey, volume, local preview, delete); playing happens in the room | | ✓ | ❌ separate Soundboard page | — | P1 |
-| ST-11 | External audio into the room: second input device (line-in, virtual cable) or Windows system audio, own fader/mute/meter, no AEC/NS/AGC, auto-duck under voice, into broadcast + recording; no virtual cable needed | | ✓ | ❌ one input only | — | P1 |
+| ST-11 | External audio into the room: second input device (line-in, virtual cable) or Windows system audio, own fader/mute/meter, no AEC/NS/AGC, auto-duck under voice, into broadcast + recording; no virtual cable needed | | ✓ | ✅ | — | P1 |
 
 ### 4.6 Social
 

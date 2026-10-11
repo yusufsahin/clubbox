@@ -147,6 +147,21 @@ function createWindow() {
     callback(false);
   });
 
+  // Windows loopback for External audio (ST-11). Only the trusted main window may request it.
+  if (typeof session.defaultSession.setDisplayMediaRequestHandler === 'function') {
+    session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
+      const fromMain = mainWindow
+        && !mainWindow.isDestroyed()
+        && request?.frame
+        && request.frame === mainWindow.webContents.mainFrame;
+      if (!fromMain || process.platform !== 'win32') {
+        callback({});
+        return;
+      }
+      callback({ audio: 'loopback' });
+    }, { useSystemPicker: false });
+  }
+
   mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
     console.error('[Electron] Failed to load URL:', validatedURL, errorCode, errorDescription);
   });

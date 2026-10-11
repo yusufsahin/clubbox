@@ -10,6 +10,12 @@ export interface AudioPrefs {
   spatialAudioEnabled: boolean;
   voiceEffectApplied: StoredVoiceEffect;
   remoteVolumes: Record<string, number>;
+  externalDeviceId: string;
+  externalVolume: number;
+  externalMonitor: boolean;
+  externalDuck: boolean;
+  externalDuckDb: number;
+  externalCopyrightSeen: boolean;
 }
 
 const DEFAULT_PREFS: AudioPrefs = {
@@ -20,6 +26,12 @@ const DEFAULT_PREFS: AudioPrefs = {
   spatialAudioEnabled: false,
   voiceEffectApplied: 'none',
   remoteVolumes: {},
+  externalDeviceId: '',
+  externalVolume: 0.8,
+  externalMonitor: false,
+  externalDuck: true,
+  externalDuckDb: -12,
+  externalCopyrightSeen: false,
 };
 
 function readVoiceEffect(value: unknown): StoredVoiceEffect {
@@ -33,6 +45,12 @@ function clampVolume(value: unknown): number {
   const number = typeof value === 'number' ? value : Number(value);
   if (!Number.isFinite(number)) return 1;
   return Math.max(0, Math.min(1, number));
+}
+
+function clampDuckDb(value: unknown): number {
+  const number = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(number)) return -12;
+  return Math.max(-24, Math.min(0, number));
 }
 
 export function readAudioPrefs(): AudioPrefs {
@@ -54,6 +72,12 @@ export function readAudioPrefs(): AudioPrefs {
       spatialAudioEnabled: parsed.spatialAudioEnabled === true,
       voiceEffectApplied: readVoiceEffect(parsed.voiceEffectApplied),
       remoteVolumes,
+      externalDeviceId: typeof parsed.externalDeviceId === 'string' ? parsed.externalDeviceId : '',
+      externalVolume: clampVolume(parsed.externalVolume ?? DEFAULT_PREFS.externalVolume),
+      externalMonitor: parsed.externalMonitor === true,
+      externalDuck: parsed.externalDuck !== false,
+      externalDuckDb: clampDuckDb(parsed.externalDuckDb ?? DEFAULT_PREFS.externalDuckDb),
+      externalCopyrightSeen: parsed.externalCopyrightSeen === true,
     };
   } catch {
     return { ...DEFAULT_PREFS, remoteVolumes: {} };

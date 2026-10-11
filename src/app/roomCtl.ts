@@ -28,6 +28,7 @@ export function handleBeforeUnload(this: ClubboxApp) : void {
     audioEngine.stopRecording();
     audioEngine.armClip(false);
     audioEngine.stopMicrophone();
+    audioEngine.releaseExternal();
     void agoraVoice.leave();
     if (!channel || !clubhouseClient.supports('leave_channel')) return;
     void clubhouseClient.leaveChannel(this.channelApiId(channel)).catch(() => {
@@ -183,6 +184,7 @@ export async function runAgoraRoleSync(this: ClubboxApp) : Promise<void> {
             if (!ok) this.showToast(t('micStageFailed'), '🔇');
           } else {
             await agoraVoice.demoteToAudience();
+            audioEngine.releaseExternal();
             audioEngine.setMuted(true);
             const micBtn = document.getElementById('mic-toggle-btn');
             if (micBtn) {
@@ -767,6 +769,7 @@ export async function releaseRoomLocally(this: ClubboxApp, options: { skipServer
     audioEngine.stopRecording();
     audioEngine.armClip(false);
     audioEngine.stopMicrophone();
+    audioEngine.releaseExternal();
     try {
       await agoraVoice.leave();
     } catch {

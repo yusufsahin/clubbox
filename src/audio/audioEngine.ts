@@ -1,5 +1,14 @@
 import type { SoundEffectItem } from '../api/types';
 import { createVoiceEffectChain, panForUid, type EffectChain } from './effectChain';
+import { externalInputConstraints, SYSTEM_AUDIO_DEVICE_ID } from './externalConstraints';
+import {
+  DEFAULT_DUCK_DB,
+  initialDuckState,
+  stepDuckEnvelope,
+  VOICE_DUCK_THRESHOLD,
+  type DuckEnvelopeState,
+} from './externalDuck';
+import { planExternalRouting } from './externalRouting';
 import { deleteStoredSound, PAD_HOTKEYS, readStoredSounds, writeStoredSound, type StoredSound } from './soundLibrary';
 import {
   applyEffect,
@@ -30,6 +39,21 @@ export class AudioEngine {
   private broadcastDest: MediaStreamAudioDestinationNode | null = null;
   private recorderDest: MediaStreamAudioDestinationNode | null = null;
   private recordMix: GainNode | null = null;
+  private externalStream: MediaStream | null = null;
+  private externalSource: MediaStreamAudioSourceNode | null = null;
+  private externalGain: GainNode | null = null;
+  private externalAnalyser: AnalyserNode | null = null;
+  private externalDeviceId = '';
+  private externalVolume = 0.8;
+  private externalMuted = false;
+  private externalMonitor = false;
+  private externalDuckEnabled = true;
+  private externalDuckDb = DEFAULT_DUCK_DB;
+  private externalDuckState: DuckEnvelopeState = initialDuckState();
+  private externalLevel = 0;
+  /** Last constraints / capture mode used for the external channel (tests / diagnostics). */
+  public lastExternalConstraints: MediaTrackConstraints | null = null;
+  public lastExternalCapture: 'device' | 'system' | null = null;
   private broadcastEffect: EffectChain | null = null;
   private monitorEffect: EffectChain | null = null;
   private clipNode: AudioWorkletNode | null = null;
@@ -204,9 +228,11 @@ export class AudioEngine {
 
   public stopMicrophone(): void {
     this.releaseMicrophoneGraph();
-    if (this.animationFrameId) cancelAnimationFrame(this.animationFrameId);
-    this.animationFrameId = null;
-    this.onVolumeChangeCallbacks.forEach((cb) => cb(0));
+    if (!this.externalStream) {
+      if (this.animationFrameId) cancelAnimationFrame(this.animationFrameId);
+      this.animationFrameId = null;
+      this.onVolumeChangeCallbacks.forEach((cb) => cb(0));
+    }
   }
 
   public setMuted(muted: boolean): void {
@@ -549,8 +575,10 @@ export class AudioEngine {
     if (this.animationFrameId) cancelAnimationFrame(this.animationFrameId);
 
     const dataArray = new Uint8Array(this.analyser?.frequencyBinCount || 128);
+    const externalData = new Uint8Array(this.externalAnalyser?.frequencyBinCount || 128);
 
     const update = () => {
+      let micLevel = 0;
       if (this.analyser && !this.isMuted) {
         this.analyser.getByteFrequencyData(dataArray);
         let sum = 0;
@@ -558,11 +586,20 @@ export class AudioEngine {
           sum += dataArray[i];
         }
         const avg = sum / dataArray.length;
-        const normalized = Math.min(1, avg / 128);
-        this.onVolumeChangeCallbacks.forEach((cb) => cb(normalized));
+        micLevel = Math.min(1, avg / 128);
+        this.onVolumeChangeCallbacks.forEach((cb) => cb(micLevel));
       } else {
         this.onVolumeChangeCallbacks.forEach((cb) => cb(0));
       }
+      if (this.externalAnalyser) {
+        this.externalAnalyser.getByteFrequencyData(externalData);
+        let sum = 0;
+        for (let i = 0; i < externalData.length; i++) sum += externalData[i];
+        this.externalLevel = Math.min(1, (sum / externalData.length) / 128);
+      } else {
+        this.externalLevel = 0;
+      }
+      this.tickExternalDuck(micLevel);
       this.animationFrameId = requestAnimationFrame(update);
     };
 
@@ -574,18 +611,209 @@ export class AudioEngine {
 
     let simVol = 0;
     const update = () => {
+      let micLevel = 0;
       if (!this.isMuted) {
         // Natural speech modulation simulation
         const target = Math.random() > 0.3 ? 0.3 + Math.random() * 0.6 : 0.05;
         simVol += (target - simVol) * 0.2;
+        micLevel = simVol;
         this.onVolumeChangeCallbacks.forEach((cb) => cb(simVol));
       } else {
         this.onVolumeChangeCallbacks.forEach((cb) => cb(0));
       }
+      this.tickExternalDuck(micLevel);
       this.animationFrameId = requestAnimationFrame(update);
     };
 
     this.animationFrameId = requestAnimationFrame(update);
+  }
+
+  private tickExternalDuck(micLevel: number): void {
+    if (!this.externalGain || !this.ctx) return;
+    const speaking = this.externalDuckEnabled && !this.isMuted && micLevel >= VOICE_DUCK_THRESHOLD;
+    this.externalDuckState = stepDuckEnvelope(
+      this.externalDuckState,
+      performance.now(),
+      speaking,
+      this.externalDuckDb,
+    );
+    this.applyExternalGain();
+  }
+
+  private applyExternalGain(): void {
+    if (!this.externalGain || !this.ctx) return;
+    const plan = planExternalRouting({
+      active: !!this.externalStream,
+      muted: this.externalMuted,
+      monitor: this.externalMonitor,
+      volume: this.externalVolume,
+    });
+    const gain = plan.openGain * this.externalDuckState.multiplier;
+    const now = this.ctx.currentTime;
+    this.externalGain.gain.cancelScheduledValues(now);
+    this.externalGain.gain.setValueAtTime(this.externalGain.gain.value, now);
+    this.externalGain.gain.setTargetAtTime(gain, now, 0.01);
+  }
+
+  private wireExternalGraph(): void {
+    if (!this.ctx || !this.externalSource || !this.broadcastDest || !this.recordMix || !this.masterGain) return;
+    this.safeDisconnect(this.externalGain);
+    this.safeDisconnect(this.externalAnalyser);
+    this.externalGain = this.ctx.createGain();
+    this.externalAnalyser = this.ctx.createAnalyser();
+    this.externalAnalyser.fftSize = 256;
+    this.externalAnalyser.smoothingTimeConstant = 0.4;
+    this.externalSource.connect(this.externalGain);
+    this.externalGain.connect(this.externalAnalyser);
+    const plan = planExternalRouting({
+      active: true,
+      muted: this.externalMuted,
+      monitor: this.externalMonitor,
+      volume: this.externalVolume,
+    });
+    if (plan.toBroadcast) this.externalGain.connect(this.broadcastDest);
+    if (plan.toRecord) this.externalGain.connect(this.recordMix);
+    if (plan.toMonitor) this.externalGain.connect(this.masterGain);
+    this.externalDuckState = initialDuckState(performance.now());
+    this.applyExternalGain();
+    if (!this.animationFrameId) this.startMeterLoop();
+  }
+
+  public releaseExternal(): void {
+    if (this.externalStream) {
+      this.externalStream.getTracks().forEach((track) => track.stop());
+      this.externalStream = null;
+    }
+    this.safeDisconnect(this.externalSource);
+    this.safeDisconnect(this.externalGain);
+    this.safeDisconnect(this.externalAnalyser);
+    this.externalSource = null;
+    this.externalGain = null;
+    this.externalAnalyser = null;
+    this.externalLevel = 0;
+    this.lastExternalConstraints = null;
+    this.lastExternalCapture = null;
+    this.externalDuckState = initialDuckState();
+  }
+
+  public getExternalDeviceId(): string {
+    return this.externalDeviceId;
+  }
+
+  public getExternalVolume(): number {
+    return this.externalVolume;
+  }
+
+  public getExternalMuted(): boolean {
+    return this.externalMuted;
+  }
+
+  public getExternalMonitor(): boolean {
+    return this.externalMonitor;
+  }
+
+  public getExternalDuckEnabled(): boolean {
+    return this.externalDuckEnabled;
+  }
+
+  public getExternalDuckDb(): number {
+    return this.externalDuckDb;
+  }
+
+  public getExternalLevel(): number {
+    return this.externalLevel;
+  }
+
+  public isExternalActive(): boolean {
+    return !!this.externalStream?.getAudioTracks().some((track) => track.readyState === 'live');
+  }
+
+  /** Routing snapshot for tests — independent of mic mute. */
+  public getExternalRoutePlan() {
+    return planExternalRouting({
+      active: this.isExternalActive() || !!this.externalSource,
+      muted: this.externalMuted,
+      monitor: this.externalMonitor,
+      volume: this.externalVolume,
+    });
+  }
+
+  public setExternalVolume(volume: number): void {
+    this.externalVolume = Math.max(0, Math.min(1, volume));
+    this.applyExternalGain();
+  }
+
+  public setExternalMuted(muted: boolean): void {
+    this.externalMuted = muted;
+    this.applyExternalGain();
+  }
+
+  public setExternalMonitor(enabled: boolean): void {
+    this.externalMonitor = enabled;
+    if (this.externalSource) this.wireExternalGraph();
+  }
+
+  public setExternalDuckEnabled(enabled: boolean): void {
+    this.externalDuckEnabled = enabled;
+    if (!enabled) {
+      this.externalDuckState = initialDuckState(performance.now());
+      this.applyExternalGain();
+    }
+  }
+
+  public setExternalDuckDb(db: number): void {
+    this.externalDuckDb = Math.max(-24, Math.min(0, db));
+  }
+
+  public setExternalDeviceId(deviceId: string): void {
+    this.externalDeviceId = deviceId;
+  }
+
+  /**
+   * Open an external input (device) or system loopback and mix into broadcast + record.
+   * Does not touch mic mute. Returns false if getUserMedia / getDisplayMedia fails.
+   */
+  public async startExternal(deviceId: string): Promise<boolean> {
+    this.externalDeviceId = deviceId;
+    this.releaseExternal();
+    try {
+      const ctx = this.initContextIfNeeded();
+      let stream: MediaStream;
+      if (deviceId === SYSTEM_AUDIO_DEVICE_ID) {
+        this.lastExternalConstraints = null;
+        this.lastExternalCapture = 'system';
+        stream = await navigator.mediaDevices.getDisplayMedia({
+          audio: true,
+          video: true,
+        });
+        // Drop video tracks — we only need loopback audio.
+        for (const track of stream.getVideoTracks()) track.stop();
+      } else {
+        const audio = externalInputConstraints(deviceId);
+        this.lastExternalConstraints = { ...audio };
+        this.lastExternalCapture = 'device';
+        stream = await navigator.mediaDevices.getUserMedia({ audio, video: false });
+      }
+      this.externalStream = stream;
+      this.externalSource = ctx.createMediaStreamSource(stream);
+      this.wireExternalGraph();
+      return true;
+    } catch (err: unknown) {
+      console.warn('[Clubbox] external audio unavailable:', err);
+      this.releaseExternal();
+      return false;
+    }
+  }
+
+  /** Test helper: attach a synthetic stream as the external channel without getUserMedia. */
+  public attachExternalForTest(stream: MediaStream): void {
+    const ctx = this.initContextIfNeeded();
+    this.releaseExternal();
+    this.externalStream = stream;
+    this.externalSource = ctx.createMediaStreamSource(stream);
+    this.lastExternalConstraints = externalInputConstraints(this.externalDeviceId || 'test');
+    this.lastExternalCapture = 'device';
+    this.wireExternalGraph();
   }
 
   // --- Soundboard Synthesizers & Sampler ---

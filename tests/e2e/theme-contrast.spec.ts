@@ -161,6 +161,7 @@ test.describe('theme contrast (sandbox)', () => {
 
         await page.locator('[data-action="open-room-details"]').click({ force: true });
         await expect(page.locator('[data-room-details]')).toBeVisible({ timeout: 5_000 });
+        await expect(page.locator('[data-external-audio]')).toBeVisible({ timeout: 5_000 });
         await page.screenshot({ path: path.join(shotDir, `${theme}-room-details.png`), fullPage: true });
         await assertNoContrastViolations(page, `${theme} room details`);
         await page.locator('[data-action="close-room-details"]').click({ force: true });

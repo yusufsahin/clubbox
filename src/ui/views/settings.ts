@@ -134,6 +134,10 @@ export function settingsView(
           <p id="output-device-note" hidden style="font-size:12px; color:var(--text-dim); margin-top:8px;">${t('outputUnsupported')}</p>
         </div>
         <p class="list-note" style="margin-top:12px;">${t('recordingNeedsConsent')}</p>
+        <div class="virtual-cable-guide" data-virtual-cable-guide style="margin-top:16px; padding-top:12px; border-top:1px solid var(--border-subtle);">
+          <h4 style="font-size:14px; font-weight:700; margin-bottom:6px;">${t('virtualCableGuideTitle')}</h4>
+          <p class="list-note">${t('virtualCableGuideBody')}</p>
+        </div>
       </div>
 
       <div style="background:var(--bg-card); border:1px solid var(--border-subtle); border-radius:var(--radius-lg); padding:24px; margin-bottom:20px;">

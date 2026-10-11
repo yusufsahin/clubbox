@@ -37,6 +37,12 @@ test('audioPrefs round-trips applied voice effect and spatial flag', () => {
     spatialAudioEnabled: true,
     voiceEffectApplied: 'radio',
     remoteVolumes: {},
+    externalDeviceId: 'vb-cable',
+    externalVolume: 0.6,
+    externalMonitor: true,
+    externalDuck: true,
+    externalDuckDb: -12,
+    externalCopyrightSeen: true,
   };
   writeAudioPrefs(prefs);
   const next = readAudioPrefs();
@@ -44,4 +50,8 @@ test('audioPrefs round-trips applied voice effect and spatial flag', () => {
   assert.equal(next.spatialAudioEnabled, true);
   assert.equal(next.monitorEnabled, true);
   assert.equal(next.micVolume, 0.8);
+  assert.equal(next.externalDeviceId, 'vb-cable');
+  assert.equal(next.externalVolume, 0.6);
+  assert.equal(next.externalMonitor, true);
+  assert.equal(next.externalCopyrightSeen, true);
 });

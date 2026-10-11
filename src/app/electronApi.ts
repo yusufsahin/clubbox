@@ -3,6 +3,7 @@ import type { ShortcutMap } from '../shortcuts.ts';
 
 export type ElectronAPI = {
   isElectron: boolean;
+  platform?: string;
   forceSandbox?: boolean;
   getGlobalShortcuts: () => Promise<ShortcutMap | null>;
   setGlobalShortcuts: (shortcuts: ShortcutMap) => Promise<{ ok: boolean; failed: string[] }>;

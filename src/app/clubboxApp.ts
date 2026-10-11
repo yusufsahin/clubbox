@@ -12,6 +12,8 @@ import { PubNubRoomSource } from '../api/pubnubRoomSource';
 import { roomSync } from '../api/roomSync';
 import { audioEngine } from '../audio/audioEngine';
 import { readAudioPrefs, type AudioPrefs } from '../audio/audioPrefs';
+import { SYSTEM_AUDIO_DEVICE_ID } from '../audio/externalConstraints';
+import { systemAudioCaptureAllowed } from '../audio/externalDuck';
 import { readAppPrefs, syncSystemThemeListener, zoomFactorFromPercent } from './appPrefs';
 import { popView, pushView, type ViewSnapshot } from './viewStack';
 import { readShortcuts, type ShortcutAction, type ShortcutMap } from '../shortcuts';
@@ -187,6 +189,9 @@ export class ClubboxApp {
     },
   });
   audioPrefs: AudioPrefs = readAudioPrefs();
+  externalInputOptions: { id: string; label: string }[] = [];
+  systemAudioAvailable = false;
+  systemAudioBlockedReason = '';
   shortcuts: ShortcutMap = readShortcuts();
   recordingShortcut: ShortcutAction | null = null;
   editingSoundId: string | null = null;
@@ -636,6 +641,7 @@ export class ClubboxApp {
     const music = audioEngine.getIsMusicMode();
     const flags = stageControlFlags(this);
     const mod = this.isMeModerator();
+    const speaker = this.isMeSpeaker();
     root.innerHTML = markup(roomDetailsPanel({
       topic: this.currentChannel.topic,
       replaysOn: this.currentChannel.is_replay_enabled !== false,
@@ -661,7 +667,144 @@ export class ClubboxApp {
       visibilityMode: 'open',
       handraiseMode: this.currentChannel.is_handraise_enabled === false ? 'off' : '1',
       helpUrl: 'https://support.clubhouse.com/hc/en-us/articles/360059385913',
+      showExternalAudio: speaker,
+      externalDevices: this.externalInputOptions,
+      externalDeviceId: audioEngine.getExternalDeviceId() || this.audioPrefs.externalDeviceId || '',
+      externalVolume: audioEngine.getExternalVolume(),
+      externalMuted: audioEngine.getExternalMuted(),
+      externalMonitor: audioEngine.getExternalMonitor(),
+      externalDuck: audioEngine.getExternalDuckEnabled(),
+      externalDuckDb: audioEngine.getExternalDuckDb(),
+      externalActive: audioEngine.isExternalActive(),
+      systemAudioAvailable: this.systemAudioAvailable,
+      systemAudioBlockedReason: this.systemAudioBlockedReason,
     }));
+    if (speaker) void this.refreshExternalAudioOptions();
+  }
+
+  async refreshExternalAudioOptions(): Promise<void> {
+    const micId = audioEngine.getInputDeviceId() || this.audioPrefs.inputDeviceId || '';
+    let devices: MediaDeviceInfo[];
+    try {
+      devices = await navigator.mediaDevices.enumerateDevices();
+    } catch {
+      devices = [];
+    }
+    const nextOptions = devices
+      .filter((device) => device.kind === 'audioinput' && device.deviceId && device.deviceId !== micId)
+      .map((device, index) => ({
+        id: device.deviceId,
+        label: device.label || `${t('unnamedDevice')} ${index + 1}`,
+      }));
+    const platform = electronAPI()?.platform;
+    const outputId = audioEngine.getOutputDeviceId() || this.audioPrefs.outputDeviceId || '';
+    const defaultOut = devices.find((device) => device.kind === 'audiooutput' && device.deviceId === 'default')?.deviceId
+      || 'default';
+    let systemOk = false;
+    let systemReason = '';
+    if (platform === 'win32') {
+      if (systemAudioCaptureAllowed(outputId, defaultOut)) {
+        systemOk = true;
+      } else {
+        systemReason = t('externalSystemAudioEchoGuard');
+      }
+    } else if (platform === 'darwin' || platform === 'linux') {
+      systemReason = t('externalSystemAudioMacHint');
+    } else {
+      systemReason = t('externalSystemAudioDesktopOnly');
+    }
+    const optionsChanged = JSON.stringify(nextOptions) !== JSON.stringify(this.externalInputOptions)
+      || systemOk !== this.systemAudioAvailable
+      || systemReason !== this.systemAudioBlockedReason;
+    this.externalInputOptions = nextOptions;
+    this.systemAudioAvailable = systemOk;
+    this.systemAudioBlockedReason = systemReason;
+    if (!this.roomDetailsOpen || !document.querySelector('[data-external-audio]')) return;
+    if (optionsChanged) {
+      // Re-paint once with the enumerated list (guarded by optionsChanged).
+      const music = audioEngine.getIsMusicMode();
+      const flags = stageControlFlags(this);
+      const mod = this.isMeModerator();
+      const root = document.getElementById('room-details-root');
+      if (!root || !this.currentChannel) return;
+      root.innerHTML = markup(roomDetailsPanel({
+        topic: this.currentChannel.topic,
+        replaysOn: this.currentChannel.is_replay_enabled !== false,
+        audioQuality: music ? 'music' : 'normal',
+        monitorEnabled: audioEngine.getMonitorEnabled(),
+        voiceEffect: audioEngine.getBroadcastEffect(),
+        voiceEffectOptions: [
+          { id: 'none', label: t('voiceEffectNone') },
+          { id: 'radio', label: t('voiceEffectRadio') },
+          { id: 'deep', label: t('voiceEffectDeep') },
+          { id: 'robot', label: t('voiceEffectRobot') },
+          { id: 'echo', label: t('voiceEffectEcho') },
+        ],
+        spatialAudio: this.audioPrefs.spatialAudioEnabled === true,
+        canMuteAll: mod && flags.canMuteEveryone,
+        canShare: !!safeUrl(this.currentChannel.url),
+        canModerate: mod,
+        canRename: mod && flags.canRename,
+        canPing: mod && flags.canPing,
+        canEnd: mod && flags.canEnd,
+        canChangeVisibility: mod && flags.canChangeVisibility,
+        canHandraise: mod && flags.canHandraise,
+        visibilityMode: 'open',
+        handraiseMode: this.currentChannel.is_handraise_enabled === false ? 'off' : '1',
+        helpUrl: 'https://support.clubhouse.com/hc/en-us/articles/360059385913',
+        showExternalAudio: true,
+        externalDevices: this.externalInputOptions,
+        externalDeviceId: audioEngine.getExternalDeviceId() || this.audioPrefs.externalDeviceId || '',
+        externalVolume: audioEngine.getExternalVolume(),
+        externalMuted: audioEngine.getExternalMuted(),
+        externalMonitor: audioEngine.getExternalMonitor(),
+        externalDuck: audioEngine.getExternalDuckEnabled(),
+        externalDuckDb: audioEngine.getExternalDuckDb(),
+        externalActive: audioEngine.isExternalActive(),
+        systemAudioAvailable: this.systemAudioAvailable,
+        systemAudioBlockedReason: this.systemAudioBlockedReason,
+      }));
+    }
+  }
+
+  async setExternalAudioDevice(deviceId: string): Promise<void> {
+    if (!deviceId) {
+      audioEngine.releaseExternal();
+      audioEngine.setExternalDeviceId('');
+      this.audioPrefs.externalDeviceId = '';
+      this.saveAudioPrefs();
+      this.renderRoomDetails();
+      return;
+    }
+    if (deviceId === SYSTEM_AUDIO_DEVICE_ID) {
+      await this.refreshExternalAudioOptions();
+      if (!this.systemAudioAvailable) {
+        this.showToast(this.systemAudioBlockedReason || t('externalSystemAudioEchoGuard'), '🔊');
+        this.renderRoomDetails();
+        return;
+      }
+    }
+    if (!this.audioPrefs.externalCopyrightSeen) {
+      this.showToast(t('externalCopyrightReminder'), '©️');
+      this.audioPrefs.externalCopyrightSeen = true;
+      this.saveAudioPrefs();
+    }
+    if (!audioEngine.getIsMusicMode()) {
+      const offer = window.confirm(t('externalOfferMusic'));
+      if (offer) {
+        await audioEngine.toggleMusicMode();
+        this.showToast(t('musicHeadphones'), '🎧');
+      }
+    }
+    const ok = await audioEngine.startExternal(deviceId);
+    if (!ok) {
+      this.showToast(t('externalAudioOff'), '🔊');
+      this.renderRoomDetails();
+      return;
+    }
+    this.audioPrefs.externalDeviceId = deviceId;
+    this.saveAudioPrefs();
+    this.renderRoomDetails();
   }
 
   ensureShell(): void {
@@ -1137,6 +1280,20 @@ export class ClubboxApp {
         const label = document.getElementById('soundpad-vol-label');
         if (label) label.textContent = `${Math.round(val * 100)}%`;
       }
+      if (target.id === 'room-external-vol') {
+        const val = parseFloat(target.value);
+        if (!Number.isFinite(val)) return;
+        audioEngine.setExternalVolume(val);
+        this.audioPrefs.externalVolume = val;
+        this.saveAudioPrefs();
+      }
+      if (target.id === 'room-external-duck-db') {
+        const val = parseFloat(target.value);
+        if (!Number.isFinite(val)) return;
+        audioEngine.setExternalDuckDb(val);
+        this.audioPrefs.externalDuckDb = val;
+        this.saveAudioPrefs();
+      }
       if (target.id === 'mic-vol-slider') {
         const val = parseFloat(target.value);
         if (!Number.isFinite(val)) return;
@@ -1189,6 +1346,27 @@ export class ClubboxApp {
         if (value === 'none' || value === 'radio' || value === 'deep' || value === 'robot' || value === 'echo') {
           audioEngine.pickVoiceEffect(value);
         }
+        return;
+      }
+      if (action === 'set-external-device' && target instanceof HTMLSelectElement) {
+        void this.setExternalAudioDevice(target.value);
+        return;
+      }
+      if (action === 'toggle-external-mute' && target instanceof HTMLInputElement) {
+        audioEngine.setExternalMuted(target.checked);
+        return;
+      }
+      if (action === 'toggle-external-monitor' && target instanceof HTMLInputElement) {
+        audioEngine.setExternalMonitor(target.checked);
+        this.audioPrefs.externalMonitor = target.checked;
+        this.saveAudioPrefs();
+        return;
+      }
+      if (action === 'toggle-external-duck' && target instanceof HTMLInputElement) {
+        audioEngine.setExternalDuckEnabled(target.checked);
+        this.audioPrefs.externalDuck = target.checked;
+        this.saveAudioPrefs();
+        this.renderRoomDetails();
         return;
       }
       if (target.id === 'radio-sandbox' || target.id === 'radio-live') {

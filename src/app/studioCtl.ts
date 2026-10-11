@@ -276,6 +276,11 @@ export function applyAudioPrefs(this: ClubboxApp) : void {
     audioEngine.restoreAppliedVoiceEffect(this.audioPrefs.voiceEffectApplied || 'none');
     audioEngine.setInputDeviceId(this.audioPrefs.inputDeviceId);
     audioEngine.setOutputDevice(this.audioPrefs.outputDeviceId);
+    audioEngine.setExternalDeviceId(this.audioPrefs.externalDeviceId || '');
+    audioEngine.setExternalVolume(this.audioPrefs.externalVolume ?? 0.8);
+    audioEngine.setExternalMonitor(this.audioPrefs.externalMonitor === true);
+    audioEngine.setExternalDuckEnabled(this.audioPrefs.externalDuck !== false);
+    audioEngine.setExternalDuckDb(this.audioPrefs.externalDuckDb ?? -12);
     for (const [uid, volume] of Object.entries(this.audioPrefs.remoteVolumes)) {
       audioEngine.setRemoteVolume(uid, volume);
     }
