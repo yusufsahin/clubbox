@@ -17,12 +17,11 @@ All checklist items below are done. No open Status-table task remains except ST-
 - [x] Phase 20 — external audio into the room (second input, system audio on Windows, auto-duck), no virtual cable needed
 - [x] api:triage (no new failures); PRD Today column synced for Phases 18–20
 
-### Last autonomous run (2026-10-12)
+### Last autonomous run (2026-10-12 #recheck)
 
-- Done: Autonomous plan idle — Status table complete through Phase 21; triage clean; PRD catalog Today synced (RH-13…15, ST-10, NAV-*, SO-7).
-- Blocked / deferred: ST-9 Restream RTMP (`@pending @deferred` in audio_studio.feature) until the owner schedules it.
-- Tests: last green run 193 scenarios / 1118 steps; e2e 12/12 (Phase 20).
-- Questions for the owner: none. Schedule ST-9 or add a new phase when you want more work.
+- Done: nothing new — Next run fully ticked; `npm run api:triage` → NO NEW FAILURES; only `@pending` left is ST-9 `@deferred`.
+- Blocked / deferred: ST-9 Restream RTMP until you schedule it (will not un-pend without that).
+- Questions for the owner: schedule ST-9, or write the next phase into CURSOR_TASKS.md.
 
 
 ## Status
