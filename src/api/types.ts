@@ -21,6 +21,10 @@ export interface CHUser {
   num_following?: number;
   num_cofollows?: number;
   follows_me?: boolean;
+  mutual_follows_count?: number;
+  mutual_follows?: CHUser[];
+  mutual_cofollows_count?: number;
+  mutual_cofollows?: CHUser[];
   /** Raw get_profile string. Unmapped values stay an unknown relationship. */
   follow_status?: string;
   has_protected_profile?: boolean;
@@ -125,6 +129,7 @@ export interface CHConversation {
   can_invite: boolean;
   can_delete: boolean;
   can_leave: boolean;
+  participants: CHUser[];
 }
 
 export interface ConversationSegment {

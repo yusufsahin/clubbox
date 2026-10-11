@@ -1,6 +1,6 @@
 import { t } from '../../i18n';
 import type { MessageKey } from '../../i18n/en';
-import { relationshipFromStatus, type Relationship } from '../../api/relationship';
+import { mutualParts, relationshipFromStatus, type Relationship } from '../../api/relationship';
 import type { CHUser } from '../../api/types';
 import { avatarHtml } from '../avatar';
 import { html, markup, safeUrl, type SafeHtml } from '../html';
@@ -17,7 +17,7 @@ export interface ProfileDrawerState {
   canMessage: boolean;
   voiceMode: boolean;
   privateLines: { text: string; voice: boolean }[];
-  listEnabled: { followers: boolean; following: boolean; friends: boolean };
+  listEnabled: { followers: boolean; following: boolean };
 }
 
 export function selfProfilePage(state: ProfileDrawerState): SafeHtml {
@@ -72,6 +72,7 @@ export function paintPersonSheet(drawer: HTMLElement, state: ProfileDrawerState)
       </div>
     </div>
     ${stats(profile, state.listEnabled)}
+    ${mutualBlock(profile)}
     ${bio(profile)}
     ${relationshipControl(relationship, state.canChangeRelationship)}
     ${inRoom ? html`
@@ -114,9 +115,40 @@ function stats(profile: CHUser, listEnabled: ProfileDrawerState['listEnabled']):
     <div class="profile-stats-row">
       ${statBox(profile.num_followers, t('followers'), listEnabled.followers ? 'followers' : null, profile.user_id)}
       ${statBox(profile.num_following, t('following'), listEnabled.following ? 'following' : null, profile.user_id)}
-      ${statBox(profile.num_cofollows, t('profileFriends'), listEnabled.friends ? 'friends' : null, profile.user_id)}
+      ${statBox(profile.num_cofollows, t('profileFriends'), null, profile.user_id)}
     </div>
+    ${listEnabled.followers || listEnabled.following ? '' : html`<p class="list-note profile-lists-note">${t('listsUnavailable')}</p>`}
   `;
+}
+
+function mutualBlock(profile: CHUser): SafeHtml {
+  return html`
+    ${mutualRow(t('mutualFollows'), profile.mutual_follows, profile.mutual_follows_count)}
+    ${mutualRow(t('mutualFriends'), profile.mutual_cofollows, profile.mutual_cofollows_count)}
+  `;
+}
+
+function mutualRow(label: string, people: CHUser[] | undefined, count: number | undefined): SafeHtml {
+  const parts = mutualParts(people, count);
+  if (!parts) return html``;
+  if (parts.shown.length === 0) {
+    return html`<p class="mutual-line">${label}: ${t('mutualOthers', { count: parts.others })}</p>`;
+  }
+  if (parts.others === 0 && parts.shown.length === 1) {
+    return html`<p class="mutual-line">${label}: ${nameButton(parts.shown[0])}</p>`;
+  }
+  if (parts.others === 0) {
+    return html`<p class="mutual-line">${label}: ${nameButton(parts.shown[0])} ${t('mutualAnd')} ${nameButton(parts.shown[1])}</p>`;
+  }
+  return html`<p class="mutual-line">${label}: ${nameButtons(parts.shown)} ${t('mutualAnd')} ${t('mutualOthers', { count: parts.others })}</p>`;
+}
+
+function nameButton(person: CHUser): SafeHtml {
+  return html`<button class="mutual-name" type="button" data-action="open-profile" data-user-id="${person.user_id}">${person.name}</button>`;
+}
+
+function nameButtons(people: CHUser[]): SafeHtml {
+  return html`${people.map((person, index) => html`${index > 0 ? ', ' : ''}${nameButton(person)}`)}`;
 }
 
 function bio(profile: CHUser): SafeHtml {
@@ -124,7 +156,7 @@ function bio(profile: CHUser): SafeHtml {
   return html`<div class="profile-bio">${profile.bio}</div>`;
 }
 
-function statBox(value: number | undefined, label: string, list: 'followers' | 'following' | 'friends' | null, userId: number): SafeHtml {
+function statBox(value: number | undefined, label: string, list: 'followers' | 'following' | null, userId: number): SafeHtml {
   const body = html`
     <span class="stat-value">${value == null ? '—' : value}</span>
     <span class="stat-label">${label}</span>

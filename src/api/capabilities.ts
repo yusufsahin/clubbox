@@ -1,6 +1,6 @@
 import webApiRoutes from '../../electron/webApiRoutes.json' with { type: 'json' };
 
-export type Evidence = 'observed' | 'configured-unverified' | 'unsupported';
+export type Evidence = 'observed' | 'configured-unverified' | 'unsupported' | 'in-bundle';
 export type Transport = 'web-session' | 'sandbox';
 
 type RouteRecord = {
@@ -34,7 +34,6 @@ const SANDBOX_ENDPOINTS = new Set([
   'get_profile',
   'get_followers',
   'get_following',
-  'get_cofollows',
   'follow',
   'unfollow',
   'search_users',
@@ -45,7 +44,10 @@ const SANDBOX_ENDPOINTS = new Set([
 export function evidenceOf(endpoint: string): Evidence {
   const route = ROUTES[endpoint];
   if (!route) return 'unsupported';
-  return route.evidence === 'observed' ? 'observed' : 'configured-unverified';
+  if (route.evidence === 'observed' || route.evidence === 'unsupported' || route.evidence === 'in-bundle') {
+    return route.evidence;
+  }
+  return 'configured-unverified';
 }
 
 export function transportsOf(endpoint: string): Array<'web-session'> {
@@ -59,7 +61,8 @@ export function canCall(
   options?: { allowUnverified?: boolean },
 ): boolean {
   if (transport === 'sandbox') return SANDBOX_ENDPOINTS.has(endpoint);
-  if (evidenceOf(endpoint) === 'unsupported') return false;
+  const evidence = evidenceOf(endpoint);
+  if (evidence === 'unsupported' || evidence === 'in-bundle') return false;
   if (transport !== 'web-session') return false;
   const route = ROUTES[endpoint];
   if (route?.evidence === 'observed') return true;

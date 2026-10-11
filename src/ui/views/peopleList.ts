@@ -6,8 +6,7 @@ import { html, type SafeHtml } from '../html';
 
 export function peopleListTitle(kind: PeopleListKind): string {
   if (kind === 'followers') return t('followers');
-  if (kind === 'following') return t('following');
-  return t('profileFriends');
+  return t('following');
 }
 
 export function peopleListView(state: {

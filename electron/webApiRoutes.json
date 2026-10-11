@@ -94,5 +94,210 @@
     "method": "POST",
     "evidence": "observed",
     "mutation": false
+  },
+  "get_conversation": {
+    "path": "/web_api/get_conversation",
+    "method": "POST",
+    "evidence": "observed"
+  },
+  "get_create_channel_targets": {
+    "path": "/web_api/get_create_channel_targets",
+    "method": "POST",
+    "evidence": "observed"
+  },
+  "get_feed_v3": {
+    "path": "/web_api/get_feed_v3",
+    "method": "POST",
+    "evidence": "observed"
+  },
+  "add_conversation_segment": {
+    "path": "/web_api/add_conversation_segment",
+    "method": "POST",
+    "evidence": "in-bundle"
+  },
+  "ask_question_about_conversation": {
+    "path": "/web_api/ask_question_about_conversation",
+    "method": "POST",
+    "evidence": "in-bundle"
+  },
+  "ask_question_about_me": {
+    "path": "/web_api/ask_question_about_me",
+    "method": "POST",
+    "evidence": "in-bundle"
+  },
+  "complete_phone_number_web_auth": {
+    "path": "/web_api/complete_phone_number_web_auth",
+    "method": "POST",
+    "evidence": "in-bundle"
+  },
+  "create_conversation": {
+    "path": "/web_api/create_conversation",
+    "method": "POST",
+    "evidence": "in-bundle"
+  },
+  "delete_conversation": {
+    "path": "/web_api/delete_conversation",
+    "method": "POST",
+    "evidence": "in-bundle"
+  },
+  "delete_conversation_segment": {
+    "path": "/web_api/delete_conversation_segment",
+    "method": "POST",
+    "evidence": "in-bundle"
+  },
+  "emoji_reaction": {
+    "path": "/web_api/emoji_reaction",
+    "method": "POST",
+    "evidence": "in-bundle"
+  },
+  "get_conversation_unread_summary": {
+    "path": "/web_api/get_conversation_unread_summary",
+    "method": "POST",
+    "evidence": "in-bundle"
+  },
+  "get_friend_zone_match": {
+    "path": "/web_api/get_friend_zone_match",
+    "method": "POST",
+    "evidence": "in-bundle"
+  },
+  "get_highlight": {
+    "path": "/web_api/get_highlight",
+    "method": "POST",
+    "evidence": "in-bundle"
+  },
+  "get_invite_conversation": {
+    "path": "/web_api/get_invite_conversation",
+    "method": "POST",
+    "evidence": "in-bundle"
+  },
+  "get_replay_channel": {
+    "path": "/web_api/get_replay_channel",
+    "method": "POST",
+    "evidence": "in-bundle"
+  },
+  "get_replay_channel_chunk": {
+    "path": "/web_api/get_replay_channel_chunk",
+    "method": "POST",
+    "evidence": "in-bundle"
+  },
+  "get_social_club": {
+    "path": "/web_api/get_social_club",
+    "method": "POST",
+    "evidence": "in-bundle"
+  },
+  "get_social_club_members": {
+    "path": "/web_api/get_social_club_members",
+    "method": "POST",
+    "evidence": "in-bundle"
+  },
+  "get_social_club_message_thread": {
+    "path": "/web_api/get_social_club_message_thread",
+    "method": "POST",
+    "evidence": "in-bundle"
+  },
+  "get_social_club_messages": {
+    "path": "/web_api/get_social_club_messages",
+    "method": "POST",
+    "evidence": "in-bundle"
+  },
+  "get_user_social_clubs": {
+    "path": "/web_api/get_user_social_clubs",
+    "method": "POST",
+    "evidence": "in-bundle"
+  },
+  "gif_reaction": {
+    "path": "/web_api/gif_reaction",
+    "method": "POST",
+    "evidence": "in-bundle"
+  },
+  "guest_active_ping": {
+    "path": "/web_api/guest_active_ping",
+    "method": "POST",
+    "evidence": "in-bundle"
+  },
+  "guest_join_channel": {
+    "path": "/web_api/guest_join_channel",
+    "method": "POST",
+    "evidence": "in-bundle"
+  },
+  "guest_leave_channel": {
+    "path": "/web_api/guest_leave_channel",
+    "method": "POST",
+    "evidence": "in-bundle"
+  },
+  "mark_conversation_segment_listened": {
+    "path": "/web_api/mark_conversation_segment_listened",
+    "method": "POST",
+    "evidence": "in-bundle"
+  },
+  "record_guest_action_trails": {
+    "path": "/web_api/record_guest_action_trails",
+    "method": "POST",
+    "evidence": "in-bundle"
+  },
+  "resend_phone_number_auth": {
+    "path": "/web_api/resend_phone_number_auth",
+    "method": "POST",
+    "evidence": "in-bundle"
+  },
+  "send_conversation_emoji_reaction": {
+    "path": "/web_api/send_conversation_emoji_reaction",
+    "method": "POST",
+    "evidence": "in-bundle"
+  },
+  "send_social_club_message": {
+    "path": "/web_api/send_social_club_message",
+    "method": "POST",
+    "evidence": "in-bundle"
+  },
+  "send_social_club_message_emoji_reaction": {
+    "path": "/web_api/send_social_club_message_emoji_reaction",
+    "method": "POST",
+    "evidence": "in-bundle"
+  },
+  "send_social_club_threaded_message": {
+    "path": "/web_api/send_social_club_threaded_message",
+    "method": "POST",
+    "evidence": "in-bundle"
+  },
+  "set_channel_title": {
+    "path": "/web_api/set_channel_title",
+    "method": "POST",
+    "evidence": "in-bundle"
+  },
+  "start_phone_number_web_auth": {
+    "path": "/web_api/start_phone_number_web_auth",
+    "method": "POST",
+    "evidence": "in-bundle"
+  },
+  "talk": {
+    "path": "/web_api/talk",
+    "method": "POST",
+    "evidence": "in-bundle"
+  },
+  "update_conversation_title": {
+    "path": "/web_api/update_conversation_title",
+    "method": "POST",
+    "evidence": "in-bundle"
+  },
+  "update_last_read_social_club_message": {
+    "path": "/web_api/update_last_read_social_club_message",
+    "method": "POST",
+    "evidence": "in-bundle"
+  },
+  "web_listener_active_ping": {
+    "path": "/web_api/web_listener_active_ping",
+    "method": "POST",
+    "evidence": "in-bundle"
+  },
+  "web_listener_join": {
+    "path": "/web_api/web_listener_join",
+    "method": "POST",
+    "evidence": "in-bundle"
+  },
+  "web_listener_leave": {
+    "path": "/web_api/web_listener_leave",
+    "method": "POST",
+    "evidence": "in-bundle"
   }
 }

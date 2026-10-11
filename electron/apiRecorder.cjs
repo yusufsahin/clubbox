@@ -7,6 +7,7 @@ const { BrowserWindow } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const { createRedactor, outputHasLeak } = require('./redact.cjs');
+const { extractBundleEndpoints, isBundleScript, scriptPath } = require('./bundleScan.cjs');
 
 const PAGE_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
@@ -23,6 +24,15 @@ const CHECKLIST = [
   { id: 'followers-list', label: 'Open the followers list', test: (ctx) => /follower/.test(ctx.path) && !/request|notification/.test(ctx.path) },
   { id: 'following-list', label: 'Open the following list', test: (ctx) => /following/.test(ctx.path) && !/request/.test(ctx.path) },
   { id: 'friends-list', label: 'Open the friends list', test: (ctx) => /cofollow|mutual_follow|\/friends/.test(ctx.path) },
+  { id: 'profile-counts-other', group: 'Profile lists', label: "On someone else's profile, click followers, following, friends, and mutual", test: () => false },
+  { id: 'profile-counts-self', group: 'Profile lists', label: 'On your profile, click followers, following, friends, and mutual', test: () => false },
+  { id: 'message-picker', group: 'Profile lists', label: 'Messages: new message, then scroll the friend picker', test: (ctx) => /suggested_invite|new_conversation|create_conversation/.test(ctx.path) },
+  { id: 'invite-picker', group: 'Profile lists', label: 'In a room: share, then invite people', test: (ctx) => /invite/.test(ctx.path) && !/uninvite|speaker/.test(ctx.path) },
+  { id: 'create-picker', group: 'Profile lists', label: 'Host a room as friends only or friends of friends, then open the people picker', test: (ctx) => ctx.creating && (ctx.privacy === 'friends' || ctx.privacy === 'friends-of-friends') },
+  { id: 'search-add-friends', group: 'Profile lists', label: 'Search: people tab and the add-friends section', test: (ctx) => ctx.path.includes('search') && ctx.hasSearchTerm },
+  { id: 'activity-requests', group: 'Profile lists', label: 'Activity: friend requests', test: (ctx) => /friend_request|follow_request|requested_follow/.test(ctx.path) },
+  { id: 'house-members', group: 'Profile lists', label: 'House: members list', test: (ctx) => /member/.test(ctx.path) && /social_club|club|house/.test(ctx.path) },
+  { id: 'online-friends', group: 'Profile lists', label: 'Messages: the online-friends row', test: (ctx) => /online_friend|get_online|presence/.test(ctx.path) },
   { id: 'follow', label: 'Follow', test: (ctx) => ctx.path.includes('/follow') && !ctx.path.includes('unfollow') },
   { id: 'unfollow', label: 'Unfollow', test: (ctx) => ctx.path.includes('unfollow') },
   { id: 'preview', label: 'Preview or unmute a room from the hallway', test: (ctx) => /preview|unmute|listen_channel/.test(ctx.path) },
@@ -79,6 +89,19 @@ function startApiRecorder(hooks) {
   const pending = new Map();
   const finalized = new Set();
   const sockets = new Map();
+  const bundlePending = new Map();
+  const bundleScripts = new Map();
+  const bundlePath = path.join(dir, 'bundle-endpoints.json');
+  try {
+    const existing = JSON.parse(fs.readFileSync(bundlePath, 'utf8'));
+    const scripts = Array.isArray(existing?.scripts) ? existing.scripts : [];
+    for (const script of scripts) {
+      if (typeof script?.path !== 'string' || !Array.isArray(script.endpoints)) continue;
+      bundleScripts.set(script.path, new Set(script.endpoints.filter((name) => typeof name === 'string')));
+    }
+  } catch {
+    // The first scan creates the file.
+  }
   const done = new Set();
   const hinted = new Set();
   const notes = new Map();
@@ -310,6 +333,29 @@ function startApiRecorder(hooks) {
     };
   }
 
+  function rememberBundle(urlString, source) {
+    const found = extractBundleEndpoints(source);
+    const where = scriptPath(urlString);
+    if (!where || found.length === 0) return;
+    const current = bundleScripts.get(where) || new Set();
+    for (const name of found) current.add(name);
+    bundleScripts.set(where, current);
+    const scripts = [...bundleScripts.entries()]
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([script, endpoints]) => ({ path: script, endpoints: [...endpoints].sort() }));
+    fs.writeFileSync(bundlePath, JSON.stringify({ scripts }, null, 2));
+  }
+
+  async function scanBundleScript(requestId, urlString) {
+    try {
+      const result = await win.webContents.debugger.sendCommand('Network.getResponseBody', { requestId });
+      if (!result || result.base64Encoded || typeof result.body !== 'string') return;
+      rememberBundle(urlString, result.body);
+    } catch {
+      // A script body that Chrome will not return is skipped.
+    }
+  }
+
   function parseBody(text) {
     if (!text) return null;
     try {
@@ -372,8 +418,11 @@ function startApiRecorder(hooks) {
 
     if (method === 'Network.responseReceived') {
       const entry = pending.get(params.requestId);
-      if (!entry) return;
-      entry.status = params.response?.status;
+      if (entry) entry.status = params.response?.status;
+      const url = params.response?.url;
+      if (isBundleScript(url, params.type, win.webContents.getURL())) {
+        bundlePending.set(params.requestId, url);
+      }
       return;
     }
 
@@ -389,8 +438,11 @@ function startApiRecorder(hooks) {
 
     if (method === 'Network.loadingFinished') {
       if (!claimFinalize(finalized, params.requestId)) return;
+      const scriptUrl = bundlePending.get(params.requestId);
+      bundlePending.delete(params.requestId);
       const entry = pending.get(params.requestId);
       pending.delete(params.requestId);
+      if (scriptUrl) await scanBundleScript(params.requestId, scriptUrl);
       if (!entry) return;
       await finishHttp(params.requestId, entry, params.timestamp);
       return;

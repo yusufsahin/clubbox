@@ -2,7 +2,7 @@ import './style.css';
 import { ClubhouseApiError, clubhouseClient } from './api/client';
 import { beginJoin, commitJoin, emptyRoomSession, finishLeave, localClipAllowed, roleSyncDecision, roomAudience } from './api/guards';
 import { leaveClosesRoom, roomHasOthers } from './api/roomActions';
-import { applyFollowResponse, mergeProfile, PEOPLE_LIST_ENDPOINTS, profileCountsMissing, readProfile, relationshipFromStatus, type PeopleListKind } from './api/relationship';
+import { applyFollowResponse, mergeProfile, PEOPLE_LIST_ENDPOINTS, profileCountsMissing, readProfile, relationshipFromStatus, talkPartners, type PeopleListKind } from './api/relationship';
 
 const CHAT_POLL_MS = 15_000;
 const GUIDELINES_KEY = 'clubbox-guidelines-accepted';
@@ -331,7 +331,7 @@ class ClubboxApp {
       this.dmRequestCount = 0;
       this.reportApiError(err);
     }
-    if (this.currentTab === 'messages') this.render();
+    if (this.currentTab === 'messages' || this.currentTab === 'friends') this.render();
   }
 
   private async loadActivity(): Promise<void> {
@@ -1504,6 +1504,19 @@ class ClubboxApp {
     this.renderProfileDrawer();
   }
 
+  private findKnownUser(uid: string): CHUser | undefined {
+    const hit = this.discoverHits?.find((entry) => entry.kind === 'user' && entry.user.user_id.toString() === uid);
+    const mutual = [
+      ...(this.selectedProfile?.mutual_follows ?? []),
+      ...(this.selectedProfile?.mutual_cofollows ?? []),
+    ];
+    return this.currentChannel?.users.find((entry) => entry.user_id.toString() === uid)
+      ?? (hit?.kind === 'user' ? hit.user : undefined)
+      ?? this.peopleList?.users?.find((entry) => entry.user_id.toString() === uid)
+      ?? talkPartners(this.conversations, null).find((entry) => entry.user_id.toString() === uid)
+      ?? mutual.find((entry) => entry.user_id.toString() === uid);
+  }
+
   private inspectProfile(user: CHUser) {
     this.clearPeopleList();
     this.selectedProfile = { ...user };
@@ -1978,7 +1991,10 @@ class ClubboxApp {
     } else if (this.currentTab === 'discover') {
       return discoverView(this.discoverQuery, this.discoverTab, this.discoverHits, this.discoverLoading);
     } else if (this.currentTab === 'friends') {
-      return friendsView(this.suggestionsCount);
+      return friendsView(
+        this.suggestionsCount,
+        this.conversationsLoaded ? talkPartners(this.conversations, this.me?.user_id ?? null) : null,
+      );
     } else if (this.currentTab === 'messages') {
       return messagesView({
         items: this.conversationsLoaded ? this.conversations : null,
@@ -2178,7 +2194,6 @@ class ClubboxApp {
       listEnabled: {
         followers: clubhouseClient.supports(PEOPLE_LIST_ENDPOINTS.followers),
         following: clubhouseClient.supports(PEOPLE_LIST_ENDPOINTS.following),
-        friends: clubhouseClient.supports(PEOPLE_LIST_ENDPOINTS.friends),
       },
     };
   }
@@ -2410,7 +2425,10 @@ class ClubboxApp {
         } else {
           this.stopActivityRefresh();
         }
-        if (tab === 'friends') void this.loadSuggestions();
+        if (tab === 'friends') {
+          void this.loadSuggestions();
+          void this.loadConversations();
+        }
       }
       return;
     }
@@ -2680,18 +2698,14 @@ class ClubboxApp {
         break;
       case 'open-profile': {
         const uid = el.dataset.userId;
-        const hit = this.discoverHits?.find((entry) => entry.kind === 'user' && entry.user.user_id.toString() === uid);
-        const listed = this.peopleList?.users?.find((entry) => entry.user_id.toString() === uid);
-        const user = this.currentChannel?.users.find((entry) => entry.user_id.toString() === uid)
-          ?? (hit?.kind === 'user' ? hit.user : undefined)
-          ?? listed;
+        const user = uid ? this.findKnownUser(uid) : undefined;
         if (user) this.inspectProfile(user);
         break;
       }
       case 'open-people-list': {
         const kind = el.dataset.list;
         const userId = Number(el.dataset.userId);
-        if ((kind === 'followers' || kind === 'following' || kind === 'friends') && Number.isFinite(userId)) {
+        if ((kind === 'followers' || kind === 'following') && Number.isFinite(userId)) {
           void this.openPeopleList(kind, userId, null);
         }
         break;

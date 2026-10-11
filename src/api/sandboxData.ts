@@ -118,6 +118,15 @@ export const INITIAL_MOCK_CHANNELS: CHChannel[] = [
         num_followers: 1452,
         num_following: 845,
         num_cofollows: 786,
+        mutual_follows_count: 3,
+        mutual_follows: [
+          { user_id: 301, name: 'Chloe Davis', username: 'chloed', photo_url: null },
+          { user_id: 302, name: 'David Kim', username: 'dkim_dev', photo_url: null },
+        ],
+        mutual_cofollows_count: 1,
+        mutual_cofollows: [
+          { user_id: 204, name: 'BeatMaker Kai', username: 'kaibeats', photo_url: null },
+        ],
         follows_me: true,
         has_protected_profile: false,
         is_speaker: false,
@@ -248,19 +257,18 @@ function sandboxPerson(id: number): CHUser | null {
   return null;
 }
 
-function sandboxPeoplePages(kind: 'followers' | 'following' | 'friends'): CHUser[][] {
+function sandboxPeoplePages(kind: 'followers' | 'following'): CHUser[][] {
   const row = (id: number): CHUser[] => {
     const user = sandboxPerson(id);
     return user ? [user] : [];
   };
   if (kind === 'followers') return [row(301), row(302)];
-  if (kind === 'following') return [row(303)];
-  return [row(304), row(204)];
+  return [row(303)];
 }
 
 /** Fictional pages for sandbox only. The second page is addressed by cursor "2". */
 export function sandboxPeoplePage(
-  kind: 'followers' | 'following' | 'friends',
+  kind: 'followers' | 'following',
   cursor: string | undefined,
   userId?: number,
 ): { users: CHUser[]; next_cursor: string | null } {

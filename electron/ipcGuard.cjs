@@ -21,7 +21,10 @@ const HEADER_NAMES = new Set([
 ]);
 
 function isAllowedEndpoint(name) {
-  return WEB_AUTH.has(name) || Object.prototype.hasOwnProperty.call(routes, name);
+  if (WEB_AUTH.has(name)) return true;
+  const route = routes[name];
+  if (!route) return false;
+  return route.evidence !== 'in-bundle';
 }
 
 function isPlainPayload(value, depth) {

@@ -8,7 +8,7 @@ Sign-in (`start_phone_number_web_auth`, `complete_phone_number_web_auth`, `resen
 
 ## POST /web_api/me
 
-Seen in a capture. The checklist did not label the click.
+Seen when: smoke-open.
 
 ### Request
 
@@ -284,7 +284,7 @@ App endpoint key: `me`. Configured method: POST.
 
 ## POST /web_api/get_feed_v3
 
-Seen in a capture. The checklist did not label the click.
+Seen when: smoke-open.
 
 Hint match (not proof): Open home feed.
 
@@ -770,7 +770,7 @@ App endpoint key: `get_edge_stories`. Configured method: GET.
 
 ## POST /web_api/get_conversations
 
-Seen in a capture. The checklist did not label the click.
+Seen when: smoke-open.
 
 Hint match (not proof): Open a DM.
 
@@ -1022,8 +1022,6 @@ Hint match (not proof): Invite a listener.
 Status codes seen: 200.
 
 App endpoint key: `get_group_suggested_invites`. Configured method: POST.
-
-## Captured paths the app does not call yet
 
 ## POST /web_api/get_conversation
 
@@ -1283,6 +1281,8 @@ Hint match (not proof): Open a DM.
 ```
 
 Status codes seen: 200.
+
+App endpoint key: `get_conversation`. Configured method: POST.
 
 ## POST /web_api/get_create_channel_targets
 
@@ -1563,6 +1563,213 @@ Seen in a capture. The checklist did not label the click.
 
 Status codes seen: 200.
 
+App endpoint key: `get_create_channel_targets`. Configured method: POST.
+
+## POST /web_api/get_feed_v3
+
+Seen when: smoke-open.
+
+Hint match (not proof): Open home feed.
+
+### Request
+
+- No request body observed.
+
+```json
+{}
+```
+
+### Response
+
+- `items`: array<object>
+  - `channel`: object
+    - `creator_user_profile_id`: string
+    - `channel_id`: string
+    - `channel`: string
+    - `topic`: string
+    - `visited`: boolean
+    - `privacy_settings`: object
+      - `type`: string
+      - `display_text`: string
+      - `tooltip_text`: string
+    - `is_private`: boolean
+    - `url`: string
+    - `num_speakers`: number
+    - `num_all`: number
+    - `is_replay_enabled`: boolean
+    - `users`: array<object>
+      - `user_id`: string
+      - `name`: string
+      - `username`: string
+      - `photo_url`: string
+      - `is_speaker`: boolean
+    - `social_club`: object
+      - `social_club_id`: string
+      - `name`: string
+      - `photo_url`: string
+      - `social_club_event_id`: null
+    - `logging_context`: object
+      - `entity_id`: string
+      - `batch_id`: string
+      - `feed_rank`: number
+      - `type`: number
+      - `entity`: string
+      - `speaker_ids`: array<number>
+      - `reasons`: array<number>
+      - `social_club_id`: string
+      - `topic_key`: null
+    - `is_social_mode`: boolean
+    - `is_active_trending_topic_channel`: boolean
+- `available_topics`: array<object>
+  - `key`: string
+  - `display_name`: string
+- `next_cursor`: string
+
+```json
+{
+  "items": [
+    {
+      "channel": {
+        "creator_user_profile_id": "<id>",
+        "channel_id": "<id>",
+        "channel": "MwVVJjWb",
+        "topic": "‼️Black And Jewish Americans Part 4// Abby Phillip CNN‼️",
+        "visited": false,
+        "privacy_settings": {
+          "type": "house",
+          "display_text": "user_16",
+          "tooltip_text": "this room is open to everyone"
+        },
+        "is_private": true,
+        "url": "https://www.clubhouse.com/room/MwVVJjWb?utm_medium=ch_room_pl&utm_campaign=nuBblL0zLJaRQmEljazl7A-2510714&chs=p7wCwqOZoJ%3AvdywmOKFY0jymA5rdTtX3uu_IUh-D1Oew1pYfSsoUxQ",
+        "num_speakers": 11,
+        "num_all": 80,
+        "is_replay_enabled": false,
+        "users": [
+          {
+            "user_id": "<id>",
+            "name": "user_1",
+            "username": "user_2",
+            "photo_url": "user_3",
+            "is_speaker": true
+          },
+          {
+            "user_id": "<id>",
+            "name": "user_4",
+            "username": "user_5",
+            "photo_url": "user_6",
+            "is_speaker": true
+          },
+          {
+            "user_id": "<id>",
+            "name": "user_7",
+            "username": "user_8",
+            "photo_url": "user_9",
+            "is_speaker": true
+          },
+          {
+            "user_id": "<id>",
+            "name": "user_10",
+            "username": "user_11",
+            "photo_url": "user_12",
+            "is_speaker": true
+          },
+          {
+            "user_id": "<id>",
+            "name": "user_13",
+            "username": "user_14",
+            "photo_url": "user_15",
+            "is_speaker": true
+          }
+        ],
+        "social_club": {
+          "social_club_id": "<id>",
+          "name": "user_16",
+          "photo_url": "user_17",
+          "social_club_event_id": null
+        },
+        "logging_context": {
+          "entity_id": "<id>",
+          "batch_id": "3f1ffc1a-e28f-48f0-80de-9e00e140ebf1",
+          "feed_rank": 0,
+          "type": 1,
+          "entity": "channel",
+          "speaker_ids": [
+            631942241,
+            499208588,
+            870183226,
+            659902237,
+            1623180869
+          ],
+          "reasons": [
+            28
+          ],
+          "social_club_id": "<id>",
+          "topic_key": null
+        },
+        "is_social_mode": false,
+        "is_active_trending_topic_channel": false
+      }
+    },
+    {
+      "channel": {
+        "creator_user_profile_id": "<id>",
+        "channel_id": "<id>",
+        "channel": "PYGjEB3G",
+        "topic": "💘🕊️ MALAYALAM SONGS 💎WHERE DREAMS BLOOM 🎶❤️‍🔥",
+        "visited": false,
+        "privacy_settings": {
+          "type": "house",
+          "display_text": "user_33",
+          "tooltip_text": "this room is open to everyone"
+        },
+        "is_private": true,
+        "url": "https://www.clubhouse.com/room/PYGjEB3G?utm_medium=ch_room_pm&utm_campaign=nuBblL0zLJaRQmEljazl7A-2510714&chs=p7wCwqOZoJ%3AvdywmOKFY0jymA5rdTtX3uu_IUh-D1Oew1pYfSsoUxQ",
+        "num_speakers": 15,
+        "num_all": 39,
+        "is_replay_enabled": false,
+        "users": [
+          {
+            "user_id": "<id>",
+            "name": "user_18",
+            "username": "user_19",
+            "photo_url": "user_20",
+            "is_speaker": true
+          },
+          {
+            "user_id": "<id>",
+            "name": "user_21",
+            "username": "user_22",
+            "photo_url": "user_23",
+            "is_speaker": true
+          },
+          {
+            "user_id": "<id>",
+            "name": "user_24",
+            "username": "user_25",
+            "photo_url": "user_26",
+            "is_speaker": true
+          },
+          {
+            "user_id": "<id>",
+            "name": "user_27",
+            "username": "user_28",
+            "photo_url": "user_29",
+            "is_speaker": true
+          },
+          {
+            "user_id": "<id>",
+            "name": "user_30",
+            "username": "user_31",
+…
+```
+
+Status codes seen: 200.
+
+App endpoint key: `get_feed_v3`. Configured method: POST.
+
+## Captured paths the app does not call yet
+
 ## POST /web_api/send_conversation_emoji_reaction
 
 Seen in a capture. The checklist did not label the click.
@@ -1605,4 +1812,4 @@ Status codes seen: 400.
 
 ## Checklist coverage
 
-No labeled actions in the current captures. Regex hints are not treated as proof.
+- `smoke-open`: POST /web_api/get_conversations (200); POST /web_api/get_feed_v3 (200); POST /web_api/me (200)

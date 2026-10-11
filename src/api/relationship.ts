@@ -10,12 +10,11 @@ export type Relationship = 'unknown' | 'none' | 'following' | 'follower' | 'frie
 export const FOLLOW_STATUS: Readonly<Record<string, Exclude<Relationship, 'unknown'>>> = {};
 
 /** Sandbox list keys. Live routes stay absent until a capture records the request body. */
-export type PeopleListKind = 'followers' | 'following' | 'friends';
+export type PeopleListKind = 'followers' | 'following';
 
 export const PEOPLE_LIST_ENDPOINTS: Record<PeopleListKind, string> = {
   followers: 'get_followers',
   following: 'get_following',
-  friends: 'get_cofollows',
 };
 
 export interface PeopleListPage {
@@ -70,8 +69,48 @@ function flag(value: unknown): boolean | undefined {
   return undefined;
 }
 
+export interface MutualParts {
+  shown: CHUser[];
+  others: number;
+}
+
+/** First two captured names, plus the leftover from `count` when the array is shorter. */
+export function mutualParts(people: CHUser[] | undefined, count: number | undefined): MutualParts | null {
+  const list = Array.isArray(people) ? people.filter((person) => person.name) : [];
+  const total = typeof count === 'number' && Number.isFinite(count) ? Math.max(0, Math.floor(count)) : list.length;
+  const shown = list.slice(0, 2);
+  const others = Math.max(0, total - shown.length);
+  if (shown.length === 0 && others === 0) return null;
+  return { shown, others };
+}
+
+/** People named on observed conversation rows. This is not a friends list. */
+export function talkPartners(conversations: { participants?: CHUser[] }[], myId: number | null): CHUser[] {
+  const seen = new Set<number>();
+  const people: CHUser[] = [];
+  for (const conversation of conversations) {
+    for (const person of conversation.participants ?? []) {
+      if (myId != null && person.user_id === myId) continue;
+      if (seen.has(person.user_id)) continue;
+      seen.add(person.user_id);
+      people.push(person);
+    }
+  }
+  return people;
+}
+
+function readMutualList(value: unknown): CHUser[] {
+  if (!Array.isArray(value)) return [];
+  const people: CHUser[] = [];
+  for (const entry of value) {
+    const user = readProfile(entry, 1);
+    if (user?.name) people.push(user);
+  }
+  return people;
+}
+
 /** Reads get_profile fields. Drops is_following; that flag is not the friend marker. */
-export function readProfile(raw: unknown): CHUser | null {
+export function readProfile(raw: unknown, depth = 0): CHUser | null {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
   const record = raw as Record<string, unknown>;
   const id = numericId(record.user_id);
@@ -99,6 +138,16 @@ export function readProfile(raw: unknown): CHUser | null {
   const followsMe = flag(record.follows_me);
   if (followsMe != null) user.follows_me = followsMe;
   if (typeof status === 'string' && status.length > 0) user.follow_status = status;
+  if (depth === 0) {
+    const mutualFollows = readMutualList(record.mutual_follows);
+    const mutualFriends = readMutualList(record.mutual_cofollows);
+    const mutualFollowsCount = countOf(record.mutual_follows_count);
+    const mutualFriendsCount = countOf(record.mutual_cofollows_count);
+    if (mutualFollowsCount != null) user.mutual_follows_count = mutualFollowsCount;
+    if (mutualFriendsCount != null) user.mutual_cofollows_count = mutualFriendsCount;
+    if (mutualFollows.length > 0) user.mutual_follows = mutualFollows;
+    if (mutualFriends.length > 0) user.mutual_cofollows = mutualFriends;
+  }
   const protectedProfile = flag(record.has_protected_profile);
   if (protectedProfile != null) user.has_protected_profile = protectedProfile;
   if (typeof display === 'string' || display === null) user.displayname = display;
@@ -126,6 +175,10 @@ export function mergeProfile(base: CHUser, incoming: CHUser): CHUser {
     num_followers: incoming.num_followers ?? base.num_followers,
     num_following: incoming.num_following ?? base.num_following,
     num_cofollows: incoming.num_cofollows ?? base.num_cofollows,
+    mutual_follows_count: incoming.mutual_follows_count ?? base.mutual_follows_count,
+    mutual_cofollows_count: incoming.mutual_cofollows_count ?? base.mutual_cofollows_count,
+    mutual_follows: incoming.mutual_follows ?? base.mutual_follows,
+    mutual_cofollows: incoming.mutual_cofollows ?? base.mutual_cofollows,
     follows_me: incoming.follows_me ?? base.follows_me,
     follow_status: incoming.follow_status ?? base.follow_status,
     has_protected_profile: incoming.has_protected_profile ?? base.has_protected_profile,

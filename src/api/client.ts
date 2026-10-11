@@ -353,6 +353,23 @@ function normalizeChannelPayload(data: Record<string, unknown>): void {
   }
 }
 
+function readConversationPeople(raw: Record<string, unknown>): CHUser[] {
+  const rows = [
+    raw.creator_user_profile,
+    ...(Array.isArray(raw.segments_authors) ? raw.segments_authors : []),
+    ...(Array.isArray(raw.pending_participants) ? raw.pending_participants : []),
+  ];
+  const people: CHUser[] = [];
+  const seen = new Set<number>();
+  for (const row of rows) {
+    const user = readProfile(row);
+    if (!user || seen.has(user.user_id)) continue;
+    seen.add(user.user_id);
+    people.push(user);
+  }
+  return people;
+}
+
 function normalizeConversations(data: { conversations?: unknown }): CHConversation[] {
   const list = Array.isArray(data.conversations) ? data.conversations : [];
   const conversations: CHConversation[] = [];
@@ -403,6 +420,7 @@ function normalizeConversations(data: { conversations?: unknown }): CHConversati
     const photo = club && typeof club.photo_url === 'string'
       ? club.photo_url
       : (typeof raw.social_club_photo_url === 'string' ? raw.social_club_photo_url : '');
+    const participants = readConversationPeople(raw);
     conversations.push({
       conversation_id: id,
       title: typeof raw.title === 'string' ? raw.title : '',
@@ -431,6 +449,7 @@ function normalizeConversations(data: { conversations?: unknown }): CHConversati
       can_invite: permissionOn(permissions?.can_invite),
       can_delete: permissionOn(permissions?.can_delete),
       can_leave: permissionOn(permissions?.can_leave),
+      participants,
     });
   }
   return conversations;
@@ -944,13 +963,8 @@ export class ClubhouseApiClient {
       }
 
       case 'get_followers':
-      case 'get_following':
-      case 'get_cofollows': {
-        const kind: PeopleListKind = endpoint === 'get_followers'
-          ? 'followers'
-          : endpoint === 'get_following'
-            ? 'following'
-            : 'friends';
+      case 'get_following': {
+        const kind: PeopleListKind = endpoint === 'get_followers' ? 'followers' : 'following';
         const page = sandboxPeoplePage(kind, input.cursor, input.userId);
         return { success: true, users: page.users, next_cursor: page.next_cursor } as T;
       }
@@ -1227,8 +1241,8 @@ export class ClubhouseApiClient {
         short_title: friend.name,
         preview_segment_text: '',
         summary: '',
-        creator_user_profile: { name: friend.name },
-        segments_authors: [{ name: friend.name }],
+        creator_user_profile: { user_id: friend.userId, name: friend.name, username: friend.username, photo_url: null },
+        segments_authors: [{ user_id: friend.userId, name: friend.name, username: friend.username, photo_url: null }],
         is_subscribed: true,
         is_permanent_social_club_conversation: false,
         preview_segment_type: '',
@@ -1410,12 +1424,12 @@ export class ClubhouseApiClient {
     this.sandboxConversationRecords = [
       {
         conversation_id: 'sandbox-vm',
-        title: 'Noah Ellis',
-        short_title: 'Noah Ellis',
+        title: 'Chloe Davis',
+        short_title: 'Chloe Davis',
         preview_segment_text: 'Sandbox voice note',
         summary: 'Private voice message',
-        creator_user_profile: { name: 'Noah Ellis' },
-        segments_authors: [{ name: 'Noah Ellis' }],
+        creator_user_profile: { user_id: 301, name: 'Chloe Davis', username: 'chloed', photo_url: null },
+        segments_authors: [{ user_id: 301, name: 'Chloe Davis', username: 'chloed', photo_url: null }],
         is_subscribed: true,
         logging_context: { has_listened: false },
         is_permanent_social_club_conversation: false,
