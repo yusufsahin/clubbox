@@ -57,6 +57,8 @@ export interface CHChannel {
     tooltip_text?: string;
   };
   is_clips_enabled?: boolean;
+  /** Present on some feed cards — used for “running for” on hallway cards. */
+  time_created?: string;
   is_handraise_enabled?: boolean;
   /** Community: 1 = everyone, 2 = friends of speakers (when handraise is on). */
   handraise_permission?: number;

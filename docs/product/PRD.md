@@ -88,7 +88,7 @@ Legend — Today: ✅ works live · 🧪 sandbox/UI only · ❌ missing. Evidenc
 | ID | Feature | HC | CD | Today | Evidence | Priority |
 | --- | --- | --- | --- | --- | --- | --- |
 | HAL-1 | Hallway feed with topic chips | ✓ | ✓ | ✅ | O (get_feed_v3) | P0 |
-| HAL-2 | Room card: title, house, replays/clips on, age, listeners, speakers, copy link, hide, join | ✓ | ✓ | 🧪 partial | O | P0 |
+| HAL-2 | Room card: title, house, replays/clips on, age, listeners, speakers, copy link, hide, join | ✓ | ✓ | ✅ | O | P0 |
 | HAL-3 | Hide room from hallway | ✓ | ✓ | ✅ | C (hide_channel) | P2 |
 | HAL-4 | Keyword filters + highlight; highlight rooms with friends; NSFW toggle | | ✓ | ✅ | — (client side) | P1 |
 | HAL-5 | Search people/rooms/houses (tabs) | ✓ | ✓ | ✅ | O (search) | P1 |

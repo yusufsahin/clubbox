@@ -13,13 +13,13 @@ Do these before continuing the Autonomous plan, then tick them:
 
 ### Last autonomous run (2026-10-11)
 
-- Autonomous plan already **Done** through **11.8 (strict)**; this devam unblocked packaged e2e.
-- Done: ship `redact.cjs` in the asar again (apiLog/bundleCrawler require it — excluding it crashed packaged boot with “Cannot find module './redact.cjs'”); `dist:dir` + `signAndEditExecutable: false`; packaged smoke falls back to `electron` + `app.asar` when Application Control blocks `Clubbox.exe`.
-- Tests: `npm test` — **119** unit + **123 BDD** + trace strict; `test:e2e:packaged` green; tsc/lint/build green.
+- Autonomous plan already **Done** through **11.8 (strict)**; this devam: triage + hallway/follow UI catch-up.
+- Done: stop calling `get_conversation_unread_summary` with `{}` (live 400 needs `conversation_id`); keep badge on `me.unread_conversations_count`; promote `get_user_social_clubs` → observed; wire topic chips to client-side `topic_key` filter; follow via `supports`/`allowAction` (community + Experimental); hallway cards show replays/clips on|off + running time; include `tests/live-failures` in `test:unit`.
+- Tests: `npm test` — **121** unit (+ live-failure) + **123 BDD** + trace strict; tsc/lint/build green.
 - **Stopped:** no further shippable product work without inventing endpoint bodies or owner capture.
-- Blocked: owner live room capture (0.9 S1–S3); topic-chip request body uncaptured; full `npm run dist` NSIS may still fail on this host (`spawn UNKNOWN` / WineVm).
+- Blocked: owner live room capture (0.9 S1–S3); topic-chip **server** `get_feed_v3` body; conversation delete/title + unread-summary body; replay chunk; `gif_reaction` body.
 - Still @pending: ST-9 deferred; room_host DX-1/DX-3.
-- Questions for the owner: Capture a topic-chip click on clubhouse.com (`get_feed_v3` body) so Hallway topics can filter server-side. Also capture conversation delete/title bodies and a replay chunk if those UIs should ship next.
+- Questions for the owner: Capture a topic-chip click (`get_feed_v3` body) for server-side Hallway filter; capture `get_conversation_unread_summary` body (or confirm per-thread only); conversation delete/title and a replay chunk if those UIs should ship next.
 
 ## Status
 

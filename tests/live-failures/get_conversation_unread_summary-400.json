@@ -1,0 +1,7 @@
+{
+  "endpoint": "get_conversation_unread_summary",
+  "status": 400,
+  "bodyKeys": [],
+  "error": "Conversation id is required.",
+  "evidence": "bundle"
+}

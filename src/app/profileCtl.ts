@@ -146,10 +146,7 @@ export function closeProfileDrawer(this: ClubboxApp) {
   }
 
 export async function followUser(this: ClubboxApp, userId: number) : Promise<void> {
-    if (clubhouseClient.evidence('follow') !== 'observed') {
-      this.allowAction('follow');
-      return;
-    }
+    if (!this.allowAction('follow')) return;
     const roomUser = this.currentChannel?.users.find((entry) => entry.user_id === userId);
     const hit = this.discoverHits?.find((entry) => entry.kind === 'user' && entry.user.user_id === userId);
     const user = roomUser ?? (hit?.kind === 'user' ? hit.user : undefined);
@@ -182,10 +179,7 @@ export async function toggleFollow(this: ClubboxApp) : Promise<void> {
     if (!profile || profile.user_id === this.me?.user_id) return;
     const rel = relationshipFromStatus(profile.follow_status);
     if (rel !== 'none' && rel !== 'follower') return;
-    if (clubhouseClient.evidence('follow') !== 'observed') {
-      this.allowAction('follow');
-      return;
-    }
+    if (!this.allowAction('follow')) return;
     try {
       const res = await clubhouseClient.follow(profile.user_id);
       if (this.selectedProfile?.user_id !== profile.user_id) return;
@@ -207,7 +201,7 @@ export function profileState(this: ClubboxApp, profile: CHUser) {
     const isSelf = profile.user_id === this.me?.user_id;
     return {
       profile,
-      canChangeRelationship: clubhouseClient.evidence('follow') === 'observed',
+      canChangeRelationship: clubhouseClient.supports('follow'),
       canInvite: !isSelf && this.isMeModerator() && clubhouseClient.supports('invite_speaker') && !!this.currentChannel && !profile.is_speaker,
       loading: this.profileLoading && profile.user_id === this.selectedProfile?.user_id,
       showVolume: !isSelf && !!this.currentChannel?.users.some((user) => user.user_id === profile.user_id),

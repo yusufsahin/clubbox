@@ -144,7 +144,12 @@ export function scheduleDiscoverSearch(this: ClubboxApp) : void {
   }
 
 export function displayedHallwayChannels(this: ClubboxApp): CHChannel[] {
-    return prepareHallwayChannels(this.channelsList, this.hallwayPrefs);
+    return prepareHallwayChannels(this.channelsList, this.hallwayPrefs, this.selectedTopicKey);
+  }
+
+export function selectHallwayTopic(this: ClubboxApp, topicKey: string | null): void {
+    this.selectedTopicKey = topicKey;
+    if (this.currentTab === 'explore') this.render();
   }
 
 export function persistHallwayPrefs(this: ClubboxApp): void {
@@ -370,6 +375,7 @@ export function wireHallwayCtl(proto: ClubboxApp): void {
   proto.scheduleDiscoverSearch = scheduleDiscoverSearch;
   proto.runDiscoverSearch = runDiscoverSearch;
   proto.displayedHallwayChannels = displayedHallwayChannels;
+  proto.selectHallwayTopic = selectHallwayTopic;
   proto.persistHallwayPrefs = persistHallwayPrefs;
   proto.addHallwayKeyword = addHallwayKeyword;
   proto.removeHallwayKeyword = removeHallwayKeyword;

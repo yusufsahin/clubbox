@@ -344,7 +344,7 @@
   "get_user_social_clubs": {
     "path": "/web_api/get_user_social_clubs",
     "method": "POST",
-    "evidence": "bundle",
+    "evidence": "observed",
     "mutation": false
   },
   "gif_reaction": {

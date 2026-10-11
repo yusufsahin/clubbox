@@ -107,6 +107,7 @@ export class ClubboxApp {
   private currentChannel: CHChannelDetail | null = null;
   private channelsList: CHChannel[] = [];
   private feedTopics: FeedTopic[] = [];
+  selectedTopicKey: string | null = null;
   private conversations: CHConversation[] = [];
   private conversationsLoaded = false;
   private messageFilter: 'all' | 'house' | 'vm' = 'all';
@@ -961,7 +962,7 @@ export class ClubboxApp {
       audioDisconnected: this.audioConnected === false,
       moderator: this.isMeModerator(),
       ...controls,
-      canFollow: clubhouseClient.evidence('follow') === 'observed',
+      canFollow: clubhouseClient.supports('follow'),
       audienceSearch: this.audienceSearchQuery,
       handraiseMode,
       visibilityMode,
@@ -986,7 +987,7 @@ export class ClubboxApp {
       canJoin: clubhouseClient.supports('join_channel'),
       canCreate: clubhouseClient.supports('create_channel'),
       canHide: clubhouseClient.supports('hide_channel'),
-    }, this.hallwayPrefs);
+    }, this.hallwayPrefs, this.selectedTopicKey);
   }
 
 
@@ -1251,6 +1252,11 @@ export class ClubboxApp {
       case 'refresh-explore':
         void this.refreshExplore();
         break;
+      case 'select-hallway-topic': {
+        const key = el.dataset.topicKey;
+        this.selectHallwayTopic(key || null);
+        break;
+      }
       case 'leave-room':
         void this.leaveRoom();
         break;

@@ -48,7 +48,7 @@ If a list name is only `in-bundle, not observed`, leave it. Do not add a button 
 - `get_social_club_members` — configured
 - `get_social_club_message_thread` — configured
 - `get_social_club_messages` — configured
-- `get_user_social_clubs` — configured
+- `get_user_social_clubs` — observed
 - `gif_reaction` — configured
 - `guest_active_ping` — configured
 - `guest_join_channel` — configured

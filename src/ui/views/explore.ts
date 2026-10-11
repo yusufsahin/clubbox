@@ -39,12 +39,23 @@ function speakerName(user: CHChannel['users'][number]): SafeHtml {
   return html`${user.name}${friend ? html`<span class="friend-star" title="${t('friendsHere')}">★</span>` : ''}`;
 }
 
+function formatRunningFor(iso: string | undefined): string {
+  if (!iso) return '';
+  const started = Date.parse(iso);
+  if (!Number.isFinite(started)) return '';
+  const minutes = Math.max(0, Math.floor((Date.now() - started) / 60_000));
+  if (minutes < 60) return t('runningForMinutes', { count: minutes });
+  const hours = Math.floor(minutes / 60);
+  return t('runningForHours', { count: hours });
+}
+
 export function exploreView(
   channels: CHChannel[],
   topics: FeedTopic[],
   notices: string[],
   access: { canJoin: boolean; canCreate: boolean; canHide: boolean },
   hallway: HallwayPrefs,
+  selectedTopicKey: string | null = null,
 ): SafeHtml {
   return html`
     <div style="max-width:1100px; margin:0 auto;">
@@ -70,9 +81,12 @@ export function exploreView(
         </label>
       </div>
       <div class="topic-chips">
-          <button class="topic-chip active" type="button" data-action="refresh-explore">${t('forYou')}</button>
-          ${topics.map((topic) => html`<span class="topic-chip">${topic.display_name}</span>`)}
+          <button class="topic-chip ${selectedTopicKey ? '' : 'active'}" type="button" data-action="select-hallway-topic">${t('forYou')}</button>
+          ${topics.map((topic) => html`
+            <button class="topic-chip ${selectedTopicKey === topic.key ? 'active' : ''}" type="button" data-action="select-hallway-topic" data-topic-key="${topic.key}">${topic.display_name}</button>
+          `)}
       </div>
+      <p class="list-note">${t('topicFilterLocalHelp')}</p>
       ${notices.map((notice) => html`<p class="list-note">${notice}</p>`)}
 
       ${channels.length === 0 ? html`
@@ -89,6 +103,7 @@ export function exploreView(
           const talking = speakers.filter((user) => user.is_speaking).map((user) => user.name).filter(Boolean);
           const channelId = ch.channel || ch.channel_id;
           const friendSpeaker = channelHasFriendSpeaker(ch.users);
+          const runningFor = formatRunningFor(ch.time_created);
           return html`
           <div class="room-card ${ch.visited ? 'is-visited' : ''}" ${access.canJoin ? html`data-action="join-room" data-channel-id="${channelId}"` : ''}>
             <div>
@@ -101,7 +116,9 @@ export function exploreView(
               </div>
               <div class="room-card-topic">${renderTopicTitle(ch.topic, hallway.keywords)}</div>
               ${privacyLine(ch)}
-              ${ch.is_replay_enabled ? html`<div class="replay-note">${t('replayAvailable')}</div>` : ''}
+              <div class="replay-note">${ch.is_replay_enabled ? t('replaysOn') : t('replaysOff')}</div>
+              <div class="replay-note">${ch.is_clips_enabled ? t('clipsOn') : t('clipsOff')}</div>
+              ${runningFor ? html`<div class="replay-note">${runningFor}</div>` : ''}
               ${ch.is_active_trending_topic_channel ? html`<div class="replay-note">${t('trending')}</div>` : ''}
               ${ch.is_social_mode ? html`<div class="replay-note">${t('socialRoom')}</div>` : ''}
               ${ch.is_nsfw ? html`<div class="replay-note">${t('showNsfwRooms')}</div>` : ''}

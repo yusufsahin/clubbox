@@ -17,7 +17,7 @@
     "api:check": "node scripts/api-docs.mjs --check",
     "api:triage": "node scripts/api-triage.mjs",
     "api:discover": "node scripts/api-discover.mjs",
-    "test:unit": "node --test electron/redact.test.cjs electron/apiRecorderFailure.test.cjs electron/ipcGuard.test.cjs electron/bundleScan.test.cjs electron/bundleCrawler.test.cjs electron/apiLog.test.cjs && node --import tsx --test tests/*.test.ts",
+    "test:unit": "node --test electron/redact.test.cjs electron/apiRecorderFailure.test.cjs electron/ipcGuard.test.cjs electron/bundleScan.test.cjs electron/bundleCrawler.test.cjs electron/apiLog.test.cjs && node --import tsx --test tests/*.test.ts tests/live-failures/*.test.ts",
     "test:bdd": "node --import tsx ./node_modules/@cucumber/cucumber/bin/cucumber.js --tags \"not @pending\"",
     "test:trace": "node scripts/trace.mjs",
     "test:e2e": "npm run build && playwright test -g \"sandbox dev\"",
