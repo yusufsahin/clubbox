@@ -165,7 +165,7 @@ export class ClubboxApp {
       else this.unreadChat += 1;
     },
     onReaction: (emoji, targetName) => {
-      this.showToast(`${emoji} ? ${targetName}`, emoji);
+      this.showToast(`${emoji} → ${targetName}`, emoji);
     },
     onReconnecting: (reconnecting) => {
       const banner = document.getElementById('realtime-banner');
@@ -402,7 +402,7 @@ export class ClubboxApp {
       }
     }
     const message = err instanceof Error ? err.message : t('somethingWrong');
-    this.showToast(message, '??');
+    this.showToast(message, '⚠️');
   }
 
 
@@ -478,7 +478,7 @@ export class ClubboxApp {
 
 
 
-  showToast(message: string, icon = '?') {
+  showToast(message: string, icon = '✨') {
     showToast(message, icon);
   }
 
@@ -616,7 +616,7 @@ export class ClubboxApp {
     const sandbox = clubhouseClient.getConfig().useSandbox;
     el.innerHTML = markup(html`
         <div class="brand">
-          <div class="brand-icon">???</div>
+          <div class="brand-icon">🎙️</div>
           <div>
             <div style="display:flex; align-items:center;">
               <span class="brand-title">Clubbox</span>
@@ -630,33 +630,33 @@ export class ClubboxApp {
           <div class="nav-label">${t('navigation')}</div>
 
           <div class="nav-item ${this.currentTab === 'explore' ? 'active' : ''}" data-action="nav" data-tab="explore">
-            <span class="icon">??</span>
+            <span class="icon">🏠</span>
             <span>${t('hallway')}</span>
             <span class="count-badge">${this.channelsList.length}</span>
           </div>
 
           <div class="nav-item ${this.currentTab === 'discover' ? 'active' : ''}" data-action="nav" data-tab="discover">
-            <span class="icon">??</span>
+            <span class="icon">🔍</span>
             <span>${t('discover')}</span>
           </div>
 
           <div class="nav-item ${this.currentTab === 'friends' ? 'active' : ''}" data-action="nav" data-tab="friends">
-            <span class="icon">??</span>
+            <span class="icon">🤝</span>
             <span>${t('friends')}</span>
           </div>
 
           <div class="nav-item ${this.currentTab === 'houses' ? 'active' : ''}" data-action="nav" data-tab="houses">
-            <span class="icon">??</span>
+            <span class="icon">🏛</span>
             <span>${t('houses')}</span>
           </div>
 
           <div class="nav-item ${this.currentTab === 'events' ? 'active' : ''}" data-action="nav" data-tab="events">
-            <span class="icon">??</span>
+            <span class="icon">📅</span>
             <span>${t('events')}</span>
           </div>
 
           <div class="nav-item ${this.currentTab === 'messages' ? 'active' : ''}" data-action="nav" data-tab="messages">
-            <span class="icon">??</span>
+            <span class="icon">💬</span>
             <span>${t('messages')}</span>
             ${this.unreadConversations > 0 ? html`<span class="count-badge">${this.unreadConversations}</span>` : ''}
           </div>
@@ -664,31 +664,31 @@ export class ClubboxApp {
           <div class="nav-label" style="margin-top:14px;">${t('studioTools')}</div>
 
           <div class="nav-item ${this.currentTab === 'stage' ? 'active' : ''}" data-action="nav" data-tab="stage">
-            <span class="icon">??</span>
+            <span class="icon">📻</span>
             <span>${t('liveStage')}</span>
             ${this.currentChannel ? html`<span class="count-badge" style="background:var(--accent-emerald); color:#000;">${t('liveBadge')}</span>` : ''}
           </div>
 
           <div class="nav-item ${this.currentTab === 'soundboard' ? 'active' : ''}" data-action="nav" data-tab="soundboard">
-            <span class="icon">???</span>
+            <span class="icon">🎛️</span>
             <span>${t('soundboardRack')}</span>
             <span class="count-badge">${audioEngine.soundEffects.length}</span>
           </div>
 
           ${clubhouseClient.supports('create_channel') ? html`
             <div class="nav-item" data-action="create-room">
-              <span class="icon">?</span>
+              <span class="icon">➕</span>
               <span>${t('startRoom')}</span>
             </div>
           ` : html`
             <div class="nav-item" title="${t('notVerifiedHint')}">
-              <span class="icon">?</span>
+              <span class="icon">➕</span>
               <span>${t('notVerifiedYet')}</span>
             </div>
           `}
 
           <div class="nav-item ${this.currentTab === 'settings' ? 'active' : ''}" data-action="nav" data-tab="settings">
-            <span class="icon">??</span>
+            <span class="icon">⚙️</span>
             <span>${t('apiConfig')}</span>
           </div>
         </nav>
@@ -724,8 +724,8 @@ export class ClubboxApp {
                 ${this.currentChannel.is_active_trending_topic_channel ? html`<span class="live-updates-note">${t('trending')}</span>` : ''}
                 ${this.currentChannel.is_replay_enabled ? html`<span class="live-updates-note">${t('replayAvailable')}</span>` : ''}
                 ${this.liveUpdatesUnavailable() ? html`<span class="live-updates-note">${t('liveUpdatesNote')}</span>` : ''}
-                <span class="recording-badge" id="clip-armed-badge" ${audioEngine.isClipArmed() ? '' : 'hidden'}>? ${t('clipArmed')}</span>
-                <span class="recording-badge" id="recording-badge" ${audioEngine.getIsRecording() ? '' : 'hidden'}>? ${t('recording')}</span>
+                <span class="recording-badge" id="clip-armed-badge" ${audioEngine.isClipArmed() ? '' : 'hidden'}>● ${t('clipArmed')}</span>
+                <span class="recording-badge" id="recording-badge" ${audioEngine.getIsRecording() ? '' : 'hidden'}>● ${t('recording')}</span>
               </div>
             ` : html`
               <div style="font-weight:700; font-size:16px;">${this.sectionTitle()}</div>
@@ -734,11 +734,11 @@ export class ClubboxApp {
 
           <div class="top-actions">
             <button class="top-icon-btn" type="button" data-action="nav" data-tab="messages" title="${t('messages')}">
-              ??
+              ✉️
               ${this.unreadConversations > 0 ? html`<span class="nav-dot">${this.unreadConversations}</span>` : ''}
             </button>
             <button class="top-icon-btn" type="button" data-action="nav" data-tab="activity" title="${t('activity')}">
-              ??
+              🔔
               ${this.unreadNotifications ? html`<span class="nav-dot"></span>` : ''}
             </button>
             <button class="top-avatar-btn ${this.selfProfileOpen ? 'active' : ''}" type="button" data-action="sidebar-user" title="${this.me ? this.me.name : t('signIn')}">
@@ -746,11 +746,11 @@ export class ClubboxApp {
             </button>
             ${this.currentChannel ? html`
               ${this.currentTab === 'stage' ? html`<button class="btn btn-secondary" type="button" data-action="minimize-room">${t('minimize')}</button>` : ''}
-              <button class="btn btn-secondary" data-action="share-room">?? ${t('link')}</button>
+              <button class="btn btn-secondary" data-action="share-room">🔗 ${t('link')}</button>
               <button class="btn btn-danger" data-action="leave-room">${t('leaveQuietly')}</button>
             ` : html`
               ${clubhouseClient.supports('create_channel') ? html`
-                <button class="btn btn-primary" data-action="create-room">? ${t('startRoom')}</button>
+                <button class="btn btn-primary" data-action="create-room">➕ ${t('startRoom')}</button>
               ` : html`
                 <button class="btn btn-secondary" type="button" disabled title="${t('notVerifiedHint')}">${t('notVerifiedYet')}</button>
               `}
