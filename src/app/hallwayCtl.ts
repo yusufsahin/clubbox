@@ -207,6 +207,12 @@ export function removeHallwayKeyword(this: ClubboxApp, keyword: string): void {
     if (this.currentTab === 'explore') this.render();
   }
 
+export function setHallwayOnlyKeywordMatches(this: ClubboxApp, enabled: boolean): void {
+    this.hallwayPrefs.onlyKeywordMatches = enabled;
+    this.persistHallwayPrefs();
+    if (this.currentTab === 'explore') this.render();
+  }
+
 export function setHallwayShowNsfw(this: ClubboxApp, enabled: boolean): void {
     this.hallwayPrefs.showNsfw = enabled;
     this.persistHallwayPrefs();
@@ -423,6 +429,7 @@ export function wireHallwayCtl(proto: ClubboxApp): void {
   proto.addHallwayKeyword = addHallwayKeyword;
   proto.removeHallwayKeyword = removeHallwayKeyword;
   proto.setHallwayShowNsfw = setHallwayShowNsfw;
+  proto.setHallwayOnlyKeywordMatches = setHallwayOnlyKeywordMatches;
   proto.openClubhouseLink = openClubhouseLink;
   proto.openReplay = openReplay;
   proto.openHighlight = openHighlight;

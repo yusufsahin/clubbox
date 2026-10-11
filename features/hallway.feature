@@ -88,3 +88,19 @@ Feature: Hallway and discovery
   Scenario: Open a profile from a pasted @username link
     When I paste "https://www.clubhouse.com/@someone" into search and press Enter
     Then a "POST /web_api/get_profile" request is sent with body keys "username"
+
+  @local @HAL-1
+  Scenario: Topic chips are hidden when live rooms carry no topic
+    Given the live hallway has the rooms "Tech Talk" and "Music Night" without topic tags
+    And the feed offers the topics "tech" and "music"
+    Then no topic chips are shown
+    And selecting the topic "tech" still lists 2 rooms
+
+  @local @HAL-4
+  Scenario: Only show rooms matching my keywords
+    Given the live hallway has the rooms "Tech Talk Live" and "Morning coffee" without topic tags
+    And my hallway keyword is "tech"
+    When I switch on the hallway option "Only show rooms matching my keywords"
+    Then the hallway lists only "Tech Talk Live"
+    When I switch the hallway option off
+    Then the hallway lists "Tech Talk Live" before "Morning coffee"

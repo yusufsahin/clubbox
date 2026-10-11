@@ -211,6 +211,7 @@ export const en = {
   hallwayKeywords: 'Hallway keywords',
   hallwayKeywordPlaceholder: 'Add a keyword',
   showNsfwRooms: 'Show NSFW rooms',
+  onlyKeywordRooms: 'Only show rooms matching my keywords',
   addKeyword: 'Add',
   recBanner: 'REC — this recording stays on this computer and is not uploaded',
   joinedRoom: 'Joined: {topic}',

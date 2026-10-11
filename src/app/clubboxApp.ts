@@ -41,6 +41,7 @@ import { settingsView } from '../ui/views/settings';
 import { soundboardView } from '../ui/views/soundboard';
 import { chatList, emptyStageView, stageColumn, stageView } from '../ui/views/stage';
 import { readHallwayPrefs, type HallwayPrefs } from '../hallway/hallwayPrefs';
+import { usableFeedTopics } from '../hallway/hallwayDisplay';
 import type { RecordingChapter } from '../studio/recordingChapters';
 
 interface ElectronAPI {
@@ -1035,7 +1036,7 @@ export class ClubboxApp {
 
 
   private renderExploreView(): ReturnType<typeof html> {
-    return exploreView(this.displayedHallwayChannels(), this.feedTopics, this.hallwayNotices(), {
+    return exploreView(this.displayedHallwayChannels(), usableFeedTopics(this.channelsList, this.feedTopics), this.hallwayNotices(), {
       canJoin: clubhouseClient.supports('join_channel'),
       canCreate: clubhouseClient.supports('create_channel'),
       canHide: clubhouseClient.supports('hide_channel'),
@@ -1231,6 +1232,8 @@ export class ClubboxApp {
         void this.commitSoundEdit(target);
       } else if (target.id === 'hallway-show-nsfw') {
         this.setHallwayShowNsfw(target.checked);
+      } else if (target.id === 'hallway-only-keywords') {
+        this.setHallwayOnlyKeywordMatches(target.checked);
       } else if (target.id === 'sound-upload-input' && target.files?.[0]) {
         const file = target.files[0];
         void audioEngine.loadCustomAudioFile(file, file.name.split('.')[0]).then(() => {

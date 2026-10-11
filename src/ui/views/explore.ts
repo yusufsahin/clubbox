@@ -81,11 +81,18 @@ export function exploreView(
             <button type="button" class="top-icon-btn" data-action="remove-hallway-keyword" data-keyword="${keyword}">×</button>
           </span>
         `)}
+        ${hallway.keywords.length ? html`
+          <label style="font-size:13px; display:flex; align-items:center; gap:6px;">
+            <input type="checkbox" id="hallway-only-keywords" data-action="toggle-hallway-only-keywords" ${hallway.onlyKeywordMatches ? 'checked' : ''} />
+            ${t('onlyKeywordRooms')}
+          </label>
+        ` : ''}
         <label style="font-size:13px; display:flex; align-items:center; gap:6px;">
           <input type="checkbox" id="hallway-show-nsfw" data-action="toggle-hallway-nsfw" ${hallway.showNsfw ? 'checked' : ''} />
           ${t('showNsfwRooms')}
         </label>
       </div>
+      ${topics.length ? html`
       <div class="topic-chips">
           <button class="topic-chip ${selectedTopicKey ? '' : 'active'}" type="button" data-action="select-hallway-topic">${t('forYou')}</button>
           ${topics.map((topic) => html`
@@ -93,6 +100,7 @@ export function exploreView(
           `)}
       </div>
       <p class="list-note">${t('topicFilterLocalHelp')}</p>
+      ` : ''}
       ${notices.map((notice) => html`<p class="list-note">${notice}</p>`)}
 
       ${channels.length === 0 ? html`

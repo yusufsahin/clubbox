@@ -1,5 +1,5 @@
 import { relationshipFromStatus } from '../api/relationship.ts';
-import type { CHChannel, CHUser } from '../api/types.ts';
+import type { CHUser } from '../api/types.ts';
 import type { HallwayPrefs } from './hallwayPrefs.ts';
 
 export type HallwaySpeaker = Pick<CHUser, 'name' | 'is_speaker' | 'follow_status'>;
@@ -66,17 +66,41 @@ export function splitKeywordHighlight(title: string, keyword: string): Array<{ t
   return parts.filter((part) => part.text.length > 0);
 }
 
-export function filterHallwayByTopic(channels: CHChannel[], topicKey: string | null): CHChannel[] {
+export function filterHallwayByTopic<T extends { topic_key?: string }>(channels: T[], topicKey: string | null): T[] {
   if (!topicKey) return channels;
   return channels.filter((channel) => channel.topic_key === topicKey);
 }
 
-export function prepareHallwayChannels(
-  channels: CHChannel[],
+/**
+ * Topics a chip can actually filter by. The live web feed sends available_topics, but its rooms carry
+ * logging_context.topic_key = null, so a chip for an untagged topic would empty the hallway.
+ */
+export function usableFeedTopics<T extends { key: string }>(channels: { topic_key?: string }[], topics: T[]): T[] {
+  const tagged = new Set(channels.map((channel) => channel.topic_key).filter((key): key is string => !!key));
+  return topics.filter((topic) => tagged.has(topic.key));
+}
+
+function keywordMatches(title: string | undefined, keywords: string[]): boolean {
+  return roomTitleKeywordHits(title ?? '', keywords).length > 0;
+}
+
+/** Keyword rooms first (stable), or only keyword rooms when onlyKeywordMatches is on and keywords exist. */
+export function applyHallwayKeywords<T extends { topic?: string }>(rooms: T[], prefs: HallwayPrefs): T[] {
+  const keywords = prefs.keywords.filter((keyword) => keyword.trim());
+  if (keywords.length === 0) return rooms;
+  const matching = rooms.filter((room) => keywordMatches(room.topic, keywords));
+  if (prefs.onlyKeywordMatches) return matching;
+  return [...matching, ...rooms.filter((room) => !keywordMatches(room.topic, keywords))];
+}
+
+export function prepareHallwayChannels<T extends { topic?: string; topic_key?: string; is_nsfw?: boolean; users: HallwaySpeaker[] }>(
+  channels: T[],
   prefs: HallwayPrefs,
   topicKey: string | null = null,
-): CHChannel[] {
-  return sortHallwayRooms(filterNsfwHallwayRooms(filterHallwayByTopic(channels, topicKey), prefs));
+): T[] {
+  const usableKey = topicKey && channels.some((channel) => channel.topic_key === topicKey) ? topicKey : null;
+  const visible = filterNsfwHallwayRooms(filterHallwayByTopic(channels, usableKey), prefs);
+  return sortHallwayRooms(applyHallwayKeywords(visible, prefs));
 }
 
 export function prepareHallwayFeedRooms<T extends HallwayFeedRoom>(rooms: T[], prefs: HallwayPrefs): T[] {

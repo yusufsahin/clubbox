@@ -213,6 +213,7 @@ export const tr: Record<MessageKey, string> = {
   hallwayKeywords: 'Koridor anahtar kelimeleri',
   hallwayKeywordPlaceholder: 'Anahtar kelime ekle',
   showNsfwRooms: 'NSFW odaları göster',
+  onlyKeywordRooms: 'Sadece anahtar kelimelerime uyan odaları göster',
   addKeyword: 'Ekle',
   recBanner: 'REC — bu kayıt bu bilgisayarda kalır ve yüklenmez',
   joinedRoom: 'Katıldın: {topic}',

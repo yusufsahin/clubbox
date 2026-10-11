@@ -3,12 +3,14 @@ const STORAGE_KEY = 'clubbox_hallway_prefs';
 export type HallwayPrefs = {
   keywords: string[];
   showNsfw: boolean;
+  onlyKeywordMatches: boolean;
   savedSearchColumns: string[];
 };
 
 export const defaultHallwayPrefs = (): HallwayPrefs => ({
   keywords: [],
   showNsfw: false,
+  onlyKeywordMatches: false,
   savedSearchColumns: [],
 });
 
@@ -23,7 +25,12 @@ export function readHallwayPrefs(): HallwayPrefs {
     const savedSearchColumns = Array.isArray(parsed.savedSearchColumns)
       ? parsed.savedSearchColumns.filter((q): q is string => typeof q === 'string' && q.trim().length > 0)
       : [];
-    return { keywords, showNsfw: parsed.showNsfw === true, savedSearchColumns };
+    return {
+      keywords,
+      showNsfw: parsed.showNsfw === true,
+      onlyKeywordMatches: parsed.onlyKeywordMatches === true,
+      savedSearchColumns,
+    };
   } catch {
     return defaultHallwayPrefs();
   }
@@ -34,6 +41,7 @@ export function writeHallwayPrefs(prefs: HallwayPrefs): void {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
       keywords: prefs.keywords,
       showNsfw: prefs.showNsfw,
+      onlyKeywordMatches: prefs.onlyKeywordMatches,
       savedSearchColumns: prefs.savedSearchColumns,
     }));
   } catch {
