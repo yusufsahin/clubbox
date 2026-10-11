@@ -122,6 +122,8 @@ export function sampleParamsForDocumentedBody(endpoint: string): RequestBody {
       return { social_club_id: 1, social_club_slug: 'h1' };
     case 'send_social_club_message':
       return { social_club_id: 1, social_club_slug: 'h1', message: 'hello' };
+    case 'gif_reaction':
+      return { channel: 'abc123', giphy_id: '3oEjI6SIIHBdRxXI40' };
     case 'get_social_club_message_thread':
       return { social_club_id: 1, message_id_str: 'hm-1' };
     case 'send_social_club_threaded_message':

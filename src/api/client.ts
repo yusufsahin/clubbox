@@ -3,6 +3,7 @@ import { canCall, evidenceOf, routeMethod, routePath, routeRecord, type Evidence
 import { PEOPLE_LIST_ENDPOINTS, readPeopleList, readProfile, type PeopleListKind, type PeopleListPage } from './relationship';
 import { businessFailure, classifyHttpFailure, nextBackoffMs, type ApiErrorKind } from './guards';
 import { FEED_MAX_PAGES, mergeFeedChannels, nextFeedCursor, type FeedPage } from './feedPagination';
+import { parseGiphyId } from './giphyId';
 import { expandRoutePath } from './routeExpand';
 import { getEndpoint } from './registry';
 import { permissionOn } from './roomActions';
@@ -1205,6 +1206,14 @@ export class ClubhouseApiClient {
 
   public async emojiReaction(channelId: string, emoji: string): Promise<ApiAck> {
     return this.call('emoji_reaction', { channel: channelId, emoji });
+  }
+
+  public async gifReaction(channelId: string, giphyInput: string): Promise<ApiAck> {
+    const giphyId = parseGiphyId(giphyInput);
+    if (!giphyId) {
+      throw new ClubhouseApiError(0, 'gif_reaction', 'Invalid Giphy link or id', 'business');
+    }
+    return this.call('gif_reaction', { channel: channelId, giphy_id: giphyId });
   }
 
   public async becomeSpeaker(channelId: string): Promise<ApiAck> {

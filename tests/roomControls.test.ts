@@ -10,6 +10,7 @@ test('roomControlFlags gates handraise, rename, and emoji by capability + suppor
       'change_handraise_settings',
       'set_channel_title',
       'emoji_reaction',
+      'gif_reaction',
       'invite_to_existing_channel',
       'make_channel_public',
     ].includes(endpoint),
@@ -17,6 +18,7 @@ test('roomControlFlags gates handraise, rename, and emoji by capability + suppor
   assert.equal(all.canHandraise, true);
   assert.equal(all.canRename, true);
   assert.equal(all.canReact, true);
+  assert.equal(all.canGifReact, true);
   assert.equal(all.canPing, true);
   assert.equal(all.canChangeVisibility, true);
 

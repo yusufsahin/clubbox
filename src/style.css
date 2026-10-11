@@ -563,6 +563,19 @@ body {
   color-scheme: dark;
 }
 
+.gif-reaction-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.gif-reaction-row .form-input {
+  flex: 1 1 180px;
+  min-width: 140px;
+}
+
 .reaction-pad {
   display: inline-flex;
   gap: 4px;

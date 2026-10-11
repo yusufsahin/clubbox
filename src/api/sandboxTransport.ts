@@ -604,6 +604,9 @@ export class SandboxBackend {
         return { success: true } as T;
       }
 
+      case 'gif_reaction':
+        return { success: true } as T;
+
       case 'emoji_reaction':
       case 'invite_to_existing_channel':
       case 'make_channel_public':

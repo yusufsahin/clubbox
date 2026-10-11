@@ -95,7 +95,7 @@ Legend — Evidence: O observed · B bundle call site · C community · ? to dis
 | send_channel_message | POST | channel, message | ack | O | ✅ | ChatStream |
 | get_channel_messages | GET | channel | messages[] | O | ✅ | ChatStream (fallback) |
 | emoji_reaction | POST | channel, emoji | ack | B | ✅ stage reaction pad | Reactions |
-| gif_reaction | POST | `{channel, giphy_id}` | ack | B | ❌ P3 hidden — no Giphy picker without a third-party key | — |
+| gif_reaction | POST | `{channel, giphy_id}` | ack | B | ✅ paste Giphy URL/id on stage (no third-party key) | Stage |
 | set_channel_title | POST | channel, title | ack | B | ✅ rename on stage | RoomCtl |
 | invite_speaker / uninvite_speaker / mute_speaker / make_moderator / block_from_channel | POST | channel, user_id | ack | C | ✅ experimental mod menu + mute everyone | RoomCtl (mod) |
 | invite_to_existing_channel | POST | channel, user_id | ack | C | ✅ Invite people panel (RH-9) | Ping |
@@ -238,7 +238,7 @@ Recorded from `docs/api/web-client-methods.md` (Task 12.1). Do not re-open as ca
 | Unfollow (SO-1) | Not in the web client. Live profile shows non-clickable “Following”; no unfollow call. |
 | Mid-room mod / end / hide / online friends / events / notifications / `get_channel` | Not in the web client → stay `community` (experimental) or unused (`get_channel`: PubNub is the room source). |
 | Clubhouse Talk (`talk/*`) | Out of scope (payments) — PRD DX-15 Won't. |
-| `gif_reaction` | Body `{channel, giphy_id}` is documented (bundle) but UI stays hidden (P3) until a Giphy picker exists without a new third-party API key. |
+| `gif_reaction` | Body `{channel, giphy_id}` documented (bundle). Stage paste field accepts a Giphy URL or raw id — no third-party API key. |
 | Guest / web-listener joins | reCAPTCHA — out of scope. |
 | `delete_conversation_segment` | In-bundle name only; no body in the web API module → unsupported. |
 

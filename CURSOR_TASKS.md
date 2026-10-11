@@ -13,12 +13,12 @@ The capture wait is over: request bodies for 60 web-client methods are documente
 - [x] Then finish any remaining Autonomous plan items and run 11.8 in strict mode.
 ### Last autonomous run (2026-10-11)
 
-- Done: Recorded Task 12.1 final decisions in DESIGN §8 (Phase 12 decisions) + PRD SO-1 / Won't notes. `api:triage` → NO NEW FAILURES.
-- Tests: unchanged (docs-only). Prior run: BDD 135 + trace strict.
+- Done: `gif_reaction` via paste Giphy URL/id on stage (no third-party key); RL-8 scenario; DESIGN/PRD updated.
+- Tests: unit + BDD 136 scenarios + trace strict; lint + build. `api:triage` → NO NEW FAILURES.
 - Still @pending: ST-9 deferred only.
-- Blocked: `gif_reaction` P3 (no Giphy picker). Live promotions via normal use + api:triage.
+- Blocked: none for local product work. Live promotions via normal use + api:triage.
 - Questions for the owner: none.
-- Stop: Autonomous plan + Phase 12 complete; no further local product work without inventing endpoints, un-deferring ST-9, or live use.
+- Stop: only ST-9 `@deferred` remains; un-deferring needs an owner schedule.
 
 ## Status
 

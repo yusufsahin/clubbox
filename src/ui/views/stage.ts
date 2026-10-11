@@ -21,6 +21,7 @@ export interface StageState {
   canRename: boolean;
   canHandraise: boolean;
   canReact: boolean;
+  canGifReact: boolean;
   canPing: boolean;
   canChangeVisibility: boolean;
   canFollow: boolean;
@@ -118,6 +119,18 @@ export function stageColumn(state: StageState): SafeHtml {
                   ${['👏', '❤️', '🔥', '😂'].map((emoji) => html`
                     <button class="btn btn-secondary reaction-btn" type="button" data-action="send-reaction" data-emoji="${emoji}">${emoji}</button>
                   `)}
+                </div>
+              ` : ''}
+              ${state.canGifReact ? html`
+                <div class="gif-reaction-row">
+                  <input
+                    class="form-input"
+                    id="gif-reaction-input"
+                    type="url"
+                    placeholder="${t('gifReactionPlaceholder')}"
+                    aria-label="${t('gifReactionLabel')}"
+                  />
+                  <button class="btn btn-secondary" type="button" data-action="send-gif-reaction">${t('gifReactionSend')}</button>
                 </div>
               ` : ''}
               ${state.moderator && !state.canEnd && !state.canMuteEveryone && !state.canInvite && !state.canHandraise && !state.canRename ? unverifiedAction() : ''}

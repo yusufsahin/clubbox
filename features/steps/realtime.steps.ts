@@ -85,6 +85,18 @@ When('I send the reaction {string} to {string}', async function (this: ClubboxWo
   this.syncFromRealtime();
 });
 
+When('I send a GIF reaction with {string}', async function (this: ClubboxWorld, pasted: string) {
+  const channelId = this.realtimeRoom.channel?.channel ?? this.currentRoom ?? 'abc123';
+  await this.client.gifReaction(channelId, pasted);
+});
+
+Then('the GIF reaction body uses giphy_id {string}', function (this: ClubboxWorld, giphyId: string) {
+  const match = this.transport.requestsNamed('gif_reaction').pop();
+  assert.ok(match);
+  assert.equal((match.body ?? {}).giphy_id, giphyId);
+  assert.equal((match.body ?? {}).channel, this.realtimeRoom.channel?.channel ?? this.currentRoom ?? 'abc123');
+});
+
 Then('the realtime hub subscribes with origin {string}', function (this: ClubboxWorld, origin: string) {
   const last = this.pubnub.getLastSubscribe();
   assert.ok(last);

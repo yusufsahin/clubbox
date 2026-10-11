@@ -1348,6 +1348,9 @@ export class ClubboxApp {
       case 'send-reaction':
         void this.sendReaction(el.dataset.emoji);
         break;
+      case 'send-gif-reaction':
+        void this.sendGifReaction();
+        break;
       case 'open-ping-panel':
         void this.openPingPanel();
         break;

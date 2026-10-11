@@ -107,7 +107,7 @@ Legend — Today: ✅ works live · 🧪 sandbox/UI only · ❌ missing. Evidenc
 | RL-5 | Room chat read + send, unread count | ✓ | ✓ | ✅ | B | P0 |
 | RL-6 | Raise / lower hand | ✓ | ✓ | 🧪 | B (audience_reply) | P0 |
 | RL-7 | Accept / decline stage invite | ✓ | ✓ | 🧪 | B (become_speaker) / C | P0 |
-| RL-8 | Emoji reactions to a speaker | ✓ | | ✅ | B (emoji_reaction) | P1 |
+| RL-8 | Emoji + GIF reactions to a speaker | ✓ | | ✅ | B (emoji_reaction, gif_reaction paste id) | P1 |
 | RL-9 | Private chat with a person in the room (text) | ✓ | ✓ | ✅ | O (conversations) | P2 |
 | RL-10 | Audience search by name/bio (Ctrl+S) | | ✓ | ✅ | — (client side on room users) | P1 |
 | RL-11 | Spatial audio (local) | ✓ | ✓ | ✅ | — | P2 |
@@ -189,8 +189,6 @@ These appear in `create_channel` / `me` responses (`user_capabilities`, `channel
 | Followers/following list scraping via guessed paths | No source; guidelines risk |
 | Clubhouse Talk / paid advisor (`talk/*`) | Payments and advisor flows are out of product scope (DX-15) |
 | Unfollow API | Not in the web client; live UI keeps a non-clickable “Following” control (SO-1 decided) |
-| `gif_reaction` picker | Body documented (`channel`, `giphy_id`) but needs a Giphy UI without a new third-party key — stays hidden (P3) |
-
 ## 5. Releases
 
 | Release | Theme | Scope | Exit criteria |

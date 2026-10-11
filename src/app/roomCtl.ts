@@ -409,6 +409,21 @@ export async function sendReaction(this: ClubboxApp, emoji: string | undefined):
     }
   }
 
+export async function sendGifReaction(this: ClubboxApp): Promise<void> {
+  if (!this.currentChannel) return;
+  if (!this.allowAction('gif_reaction')) return;
+  const input = document.getElementById('gif-reaction-input') as HTMLInputElement | null;
+  const pasted = input?.value.trim() || '';
+  if (!pasted) return;
+  try {
+    await clubhouseClient.gifReaction(this.channelApiId(this.currentChannel), pasted);
+    if (input) input.value = '';
+    this.showToast(t('gifReactionSent'), '🎞');
+  } catch (err) {
+    this.reportApiError(err);
+  }
+}
+
 function pingPanelState(app: ClubboxApp) {
   return {
     query: app.pingQuery,
@@ -990,6 +1005,7 @@ export function wireRoomCtl(proto: ClubboxApp): void {
   proto.setHandRaisePermission = setHandRaisePermission;
   proto.renameRoom = renameRoom;
   proto.sendReaction = sendReaction;
+  proto.sendGifReaction = sendGifReaction;
   proto.openPingPanel = openPingPanel;
   proto.closePingInvitePanel = closePingInvitePanel;
   proto.searchPingCandidates = searchPingCandidates;

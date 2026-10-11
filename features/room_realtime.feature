@@ -60,6 +60,12 @@ Feature: Live room updates through realtime
     Then a "POST /web_api/emoji_reaction" request is sent with body keys "channel, emoji"
 
   @bundle @RL-8
+  Scenario: Send a GIF reaction by pasted Giphy id
+    When I send a GIF reaction with "https://giphy.com/gifs/funny-3oEjI6SIIHBdRxXI40"
+    Then a "POST /web_api/gif_reaction" request is sent with the documented body keys
+    And the GIF reaction body uses giphy_id "3oEjI6SIIHBdRxXI40"
+
+  @bundle @RL-8
   Scenario: Incoming reactions are shown on the target speaker
     When the realtime hub receives a "channel_reaction" "👏" from "Ali" to "Ayse"
     Then a short "👏" animation is shown on "Ayse"
