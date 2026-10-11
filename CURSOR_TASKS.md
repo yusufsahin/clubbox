@@ -13,6 +13,7 @@ Soundboard and in-room settings belong in the room (owner review). Do Phase 18 a
 - [x] 18.4 room bar layout + emoji icons (owner screenshot: lone "F", clipped right side, two-line labels, faded disabled buttons, invisible ➕ on Start a room) — tests at 4 widths first
 - [x] npm run test:e2e green + fresh light/dark screenshots (UI phases are only done with both); commit per item; summary; stop
 - [ ] Phase 19 — profiles: actions (Message any time, Talk live, follow labels, Share) and sections (houses, recently chatting, links, in a room now, mutual lists, private profile)
+- [ ] Phase 21 — live reliability FIRST after Phase 19: crawler for signed-in users + no writes into the app (21.1), no silent realtime/audio failures + Connection status (21.2), unread-summary 400 + housekeeping (21.3)
 - [ ] Phase 20 — external audio into the room (second input, system audio on Windows, auto-duck), no virtual cable needed
 ### Last autonomous run (2026-10-12)
 
@@ -1325,4 +1326,40 @@ Clubdeck tells users to install Loopback / BlackHole / VB-Audio Cable / Voicemee
 2. System audio (Windows, beta): session.setDisplayMediaRequestHandler in main.cjs granting { audio: 'loopback' } for a renderer request from the trusted main window only; the renderer uses getDisplayMedia({ audio: true, video: false-equivalent }) and feeds the same external channel. Echo guard: loopback also captures Clubbox's own playback (the room), so enable "System audio" only when Clubbox's output device (setSinkId) differs from the system default output; otherwise show the reason. macOS: show the virtual-device guide (BlackHole / Loopback) instead, unless Electron's loopback is supported on the running macOS version.
 3. Short in-app guide (Settings › Audio › "Using a virtual cable"): choose Voicemeeter / VB-Cable / BlackHole output as External audio — no need to replace the mic.
 Acceptance (Phase 20): external_audio.feature green; unit tests prove the routing (broadcast + recording, no monitor by default, mic mute independent) and the duck envelope; e2e (sandbox) shows the External audio section for a speaker in light and dark mode.
+```
+
+---
+
+## Phase 21 — Live reliability (owner review 2026-10-12, from the real request log)
+
+Good news from `<userData>/api-log`: live use works — join_channel ×4, leave_channel ×3, active_ping ×52, get_channel_messages ×50, send_channel_message ×1, all 200, and the routes were promoted to observed. But the log also shows that **realtime never ran** in the owner's sessions. Fix these before Phase 20.
+
+### Task 21.1 — Crawler must run for already signed-in users, and must not write into the app
+
+```
+Evidence: <userData>/realtime-config.json and <userData>/bundle-cache are missing on the owner's machine. scheduleBundleCrawl() is only called when the official sign-in window navigates away from /signin (electron/main.cjs ~456). A user whose web session is adopted at startup never triggers it → no PubNub subscribe key → no live stage updates.
+Also: createBundleCrawler writes api-captures/bundle-callsites.json, api-captures/bundle-discovery.md and electron/webApiRoutes.json under projectRoot — inside app.asar (read-only) in the packaged app, and changing the shipped route table at runtime is wrong.
+Do:
+1. Run the crawl (cache-aware, extractor-versioned) after every successful adoptWebSession / me at startup and after sign-in; at most once per build id; retry with backoff on failure.
+2. Split outputs: runtime (packaged and dev) writes ONLY userData/realtime-config.json (+ bundle-cache). Writing api-captures/* and promoting electron/webApiRoutes.json happens only in dev scripts (npm run api:discover), never from the running app. Guard with app.isPackaged.
+3. Test: unit test that startup with an adopted session calls the crawler; unit test that the packaged mode never writes outside userData.
+```
+
+### Task 21.2 — Realtime and audio must never fail silently
+
+```
+1. clubbox:pubnub-subscribe returns { ok:false } without a reason when the subscribe key is missing (main.cjs ~659); the renderer ignores it. Return a reason; show it in API Health and as the room's "Live updates unavailable — retrying" note; trigger the crawl (21.1) and resubscribe when the key arrives.
+2. Task 10.5 item 2 was not done: the request log has zero realtime/audio records. Log (redacted, shape only): PubNub connect/disconnect/error with status, unknown message actions (action + keys), Agora join result (ok / error code), Agora app id source (config / fallback).
+3. Settings › Advanced › "Connection status": Web session ✓/✗, Realtime keys ✓/✗ (no values), PubNub connected ✓/✗, Agora joined ✓/✗ for the current room. One glance tells the owner what works.
+```
+
+### Task 21.3 — Unread summary bug and housekeeping
+
+```
+1. get_conversation_unread_summary returned 400 "Conversation id is required." with an EMPTY body (api-log): a call is made without conversation_id. Add a guard + a failing test that reproduces it; keep the 404 soft-skip.
+2. Housekeeping so the autonomous loop stays reliable:
+   - CURSOR_TASKS.md is 1,300+ lines. Move phases 0–17 (done) to docs/history/cursor-tasks-0-17.md; keep Status, Project context, Next run, open phases and Questions here.
+   - src/app/clubboxApp.ts is back to ~1,930 lines (target was < 600 in Task 11.2): move view-specific handlers into the matching controllers; no behaviour change, tests stay green.
+   - Update the Project context block (file list and line counts are stale).
+Acceptance (Phase 21): with an already signed-in session, starting the app creates realtime-config.json, the room shows live updates (sandbox + fake PubNub in tests), the request log contains PubNub/Agora records, and Connection status shows all green in a live room.
 ```
