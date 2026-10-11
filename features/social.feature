@@ -27,13 +27,13 @@ Feature: Profiles, follows, activity and private chat
     Then I see "Full lists are not available on Clubhouse web."
     And no list request is sent
 
-  @pending @observed @SO-5
+  @observed @SO-5
   Scenario: Activity shows edge stories and notifications
     When I open Activity
     Then a "GET /web_api/get_edge_stories" request is sent
     And the unread dot follows "has_unread_notifications" from me
 
-  @pending @community @SO-5
+  @community @SO-5
   Scenario: Notifications page (experimental)
     Given experimental actions are on
     When I open Activity

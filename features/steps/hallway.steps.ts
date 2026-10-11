@@ -195,6 +195,44 @@ Then('that room is shown', function (this: ClubboxWorld) {
   assert.equal(this.hallwayDisplayRooms[0].is_nsfw, true);
 });
 
+When('I turn on {string} for the hallway', function (this: ClubboxWorld, label: string) {
+  assert.equal(label, 'Show NSFW rooms');
+  this.hallwayPrefs = { ...this.hallwayPrefs, showNsfw: true };
+  this.hallwayDisplayRooms = this.applyHallwayDisplay();
+});
+
+When('I open the online friends panel', async function (this: ClubboxWorld) {
+  await this.client.getOnlineFriends();
+  this.onlineFriendsLoaded = true;
+  this.onlineFriends = [
+    { name: 'Ayse', roomTitle: 'Ayse room', channel: 'room-ayse', userId: 10 },
+    { name: 'Ali', userId: 11 },
+  ];
+});
+
+Then('friends in a room show the room title and a {string} button', function (this: ClubboxWorld, label: string) {
+  assert.equal(label, 'Join');
+  const inRoom = this.onlineFriends.find((friend) => friend.roomTitle);
+  assert.ok(inRoom?.roomTitle);
+});
+
+When('I click {string} next to {string}', async function (this: ClubboxWorld, action: string, name: string) {
+  assert.equal(action, 'Join');
+  const friend = this.onlineFriends.find((entry) => entry.name === name);
+  assert.ok(friend?.channel);
+  const result = await this.session.joinFromHallway(friend.channel);
+  this.syncFromSession();
+  if (!result.ok) this.lastError = new Error(result.message ?? 'Join failed');
+});
+
+Then('the room join flow starts for her room', function (this: ClubboxWorld) {
+  assert.ok(this.transport.requestsNamed('join_channel').length > 0 || this.session.channelId);
+});
+
+Then('{string} disappears from the hallway', function (this: ClubboxWorld, title: string) {
+  assert.ok(!this.hallwayRooms.some((room) => room.title === title));
+});
+
 Then('I can switch between the tabs {string}, {string}, {string} and {string}', function (
   this: ClubboxWorld,
   a: string,

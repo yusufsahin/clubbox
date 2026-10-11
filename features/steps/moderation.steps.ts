@@ -53,3 +53,21 @@ Then('I see a confirmation before any request is sent', function (this: ClubboxW
 Given('I confirm blocking {string}', async function (this: ClubboxWorld, name: string) {
   await this.chooseModeration('Block from room', name, { confirmBlock: true });
 });
+
+When('I open {string} and search {string}', async function (this: ClubboxWorld, panel: string, query: string) {
+  assert.equal(panel, 'Invite people');
+  this.pingQuery = query;
+  await this.client.getGroupSuggestedInvites();
+  await this.client.search(query, ['UserProfile']);
+});
+
+Then('suggestions come from {string} and {string}', function (this: ClubboxWorld, a: string, b: string) {
+  assert.ok(this.transport.requestsNamed(a).length > 0);
+  assert.ok(this.transport.requestsNamed('search_users').length > 0 || this.transport.requestsNamed(b).length > 0);
+});
+
+When('I select {string} and {string} and click {string}', async function (this: ClubboxWorld, a: string, b: string, action: string) {
+  assert.equal(action, 'Ping');
+  this.pingSelectedNames = [a, b];
+  await this.pingSelectedInvites();
+});

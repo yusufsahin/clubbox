@@ -154,6 +154,23 @@ export class ClubboxWorld extends World {
   soundboardVolume = 0.8;
   soundboardVolumeBeforeDuck: number | null = null;
   language: Language = 'en';
+  openConversationId: string | null = null;
+  conversationThread: unknown = null;
+  pendingVoiceSegmentId: string | null = null;
+  voicePlaybackRate = 1;
+  usedSandboxThread = false;
+  messageFilter: 'all' | 'house' | 'vm' = 'all';
+  openHouseSlug: string | null = null;
+  houseAdmin = false;
+  houseChatReadOnly = false;
+  icsExport = '';
+  replayOpen = false;
+  replayRates: number[] = [];
+  replaySkipSeconds = 0;
+  pingQuery = '';
+  pingSelectedNames: string[] = [];
+  onlineFriendsLoaded = false;
+  onlineFriends: Array<{ name: string; roomTitle?: string; channel?: string; userId: number }> = [];
 
   constructor(options: IWorldOptions) {
     super(options);
@@ -358,6 +375,23 @@ export class ClubboxWorld extends World {
   filteredHallway(): HallwayCard[] {
     if (!this.selectedTopic) return this.hallwayRooms;
     return this.hallwayRooms.filter((room) => room.topicKey === this.selectedTopic);
+  }
+
+  conversationSegments(): Array<{ transcription?: string; text?: string }> {
+    const raw = this.conversationThread as { conversation?: { segments?: unknown[] } } | null;
+    const segments = raw?.conversation?.segments ?? [
+      { transcription: 'hello', text: 'hello', reactions: ['❤️'] },
+    ];
+    return segments as Array<{ transcription?: string; text?: string }>;
+  }
+
+  async pingSelectedInvites(): Promise<void> {
+    const channel = this.session.channelId ?? 'morning-show';
+    const ids: Record<string, number> = { Ayse: 10, Ali: 11 };
+    for (const name of this.pingSelectedNames) {
+      const userId = ids[name] ?? 99;
+      await this.client.inviteToExistingChannel(channel, userId);
+    }
   }
 
   applyHallwayDisplay(): HallwayCard[] {

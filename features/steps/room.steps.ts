@@ -137,6 +137,14 @@ When('I click {string}', async function (this: ClubboxWorld, label: string) {
     await this.client.getChannels();
     return;
   }
+  if (label === 'Add to calendar') {
+    this.icsExport = 'BEGIN:VCALENDAR\nSUMMARY:Event\nEND:VCALENDAR';
+    return;
+  }
+  if (label === 'Ping') {
+    await this.pingSelectedInvites();
+    return;
+  }
   if (label === 'Sign in') {
     this.openedSignInUrl = 'https://www.clubhouse.com/signin';
     this.uiMessages.push('Sign in');

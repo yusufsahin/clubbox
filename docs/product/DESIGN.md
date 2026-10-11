@@ -209,20 +209,20 @@ Severity: **S1** blocks a P0 flow · **S2** wrong/unsafe behaviour · **S3** mis
 | G-02 | `join_channel`, `leave_channel`, `active_ping`, `audience_reply`, `become_speaker`, chat send/read are blocked as "configured-unverified" though the bundle gives exact bodies | capabilities / routes | S1 | Closed in 0fcb781 (10.2 evidence `bundle`) |
 | G-03 | RoomSync polls `get_channel`, which the web bundle does not contain → stage never updates on web | `src/api/roomSync.ts` | S1 | Closed in 6ba85d9 — PubNub hub + `RealtimeRoomCoordinator`; `get_channel` removed from RoomSync |
 | G-04 | `endChannel` throws in live mode; hosts cannot end rooms | `client.ts endChannel` | S1 | Closed in a8c8ad2 — registry `end_channel` + experimental + `user_capabilities.can_end_room` |
-| G-05 | Messages: thread, send text/voice, add member, start VM are sandbox-only (`sandboxThread`, `sandboxAppendSegment`, `sandboxStartVm`…); live users see an empty thread | `client.ts`, `main.ts` | S1 (R4) / S3 | get_conversation (O) + mark listened (O) live; add_conversation_segment/create_conversation after crawler gives bodies (11.6) |
+| G-05 | Messages: thread, send text/voice, add member, start VM are sandbox-only (`sandboxThread`, `sandboxAppendSegment`, `sandboxStartVm`…); live users see an empty thread | `client.ts`, `messagesCtl.ts` | S1 (R4) / S3 | Closed in Task 11.6 — live `get_conversation`, mark listened, bundle send/react/VM via registry |
 | G-06 | Agora app id is a code constant; it must follow the bundle value `NEXT_PUBLIC_AGORA_KEY` per Clubhouse build | `agoraVoice.ts`, `client.ts` | S1 | Closed in 6ba85d9 — `userData/realtime-config.json` via bundle crawl + IPC `clubbox:agora-app-id` |
-| G-07 | Presence (online friends, "in a room → join") is sandbox-only | `client.sandboxPresence` | S3 | get_online_friends (C) experimental, or PubNub presence if discovered (11.5) |
+| G-07 | Presence (online friends, "in a room → join") is sandbox-only | `client.sandboxPresence` | S3 | Closed in Task 11.5 — experimental `get_online_friends` + BDD panel; messages presence row uses live API when on |
 | G-08 | `acceptSpeakerInvite` maps to `/web_api/become_speaker` with `{channel}` but the name/route mixes app and web semantics; decline missing | `client.ts`, routes | S2 | Closed in a8c8ad2 — route key `become_speaker` (B) + `reject_speaker_invite` (C) |
 | G-09 | Mute is only a local gain ramp; others never see my mute state; `agora_native_mute` ignored | `agoraVoice.setMuted` | S2 | Closed in 6ba85d9 — `agora_native_mute` enables Agora track mute alongside local gain |
-| G-10 | No `emoji_reaction`, `set_channel_title`, `change_handraise_settings`, `invite_to_existing_channel`, `hide_channel` | client | S3 | Room routes closed in a8c8ad2; hallway ping/hide UI remains 11.5 |
+| G-10 | No `emoji_reaction`, `set_channel_title`, `change_handraise_settings`, `invite_to_existing_channel`, `hide_channel` | client | S3 | Closed in Task 11.5 — hide on hallway cards; ping multi-select (RH-9) via suggested invites + search |
 | G-11 | Composer ignores `get_create_channel_targets` (capabilities, defaults, house targets, events to start) | createModal | S3 | Closed in a8c8ad2 — composer driven by targets; events-to-start still 11.7 |
-| G-12 | Houses, events, notifications, replays absent | — | S3 | 11.5–11.7 |
+| G-12 | Houses, events, notifications, replays absent | — | S3 | Closed in Task 11.7 — bundle house/replay/highlight routes + BDD; events/notifications via experimental GET |
 | G-13 | Mutation flags wrong for all in-bundle routes | webApiRoutes.json | S2 | Closed in 0fcb781 (10.2) |
 | G-14 | Sandbox implemented as if-branches + public `sandbox*` methods in the live client | client.ts (~1,140 lines) | S4 | Closed in 500df0a (11.1) |
 | G-15 | `main.ts` ~2,300 lines mixes state, timers, API calls, rendering | main.ts | S4 | Closed in 11.2 — `src/app/*Ctl.ts` + domain `roomSession`; `main.ts` bootstrap only |
 | G-16 | No log out | — | S3 | Closed in 66c8c22 (10.3 / ACC-3) |
 | G-17 | Discovery depends on the owner browsing; only 1 chunk scanned | recorder | S2 (process) | Closed in aab24e4 (11.0 bundle crawler) |
-| G-18 | Clubdeck-level studio features missing: chapters, paste link, audience search, keyword filters, mute everyone, ping multi-select | — | S3 | Partial — chapters, paste link, audience search, keyword filters closed in Task 10.4; mute everyone + ping multi-select remain 11.5 |
+| G-18 | Clubdeck-level studio features missing: chapters, paste link, audience search, keyword filters, mute everyone, ping multi-select | — | S3 | Closed in Task 11.5 — ping multi-select (RH-9); mute everyone was 11.3 |
 
 ---
 

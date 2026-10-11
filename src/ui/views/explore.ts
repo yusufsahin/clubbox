@@ -43,7 +43,7 @@ export function exploreView(
   channels: CHChannel[],
   topics: FeedTopic[],
   notices: string[],
-  access: { canJoin: boolean; canCreate: boolean },
+  access: { canJoin: boolean; canCreate: boolean; canHide: boolean },
   hallway: HallwayPrefs,
 ): SafeHtml {
   return html`
@@ -127,6 +127,7 @@ export function exploreView(
                 <button class="btn btn-secondary" style="width:100%;" type="button" disabled title="${t('notVerifiedHint')}">${t('notVerifiedYet')}</button>
               `}
               ${safeUrl(ch.url) ? html`<button class="btn btn-secondary room-share" type="button" data-action="copy-room-link" data-channel-id="${ch.channel || ch.channel_id}">${t('copyLink')}</button>` : ''}
+              ${access.canHide ? html`<button class="btn btn-secondary room-share" type="button" data-action="hide-room" data-channel-id="${ch.channel || ch.channel_id}">${t('hide')}</button>` : ''}
             </div>
           </div>
         `;

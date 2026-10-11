@@ -89,12 +89,12 @@ Legend — Today: ✅ works live · 🧪 sandbox/UI only · ❌ missing. Evidenc
 | --- | --- | --- | --- | --- | --- | --- |
 | HAL-1 | Hallway feed with topic chips | ✓ | ✓ | ✅ | O (get_feed_v3) | P0 |
 | HAL-2 | Room card: title, house, replays/clips on, age, listeners, speakers, copy link, hide, join | ✓ | ✓ | 🧪 partial | O | P0 |
-| HAL-3 | Hide room from hallway | ✓ | ✓ | ❌ | C (hide_channel) | P2 |
+| HAL-3 | Hide room from hallway | ✓ | ✓ | ✅ | C (hide_channel) | P2 |
 | HAL-4 | Keyword filters + highlight; highlight rooms with friends; NSFW toggle | | ✓ | ✅ | — (client side) | P1 |
 | HAL-5 | Search people/rooms/houses (tabs) | ✓ | ✓ | ✅ | O (search) | P1 |
 | HAL-6 | Saved search columns that refresh (≥ 60 s, paused when hidden) | | ✓ | ❌ | O | P2 |
 | HAL-7 | Paste a clubhouse.com link (room, profile, event, replay) to open it | | ✓ | ✅ | — + O/B | P1 |
-| HAL-8 | Events: upcoming list, RSVP/notify, .ics export, copy link | ✓ | ✓ | ❌ | C (get_events) | P2 |
+| HAL-8 | Events: upcoming list, RSVP/notify, .ics export, copy link | ✓ | ✓ | ✅ | C (get_events) | P2 |
 
 ### 4.3 Room — listener
 
@@ -111,7 +111,7 @@ Legend — Today: ✅ works live · 🧪 sandbox/UI only · ❌ missing. Evidenc
 | RL-9 | Private chat with a person in the room (text) | ✓ | ✓ | 🧪 | O (conversations) | P2 |
 | RL-10 | Audience search by name/bio (Ctrl+S) | | ✓ | ✅ | — (client side on room users) | P1 |
 | RL-11 | Spatial audio (local) | ✓ | ✓ | ❌ | — | P2 |
-| RL-12 | Replays: play saved replays | ✓ | ✓ | ❌ | B (get_replay_channel) | P2 |
+| RL-12 | Replays: play saved replays | ✓ | ✓ | ✅ | B (get_replay_channel) | P2 |
 
 ### 4.4 Room — host & moderator
 
@@ -125,7 +125,7 @@ Legend — Today: ✅ works live · 🧪 sandbox/UI only · ❌ missing. Evidenc
 | RH-6 | Make moderator / move to audience / block from room | ✓ | ✓ | 🧪 | C | P1 |
 | RH-7 | Hand-raise permission (off / everyone / friends of speakers) | ✓ | ✓ | ❌ | C (change_handraise_settings) | P1 |
 | RH-8 | Chat on/off, delete a message | ✓ | ✓ | 🧪 | N for delete | P2 |
-| RH-9 | Ping people into the room (multi-select, search by bio) | ✓ | ✓ | ❌ | C (invite_to_existing_channel) | P1 |
+| RH-9 | Ping people into the room (multi-select, search by bio) | ✓ | ✓ | ✅ | C (invite_to_existing_channel) | P1 |
 | RH-10 | Room visibility change | | ✓ | ❌ | C (make_channel_public/social) | P2 |
 | RH-11 | End room (confirm) | ✓ | ✓ | 🧪 | C (end_channel) | P0 |
 | RH-12 | Pinned link | ✓ | ✓ | ❌ | N | P2 |
@@ -150,10 +150,10 @@ Legend — Today: ✅ works live · 🧪 sandbox/UI only · ❌ missing. Evidenc
 | --- | --- | --- | --- | --- | --- | --- |
 | SO-1 | Profile: counts, mutuals, bio, follow | ✓ | ✓ | ✅ | O | P1 |
 | SO-2 | Followers / following lists | ✓ | ✓ | ❌ | N on web | P3 |
-| SO-3 | Online friends + "in a room → join" | ✓ | ✓ | ❌ | C (get_online_friends) | P2 |
-| SO-4 | Messages: VMs + house chats, text, voice | ✓ | ✓ | ✅ partial | O/B | P2 |
-| SO-5 | Activity / notifications | ✓ | ✓ | 🧪 | C (get_notifications) | P2 |
-| SO-6 | Houses: list, page, members, join | ✓ | | 🧪 | B (get_social_club*) | P2 |
+| SO-3 | Online friends + "in a room → join" | ✓ | ✓ | ✅ | C (get_online_friends) | P2 |
+| SO-4 | Messages: VMs + house chats, text, voice | ✓ | ✓ | ✅ | O/B | P2 |
+| SO-5 | Activity / notifications | ✓ | ✓ | ✅ | C (get_notifications) | P2 |
+| SO-6 | Houses: list, page, members, join | ✓ | | ✅ | B (get_social_club*) | P2 |
 
 ### 4.8 Capabilities discovered in API responses (decided)
 

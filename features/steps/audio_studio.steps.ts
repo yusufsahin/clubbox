@@ -40,11 +40,6 @@ When('I turn on {string}', function (this: ClubboxWorld, label: string) {
     this.persistStudioDevices();
     return;
   }
-  if (label === 'Show NSFW rooms') {
-    this.hallwayPrefs.showNsfw = true;
-    this.hallwayDisplayRooms = this.applyHallwayDisplay();
-    return;
-  }
   assert.fail(`unsupported toggle ${label}`);
 });
 

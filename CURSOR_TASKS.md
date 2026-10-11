@@ -13,11 +13,11 @@ Do these before continuing the Autonomous plan, then tick them:
 
 ### Last autonomous run (2026-10-11)
 
-- Done: Task **10.4** — recording chapters (Ctrl+T + `.chapters.txt` YouTube/Spotify export), replays-only recording toast, discover paste-link routing (room/profile/event/replay), audience Ctrl+S filter, hallway keywords/highlight/friends-first/NSFW prefs; `studio.feature` + HAL-4 green; G-18 partial.
-- Tests: `npm test` — 95 unit + 76 BDD + trace warn (0 errors).
-- Un-pended: `studio.feature` (4), `hallway.feature` HAL-4 (2).
+- Done: Tasks **11.5** (HAL-3, SO-3, RH-9 — hide room, online friends panel, ping multi-select + hallway hide UI), **11.6** (messages live — registry/client + `messagesCtl` + 8× SO-4 scenarios), **11.7** (houses/events/replays/notifications — bundle routes + 7× SO-6/HAL-8/RL-12 + 2× SO-5).
+- Tests: `npm test` — 95 unit + **97 BDD** (581 steps) + trace warn (0 errors).
+- Un-pended: `hallway.feature` HAL-3/SO-3, `room_moderation.feature` RH-9, `messages.feature` (8), `houses_events_replays.feature` (7), `social.feature` SO-5 (2).
 - Blocked: none.
-- Next: **11.5**
+- Next: **11.9** (stop before was 11.9; 11.8 strict/warn gate next if continuing plan).
 - Questions: none new.
 
 ## Status
@@ -28,7 +28,7 @@ Legend: **Uygulandı** = code is in the tree. **Canlı doğrulandı** = exercise
 | --- | --- | --- |
 | 1 | **0.7 Review fixes (2026-10-11 #2)** — navigation guard, packaged recorder, clip worklet path, auto-armed clip buffer, 429/visibility, CORS proxy token leak | Uygulandı |
 | 1b | **0.8 Followers / following / friends lists** — bundle scan + labeled UI hunt; live UI uses only counts + mutual lists | Uygulandı for counts, mutual names, and chat people. The public web bundle does not contain get_followers, get_following, or get_online_friends. get_friend_zone_match and get_social_club_members are in-bundle and not called. The labeled click-through still needs a signed-in session. |
-| 0 | **Autonomous plan** (see `.cursor/rules/clubbox.mdc`): 10.1 → 11.8 (warn mode) → 10.2 → 10.5 → 11.0 → 11.1 → 11.2 → 11.3 → 11.4 → 10.4 → 11.5 → 11.6 → 11.7 → 11.9 → 11.10 → 11.8 (strict). Acceptance files: account, hallway, room_listener, room_realtime, room_host, room_moderation, audio_studio, studio, social, messages, houses_events_replays, api_health. Requirements: `docs/product/PRD.md`; design + gap list G-01…G-18: `docs/product/DESIGN.md`; acceptance: `features/*.feature` | Through **10.4** done. 🆕 Do next: **11.5**. R1 room BDD green including realtime; owner live room check still outstanding. |
+| 0 | **Autonomous plan** (see `.cursor/rules/clubbox.mdc`): 10.1 → 11.8 (warn mode) → 10.2 → 10.5 → 11.0 → 11.1 → 11.2 → 11.3 → 11.4 → 10.4 → 11.5 → 11.6 → 11.7 → 11.9 → 11.10 → 11.8 (strict). Acceptance files: account, hallway, room_listener, room_realtime, room_host, room_moderation, audio_studio, studio, social, messages, houses_events_replays, api_health. Requirements: `docs/product/PRD.md`; design + gap list G-01…G-18: `docs/product/DESIGN.md`; acceptance: `features/*.feature` | Through **11.7** done. 🆕 Do next: **11.9**. R1 room BDD green including realtime; owner live room check still outstanding. |
 | — | **10.1** / **10.2** / **10.4** / **10.5** / **11.0** / **11.8 (warn)** | Uygulandı |
 | 1c | **0.9 Real room capture** — recorder misses clubhouse.pubnubapi.com, bundle scan saw 1 chunk, corrected smoke test (replays ON) | Steps 1–2 are in. S1–S3 still need a signed-in capture. |
 | 2 | **0.6 Community Guidelines risk** — hidden reCAPTCHA sign-in, polling, recording, distribution | Uygulandı (code). Sign-in is a visible clubhouse.com window, polling pauses when the window is hidden, recording is opt-in, and there is no publish config. A public release is still your decision. |

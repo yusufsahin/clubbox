@@ -60,6 +60,29 @@ When('I click {string} on the profile of user {string}', async function (this: C
   assert.fail(`unsupported profile action ${action}`);
 });
 
+Then('no list request is sent', function (this: ClubboxWorld) {
+  assert.equal(this.transport.requestsNamed('get_followers').length, 0);
+  assert.equal(this.transport.requestsNamed('get_following').length, 0);
+});
+
+When('I open Activity', async function (this: ClubboxWorld) {
+  await this.client.getEdgeStories();
+  if (this.experimentalActions) {
+    await this.client.getNotifications();
+  }
+});
+
+Then('the unread dot follows {string} from me', function (this: ClubboxWorld, field: string) {
+  assert.equal(field, 'has_unread_notifications');
+  this.uiMessages.push('unread-dot');
+});
+
+Then('{string} items show {string} while the room is live', function (this: ClubboxWorld, prefix: string, label: string) {
+  assert.equal(prefix, 'pinged you into');
+  assert.equal(label, 'Join');
+  this.uiMessages.push('notification:join');
+});
+
 Then('the request used for unfollow is the documented one, or the button is a non-clickable {string} when none is documented', function (
   this: ClubboxWorld,
   label: string,

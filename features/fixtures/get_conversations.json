@@ -1,0 +1,21 @@
+{
+  "success": true,
+  "conversations": [
+    {
+      "conversation_id": "c1",
+      "title": "Thread",
+      "short_title": "Thread",
+      "preview_segment_text": "Hi",
+      "creator_user_profile": { "user_id": 1, "name": "Ayse", "username": "ayse", "photo_url": null },
+      "segments_authors": [],
+      "is_subscribed": true,
+      "is_permanent_social_club_conversation": false,
+      "preview_segment_type": "TEXT",
+      "is_archived": false,
+      "permissions": { "can_reply": true, "can_add_members": false, "can_invite": false, "can_delete": false, "can_leave": true, "cant_reply_reason": "" },
+      "privacy_settings": { "display_text": "Private", "tooltip_text": "" },
+      "has_new_segments": false,
+      "time_content_updated": "2026-10-11T12:00:00.000Z"
+    }
+  ]
+}

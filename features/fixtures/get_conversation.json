@@ -1,0 +1,19 @@
+{
+  "success": true,
+  "conversation": {
+    "conversation_id": "c1",
+    "segments": [
+      {
+        "segment_id": "seg-1",
+        "transcription": "Hello there",
+        "text": "Hello there",
+        "reactions": ["❤️"]
+      },
+      {
+        "segment_id": "seg-voice-1",
+        "transcription": "Voice note",
+        "kind": "voice"
+      }
+    ]
+  }
+}

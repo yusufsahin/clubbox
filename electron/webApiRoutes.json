@@ -242,7 +242,7 @@
   "add_conversation_segment": {
     "path": "/web_api/add_conversation_segment",
     "method": "POST",
-    "evidence": "in-bundle",
+    "evidence": "bundle",
     "mutation": true
   },
   "ask_question_about_conversation": {
@@ -266,7 +266,7 @@
   "create_conversation": {
     "path": "/web_api/create_conversation",
     "method": "POST",
-    "evidence": "in-bundle",
+    "evidence": "bundle",
     "mutation": true
   },
   "delete_conversation": {
@@ -284,7 +284,7 @@
   "get_conversation_unread_summary": {
     "path": "/web_api/get_conversation_unread_summary",
     "method": "POST",
-    "evidence": "in-bundle",
+    "evidence": "bundle",
     "mutation": false
   },
   "get_friend_zone_match": {
@@ -296,7 +296,7 @@
   "get_highlight": {
     "path": "/web_api/get_highlight",
     "method": "POST",
-    "evidence": "in-bundle",
+    "evidence": "bundle",
     "mutation": false
   },
   "get_invite_conversation": {
@@ -308,7 +308,7 @@
   "get_replay_channel": {
     "path": "/web_api/get_replay_channel",
     "method": "POST",
-    "evidence": "in-bundle",
+    "evidence": "bundle",
     "mutation": false
   },
   "get_replay_channel_chunk": {
@@ -320,13 +320,13 @@
   "get_social_club": {
     "path": "/web_api/get_social_club",
     "method": "POST",
-    "evidence": "in-bundle",
+    "evidence": "bundle",
     "mutation": false
   },
   "get_social_club_members": {
     "path": "/web_api/get_social_club_members",
     "method": "POST",
-    "evidence": "in-bundle",
+    "evidence": "bundle",
     "mutation": false
   },
   "get_social_club_message_thread": {
@@ -338,13 +338,13 @@
   "get_social_club_messages": {
     "path": "/web_api/get_social_club_messages",
     "method": "POST",
-    "evidence": "in-bundle",
+    "evidence": "bundle",
     "mutation": false
   },
   "get_user_social_clubs": {
     "path": "/web_api/get_user_social_clubs",
     "method": "POST",
-    "evidence": "in-bundle",
+    "evidence": "bundle",
     "mutation": false
   },
   "gif_reaction": {
@@ -386,13 +386,13 @@
   "send_conversation_emoji_reaction": {
     "path": "/web_api/send_conversation_emoji_reaction",
     "method": "POST",
-    "evidence": "in-bundle",
+    "evidence": "bundle",
     "mutation": true
   },
   "send_social_club_message": {
     "path": "/web_api/send_social_club_message",
     "method": "POST",
-    "evidence": "in-bundle",
+    "evidence": "bundle",
     "mutation": true
   },
   "send_social_club_message_emoji_reaction": {

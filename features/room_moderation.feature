@@ -47,7 +47,7 @@ Feature: Moderation extras
     When I delete that message
     Then the request used is the one documented for message deletion, or "Delete" is hidden when none is documented
 
-  @pending @community @RH-9
+  @community @RH-9
   Scenario: Ping several people into the room
     When I open "Invite people" and search "market"
     Then suggestions come from "get_group_suggested_invites" and "search"

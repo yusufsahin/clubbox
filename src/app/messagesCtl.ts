@@ -68,21 +68,53 @@ export async function loadConversations(this: ClubboxApp) : Promise<void> {
     if (this.currentTab === 'messages' || this.currentTab === 'friends') this.render();
   }
 
+export async function openConversationThread(this: ClubboxApp, conversationId: string): Promise<void> {
+    this.openConversationId = conversationId;
+    this.previewMember = null;
+    this.openConversationThreadData = null;
+    if (clubhouseClient.getConfig().useSandbox) {
+      this.render();
+      return;
+    }
+    if (!clubhouseClient.supports('get_conversation')) {
+      this.render();
+      return;
+    }
+    try {
+      const res = await clubhouseClient.getConversation(conversationId);
+      this.openConversationThreadData = res;
+    } catch (err) {
+      this.reportApiError(err);
+    }
+    this.render();
+  }
+
 export function sendThreadSegment(this: ClubboxApp, conversationId: string | undefined, kind: 'text' | 'voice') : void {
     if (!conversationId) return;
     const item = this.conversations.find((entry) => entry.conversation_id === conversationId);
     if (!item?.can_reply) return;
-    if (this.liveMessageBlocked()) return;
     const input = document.getElementById('thread-input') as HTMLInputElement | null;
     const text = kind === 'voice' ? t('voicePreview') : (input?.value.trim() ?? '');
-    if (!text) return;
-    clubhouseClient.getSandbox()?.appendSegment(conversationId, {
-      kind,
-      author_name: this.me?.name || 'Sandbox User',
-      text,
-    });
+    if (!text && kind === 'text') return;
+    const sandbox = clubhouseClient.getSandbox();
+    if (sandbox) {
+      sandbox.appendSegment(conversationId, {
+        kind,
+        author_name: this.me?.name || 'Sandbox User',
+        text,
+      });
+      if (kind === 'voice') audioEngine.playVoiceNote(this.voiceRate);
+      void this.loadConversations();
+      return;
+    }
+    if (!clubhouseClient.supports('add_conversation_segment')) {
+      this.liveMessageBlocked();
+      return;
+    }
+    void clubhouseClient.addConversationSegment(conversationId, kind, kind === 'text' ? text : undefined)
+      .then(() => this.loadConversations())
+      .catch((err) => this.reportApiError(err));
     if (kind === 'voice') audioEngine.playVoiceNote(this.voiceRate);
-    void this.loadConversations();
   }
 
 export function addThreadMember(this: ClubboxApp, conversationId: string | undefined) : void {
@@ -121,12 +153,13 @@ export function runThreadPermission(this: ClubboxApp, conversationId: string | u
 
 export function liveMessageBlocked(this: ClubboxApp) : boolean {
     if (clubhouseClient.getConfig().useSandbox) return false;
-    this.showToast(t('unverifiedAction'), '≡ƒöÆ');
+    this.showToast(t('unverifiedAction'), '🔒');
     return true;
   }
 
 export function wireMessagesCtl(proto: ClubboxApp): void {
   proto.loadConversations = loadConversations;
+  proto.openConversationThread = openConversationThread;
   proto.sendThreadSegment = sendThreadSegment;
   proto.addThreadMember = addThreadMember;
   proto.runThreadPermission = runThreadPermission;

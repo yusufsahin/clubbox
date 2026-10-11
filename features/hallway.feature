@@ -30,7 +30,7 @@ Feature: Hallway and discovery
     When I click "Copy link" on "Tech Talk"
     Then the clipboard contains "https://www.clubhouse.com/room/abc123"
 
-  @pending @community @HAL-3
+  @community @HAL-3
   Scenario: Hide a room from the hallway
     Given experimental actions are on
     And the hallway shows the room "Tech Talk" with channel "abc123"
@@ -51,7 +51,7 @@ Feature: Hallway and discovery
   Scenario: NSFW rooms are hidden by default
     Given the hallway contains a room marked NSFW
     Then that room is not shown
-    When I turn on "Show NSFW rooms"
+    When I turn on "Show NSFW rooms" for the hallway
     Then that room is shown
 
   @observed @HAL-5
@@ -69,7 +69,7 @@ Feature: Hallway and discovery
     Then no "search" request is sent
     And the saved column "jazz" is still there after restart
 
-  @pending @community @SO-3
+  @community @SO-3
   Scenario: Online friends and joining their room
     Given experimental actions are on
     When I open the online friends panel

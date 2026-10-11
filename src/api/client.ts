@@ -1148,6 +1148,81 @@ export class ClubhouseApiClient {
     return this.call('get_events', { page, page_size: pageSize, is_filtered: isFiltered });
   }
 
+  public async getConversation(conversationId: string): Promise<{ success: boolean; conversation?: unknown }> {
+    return this.call('get_conversation', { conversation_id: conversationId });
+  }
+
+  public async markConversationSegmentListened(conversationId: string, segmentId: string): Promise<ApiAck> {
+    return this.call('mark_conversation_segment_listened', { conversation_id: conversationId, segment_id: segmentId });
+  }
+
+  public async addConversationSegment(
+    conversationId: string,
+    kind: 'text' | 'voice',
+    text?: string,
+  ): Promise<ApiAck> {
+    return this.call('add_conversation_segment', {
+      conversation_id: conversationId,
+      message: kind === 'text' ? (text ?? '') : undefined,
+      audio_file: kind === 'voice' ? 'voice-blob' : '',
+      duration: kind === 'voice' ? 3 : 0,
+    });
+  }
+
+  public async createConversation(userIds: number[]): Promise<ApiAck> {
+    return this.call('create_conversation', {
+      user_ids: userIds,
+      privacy_level: 'private',
+      is_private: true,
+      source: 14,
+      social_club_id: 0,
+    });
+  }
+
+  public async sendConversationEmojiReaction(
+    conversationId: string,
+    segmentId: string,
+    emoji: string,
+  ): Promise<ApiAck> {
+    return this.call('send_conversation_emoji_reaction', {
+      conversation_id: conversationId,
+      segment_id: segmentId,
+      emoji,
+    });
+  }
+
+  public async getConversationUnreadSummary(): Promise<{ success: boolean; unread_count?: number }> {
+    return this.call('get_conversation_unread_summary', {});
+  }
+
+  public async getUserSocialClubs(): Promise<{ success: boolean; social_clubs?: unknown[] }> {
+    return this.call('get_user_social_clubs', {});
+  }
+
+  public async getSocialClub(slug: string): Promise<{ success: boolean; social_club?: unknown }> {
+    return this.call('get_social_club', { social_club_slug: slug });
+  }
+
+  public async getSocialClubMembers(socialClubId: number): Promise<{ success: boolean; members?: unknown[] }> {
+    return this.call('get_social_club_members', { social_club_id: socialClubId });
+  }
+
+  public async getSocialClubMessages(socialClubId: number, slug: string): Promise<{ success: boolean; messages?: unknown[] }> {
+    return this.call('get_social_club_messages', { social_club_id: socialClubId, social_club_slug: slug });
+  }
+
+  public async sendSocialClubMessage(socialClubId: number, slug: string, message: string): Promise<ApiAck> {
+    return this.call('send_social_club_message', { social_club_id: socialClubId, social_club_slug: slug, message });
+  }
+
+  public async getReplayChannel(channelId: string): Promise<{ success: boolean; replay?: unknown }> {
+    return this.call('get_replay_channel', { channel: channelId });
+  }
+
+  public async getHighlight(highlightId: string): Promise<{ success: boolean; highlight?: unknown }> {
+    return this.call('get_highlight', { highlight_id: highlightId });
+  }
+
   public async activePing(channelId: string): Promise<ApiAck> {
     return this.call('active_ping', { channel: channelId });
   }

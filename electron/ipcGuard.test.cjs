@@ -6,7 +6,7 @@ test('request allowlist rejects unknown endpoints and unsafe payloads', () => {
   assert.equal(isAllowedEndpoint('me'), true);
   assert.equal(isAllowedEndpoint('join_channel'), true);
   assert.equal(isAllowedEndpoint('get_channel'), false);
-  assert.equal(isAllowedEndpoint('get_social_club_members'), false);
+  assert.equal(isAllowedEndpoint('get_social_club_members'), true);
   assert.equal(isAllowedEndpoint('get_followers'), false);
   assert.equal(isAllowedEndpoint('start_phone_number_web_auth'), true);
   assert.equal(isPlainPayload({ channel: 'room', raise_hands: true }, 0), true);

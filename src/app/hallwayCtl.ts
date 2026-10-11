@@ -228,6 +228,22 @@ export async function runDiscoverSearch(this: ClubboxApp) : Promise<void> {
     }
   }
 
+export async function hideHallwayRoom(this: ClubboxApp, channelId: string): Promise<void> {
+    if (!clubhouseClient.supports('hide_channel')) {
+      this.showToast(t('unverifiedAction'), '🔒');
+      return;
+    }
+    try {
+      await clubhouseClient.hideChannel(channelId, true);
+      this.channelsList = this.channelsList.filter(
+        (channel) => channel.channel !== channelId && String(channel.channel_id) !== channelId,
+      );
+      if (this.currentTab === 'explore') this.render();
+    } catch (err) {
+      this.reportApiError(err);
+    }
+  }
+
 export function wireHallwayCtl(proto: ClubboxApp): void {
   if (!('hallwayPrefs' in proto)) {
     (proto as ClubboxApp & { hallwayPrefs: HallwayPrefs }).hallwayPrefs = readHallwayPrefs();
@@ -247,4 +263,5 @@ export function wireHallwayCtl(proto: ClubboxApp): void {
   proto.removeHallwayKeyword = removeHallwayKeyword;
   proto.setHallwayShowNsfw = setHallwayShowNsfw;
   proto.openClubhouseLink = openClubhouseLink;
+  proto.hideHallwayRoom = hideHallwayRoom;
 }

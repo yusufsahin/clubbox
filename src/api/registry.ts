@@ -162,6 +162,51 @@ const REQUEST_BUILDERS: Partial<Record<string, (params: RequestBody) => RequestB
     page_size: typeof params.page_size === 'number' ? params.page_size : 20,
     page: typeof params.page === 'number' ? params.page : 1,
   }),
+  get_conversation: (params) => ({ conversation_id: requireString(params, 'conversation_id') }),
+  mark_conversation_segment_listened: (params) => ({
+    conversation_id: requireString(params, 'conversation_id'),
+    segment_id: requireString(params, 'segment_id'),
+  }),
+  add_conversation_segment: (params) => {
+    const body: RequestBody = {
+      conversation_id: requireString(params, 'conversation_id'),
+      audio_file: typeof params.audio_file === 'string' ? params.audio_file : '',
+      audio_format_type: typeof params.audio_format_type === 'string' ? params.audio_format_type : 'aac',
+      client_segment_id: typeof params.client_segment_id === 'string' ? params.client_segment_id : 'client-segment',
+      segment_batch_id: typeof params.segment_batch_id === 'string' ? params.segment_batch_id : 'batch',
+      duration: typeof params.duration === 'number' ? params.duration : 0,
+      attached_url: typeof params.attached_url === 'string' ? params.attached_url : '',
+    };
+    body.message = typeof params.message === 'string' ? params.message : '';
+    return body;
+  },
+  create_conversation: (params) => ({
+    privacy_level: typeof params.privacy_level === 'string' ? params.privacy_level : 'private',
+    social_club_id: typeof params.social_club_id === 'number' ? params.social_club_id : 0,
+    is_private: params.is_private !== false,
+    user_ids: Array.isArray(params.user_ids) ? params.user_ids : [],
+    source: typeof params.source === 'number' ? params.source : 14,
+  }),
+  send_conversation_emoji_reaction: (params) => ({
+    conversation_id: requireString(params, 'conversation_id'),
+    segment_id: requireString(params, 'segment_id'),
+    emoji: requireString(params, 'emoji'),
+  }),
+  get_conversation_unread_summary: () => ({}),
+  get_user_social_clubs: () => ({}),
+  get_social_club: (params) => ({ social_club_slug: requireString(params, 'social_club_slug') }),
+  get_social_club_members: (params) => ({ social_club_id: requireNumber(params, 'social_club_id') }),
+  get_social_club_messages: (params) => ({
+    social_club_id: requireNumber(params, 'social_club_id'),
+    social_club_slug: requireString(params, 'social_club_slug'),
+  }),
+  send_social_club_message: (params) => ({
+    social_club_id: requireNumber(params, 'social_club_id'),
+    social_club_slug: requireString(params, 'social_club_slug'),
+    message: requireString(params, 'message'),
+  }),
+  get_replay_channel: (params) => ({ channel: requireString(params, 'channel') }),
+  get_highlight: (params) => ({ highlight_id: requireString(params, 'highlight_id') }),
 };
 
 function buildRegistry(): Record<string, EndpointDefinition> {

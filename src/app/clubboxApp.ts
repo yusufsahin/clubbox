@@ -90,6 +90,7 @@ export class ClubboxApp {
   private conversationsLoaded = false;
   private messageFilter: 'all' | 'house' | 'vm' = 'all';
   private openConversationId: string | null = null;
+  openConversationThreadData: unknown = null;
   private previewMember: string | null = null;
   private voiceRate = 1;
   private privateVoice = false;
@@ -909,6 +910,7 @@ export class ClubboxApp {
     return exploreView(this.displayedHallwayChannels(), this.feedTopics, this.hallwayNotices(), {
       canJoin: clubhouseClient.supports('join_channel'),
       canCreate: clubhouseClient.supports('create_channel'),
+      canHide: clubhouseClient.supports('hide_channel'),
     }, this.hallwayPrefs);
   }
 
@@ -1182,10 +1184,13 @@ export class ClubboxApp {
         break;
       }
       case 'open-conversation':
-        this.openConversationId = el.dataset.conversationId || null;
-        this.previewMember = null;
-        this.render();
+        if (el.dataset.conversationId) void this.openConversationThread(el.dataset.conversationId);
         break;
+      case 'hide-room': {
+        const channelId = el.dataset.channelId;
+        if (channelId) void this.hideHallwayRoom(channelId);
+        break;
+      }
       case 'close-conversation':
         this.openConversationId = null;
         this.previewMember = null;
