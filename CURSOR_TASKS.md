@@ -1083,3 +1083,68 @@ Acceptance: scenario green; no PubNub change needed.
 2. PRD catalog "Today" for RL-4 and RH-2: wired (live verification pending).
 3. Remove any remaining references to the guessed realtime names (user_joined, hand_raised, speaker_added, speaker_removed, moderator_added) outside src/api/realtimeEvents.ts internals.
 ```
+
+---
+
+## Phase 15 — Theme system: light and dark must both be correct
+
+Found 2026-10-11 from an owner screenshot of the live hallway in light mode, then a full audit of `src/style.css` (2,921 lines). Root cause: `:root[data-theme='light']` overrides only 12 base tokens, while **70 declarations** hard-code dark-theme colours (`#fff`, `rgba(255,255,255,…)`, dark rgba backgrounds, light-on-dark badge colours). Several also fail contrast in dark mode. Work TDD-style: the contrast test (15.3) goes in first and fails, then 15.1/15.2 make it pass.
+
+Measured contrast (WCAG AA: 4.5:1 normal text, 3:1 large text/UI):
+
+| Theme | Element | Ratio | Cause |
+| --- | --- | ---: | --- |
+| light | Brand title "Clubbox" (`.brand-title`, style.css ~135) | **1.48** | gradient `#fff → #cbd5e1` |
+| light | Top bar title "Hallway" (`.top-bar`, ~331) | 3.39 | `background: rgba(14,17,26,.6)` — dark bar over light page |
+| light | Active nav item text (`.nav-item.active`, ~211) | **1.22** | `color: #fff` |
+| light | LIVE badge (`.mode-badge.live`, ~170) | **1.92** | `#34d399` |
+| light | SANDBOX badge (`.mode-badge.sandbox`, ~164) / invited tag (~877) | **1.67** | `#fbbf24` |
+| light | "HOST" label on room cards (emerald) | 2.54 | `#10b981` text on white |
+| light | Nav labels, card meta (`--text-dim` on `--bg-app`) | 4.34 | slightly below 4.5 |
+| dark | `--text-dim` on sidebar / card | 3.96 / 3.69 | `#64748b` too dark |
+| dark | House names / links in `--accent-purple` on card | 3.63 | `#7952f5` too dark for small text |
+
+### Task 15.1 — Semantic design tokens, defined for both themes
+
+```
+1. Replace raw colours with semantic tokens. Define every token in :root (dark) AND :root[data-theme='light']:
+   surfaces: --bg-app, --bg-sidebar, --bg-card, --bg-card-hover, --bg-elevated, --bg-topbar, --bg-overlay, --bg-toast, --bg-inset (meters, key tags), --surface-hover, --surface-active
+   text: --text-main, --text-muted, --text-dim, --text-on-accent, --text-on-warning
+   lines: --border-subtle, --border-strong, --border-focus
+   accents (text-safe variants): --accent-purple (fills), --accent-purple-text, --accent-emerald, --accent-emerald-text, --accent-amber-text, --accent-rose-text
+   badges: --badge-live-bg/-fg/-border, --badge-sandbox-bg/-fg/-border, --badge-neutral-bg/-fg
+   effects: --shadow-sm, --shadow-md, --shadow-glow, --scrollbar-thumb, --scrollbar-thumb-hover
+   Light-theme values must reach 4.5:1 for text tokens on their surfaces; dark-theme --text-dim and --accent-purple-text must be raised (e.g. text-dim ≈ #8391a7, accent-purple-text ≈ #a78bfa) to reach 4.5:1 on --bg-card.
+2. Fix the undefined variables currently used with fallbacks: --bg-elevated, --text-primary, --surface-2 (define them or replace with the tokens above).
+3. Replace all 70 hard-coded declarations listed by:
+     node -e "<the audit in reports/theme-audit.md>"   (write the audit script to scripts/theme-audit.mjs)
+   Notable ones: .brand-title (solid --text-main, no white gradient), .top-bar (--bg-topbar: translucent of the page background per theme), .nav-item.active (--text-main + accent border/background), .nav-item:hover, .count-badge, .sidebar-user, .btn-secondary, .audience-card, .speaker-card hover, .mic-control-cluster, .meter-bar-track, .soundpad-*, .toggle-state-btn, .modal-*, .toast, .chat-msg-content, .thread-segment, .guidelines-gate, .rec-banner, scrollbar thumbs, .mode-badge.*, .invited-tag, the HOST label.
+   Keep #fff only where it sits on a saturated accent fill (e.g. .btn-primary) — use --text-on-accent there.
+4. Inline colours in TS views (settings banner gradient, `color:#fff`, `color:#000`) move to classes using tokens.
+Acceptance: scripts/theme-audit.mjs reports 0 hard-coded colours outside the token blocks (allow-list: brand gradient fills on accent backgrounds), 0 undefined variables.
+```
+
+### Task 15.2 — Theme behaviour and layout issues seen in the screenshot
+
+```
+1. "System" theme must follow the OS live: listen to matchMedia('(prefers-color-scheme: dark)').addEventListener('change', …) while the choice is "system"; remove the listener when the user picks light/dark. Electron: also set nativeTheme.themeSource from the choice so native menus/scrollbars match.
+2. The floating "Start a Room" button (.host-room-fab, fixed bottom-right) covers room-card buttons. There are three "Start a Room" entry points on the hallway (sidebar, top bar, FAB). Keep the top-bar button and the sidebar item; remove the FAB, or show it only below 900 px width with bottom padding on the scroll container so nothing is covered.
+3. Top-bar icon buttons use emoji (✉, 🔔) that render pale and inconsistent per OS. Use inline SVG icons with stroke currentColor (same set for nav icons if feasible) so they follow the theme.
+4. Unread dot on the bell: use --badge-live-* tokens and a 2px ring in --bg-topbar so it reads on both themes.
+5. Room card speaker line: "HOST" uses --accent-emerald-text (passes 4.5:1 on --bg-card in both themes).
+```
+
+### Task 15.3 — Automated contrast and visual checks (write first)
+
+```
+1. tests/themeContrast.test.ts: parse the token blocks from src/style.css for both themes and assert WCAG ratios for these pairs (fail below the threshold):
+   text-main / text-muted / text-dim on bg-app, bg-sidebar, bg-card, bg-topbar  ≥ 4.5
+   accent-*-text on bg-card ≥ 4.5;  text-on-accent on accent-purple ≥ 4.5
+   badge-*-fg on badge-*-bg (composited over bg-sidebar) ≥ 4.5
+   border-focus on bg-card ≥ 3;  scrollbar-thumb on bg-app ≥ 3
+   (translucent tokens: composite over the surface they sit on before measuring)
+2. scripts/theme-audit.mjs in npm test: fails on any hard-coded colour outside the token blocks and on undefined var(--…).
+3. Extend tests/e2e (Playwright, sandbox): for theme in [light, dark]: open Hallway, Live Stage (sandbox room), Messages, Settings, a modal and a toast; run @axe-core/playwright with only the color-contrast rule; save screenshots to reports/theme/<theme>-<view>.png (gitignored). Fail on any contrast violation.
+4. Also check: switching theme at runtime updates every visible element (no element keeps the old palette) — compare computed background-color of .top-bar, .sidebar, .room-card before/after.
+Acceptance: themeContrast + theme-audit + e2e axe checks green for both themes; screenshots attached in the summary.
+```
