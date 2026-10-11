@@ -12,7 +12,7 @@ Legend: **Uygulandı** = code is in the tree. **Canlı doğrulandı** = exercise
 | --- | --- | --- |
 | 1 | **0.7 Review fixes (2026-10-11 #2)** — navigation guard, packaged recorder, clip worklet path, auto-armed clip buffer, 429/visibility, CORS proxy token leak | Uygulandı |
 | 1b | **0.8 Followers / following / friends lists** — bundle scan + labeled UI hunt; live UI uses only counts + mutual lists | Uygulandı for counts, mutual names, and chat people. The public web bundle does not contain get_followers, get_following, or get_online_friends. get_friend_zone_match and get_social_club_members are in-bundle and not called. The labeled click-through still needs a signed-in session. |
-| 0 | **Autonomous plan** (see `.cursor/rules/clubbox.mdc`): 10.1 → 10.2 → 10.5 → 11.0 → 11.1 → 11.2 → 11.3 → 11.4 → 10.4 → 11.5 → 11.6 → 11.7. Requirements: `docs/product/PRD.md`; design + gap list G-01…G-18: `docs/product/DESIGN.md`; acceptance: `features/*.feature` | 🆕 Do next. Task 10.3 is superseded by 11.2–11.4 |
+| 0 | **Autonomous plan** (see `.cursor/rules/clubbox.mdc`): 10.1 → 11.8 (warn mode) → 10.2 → 10.5 → 11.0 → 11.1 → 11.2 → 11.3 → 11.4 → 10.4 → 11.5 → 11.6 → 11.7 → 11.9 → 11.10 → 11.8 (strict). Acceptance files: account, hallway, room_listener, room_realtime, room_host, room_moderation, audio_studio, studio, social, messages, houses_events_replays, api_health. Requirements: `docs/product/PRD.md`; design + gap list G-01…G-18: `docs/product/DESIGN.md`; acceptance: `features/*.feature` | 🆕 Do next. Task 10.3 is superseded by 11.2–11.4 |
 | 1c | **0.9 Real room capture** — recorder misses clubhouse.pubnubapi.com, bundle scan saw 1 chunk, corrected smoke test (replays ON) | Steps 1–2 are in. S1–S3 still need a signed-in capture. |
 | 2 | **0.6 Community Guidelines risk** — hidden reCAPTCHA sign-in, polling, recording, distribution | Uygulandı (code). Sign-in is a visible clubhouse.com window, polling pauses when the window is hidden, recording is opt-in, and there is no publish config. A public release is still your decision. |
 | 3 | **0.5 Capture gaps** — labeled sessions, two-party protocol, evidence sync, room smoke test | `create_channel` is observed for a friends-of-friends room with chat and replays off (`source` 14). Join, leave, ping, and room chat are still not in a capture. |
@@ -893,8 +893,8 @@ Acceptance: all room scenarios green; with a fixture realtime stream the stage u
 1. hide_channel (community) on room cards; get_online_friends (community) → presence row and "join their room"; ping multi-select picker using get_group_suggested_invites (O) + search, sending invite_to_existing_channel (community).
 2. Hallway keyword filters/highlight, friends-first, NSFW toggle (if not done in 10.4).
 3. Audience search Ctrl+S (if not done in 10.4).
-4. Feature file: features/hallway.feature (write it first: hide room, presence join, ping 3 people, keyword highlight).
-Acceptance: hallway.feature green.
+4. Acceptance scenarios already exist: features/hallway.feature (HAL-3, HAL-4, SO-3) and features/room_moderation.feature (RH-9). Do not rewrite them; remove @pending as you implement.
+Acceptance: those scenarios green.
 ```
 
 ### Task 11.6 — Messages live (G-05)
@@ -903,7 +903,7 @@ Acceptance: hallway.feature green.
 1. Thread view live: get_conversation (O) → segments with transcription and reactions; mark_conversation_segment_listened (O) when a voice segment finishes.
 2. After 11.0 provides bodies: add_conversation_segment (text and voice), create_conversation (new VM with selected friends), send_conversation_emoji_reaction (fix the 400 with the crawler's body), update_conversation_title, delete_conversation(_segment), get_conversation_unread_summary for the badge.
 3. Voice segments recorded from the broadcast bus (mic processing + optional soundboard), max length per crawler/limits.
-4. features/messages.feature first (open thread, play + mark listened, send text, send voice, react, new VM).
+4. Acceptance scenarios already exist in features/messages.feature; do not rewrite them.
 Acceptance: messages.feature green; no sandbox* calls remain in messagesCtl.
 ```
 
@@ -914,6 +914,51 @@ Acceptance: messages.feature green; no sandbox* calls remain in messagesCtl.
 2. Events (community get_events): list, notify, .ics export, copy link; start my event from the composer.
 3. Notifications (community get_notifications) merged with get_edge_stories in Activity; unread badge from me.has_unread_notifications.
 4. Replays (bundle get_replay_channel / _chunk): play saved replays with 1x/1.5x/2x and skip 15 s.
-5. Feature files first: houses.feature, events.feature, activity.feature, replays.feature.
-Acceptance: the four feature files green; PRD catalog rows updated.
+5. Acceptance scenarios already exist in features/houses_events_replays.feature and features/social.feature (SO-5); do not rewrite them.
+Acceptance: those scenarios green; PRD catalog rows updated.
+```
+
+
+### Task 11.8 — Traceability gate: no catalog item without a scenario and an owner task
+
+```
+Goal: "nothing missing" becomes a failing check instead of a review.
+1. scripts/trace.mjs:
+   - reads every ID in docs/product/PRD.md catalog tables (ACC-, HAL-, RL-, RH-, ST-, SO-, DX-) with its priority and "Today" value,
+   - reads every @ID tag in features/*.feature and whether the scenario is @pending / @deferred,
+   - reads gap IDs G-xx in docs/product/DESIGN.md §8 and their status,
+   - writes reports/traceability.md (gitignored) with one row per ID: priority, scenarios (done/pending), today, gap rows.
+2. Fail (exit 1) when:
+   - a P0/P1/P2 item has no scenario (Won't and P3 items may have none),
+   - a scenario tags an ID that is not in the PRD,
+   - a P0 item still has only @pending scenarios after its release task is marked done in the Status table,
+   - a DESIGN gap row is still open while the task named in its "Fix" column is marked done.
+3. `npm test` runs trace after BDD (as "test:trace"). Until R1 is done, run it in warn mode (TRACE_MODE=warn) for items of later releases; strict for R1 (PRD §5).
+4. Unit test the script with a tiny fixture PRD/feature set.
+Acceptance: trace passes in warn mode today and lists every pending item; flipping one R1 scenario to pending makes strict mode fail.
+```
+
+### Task 11.9 — Remaining catalog items
+
+```
+Implement and un-pend the scenarios for items not covered by 10.x/11.0–11.7:
+- account.feature: ACC-1 regression, ACC-2 regression, ACC-4 theme (CSS tokens light/dark/system, persisted), ACC-5 zoom (webContents zoom, Ctrl+= / Ctrl+- / Ctrl+0, persisted), ACC-6 i18n completeness check (a test that every t() key exists in en and tr and no literal UI strings remain in views), ACC-7 one-device warning, ACC-8 desktop notifications (opt-in).
+- hallway.feature: HAL-1, HAL-2 regression (room card fields incl. replays/clips/age/counts/copy link), HAL-5 search tabs, HAL-6 saved search columns (≥ 60 s, paused when hidden, persisted).
+- room_moderation.feature: RH-6 (capabilities-driven controls, block confirm), RH-8 (chat off / delete message only if the crawler documented the bodies, else hidden), RH-10 visibility, RH-12 pinned link, DX-11 web-listening toggle.
+- audio_studio.feature: ST-1, ST-2, ST-3 regression guards; ST-6 clip 5–55 s; ST-7 voice effects (Web Audio: none, radio, deep, robot, echo — preview on monitor only, apply to broadcast); ST-8 global shortcuts for raise hand / accept / decline (extend SHORTCUT_ACTIONS); RL-11 spatial audio (PannerNode per remote uid on the local output only).
+- social.feature: SO-1, SO-2, SO-5, RL-9.
+- DX items marked P2/P3 in PRD §4.8: implement only when the crawler documented the body; otherwise leave them hidden and keep the scenario @pending with a comment "blocked: no documented body".
+Acceptance: every scenario in these files is green or @pending with a written blocker reason; trace (11.8) strict mode passes for P0–P2 items whose blockers are not "no documented body".
+```
+
+### Task 11.10 — Electron smoke tests on the real UI (sandbox only)
+
+```
+BDD runs on controllers; this catches wiring/render bugs in the real window without touching live Clubhouse.
+1. Add Playwright for Electron (dev). tests/e2e/*.spec.ts launch the built app with CLUBBOX_FORCE_SANDBOX=1 and a temp userData dir.
+2. Smoke paths: first-run notice → sandbox hallway → join a sandbox room → raise hand → accept invite → play a pad → send chat → leave; open Messages thread; open a profile; change theme and language; open Settings → API Health.
+3. Assert: no console errors, no uncaught exceptions, no network request to any host except localhost/file (sandbox), CSP intact, navigation guard blocks an external location change.
+4. Also run against the packaged build (npm run dist → launch release/win-unpacked/Clubbox.exe) for: app starts, clip worklet loads (clip-processor path), recorder flag ignored.
+5. Script "test:e2e"; include it in the autonomous Definition of Done (not in plain npm test, because it needs a build).
+Acceptance: test:e2e green on sandbox and packaged builds.
 ```

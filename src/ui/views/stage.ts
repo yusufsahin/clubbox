@@ -14,11 +14,13 @@ export interface StageState {
   canMod: boolean;
   canMoveToAudience: boolean;
   canInvite: boolean;
+  canEnd: boolean;
+  canMuteEveryone: boolean;
   canFollow: boolean;
 }
 
 function unverifiedAction(): SafeHtml {
-  return html`<span class="invited-tag" title="${t('notVerifiedHint')}">${t('notVerifiedYet')}</span>`;
+  return html`<span class="invited-tag" title="${t('availableInClubhouseApp')}">${t('availableInClubhouseApp')}</span>`;
 }
 
 export function emptyStageView(): SafeHtml {
@@ -72,8 +74,12 @@ export function stageColumn(state: StageState): SafeHtml {
               </div>
               <span style="font-size:12px; color:var(--text-dim);">${state.audioDisconnected ? t('audioDisconnected') : t('roomAudio')}</span>
             </div>
-            ${state.moderator ? html`<button class="btn btn-danger" type="button" data-action="end-room">${t('endRoom')}</button>` : ''}
-            ${state.moderator ? html`<p class="list-note">${t('moderatorToolsUnverified')}</p>` : ''}
+            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
+              <button class="btn btn-secondary" type="button" data-action="refresh-stage" title="Ctrl+P">${t('refreshStage')}</button>
+              ${state.moderator && state.canMuteEveryone ? html`<button class="btn btn-secondary" type="button" data-action="mute-everyone">${t('muteEveryone')}</button>` : ''}
+              ${state.moderator && state.canEnd ? html`<button class="btn btn-danger" type="button" data-action="end-room">${t('endRoom')}</button>` : ''}
+              ${state.moderator && !state.canEnd && !state.canMuteEveryone && !state.canInvite ? unverifiedAction() : ''}
+            </div>
 
             <div class="speakers-grid">
               ${speakers.map((speaker) => html`

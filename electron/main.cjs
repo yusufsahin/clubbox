@@ -276,6 +276,23 @@ ipcMain.handle('clubbox:close-signin', (event) => {
   return { ok: true };
 });
 
+ipcMain.handle('clubbox:clear-web-session', async (event) => {
+  if (!isTrustedSender(event)) return { ok: false };
+  try {
+    await session.defaultSession.clearStorageData({
+      origin: 'https://www.clubhouse.com',
+    });
+    const cookies = await session.defaultSession.cookies.get({ domain: '.clubhouse.com' });
+    await Promise.all(cookies.map((cookie) => session.defaultSession.cookies.remove(
+      `https://${cookie.domain.replace(/^\./, '')}${cookie.path || '/'}`,
+      cookie.name,
+    )));
+  } catch (err) {
+    console.warn('[Clubbox] clear-web-session failed:', err);
+  }
+  return { ok: true };
+});
+
 const WEB_AUTH_ENDPOINTS = {
   start_phone_number_web_auth: '/web_api/start_phone_number_web_auth',
   complete_phone_number_web_auth: '/web_api/complete_phone_number_web_auth',
@@ -339,7 +356,37 @@ function openOfficialSignIn() {
     signInWindow = null;
     lastSignInNotice = '';
   });
+  signInWindow.webContents.on('did-finish-load', () => {
+    void extractAgoraAppIdFromSignIn(signInWindow);
+  });
   void signInWindow.loadURL('https://www.clubhouse.com/signin');
+}
+
+async function extractAgoraAppIdFromSignIn(win) {
+  if (!win || win.isDestroyed() || !mainWindow || mainWindow.isDestroyed()) return;
+  try {
+    const appId = await win.webContents.executeJavaScript(`
+      (() => {
+        const patterns = [
+          /NEXT_PUBLIC_AGORA_KEY["']?\\s*[:=]\\s*["']([a-fA-F0-9]{32})["']/,
+          /agora\\s*:\\s*\\{\\s*key\\s*:\\s*["']([a-fA-F0-9]{32})["']/,
+        ];
+        for (const el of document.querySelectorAll('script')) {
+          const text = el.textContent || '';
+          for (const re of patterns) {
+            const match = text.match(re);
+            if (match) return match[1];
+          }
+        }
+        return null;
+      })()
+    `);
+    if (typeof appId === 'string' && /^[a-fA-F0-9]{32}$/.test(appId)) {
+      mainWindow.webContents.send('clubbox:agora-app-id', appId);
+    }
+  } catch (err) {
+    console.warn('[Clubbox] agora key scan failed:', err);
+  }
 }
 
 function webSessionUrl(pathName, method, body) {

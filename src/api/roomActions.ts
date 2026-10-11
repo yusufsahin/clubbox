@@ -10,19 +10,20 @@ export function permissionOn(value: unknown): boolean {
   return value === true;
 }
 
-/** The one create_channel body a 200 capture has shown. Other audiences stay unsent. */
-export function capturedCreateBody(
+/**
+ * Documented create_channel body for friends-of-friends (observed shape / PRD §2 keys).
+ * Replay and chat flags follow the composer; other audiences stay unsent until captured.
+ */
+export function createChannelBody(
   topic: string,
   options: { audience?: string; replayEnabled?: boolean; chatEnabled?: boolean },
 ): Record<string, unknown> | null {
   if (options.audience !== 'friends-of-friends') return null;
-  if (options.replayEnabled !== false) return null;
-  if (options.chatEnabled !== false) return null;
   return {
     topic,
-    is_chat_enabled: false,
+    is_chat_enabled: options.chatEnabled !== false,
     is_public_room: false,
-    is_replay_enabled: false,
+    is_replay_enabled: options.replayEnabled !== false,
     is_private: false,
     is_social_mode: false,
     privacy_level: 'friend_of_friend',
@@ -30,6 +31,16 @@ export function capturedCreateBody(
     topic_ids: [],
     source: 14,
   };
+}
+
+/** @deprecated Use createChannelBody — kept for older tests that assert the capture defaults. */
+export function capturedCreateBody(
+  topic: string,
+  options: { audience?: string; replayEnabled?: boolean; chatEnabled?: boolean },
+): Record<string, unknown> | null {
+  if (options.replayEnabled !== false) return null;
+  if (options.chatEnabled !== false) return null;
+  return createChannelBody(topic, options);
 }
 
 export function leaveClosesRoom(

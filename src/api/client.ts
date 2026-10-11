@@ -2,7 +2,7 @@ import { ApiHealthStore, type ApiHealthFailure, type RedactedRequestLogEntry } f
 import { canCall, evidenceOf, routeMethod, routePath, type Evidence, type Transport } from './capabilities';
 import { PEOPLE_LIST_ENDPOINTS, readPeopleList, readProfile, type PeopleListKind, type PeopleListPage } from './relationship';
 import { businessFailure, classifyHttpFailure, nextBackoffMs, type ApiErrorKind } from './guards';
-import { capturedCreateBody, permissionOn } from './roomActions';
+import { createChannelBody, permissionOn } from './roomActions';
 import { INITIAL_MOCK_CHANNELS, MOCK_ME, SANDBOX_CHAT_MESSAGES, sandboxPeoplePage, sandboxUserIds } from './sandboxData';
 import type { CHAuthResponse, CHChannel, CHChannelDetail, CHChatMessage, CHConversation, CHUser, ConversationSegment, ConversationThread, FeedTopic, MeSettings, PresenceFriend, SearchHit, SearchObjectType } from './types';
 
@@ -633,6 +633,18 @@ export class ClubhouseApiClient {
 
   public copyHealthReport(index?: number): string {
     return this.health.copyReport(index);
+  }
+
+  /** Non-HTTP notes (missing Agora key, unknown PubNub types) for API Health. */
+  public noteApiHealth(endpoint: string, message: string, bodyKeys: string[] = []): void {
+    this.health.recordFailure({
+      endpoint,
+      method: 'NOTE',
+      status: 0,
+      message,
+      bodyKeys,
+      time: new Date().toISOString(),
+    });
   }
 
   public resetUnsupportedRoutes(): void {
@@ -1357,7 +1369,7 @@ export class ClubhouseApiClient {
         talk_user_username: options.talkWith?.username,
       });
     }
-    const proven = capturedCreateBody(topic, { audience, replayEnabled, chatEnabled });
+    const proven = createChannelBody(topic, { audience, replayEnabled, chatEnabled });
     if (!proven) {
       throw new ClubhouseApiError(0, 'create_channel', 'Not captured', 'unknown');
     }

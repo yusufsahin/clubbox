@@ -1,6 +1,8 @@
 import { World, setWorldConstructor, type IWorldOptions } from '@cucumber/cucumber';
 import { JSDOM } from 'jsdom';
 import { ClubhouseApiClient } from '../../src/api/client.ts';
+import { RoomSessionController } from '../../src/api/roomSession.ts';
+import webApiRoutes from '../../electron/webApiRoutes.json' with { type: 'json' };
 import { FakeAgora } from './fakeAgora.ts';
 import { FakeClock } from './fakeClock.ts';
 import { FakeTransport } from './fakeTransport.ts';
@@ -39,12 +41,19 @@ function ensureDom(): JSDOM {
   return dom;
 }
 
+export function communityEndpoints(): string[] {
+  return Object.entries(webApiRoutes as Record<string, { evidence?: string }>)
+    .filter(([, route]) => route.evidence === 'community')
+    .map(([name]) => name);
+}
+
 export class ClubboxWorld extends World {
   dom: JSDOM;
   transport: FakeTransport;
   client: ClubhouseApiClient;
   clock: FakeClock;
   agora: FakeAgora;
+  session: RoomSessionController;
   visibilityState: DocumentVisibilityState = 'visible';
   experimentalActions = false;
   requestLogging = false;
@@ -72,7 +81,8 @@ export class ClubboxWorld extends World {
   replaysOn = true;
   localRecordingAllowed = false;
   audienceFilter = '';
-  listeners: Array<{ name: string; bio: string }> = [];
+  listeners: Array<{ name: string; bio: string; userId?: number }> = [];
+  speakerUserIds: number[] = [];
   openedTarget: string | null = null;
   presenceTimer: number | null = null;
   lastError: Error | null = null;
@@ -95,13 +105,50 @@ export class ClubboxWorld extends World {
       transport: this.transport,
       now: () => this.clientNow.t,
     });
+    this.session = new RoomSessionController({
+      client: this.client,
+      agora: this.agora,
+      myUserId: this.myUserId,
+      setInterval: (fn, ms) => this.clock.setInterval(fn, ms),
+      clearInterval: (id) => this.clock.clearInterval(id),
+    });
     this.client.onAuthExpired(() => {
       this.signedIn = false;
     });
   }
 
+  syncFromSession(): void {
+    this.currentRoom = this.session.channelId;
+    this.role = this.session.role;
+    this.lastJoinToken = this.session.lastJoinToken;
+    this.lastCreateToken = this.session.lastCreateToken;
+    this.micMuted = this.session.micMuted;
+    this.signedIn = this.session.signedIn;
+    this.recording = this.session.recording;
+    this.pendingExperimental = this.session.pendingExperimental;
+    this.presenceTimer = this.session.presenceActive ? 1 : null;
+    for (const message of this.session.uiMessages) {
+      if (!this.uiMessages.includes(message)) this.uiMessages.push(message);
+    }
+  }
+
+  refreshHostControls(): void {
+    this.visibleControls.delete('Mute everyone');
+    this.visibleControls.delete('End room');
+    this.visibleControls.delete('Invite to stage');
+    this.visibleControls.add('Rename');
+    if (this.session.experimentalControlsVisible()) {
+      this.visibleControls.add('Mute everyone');
+      this.visibleControls.add('End room');
+      this.visibleControls.add('Invite to stage');
+    } else {
+      this.uiMessages.push('Available in the Clubhouse app');
+    }
+  }
+
   setVisibility(state: DocumentVisibilityState): void {
     this.visibilityState = state;
+    this.session.setHidden(state === 'hidden');
     Object.defineProperty(this.dom.window.document, 'visibilityState', {
       configurable: true,
       get: () => this.visibilityState,

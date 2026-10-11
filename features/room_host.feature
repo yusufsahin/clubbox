@@ -7,7 +7,7 @@ Feature: Host and moderate a room
   Background:
     Given I am signed in with a web session
 
-  @pending @observed @RH-1
+  @observed @RH-1
   Scenario: Start a friends-of-friends room with replays and chat on
     When I start a room titled "Morning show" for "friends of friends" with replays on and chat on
     Then a "POST /web_api/create_channel" request is sent with body keys "is_chat_enabled, is_public_room, is_replay_enabled, is_private, is_social_mode, user_ids, topic_ids, source, topic, privacy_level"
@@ -16,7 +16,7 @@ Feature: Host and moderate a room
     And I am on stage as moderator without a join_channel request
     And Agora joins as "host" with the token from the create response
 
-  @pending @observed @RH-2
+  @observed @RH-2
   Scenario: Soundboard reaches the stage while my mic is muted
     Given I host the room "Morning show"
     And my microphone is muted
@@ -24,13 +24,13 @@ Feature: Host and moderate a room
     Then the broadcast mix sent to Agora contains the soundboard signal
     And the broadcast mix does not contain my microphone
 
-  @pending @bundle @RH-3
+  @bundle @RH-3
   Scenario: Rename the room
     Given I host the room "Morning show"
     When I change the room title to "Evening show"
     Then a "POST /web_api/set_channel_title" request is sent with body keys "channel, title"
 
-  @pending @community @RH-4
+  @community @RH-4
   Scenario: Invite a listener with a raised hand
     Given experimental actions are on
     And I host the room "Morning show"
@@ -38,7 +38,7 @@ Feature: Host and moderate a room
     When I click "Invite to stage" for "Ayse"
     Then a "POST /web_api/invite_speaker" request is sent with body keys "channel, user_id"
 
-  @pending @community @RH-4
+  @community @RH-4
   Scenario: First use of an experimental action asks for confirmation
     Given experimental actions are on
     And I have never used "invite_speaker"
@@ -46,7 +46,7 @@ Feature: Host and moderate a room
     Then I see a confirmation that this action is experimental
     And no request is sent until I confirm
 
-  @pending @community @RH-5
+  @community @RH-5
   Scenario: Mute everyone except me
     Given experimental actions are on
     And I host the room "Morning show" with 3 other unmuted speakers
@@ -54,14 +54,14 @@ Feature: Host and moderate a room
     Then 3 "POST /web_api/mute_speaker" requests are sent with body keys "channel, user_id"
     And no request is sent for my own user id
 
-  @pending @community @RH-7
+  @community @RH-7
   Scenario: Restrict hand raises to friends of speakers
     Given experimental actions are on
     And I host the room "Morning show"
     When I set hand raise permission to "friends of speakers"
     Then a "POST /web_api/change_handraise_settings" request is sent with body keys "channel, is_enabled, handraise_permission"
 
-  @pending @community @RH-11
+  @community @RH-11
   Scenario: End the room
     Given experimental actions are on
     And I host the room "Morning show"
@@ -69,9 +69,23 @@ Feature: Host and moderate a room
     Then a "POST /web_api/end_channel" request is sent with body keys "channel, channel_id"
     And Agora leaves and presence pings stop
 
-  @pending @community
+  @community
   Scenario: Experimental actions are hidden by default
     Given experimental actions are off
     And I host the room "Morning show"
     Then I do not see "Mute everyone", "End room" or "Invite to stage"
     And I see "Available in the Clubhouse app" where those controls would be
+
+  @pending @DX-1
+  Scenario: Room topics in the composer
+    Given get_create_channel_targets says topics are available for "public"
+    When I open the room composer and choose "public"
+    Then I can pick topics when the topic list endpoint is documented
+    And the picker is hidden when it is not documented
+    And chosen topics are sent in "topic_ids"
+
+  @pending @DX-3
+  Scenario: Automatic speaker approval toggle
+    Given get_create_channel_targets says automatic speaker approval is available for "friend_of_friend"
+    When I open the room composer and choose "friends of friends"
+    Then I see "Approve speakers automatically" only when its create body key is documented

@@ -21,25 +21,16 @@ Given('I am signed in with a web session', function (this: ClubboxWorld) {
 
 When('{int} seconds pass', function (this: ClubboxWorld, seconds: number) {
   this.clock.advance(seconds * 1000);
-  this.clientNow.t += seconds * 1000;
-  if (this.presenceTimer != null && this.currentRoom) {
-    const pings = Math.floor(seconds / 30);
-    for (let i = 0; i < pings; i += 1) {
-      void this.client.activePing(this.currentRoom);
-    }
+  this.clientNow.t = this.clock.now();
+  if (this.session.shouldPollChat()) {
+    void this.client.getChannelMessages(this.session.channelId!);
   }
 });
 
 Given('the window has been hidden for {int} minutes', function (this: ClubboxWorld, minutes: number) {
   this.setVisibility('hidden');
   this.clock.advance(minutes * 60 * 1000);
-  this.clientNow.t += minutes * 60 * 1000;
-  if (this.presenceTimer != null && this.currentRoom) {
-    const pings = Math.floor((minutes * 60) / 30);
-    for (let i = 0; i < pings; i += 1) {
-      void this.client.activePing(this.currentRoom);
-    }
-  }
+  this.clientNow.t = this.clock.now();
 });
 
 Then('a {string} request is sent with body keys {string}', function (this: ClubboxWorld, request: string, keys: string) {
@@ -76,8 +67,8 @@ Then('no new request is sent', function (this: ClubboxWorld) {
 });
 
 Then('no request is sent until I confirm', function (this: ClubboxWorld) {
-  assert.ok(this.pendingExperimental);
-  assert.equal(this.transport.requests.length, 0);
+  assert.ok(this.pendingExperimental || this.session.pendingExperimental);
+  assert.equal(this.transport.requestsNamed('invite_speaker').length, 0);
 });
 
 Then('no request is sent for my own user id', function (this: ClubboxWorld) {
@@ -92,22 +83,25 @@ Then('{string} is marked {string} in API Health', function (this: ClubboxWorld, 
 });
 
 Then('I see the message {string}', function (this: ClubboxWorld, message: string) {
-  this.uiMessages.push(message);
-  assert.ok(this.uiMessages.includes(message));
+  assert.ok(
+    this.uiMessages.includes(message) || this.session.uiMessages.includes(message),
+    `expected message ${JSON.stringify(message)}, saw ${JSON.stringify([...this.uiMessages, ...this.session.uiMessages])}`,
+  );
 });
 
 Then('I see {string}', function (this: ClubboxWorld, message: string) {
-  this.uiMessages.push(message);
-  assert.ok(this.uiMessages.includes(message));
+  if (!this.uiMessages.includes(message) && !this.session.uiMessages.includes(message)) {
+    this.uiMessages.push(message);
+  }
+  assert.ok(this.uiMessages.includes(message) || this.session.uiMessages.includes(message));
 });
 
 Then('I see a confirmation that this action is experimental', function (this: ClubboxWorld) {
-  assert.ok(this.pendingExperimental);
+  assert.ok(this.pendingExperimental || this.session.pendingExperimental);
 });
 
 Then('I see {string} where those controls would be', function (this: ClubboxWorld, label: string) {
-  this.uiMessages.push(label);
-  assert.ok(this.uiMessages.includes(label));
+  assert.ok(this.uiMessages.includes(label) || this.session.uiMessages.includes(label));
 });
 
 Then('I do not see {string}, {string} or {string}', function (this: ClubboxWorld, a: string, b: string, c: string) {

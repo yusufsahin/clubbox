@@ -4,7 +4,7 @@ import webApiRoutes from '../../electron/webApiRoutes.json' with { type: 'json' 
 import { expectedMutation } from '../../src/api/mutationFlags.ts';
 import { reportLooksSafe } from '../../src/api/apiHealth.ts';
 import type { Evidence } from '../../src/api/capabilities.ts';
-import type { ClubboxWorld } from '../support/world.ts';
+import { communityEndpoints, type ClubboxWorld } from '../support/world.ts';
 
 function bodyFor(endpoint: string): Record<string, unknown> {
   if (endpoint === 'emoji_reaction') return { channel: 'abc123', emoji: '🔥' };
@@ -28,12 +28,19 @@ Given('the route {string} has evidence {string}', async function (this: ClubboxW
 
 Given('experimental actions are on', async function (this: ClubboxWorld) {
   this.experimentalActions = true;
-  await this.client.updateConfig({ experimentalActions: true });
+  const confirmed = communityEndpoints();
+  for (const endpoint of confirmed) this.confirmedExperimental.add(endpoint);
+  await this.client.updateConfig({
+    experimentalActions: true,
+    // Happy-path community scenarios assume prior confirmation; "I have never used" clears one.
+    confirmedExperimentalRoutes: confirmed,
+  });
 });
 
 Given('experimental actions are off', async function (this: ClubboxWorld) {
   this.experimentalActions = false;
-  await this.client.updateConfig({ experimentalActions: false });
+  this.confirmedExperimental.clear();
+  await this.client.updateConfig({ experimentalActions: false, confirmedExperimentalRoutes: [] });
 });
 
 Given('request logging is on', async function (this: ClubboxWorld) {

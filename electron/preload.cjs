@@ -19,4 +19,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('clubbox:web-session-maybe', listener);
     return () => ipcRenderer.removeListener('clubbox:web-session-maybe', listener);
   },
+  onAgoraAppId: (callback) => {
+    const listener = (_event, appId) => callback(appId);
+    ipcRenderer.on('clubbox:agora-app-id', listener);
+    return () => ipcRenderer.removeListener('clubbox:agora-app-id', listener);
+  },
+  clearWebSession: () => ipcRenderer.invoke('clubbox:clear-web-session'),
 });

@@ -80,6 +80,8 @@ Legend — Today: ✅ works live · 🧪 sandbox/UI only · ❌ missing. Evidenc
 | ACC-4 | Light / dark / system theme | ✓ | ✓ | ❌ | — | P2 |
 | ACC-5 | Zoom in/out/reset (Ctrl +/−/0) | | ✓ | ❌ | — | P2 |
 | ACC-6 | Language (en/tr) | ✓ | | ✅ | — | P1 |
+| ACC-7 | Warn at sign-in that Clubhouse allows one active device (the phone may be signed out) | | ✓ | ❌ | — | P1 |
+| ACC-8 | Desktop notification when pinged into a live room (opt-in) | ✓ | ✓ | ❌ | C (get_notifications) | P2 |
 
 ### 4.2 Hallway & discovery
 
@@ -98,10 +100,10 @@ Legend — Today: ✅ works live · 🧪 sandbox/UI only · ❌ missing. Evidenc
 
 | ID | Feature | HC | CD | Today | Evidence | Priority |
 | --- | --- | --- | --- | --- | --- | --- |
-| RL-1 | Join a room and hear audio | ✓ | ✓ | 🧪 | B (join_channel) + Agora | **P0** |
-| RL-2 | Leave quietly | ✓ | ✓ | 🧪 | B | **P0** |
-| RL-3 | Stay connected (active_ping 30 s) | | | 🧪 | B | **P0** |
-| RL-4 | Live stage/audience updates | ✓ | ✓ | 🧪 | B/C (PubNub) | **P0** |
+| RL-1 | Join a room and hear audio | ✓ | ✓ | 🧪 | B (join_channel) + Agora | P0 |
+| RL-2 | Leave quietly | ✓ | ✓ | 🧪 | B | P0 |
+| RL-3 | Stay connected (active_ping 30 s) | | | 🧪 | B | P0 |
+| RL-4 | Live stage/audience updates | ✓ | ✓ | 🧪 | B/C (PubNub) | P0 |
 | RL-5 | Room chat read + send, unread count | ✓ | ✓ | 🧪 | B | P0 |
 | RL-6 | Raise / lower hand | ✓ | ✓ | 🧪 | B (audience_reply) | P0 |
 | RL-7 | Accept / decline stage invite | ✓ | ✓ | 🧪 | B (become_speaker) / C | P0 |
@@ -115,8 +117,8 @@ Legend — Today: ✅ works live · 🧪 sandbox/UI only · ❌ missing. Evidenc
 
 | ID | Feature | HC | CD | Today | Evidence | Priority |
 | --- | --- | --- | --- | --- | --- | --- |
-| RH-1 | Start room: audience (friends / friends of friends / house / public), title, replays, chat | ✓ | ✓ | ✅ | O | **P0** |
-| RH-2 | Speak: Agora publish with mic + soundboard mix | ✓ | ✓ | 🧪 | O (token in create) | **P0** |
+| RH-1 | Start room: audience (friends / friends of friends / house / public), title, replays, chat | ✓ | ✓ | ✅ | O | P0 |
+| RH-2 | Speak: Agora publish with mic + soundboard mix | ✓ | ✓ | 🧪 | O (token in create) | P0 |
 | RH-3 | Edit room title | ✓ | ✓ | 🧪 | B (set_channel_title) | P1 |
 | RH-4 | Hand queue list + invite to stage | ✓ | ✓ | 🧪 | C (invite_speaker) | P1 |
 | RH-5 | Mute speaker / mute everyone | ✓ | ✓ | 🧪 | C (mute_speaker ×N) | P1 |
@@ -152,6 +154,27 @@ Legend — Today: ✅ works live · 🧪 sandbox/UI only · ❌ missing. Evidenc
 | SO-4 | Messages: VMs + house chats, text, voice | ✓ | ✓ | ✅ partial | O/B | P2 |
 | SO-5 | Activity / notifications | ✓ | ✓ | 🧪 | C (get_notifications) | P2 |
 | SO-6 | Houses: list, page, members, join | ✓ | | 🧪 | B (get_social_club*) | P2 |
+
+### 4.8 Capabilities discovered in API responses (decided)
+
+These appear in `create_channel` / `me` responses (`user_capabilities`, `channel_capabilities`, feature flags). Each has a decision so nothing stays undefined.
+
+| ID | Capability (response field) | Decision | Priority |
+| --- | --- | --- | --- |
+| DX-1 | Room topics (`is_topics_available`, `topic_ids`) | Composer topic picker when the crawler finds the topic list endpoint; otherwise hidden | P2 |
+| DX-2 | Pinned links (`can_edit_pinned_links`, `is_pinned_links_available`) | Same as RH-12 | P2 |
+| DX-3 | Automatic speaker approval (`is_automatic_speaker_approval_available`) | Composer toggle if the crawler finds the create body key | P2 |
+| DX-4 | Background music (`can_edit_background_music`) | Not built: the Clubbox soundboard covers it client-side | Won't |
+| DX-5 | Games (`are_games_available`, `display_games`) | Not built | Won't |
+| DX-6 | Polls (`selected_poll_option_id`, profile polls) | Read-only on profiles if the crawler finds the endpoint | P3 |
+| DX-7 | Host banner (`can_edit_host_banner`) | Not built | Won't |
+| DX-8 | Suggested links (`can_update_suggested_links`) | Not built | Won't |
+| DX-9 | Moderator action history (`can_view_moderator_actions_history`) | Show if the crawler finds the endpoint | P3 |
+| DX-10 | Paid reacts / thanks (`can_send_paid_reacts`, `can_send_paid_react_thanks`) | Show received premium reacts only; no purchasing (region-locked, not in Turkey) | P3 |
+| DX-11 | Web listening toggle (`can_change_enable_web_listening`, `is_web_listening_enabled`) | Room-settings toggle when the crawler finds the body | P2 |
+| DX-12 | AI questions (`ask_question_about_conversation`, `ask_question_about_me`) | Not built (AI over other people's content) | Won't |
+| DX-13 | Friend zone match (`get_friend_zone_match`) | Not built until its purpose is known | Won't |
+| DX-14 | Highlights (`get_highlight`, `are_highlights_enabled`) | Play like replays when the body is known | P3 |
 
 ### 4.7 Won't do (and why)
 

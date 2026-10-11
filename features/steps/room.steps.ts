@@ -7,123 +7,99 @@ Given('the hallway shows the room {string} with channel {string}', function (thi
 });
 
 Given('I am in the room {string}', function (this: ClubboxWorld, channel: string) {
-  this.currentRoom = channel;
-  this.presenceTimer = this.clock.setInterval(() => {
-    void this.client.activePing(channel);
-  }, 30_000);
+  this.session.attachAsListener(channel);
+  this.session.recording = true;
+  this.syncFromSession();
 });
 
 Given('I am in the room {string} as audience', function (this: ClubboxWorld, channel: string) {
-  this.currentRoom = channel;
-  this.role = 'audience';
-  this.presenceTimer = this.clock.setInterval(() => {
-    void this.client.activePing(channel);
-  }, 30_000);
+  this.session.attachAsListener(channel);
+  this.syncFromSession();
 });
 
 Given('a moderator invited me to speak', function (this: ClubboxWorld) {
   this.invitedToSpeak = true;
 });
 
-Given('I host the room {string}', function (this: ClubboxWorld, title: string) {
-  this.currentRoom = title.toLowerCase().replace(/\s+/g, '-');
-  this.role = 'host';
-  this.visibleControls.add('Rename');
-  if (this.experimentalActions) {
-    this.visibleControls.add('Mute everyone');
-    this.visibleControls.add('End room');
-    this.visibleControls.add('Invite to stage');
-  }
-  this.presenceTimer = this.clock.setInterval(() => {
-    void this.client.activePing(this.currentRoom!);
-  }, 30_000);
+Given('I host the room {string}', async function (this: ClubboxWorld, title: string) {
+  await this.session.startFriendsOfFriendsRoom(title, { replayEnabled: true, chatEnabled: true });
+  this.syncFromSession();
+  this.refreshHostControls();
 });
 
-Given('I host the room {string} with {int} other unmuted speakers', function (this: ClubboxWorld, title: string, count: number) {
-  this.currentRoom = title.toLowerCase().replace(/\s+/g, '-');
-  this.role = 'host';
-  this.listeners = Array.from({ length: count }, (_, i) => ({ name: `Speaker ${i + 1}`, bio: '' }));
-  if (this.experimentalActions) {
-    this.visibleControls.add('Mute everyone');
-    this.visibleControls.add('End room');
-    this.visibleControls.add('Invite to stage');
-  }
+Given('I host the room {string} with {int} other unmuted speakers', async function (this: ClubboxWorld, title: string, count: number) {
+  await this.session.startFriendsOfFriendsRoom(title, { replayEnabled: true, chatEnabled: true });
+  this.speakerUserIds = Array.from({ length: count }, (_, i) => 100 + i);
+  this.listeners = this.speakerUserIds.map((userId, i) => ({
+    name: `Speaker ${i + 1}`,
+    bio: '',
+    userId,
+  }));
+  this.syncFromSession();
+  this.refreshHostControls();
 });
 
 Given('my microphone is muted', function (this: ClubboxWorld) {
+  this.session.micMuted = true;
   this.micMuted = true;
   this.agora.setBroadcastMix({ soundboard: false, mic: false });
 });
 
 Given('{string} raised her hand', function (this: ClubboxWorld, name: string) {
-  this.listeners.push({ name, bio: 'raised' });
+  this.listeners.push({ name, bio: 'raised', userId: 99 });
 });
 
-Given('I have never used {string}', function (this: ClubboxWorld, endpoint: string) {
+Given('I have never used {string}', async function (this: ClubboxWorld, endpoint: string) {
   this.confirmedExperimental.delete(endpoint);
+  const remaining = this.client.getConfig().confirmedExperimentalRoutes.filter((name) => name !== endpoint);
+  await this.client.updateConfig({ confirmedExperimentalRoutes: remaining });
+  this.session.pendingExperimental = null;
+  this.pendingExperimental = null;
 });
 
 Given('the chat panel is open', function (this: ClubboxWorld) {
   this.chatPanelOpen = true;
+  this.session.chatOpen = true;
 });
 
 Given('the chat panel is closed', function (this: ClubboxWorld) {
   this.chatPanelOpen = false;
+  this.session.chatOpen = false;
 });
 
 When('I click {string} on {string}', async function (this: ClubboxWorld, action: string, title: string) {
   assert.equal(action, 'Join');
   assert.equal(this.hallwayRoom?.title, title);
   const channel = this.hallwayRoom!.channel;
-  try {
-    const joined = await this.client.joinChannel(channel);
-    this.currentRoom = channel;
-    this.role = 'audience';
-    this.lastJoinToken = (joined as { token?: string }).token ?? 'agora_rtc_token_fixture';
-    this.agora.join('audience', this.lastJoinToken);
-    this.presenceTimer = this.clock.setInterval(() => {
-      void this.client.activePing(channel);
-    }, 30_000);
-  } catch (err) {
-    this.lastError = err instanceof Error ? err : new Error(String(err));
-    const status = typeof (err as { status?: number }).status === 'number' ? (err as { status: number }).status : 0;
-    this.noteHealth('join_channel', status, this.lastError.message, ['channel']);
-    if (status === 404 || status === 405) {
-      this.routeOverrides.set('join_channel', { evidence: 'unsupported', unsupportedInstall: true });
-      this.uiMessages.push('Joining rooms is not available on Clubhouse web yet');
-      this.uiMessages.push('Available in the Clubhouse app');
-    }
+  const result = await this.session.joinFromHallway(channel);
+  this.syncFromSession();
+  if (!result.ok) {
+    this.lastError = new Error(result.message ?? 'Join failed');
   }
 });
 
 When('I click {string}', async function (this: ClubboxWorld, label: string) {
   if (label === 'Leave quietly') {
-    if (this.currentRoom) await this.client.leaveChannel(this.currentRoom);
-    this.agora.leave();
-    if (this.presenceTimer != null) this.clock.clearInterval(this.presenceTimer);
-    this.presenceTimer = null;
-    if (this.recording) {
-      this.recording = false;
-      this.chaptersSaved = true;
-    }
+    await this.session.leaveQuietly();
+    this.syncFromSession();
+    this.chaptersSaved = true;
     return;
   }
   if (label === 'Accept') {
     assert.ok(this.invitedToSpeak);
-    await this.client.becomeSpeaker(this.currentRoom ?? 'abc123');
-    this.agora.switchToHost(this.lastJoinToken ?? 'token');
-    this.micMuted = true;
+    await this.session.acceptInvite();
+    this.syncFromSession();
     return;
   }
   if (label === 'Decline') {
     assert.ok(this.invitedToSpeak);
-    await this.client.rejectSpeakerInvite(this.currentRoom ?? 'abc123', this.myUserId);
+    await this.session.declineInvite();
+    this.syncFromSession();
     return;
   }
   if (label === 'Mute everyone') {
-    for (let i = 0; i < this.listeners.length; i += 1) {
-      await this.client.muteSpeaker(this.currentRoom ?? 'morning-show', 100 + i);
-    }
+    await this.session.muteEveryone(this.speakerUserIds);
+    this.syncFromSession();
     return;
   }
   if (label === 'Copy report') {
@@ -136,71 +112,64 @@ When('I click {string}', async function (this: ClubboxWorld, label: string) {
 
 When('I click {string} for {string}', async function (this: ClubboxWorld, action: string, name: string) {
   assert.equal(action, 'Invite to stage');
-  if (!this.confirmedExperimental.has('invite_speaker')) {
-    this.pendingExperimental = 'invite_speaker';
-    return;
-  }
-  await this.client.inviteSpeaker(this.currentRoom ?? 'morning-show', 99);
+  const listener = this.listeners.find((entry) => entry.name === name);
+  const userId = listener?.userId ?? 99;
+  const result = await this.session.inviteToStage(userId);
+  this.syncFromSession();
+  if (result.needsConfirmation) return;
   this.uiMessages.push(`invited:${name}`);
 });
 
 When('I click {string} and confirm', async function (this: ClubboxWorld, label: string) {
+  if (label === 'Log out') {
+    await this.session.logOut();
+    this.syncFromSession();
+    this.uiMessages.push('sign-in');
+    return;
+  }
   assert.equal(label, 'End room');
-  await this.client.endChannel(this.currentRoom ?? 'morning-show');
-  this.agora.leave();
-  if (this.presenceTimer != null) this.clock.clearInterval(this.presenceTimer);
-  this.presenceTimer = null;
+  await this.session.endRoom();
+  this.syncFromSession();
 });
 
 When('I {word} my hand', async function (this: ClubboxWorld, action: string) {
   const raise = action === 'raise';
-  await this.client.raiseHand(this.currentRoom ?? 'abc123', raise);
+  await this.session.raiseHand(raise);
+  this.syncFromSession();
 });
 
 When('I send the chat message {string}', async function (this: ClubboxWorld, message: string) {
-  await this.client.sendChannelMessage(this.currentRoom ?? 'abc123', message);
+  const shown = await this.session.sendChat(message);
   const escaped = this.dom.window.document.createElement('div');
-  escaped.textContent = message;
+  escaped.textContent = shown;
   this.uiMessages.push(`chat:${escaped.textContent}`);
 });
 
 When('I start a room titled {string} for {string} with replays on and chat on', async function (this: ClubboxWorld, title: string, audience: string) {
   assert.equal(audience, 'friends of friends');
-  // Contract path uses the captured body (replays/chat off). Host scenario wants replays on —
-  // that behavior lands in Task 10.3; harness records the intent for pending scenarios.
-  try {
-    const created = await this.client.createChannel(title, {
-      audience: 'friends-of-friends',
-      replayEnabled: false,
-      chatEnabled: false,
-    });
-    this.currentRoom = (created as { channel?: string }).channel ?? 'morning-show';
-    this.role = 'host';
-    this.lastCreateToken = (created as { token?: string }).token ?? 'agora_create_token_fixture';
-    this.agora.join('host', this.lastCreateToken);
-  } catch (err) {
-    this.lastError = err instanceof Error ? err : new Error(String(err));
-  }
+  await this.session.startFriendsOfFriendsRoom(title, {
+    replayEnabled: true,
+    chatEnabled: true,
+  });
+  this.syncFromSession();
+  this.refreshHostControls();
 });
 
 When('I play the soundboard pad {string}', function (this: ClubboxWorld, _pad: string) {
-  this.agora.setBroadcastMix({ soundboard: true, mic: !this.micMuted && false });
+  this.session.playSoundboardWhileMicMuted();
 });
 
 When('I change the room title to {string}', async function (this: ClubboxWorld, title: string) {
-  await this.client.setChannelTitle(this.currentRoom ?? 'morning-show', title);
+  await this.session.rename(title);
 });
 
 When('I set hand raise permission to {string}', async function (this: ClubboxWorld, permission: string) {
-  const mapped = permission === 'friends of speakers' ? 'friends_of_speakers' : permission;
-  await this.client.changeHandraiseSettings(this.currentRoom ?? 'morning-show', {
-    isEnabled: true,
-    handraisePermission: mapped,
-  });
+  assert.equal(permission, 'friends of speakers');
+  await this.session.setHandRaiseFriendsOfSpeakers();
 });
 
 Then('I see the stage with speakers and the audience', function (this: ClubboxWorld) {
-  assert.ok(this.currentRoom);
+  assert.ok(this.session.channelId);
   assert.ok(this.agora.lastJoin());
 });
 
@@ -208,14 +177,14 @@ Then('Agora joins as {string} with the token from the join response', function (
   const join = this.agora.lastJoin();
   assert.ok(join);
   assert.equal(join.role, role);
-  assert.equal(join.token, this.lastJoinToken);
+  assert.equal(join.token, this.session.lastJoinToken);
 });
 
 Then('Agora joins as {string} with the token from the create response', function (this: ClubboxWorld, role: string) {
   const join = this.agora.lastJoin();
   assert.ok(join);
   assert.equal(join.role, role);
-  assert.equal(join.token, this.lastCreateToken);
+  assert.equal(join.token, this.session.lastCreateToken);
 });
 
 Then('Agora leaves the channel', function (this: ClubboxWorld) {
@@ -224,7 +193,7 @@ Then('Agora leaves the channel', function (this: ClubboxWorld) {
 
 Then('Agora leaves and presence pings stop', function (this: ClubboxWorld) {
   assert.equal(this.agora.left, true);
-  assert.equal(this.presenceTimer, null);
+  assert.equal(this.session.presenceActive, false);
 });
 
 Then('Agora switches to {string} and publishes my broadcast mix', function (this: ClubboxWorld, role: string) {
@@ -235,20 +204,24 @@ Then('Agora switches to {string} and publishes my broadcast mix', function (this
 });
 
 Then('my microphone starts muted', function (this: ClubboxWorld) {
-  assert.equal(this.micMuted, true);
+  assert.equal(this.session.micMuted, true);
 });
 
 Then('presence pings stop', function (this: ClubboxWorld) {
-  assert.equal(this.presenceTimer, null);
+  assert.equal(this.session.presenceActive, false);
 });
 
 Then('an active recording is stopped and saved', function (this: ClubboxWorld) {
-  assert.equal(this.recording, false);
+  assert.equal(this.session.recording, false);
 });
 
 Then('{string} requests continue every {int} seconds', function (this: ClubboxWorld, endpoint: string, seconds: number) {
   assert.equal(seconds, 30);
   assert.ok(this.transport.requestsNamed(endpoint).length > 0);
+});
+
+Then('the room\'s realtime subscription stays connected', function (this: ClubboxWorld) {
+  assert.equal(this.session.realtimeConnected, true);
 });
 
 Then('no other timer sends requests', function (this: ClubboxWorld) {
@@ -257,7 +230,7 @@ Then('no other timer sends requests', function (this: ClubboxWorld) {
 });
 
 Then('the {string} buttons show {string}', function (this: ClubboxWorld, _button: string, label: string) {
-  assert.ok(this.uiMessages.includes(label));
+  assert.ok(this.uiMessages.includes(label) || this.session.uiMessages.includes(label));
 });
 
 Then('the message is shown as plain text {string}', function (this: ClubboxWorld, expected: string) {
@@ -265,7 +238,7 @@ Then('the message is shown as plain text {string}', function (this: ClubboxWorld
 });
 
 Then('I am on stage as moderator without a join_channel request', function (this: ClubboxWorld) {
-  assert.equal(this.role, 'host');
+  assert.equal(this.session.role, 'host');
   assert.equal(this.transport.requestsNamed('join_channel').length, 0);
 });
 
@@ -275,4 +248,21 @@ Then('the broadcast mix sent to Agora contains the soundboard signal', function 
 
 Then('the broadcast mix does not contain my microphone', function (this: ClubboxWorld) {
   assert.equal(this.agora.broadcastHasMic, false);
+});
+
+Then('clubhouse.com cookies for the app session are cleared', function (this: ClubboxWorld) {
+  assert.equal(this.session.cookiesCleared, true);
+});
+
+Then('no timer sends requests afterwards', function (this: ClubboxWorld) {
+  assert.equal(this.session.presenceActive, false);
+  const before = this.transport.requests.length;
+  this.clock.advance(60_000);
+  this.clientNow.t = this.clock.now();
+  assert.equal(this.transport.requests.length, before);
+});
+
+Then('I see the sign-in screen', function (this: ClubboxWorld) {
+  assert.equal(this.session.signedIn, false);
+  assert.ok(this.uiMessages.includes('sign-in') || this.session.uiMessages.includes('sign-in'));
 });

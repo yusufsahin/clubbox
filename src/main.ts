@@ -6,6 +6,7 @@ import { applyFollowResponse, mergeProfile, PEOPLE_LIST_ENDPOINTS, profileCounts
 
 const CHAT_POLL_MS = 15_000;
 const GUIDELINES_KEY = 'clubbox-guidelines-accepted';
+import { PubNubRoomSource } from './api/pubnubRoomSource';
 import { roomSync } from './api/roomSync';
 import { audioEngine } from './audio/audioEngine';
 import { readAudioPrefs, writeAudioPrefs, type AudioPrefs } from './audio/audioPrefs';
@@ -39,6 +40,8 @@ interface ElectronAPI {
   openOfficialSignIn?: () => Promise<{ ok: boolean }>;
   closeOfficialSignIn?: () => Promise<{ ok: boolean }>;
   onWebSessionMaybe?: (callback: () => void) => void;
+  onAgoraAppId?: (callback: (appId: string) => void) => () => void;
+  clearWebSession?: () => Promise<{ ok: boolean }>;
 }
 
 function recordingFilename(topic: string | undefined, kind: 'recording' | 'clip' = 'recording'): string {
@@ -138,6 +141,11 @@ class ClubboxApp {
   private chatMessages: CHChatMessage[] = [];
   private unreadChat = 0;
   private chatOpen = true;
+  private pubnubSource = new PubNubRoomSource({
+    onUnknownMessage: ({ type, keys }) => {
+      clubhouseClient.noteApiHealth('pubnub', `Unknown realtime message type: ${type}`, keys);
+    },
+  });
   private audioPrefs: AudioPrefs = readAudioPrefs();
   private shortcuts: ShortcutMap = readShortcuts();
   private recordingShortcut: ShortcutAction | null = null;
@@ -165,6 +173,12 @@ class ClubboxApp {
     });
     electronAPI()?.onWebSessionMaybe?.(() => {
       void this.tryAdoptOfficialSession();
+    });
+    electronAPI()?.onAgoraAppId?.((appId) => {
+      if (!appId || typeof appId !== 'string') return;
+      void clubhouseClient.updateConfig({ agoraAppId: appId }).then(() => {
+        agoraVoice.appId = appId;
+      });
     });
 
     const desktop = !!electronAPI()?.isElectron;
@@ -587,17 +601,22 @@ class ClubboxApp {
 
   private startRoomPresence(channelId: string): void {
     this.stopRoomPresence();
-    if (clubhouseClient.evidence('active_ping') === 'observed') {
-      // docs/api/web-api.md has no captured active_ping interval, so this stays at 30s.
+    const pingEvidence = clubhouseClient.evidence('active_ping');
+    // Bundle or observed: keep the official-client cadence (30s), including while hidden.
+    if (pingEvidence === 'observed' || pingEvidence === 'bundle') {
       this.pingTimer = window.setInterval(() => {
         void clubhouseClient.activePing(channelId).catch((err) => {
           console.warn('[Clubbox] active_ping failed:', err);
         });
       }, 30000);
     }
+    const pubnubToken = this.currentChannel?.pubnub_token;
+    this.pubnubSource.setToken(pubnubToken);
+    this.pubnubSource.start(channelId);
     if (this.pollsPaused) return;
     this.syncChatPolling();
-    roomSync.start(channelId);
+    // Polling fallback when PubNub token is missing (Ctrl+P still refreshes).
+    if (!pubnubToken) roomSync.start(channelId);
   }
 
   private stopChatPolling(): void {
@@ -629,11 +648,13 @@ class ClubboxApp {
       this.pingTimer = null;
     }
     this.stopChatPolling();
+    this.pubnubSource.stop();
     roomSync.stop();
   }
 
   private async refreshChat(): Promise<void> {
-    if (!this.currentChannel || clubhouseClient.evidence('get_channel_messages') !== 'observed') return;
+    const chatEvidence = clubhouseClient.evidence('get_channel_messages');
+    if (!this.currentChannel || (chatEvidence !== 'observed' && chatEvidence !== 'bundle')) return;
     try {
       const chat = await clubhouseClient.getChannelMessages(this.channelApiId(this.currentChannel));
       const next = chat.messages || [];
@@ -850,16 +871,74 @@ class ClubboxApp {
     const acceptBtn = document.getElementById('accept-speak-btn') as HTMLButtonElement | null;
     if (acceptBtn) acceptBtn.disabled = true;
     try {
-      await clubhouseClient.acceptSpeakerInvite(this.channelApiId(this.currentChannel), this.me.user_id);
+      await clubhouseClient.becomeSpeaker(this.channelApiId(this.currentChannel));
       this.closeSpeakerInvite();
       await this.refreshCurrentRoom();
       if (!clubhouseClient.getConfig().useSandbox && agoraVoice.getIsJoined()) {
         await agoraVoice.promoteToSpeaker();
       }
+      audioEngine.setMuted(true);
       this.showToast(t('onStage'), '🎙️');
     } catch (err) {
       this.reportApiError(err);
       if (acceptBtn) acceptBtn.disabled = false;
+    }
+  }
+
+  private async declineSpeakerInvite(): Promise<void> {
+    if (!this.currentChannel || !this.me) return;
+    if (!this.allowAction('reject_speaker_invite')) {
+      this.closeSpeakerInvite();
+      return;
+    }
+    try {
+      await clubhouseClient.rejectSpeakerInvite(this.channelApiId(this.currentChannel), this.me.user_id);
+      this.closeSpeakerInvite();
+    } catch (err) {
+      this.reportApiError(err);
+    }
+  }
+
+  private async muteEveryone(): Promise<void> {
+    if (!this.currentChannel || !this.isMeModerator()) return;
+    if (!this.allowAction('mute_speaker')) return;
+    const myId = this.me?.user_id ?? clubhouseClient.getCurrentUserId();
+    const speakers = this.currentChannel.users.filter(
+      (user) => user.is_speaker && user.user_id !== myId && !user.is_muted,
+    );
+    for (const speaker of speakers) {
+      try {
+        await clubhouseClient.muteSpeaker(this.channelApiId(this.currentChannel), speaker.user_id);
+      } catch (err) {
+        this.reportApiError(err);
+      }
+    }
+    await this.refreshCurrentRoom();
+  }
+
+  private async logOut(): Promise<void> {
+    if (!window.confirm(t('logOutConfirm'))) return;
+    if (this.currentChannel || this.joinInFlight) {
+      await this.leaveRoom({ silent: true });
+    }
+    this.stopRoomPresence();
+    await electronAPI()?.clearWebSession?.();
+    await clubhouseClient.updateConfig({ webSession: false });
+    this.me = null;
+    this.currentTab = 'login';
+    this.render();
+  }
+
+  private async refreshStageManual(): Promise<void> {
+    if (!this.currentChannel) return;
+    try {
+      if (clubhouseClient.supports('get_channel')) {
+        const detail = await clubhouseClient.getChannel(this.channelApiId(this.currentChannel));
+        this.currentChannel = detail;
+        this.renderStage();
+      }
+    } catch (err) {
+      this.reportApiError(err);
     }
   }
 
@@ -999,6 +1078,9 @@ class ClubboxApp {
         this.toggleRecording();
       } else if (e.key === 'c' || e.key === 'C') {
         void this.saveClip();
+      } else if ((e.key === 'p' || e.key === 'P') && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        void this.refreshStageManual();
       } else if (!e.metaKey && !e.ctrlKey && !e.altKey) {
         const fx = audioEngine.soundEffects.find((item) => item.hotkey === e.key);
         if (fx) {
@@ -1212,10 +1294,21 @@ class ClubboxApp {
   }
 
   private allowAction(endpoint: string): boolean {
-    if (clubhouseClient.supports(endpoint)) return true;
-    const key = clubhouseClient.evidence(endpoint) === 'unsupported' ? 'unsupportedAction' : 'unverifiedAction';
-    this.showToast(t(key), '🔒');
-    return false;
+    if (!clubhouseClient.supports(endpoint)) {
+      const evidence = clubhouseClient.evidence(endpoint);
+      const key = evidence === 'unsupported'
+        ? 'unsupportedAction'
+        : evidence === 'community'
+          ? 'availableInClubhouseApp'
+          : 'unverifiedAction';
+      this.showToast(t(key), '🔒');
+      return false;
+    }
+    if (clubhouseClient.needsExperimentalConfirmation(endpoint)) {
+      if (!window.confirm(t('experimentalConfirm'))) return false;
+      clubhouseClient.confirmExperimental(endpoint);
+    }
+    return true;
   }
 
   private async joinRoom(channelId: string, preset?: CHChannelDetail) {
@@ -1253,7 +1346,11 @@ class ClubboxApp {
       if (joined.should_join_muted === true) audioEngine.setMuted(true);
     } catch (err) {
       if (this.roomSession.generation !== generation) return;
-      this.reportApiError(err);
+      if (err instanceof ClubhouseApiError && (err.status === 404 || err.status === 405)) {
+        this.showToast(t('joinUnavailableOnWeb'), '🔒');
+      } else {
+        this.reportApiError(err);
+      }
       this.render();
       return;
     } finally {
@@ -1269,12 +1366,15 @@ class ClubboxApp {
     if (this.roomSession.generation !== generation || !this.currentChannel) return;
     this.startRoomPresence(this.channelApiId(this.currentChannel));
     this.chatMessages = [];
-    if (clubhouseClient.evidence('get_channel_messages') === 'observed') {
-      try {
-        const chat = await clubhouseClient.getChannelMessages(this.channelApiId(this.currentChannel));
-        this.chatMessages = chat.messages || [];
-      } catch (err) {
-        this.reportApiError(err);
+    {
+      const chatEvidence = clubhouseClient.evidence('get_channel_messages');
+      if (chatEvidence === 'observed' || chatEvidence === 'bundle') {
+        try {
+          const chat = await clubhouseClient.getChannelMessages(this.channelApiId(this.currentChannel));
+          this.chatMessages = chat.messages || [];
+        } catch (err) {
+          this.reportApiError(err);
+        }
       }
     }
     if (this.roomSession.generation !== generation || !this.currentChannel) return;
@@ -1293,6 +1393,12 @@ class ClubboxApp {
     if (!this.me) {
       this.audioConnected = false;
       this.showToast(t('signInToHear'), '🔑');
+      return;
+    }
+    if (!clubhouseClient.getConfig().agoraAppId) {
+      this.audioConnected = false;
+      clubhouseClient.noteApiHealth('agora', t('audioKeyNotFound'));
+      this.showToast(t('audioKeyNotFound'), '🔇');
       return;
     }
     if (!this.currentChannel.token) {
@@ -1368,8 +1474,8 @@ class ClubboxApp {
       end = true;
     }
     if (end && channel) {
-      if (!sandbox && clubhouseClient.evidence('end_channel') !== 'observed') {
-        this.showToast(t('leftRoomStillOpen'), '🔒');
+      if (!sandbox && !clubhouseClient.supports('end_channel')) {
+        this.showToast(t('availableInClubhouseApp'), '🔒');
         await this.releaseRoomLocally({ skipServer: true });
         this.afterRoomExit(hadRoom, true, false);
         return;
@@ -1403,6 +1509,7 @@ class ClubboxApp {
     const channel = this.currentChannel;
     const myId = this.me?.user_id ?? clubhouseClient.getCurrentUserId();
     if (!channel || !this.isMeModerator() || myId == null) return;
+    if (!this.allowAction('end_channel')) return;
     if (roomHasOthers(channel.users, myId) && !window.confirm(t('endRoomConfirm'))) return;
     await this.leaveRoom({ silent: true, end: true });
   }
@@ -2044,6 +2151,8 @@ class ClubboxApp {
       canMod: clubhouseClient.supports('make_moderator'),
       canMoveToAudience: clubhouseClient.supports('uninvite_speaker'),
       canInvite: clubhouseClient.supports('invite_speaker'),
+      canEnd: clubhouseClient.supports('end_channel'),
+      canMuteEveryone: clubhouseClient.supports('mute_speaker'),
       canFollow: clubhouseClient.evidence('follow') === 'observed',
     });
   }
@@ -2507,6 +2616,15 @@ class ClubboxApp {
       case 'end-room':
         void this.endRoom();
         break;
+      case 'mute-everyone':
+        void this.muteEveryone();
+        break;
+      case 'refresh-stage':
+        void this.refreshStageManual();
+        break;
+      case 'log-out':
+        void this.logOut();
+        break;
       case 'messages-filter': {
         const filter = el.dataset.filter;
         if (filter === 'all' || filter === 'house' || filter === 'vm') {
@@ -2797,7 +2915,7 @@ class ClubboxApp {
         void this.confirmCreateRoom();
         break;
       case 'decline-invite':
-        this.closeSpeakerInvite();
+        void this.declineSpeakerInvite();
         break;
       case 'accept-invite':
         void this.acceptSpeakerInvite();

@@ -77,6 +77,7 @@ export function settingsView(
           </div>
           <div style="display:flex; flex-direction:column; gap:8px; flex-shrink:0;">
             <button class="btn btn-primary" data-action="open-official-signin">${t('openWebSignIn')}</button>
+            ${account ? html`<button class="btn btn-secondary" data-action="log-out">${t('logOut')}</button>` : ''}
           </div>
         </div>
       </div>
