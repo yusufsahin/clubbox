@@ -5,6 +5,7 @@ export type ReplayPlayback = {
   title: string;
   audioUrl: string;
   kind: 'replay' | 'highlight';
+  chunkCount?: number;
 };
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -59,17 +60,26 @@ function digAudioUrl(root: Record<string, unknown>): string {
   return httpsUrl(...candidates);
 }
 
+function readChunkCount(root: Record<string, unknown>, nested: Record<string, unknown>): number {
+  for (const value of [nested.chunk_count, nested.num_chunks, root.chunk_count, root.num_chunks]) {
+    if (typeof value === 'number' && Number.isFinite(value) && value > 0) return Math.floor(value);
+  }
+  return 0;
+}
+
 export function readReplayPayload(payload: unknown, fallbackId: string): ReplayPlayback | null {
   const root = asRecord(payload);
   if (!root) return null;
   const nested = asRecord(root.replay) ?? asRecord(root.channel) ?? root;
   const id = readString(nested.channel, nested.channel_id, nested.id, root.channel, fallbackId);
   const title = readString(nested.topic, nested.title, nested.name, root.topic, root.title) || 'Replay';
+  const chunkCount = readChunkCount(root, nested);
   return {
     id: id || fallbackId,
     title,
     audioUrl: digAudioUrl(root),
     kind: 'replay',
+    ...(chunkCount > 0 ? { chunkCount } : {}),
   };
 }
 

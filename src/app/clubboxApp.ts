@@ -225,6 +225,10 @@ export class ClubboxApp {
   private recordingShortcut: ShortcutAction | null = null;
   private editingSoundId: string | null = null;
   hallwayPrefs: HallwayPrefs = readHallwayPrefs();
+  feedNextCursor: string | null = null;
+  feedLoadingMore = false;
+  conversationsNextCursor: string | null = null;
+  conversationsLoadingMore = false;
   audienceSearchQuery = '';
   recordingChapters: RecordingChapter[] = [];
 
@@ -898,6 +902,8 @@ export class ClubboxApp {
         thread: this.activeConversationThread(),
         previewMember: this.previewMember,
         playbackRate: this.voiceRate,
+        canLoadMore: !!this.conversationsNextCursor,
+        loadingMore: this.conversationsLoadingMore,
         presence: clubhouseClient.getSandbox()?.presence() ?? [],
         canCreateVm: !!clubhouseClient.getSandbox() || clubhouseClient.supports('create_conversation'),
         canReact: clubhouseClient.supports('send_conversation_emoji_reaction'),
@@ -994,6 +1000,8 @@ export class ClubboxApp {
       canJoin: clubhouseClient.supports('join_channel'),
       canCreate: clubhouseClient.supports('create_channel'),
       canHide: clubhouseClient.supports('hide_channel'),
+      canLoadMore: !!this.feedNextCursor,
+      loadingMore: this.feedLoadingMore,
     }, this.hallwayPrefs, this.selectedTopicKey);
   }
 
@@ -1278,6 +1286,9 @@ export class ClubboxApp {
       case 'refresh-explore':
         void this.refreshExplore();
         break;
+      case 'load-more-hallway':
+        void this.loadMoreChannels();
+        break;
       case 'select-hallway-topic': {
         const key = el.dataset.topicKey;
         this.selectHallwayTopic(key || null);
@@ -1398,6 +1409,9 @@ export class ClubboxApp {
       case 'refresh-messages':
         void this.loadConversations();
         if (this.openConversationId) void this.openConversationThread(this.openConversationId);
+        break;
+      case 'load-more-conversations':
+        void this.loadMoreConversations();
         break;
       case 'refresh-activity':
         void this.loadActivity();

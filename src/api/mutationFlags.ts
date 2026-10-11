@@ -21,6 +21,7 @@ const MUTATION_PREFIXES = [
   'reject_',
   'become_',
   'add_',
+  'record_',
 ] as const;
 
 const MUTATION_NAMES = new Set([

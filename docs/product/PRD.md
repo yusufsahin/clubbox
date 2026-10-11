@@ -123,12 +123,12 @@ Legend — Today: ✅ works live · 🧪 sandbox/UI only · ❌ missing. Evidenc
 | RH-4 | Hand queue list + invite to stage | ✓ | ✓ | 🧪 | C (invite_speaker) | P1 |
 | RH-5 | Mute speaker / mute everyone | ✓ | ✓ | 🧪 | C (mute_speaker ×N) | P1 |
 | RH-6 | Make moderator / move to audience / block from room | ✓ | ✓ | 🧪 | C | P1 |
-| RH-7 | Hand-raise permission (off / everyone / friends of speakers) | ✓ | ✓ | ✅ | C (change_handraise_settings) | P1 |
+| RH-7 | Hand-raise permission (off / everyone / friends of speakers) | ✓ | ✓ | ✅ | B create `handraise_permission`; mid-room C experimental | P1 |
 | RH-8 | Chat on/off, delete a message | ✓ | ✓ | 🧪 | N for delete | P2 |
 | RH-9 | Ping people into the room (multi-select, search by bio) | ✓ | ✓ | ✅ | C (invite_to_existing_channel) | P1 |
 | RH-10 | Room visibility change | | ✓ | ✅ | C (make_channel_public/social) | P2 |
 | RH-11 | End room (confirm) | ✓ | ✓ | 🧪 | C (end_channel) | P0 |
-| RH-12 | Pinned link | ✓ | ✓ | 🧪 | N | P2 |
+| RH-12 | Pinned link | ✓ | ✓ | ✅ | B (create_channel.link) | P2 |
 
 ### 4.5 Studio (Clubbox's reason to exist)
 
@@ -174,7 +174,8 @@ These appear in `create_channel` / `me` responses (`user_capabilities`, `channel
 | DX-11 | Web listening toggle (`can_change_enable_web_listening`, `is_web_listening_enabled`) | Room-settings toggle when the crawler finds the body | P2 |
 | DX-12 | AI questions (`ask_question_about_conversation`, `ask_question_about_me`) | Not built (AI over other people's content) | Won't |
 | DX-13 | Friend zone match (`get_friend_zone_match`) | Not built until its purpose is known | Won't |
-| DX-14 | Highlights (`get_highlight`, `are_highlights_enabled`) | Play like replays when the body is known | P3 |
+| DX-14 | Highlights (`get_highlight`, `are_highlights_enabled`) | Play like replays (GET path `{id}`) | P3 |
+| DX-15 | Clubhouse Talk (`talk/*` paid advisor calls) | Out of scope (payments) | Won't |
 
 ### 4.7 Won't do (and why)
 
@@ -186,6 +187,7 @@ These appear in `create_channel` / `me` responses (`user_capabilities`, `channel
 | web_listener_* flow | Requires reCAPTCHA token; Clubbox must not run reCAPTCHA itself |
 | Mobile API (clubhouseapi.com), token sign-in | Off-policy, superseded by web session |
 | Followers/following list scraping via guessed paths | No source; guidelines risk |
+| Clubhouse Talk / paid advisor (`talk/*`) | Payments and advisor flows are out of product scope (DX-15) |
 
 ## 5. Releases
 

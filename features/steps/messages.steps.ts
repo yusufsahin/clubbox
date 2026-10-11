@@ -79,7 +79,7 @@ Then(
   'the Messages badge uses {string} when documented, otherwise {string} from me',
   async function (this: ClubboxWorld, endpoint: string, field: string) {
     if (this.client.supports(endpoint)) {
-      await this.client.getConversationUnreadSummary();
+      await this.client.getConversationUnreadSummary('c1');
       assert.ok(this.transport.requestsNamed(endpoint).length > 0);
       return;
     }
@@ -95,4 +95,37 @@ Then('I can filter {string} and {string}', function (this: ClubboxWorld, a: stri
   assert.equal(b, 'DMs');
   this.uiMessages.push('messageFilter:all');
   this.uiMessages.push('messageFilter:vm');
+});
+
+When('I rename the conversation {string} to {string}', async function (
+  this: ClubboxWorld,
+  id: string,
+  title: string,
+) {
+  await this.client.updateConversationTitle(id, title);
+});
+
+When('I delete the conversation {string} and confirm', async function (this: ClubboxWorld, id: string) {
+  await this.client.deleteConversation(id);
+});
+
+Given('the conversation list returned a next_cursor', async function (this: ClubboxWorld) {
+  this.transport.setFixture('get_conversations', {
+    success: true,
+    conversations: [],
+    next_cursor: 'conv-page-2',
+  });
+  const res = await this.client.getConversations();
+  assert.equal(res.next_cursor, 'conv-page-2');
+  this.conversationsNextCursor = res.next_cursor;
+});
+
+When('I scroll to the end of the list', async function (this: ClubboxWorld) {
+  assert.ok(this.conversationsNextCursor);
+  this.transport.setFixture('get_conversations', {
+    success: true,
+    conversations: [],
+    next_cursor: null,
+  });
+  await this.client.getConversations({ nextCursor: this.conversationsNextCursor });
 });

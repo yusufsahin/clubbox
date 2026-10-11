@@ -505,6 +505,29 @@ async function extractAgoraAppIdFromSignIn(win) {
   }
 }
 
+function expandRoutePath(route, body) {
+  const template = route.path || '';
+  const pathParams = Array.isArray(route.pathParams) ? route.pathParams : [];
+  const payload = body && typeof body === 'object' ? { ...body } : {};
+  if (!template.includes('{')) {
+    return { pathName: template, body: payload };
+  }
+  const pathName = template.replace(/\{(\w+)\}/g, (_, key) => {
+    let value = payload[key];
+    if (value == null && key === 'id') value = payload.highlight_id;
+    if (value == null) {
+      throw new Error(`Missing path param ${key} for ${template}`);
+    }
+    delete payload[key];
+    if (key === 'id') delete payload.highlight_id;
+    return encodeURIComponent(String(value));
+  });
+  for (const key of pathParams) {
+    delete payload[key];
+  }
+  return { pathName, body: payload };
+}
+
 function webSessionUrl(pathName, method, body) {
   const base = `https://www.clubhouse.com${pathName}`;
   if (method !== 'GET' || !body || typeof body !== 'object') return base;
@@ -565,7 +588,18 @@ async function postWithWebSession(endpoint, body) {
   });
   const csrf = cookies[0]?.value || '';
   const method = route.method || 'POST';
-  const response = await session.defaultSession.fetch(webSessionUrl(route.path, method, body), {
+  let pathName;
+  let requestBody;
+  try {
+    ({ pathName, body: requestBody } = expandRoutePath(route, body));
+  } catch (err) {
+    return {
+      ok: false,
+      status: 0,
+      body: JSON.stringify({ error_message: err instanceof Error ? err.message : String(err) }),
+    };
+  }
+  const response = await session.defaultSession.fetch(webSessionUrl(pathName, method, requestBody), {
     method,
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     headers: {
@@ -577,7 +611,7 @@ async function postWithWebSession(endpoint, body) {
       Origin: 'https://www.clubhouse.com',
       Referer: 'https://www.clubhouse.com/home',
     },
-    body: method === 'GET' ? undefined : (body == null ? '{}' : JSON.stringify(body)),
+    body: method === 'GET' ? undefined : JSON.stringify(requestBody ?? {}),
   });
   const text = await response.text();
   console.log('[web]', endpoint, response.status);
@@ -585,8 +619,8 @@ async function postWithWebSession(endpoint, body) {
   try {
     appendApiLog(app.getPath('userData'), {
       endpoint,
-      body: body && typeof body === 'object' ? Object.fromEntries(
-        Object.keys(body).map((key) => [key, typeof body[key]]),
+      body: requestBody && typeof requestBody === 'object' ? Object.fromEntries(
+        Object.keys(requestBody).map((key) => [key, typeof requestBody[key]]),
       ) : {},
       status: response.status,
       ok: response.ok,

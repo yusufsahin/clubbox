@@ -46,15 +46,15 @@ Feature: Houses, events and replays
   @bundle @RL-12
   Scenario: Play a saved replay
     When I open a saved replay
-    Then a "POST /web_api/get_replay_channel" request is sent with the documented body keys
+    Then a "GET /web_api/get_replay_channel" request is sent with the documented body keys
     And I can play at 1x, 1.5x and 2x and skip 15 seconds
 
   @bundle @DX-14
   Scenario: Highlights play like replays
     When I open a highlight
-    Then a "POST /web_api/get_highlight" request is sent with the documented body keys
+    Then a "GET /web_api/get_highlight" request is sent with the documented body keys
 
-  @pending @bundle @RL-12
+  @bundle @RL-12
   Scenario: Replay audio is fetched in chunks by path
     Given a saved replay "r1" with 3 chunks
     When I play the replay "r1"

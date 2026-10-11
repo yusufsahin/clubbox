@@ -58,15 +58,55 @@ export async function loadConversations(this: ClubboxApp) : Promise<void> {
     try {
       const res = await clubhouseClient.getConversations();
       this.conversations = res.conversations || [];
+      this.conversationsNextCursor = res.next_cursor ?? null;
       this.conversationsLoaded = true;
       this.dmRequestCount = typeof res.new_dm_requests_count === 'number' ? res.new_dm_requests_count : 0;
     } catch (err) {
       this.conversations = [];
+      this.conversationsNextCursor = null;
       this.conversationsLoaded = true;
       this.dmRequestCount = 0;
       this.reportApiError(err);
     }
     if (this.currentTab === 'messages' || this.currentTab === 'friends') this.render();
+  }
+
+export async function loadMoreConversations(this: ClubboxApp): Promise<void> {
+    if (!this.conversationsNextCursor || this.conversationsLoadingMore) return;
+    this.conversationsLoadingMore = true;
+    try {
+      const res = await clubhouseClient.getConversations({ nextCursor: this.conversationsNextCursor });
+      const seen = new Set(this.conversations.map((item) => item.conversation_id));
+      for (const item of res.conversations || []) {
+        if (!seen.has(item.conversation_id)) this.conversations.push(item);
+      }
+      this.conversationsNextCursor = res.next_cursor ?? null;
+      if (this.currentTab === 'messages' || this.currentTab === 'friends') this.render();
+    } catch (err) {
+      this.reportApiError(err);
+    } finally {
+      this.conversationsLoadingMore = false;
+    }
+  }
+
+export async function renameConversation(this: ClubboxApp, conversationId: string | undefined, title: string): Promise<void> {
+    if (!conversationId || !title.trim()) return;
+    if (!clubhouseClient.supports('update_conversation_title')) {
+      this.showToast(t('unverifiedAction'), '🔒');
+      return;
+    }
+    try {
+      await clubhouseClient.updateConversationTitle(conversationId, title.trim());
+      const item = this.conversations.find((entry) => entry.conversation_id === conversationId);
+      if (item) {
+        item.title = title.trim();
+        item.short_title = title.trim();
+      }
+      if (this.currentTab === 'messages') this.render();
+      this.showToast(t('conversationRenamed'), '✏️');
+    } catch (err) {
+      this.reportApiError(err);
+    }
   }
 
 export async function openConversationThread(this: ClubboxApp, conversationId: string): Promise<void> {
@@ -163,10 +203,11 @@ export function runThreadPermission(this: ClubboxApp, conversationId: string | u
     if (!item) return;
     const allowed = (permission === 'invite' && item.can_invite)
       || (permission === 'delete' && item.can_delete)
-      || (permission === 'leave' && item.can_leave);
+      || (permission === 'leave' && item.can_leave)
+      || (permission === 'rename' && item.can_delete);
     if (!allowed) return;
-    if (this.liveMessageBlocked()) return;
     if (permission === 'invite') {
+      if (this.liveMessageBlocked()) return;
       const sandbox = clubhouseClient.getSandbox();
       const count = (sandbox?.thread(conversationId)?.members.length ?? 0) + 1;
       const name = `Invited member ${count}`;
@@ -178,6 +219,43 @@ export function runThreadPermission(this: ClubboxApp, conversationId: string | u
       this.render();
       return;
     }
+    if (permission === 'rename') {
+      const next = window.prompt(t('renameConversationPrompt'), item.short_title || item.title || '');
+      if (next == null || !next.trim()) return;
+      void this.renameConversation(conversationId, next.trim());
+      return;
+    }
+    if (permission === 'delete') {
+      if (!window.confirm(t('confirmDeleteConversation'))) return;
+      const sandbox = clubhouseClient.getSandbox();
+      if (sandbox) {
+        sandbox.removeConversation(conversationId);
+      } else if (clubhouseClient.supports('delete_conversation')) {
+        void clubhouseClient.deleteConversation(conversationId).then(() => {
+          this.conversations = this.conversations.filter((entry) => entry.conversation_id !== conversationId);
+          if (this.openConversationId === conversationId) {
+            this.openConversationId = null;
+            this.previewMember = null;
+            this.openConversationThreadData = null;
+            this.threadLiveNote = '';
+          }
+          if (this.currentTab === 'messages') this.render();
+        }).catch((err) => this.reportApiError(err));
+        return;
+      } else {
+        this.showToast(t('unverifiedAction'), '🔒');
+        return;
+      }
+      if (this.openConversationId === conversationId) {
+        this.openConversationId = null;
+        this.previewMember = null;
+        this.openConversationThreadData = null;
+        this.threadLiveNote = '';
+      }
+      void this.loadConversations();
+      return;
+    }
+    if (this.liveMessageBlocked()) return;
     clubhouseClient.getSandbox()?.removeConversation(conversationId);
     if (this.openConversationId === conversationId) {
       this.openConversationId = null;
@@ -216,6 +294,8 @@ export async function reactToThreadSegment(
 
 export function wireMessagesCtl(proto: ClubboxApp): void {
   proto.loadConversations = loadConversations;
+  proto.loadMoreConversations = loadMoreConversations;
+  proto.renameConversation = renameConversation;
   proto.openConversationThread = openConversationThread;
   proto.activeConversationThread = activeConversationThread;
   proto.sendThreadSegment = sendThreadSegment;

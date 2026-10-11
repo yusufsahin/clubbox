@@ -51,7 +51,7 @@ When('I press R', function (this: ClubboxWorld) {
   this.recording = true;
 });
 
-When('I paste {string} into search and press Enter', function (this: ClubboxWorld, link: string) {
+When('I paste {string} into search and press Enter', async function (this: ClubboxWorld, link: string) {
   try {
     const url = new URL(link);
     if (url.hostname !== 'www.clubhouse.com' && url.hostname !== 'clubhouse.com') {
@@ -60,9 +60,21 @@ When('I paste {string} into search and press Enter', function (this: ClubboxWorl
       return;
     }
     const parts = url.pathname.split('/').filter(Boolean);
-    if (parts[0] === 'room' && parts[1]) this.openedTarget = `room "${parts[1]}"`;
-    else if (parts[0]?.startsWith('@')) this.openedTarget = `profile of "${parts[0].slice(1)}"`;
-    else this.openedTarget = null;
+    if (parts[0] === 'room' && parts[1]) {
+      this.openedTarget = `room "${parts[1]}"`;
+      return;
+    }
+    if (parts[0]?.startsWith('@')) {
+      const username = parts[0].slice(1);
+      this.openedTarget = `profile of "${username}"`;
+      this.transport.setFixture('get_profile', {
+        success: true,
+        user_profile: { user_id: 9, name: username, username },
+      });
+      await this.client.getProfileByUsername(username);
+      return;
+    }
+    this.openedTarget = null;
   } catch {
     this.openedTarget = null;
     this.uiMessages.push('Only clubhouse.com links');

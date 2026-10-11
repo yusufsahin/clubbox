@@ -1,8 +1,14 @@
 import type { RequestBody } from './client';
+import { routePath, routeRecord } from './capabilities';
 import { getEndpoint } from './registry';
 
 /** Body keys documented in docs/api/bundle-callsites.md or observed captures (web-api.md). */
 export function documentedBodyKeys(endpoint: string): string[] {
+  const route = routeRecord(endpoint);
+  // Path-param GETs put segments in the URL; JSON body is empty after expand.
+  if (route?.method === 'GET' && (route.pathParams?.length || routePath(endpoint).includes('{'))) {
+    return [];
+  }
   const entry = (() => {
     try {
       return getEndpoint(endpoint);
@@ -35,6 +41,22 @@ export function documentedBodyKeys(endpoint: string): string[] {
     case 'send_conversation_emoji_reaction':
       return ['conversation_id', 'emoji', 'segment_id'];
     case 'get_conversation_unread_summary':
+      return ['conversation_id'];
+    case 'update_conversation_title':
+      return ['conversation_id', 'title'];
+    case 'delete_conversation':
+      return ['conversation_id'];
+    case 'get_conversations':
+      return ['is_private_only', 'next_cursor'];
+    case 'get_channels':
+    case 'get_feed_v3':
+      return ['next_cursor'];
+    case 'gif_reaction':
+      return ['channel', 'giphy_id'];
+    case 'get_replay_channel_chunk':
+    case 'get_replay_channel':
+    case 'get_highlight':
+      // Path-param GETs: segments leave the JSON body after expandRoutePath.
       return [];
     case 'get_user_social_clubs':
       return [];
@@ -46,10 +68,6 @@ export function documentedBodyKeys(endpoint: string): string[] {
       return ['social_club_id', 'social_club_slug'];
     case 'send_social_club_message':
       return ['message', 'social_club_id', 'social_club_slug'];
-    case 'get_replay_channel':
-      return ['channel'];
-    case 'get_highlight':
-      return ['highlight_id'];
     default:
       return [];
   }
@@ -96,10 +114,18 @@ export function sampleParamsForDocumentedBody(endpoint: string): RequestBody {
       return { social_club_id: 1, social_club_slug: 'h1' };
     case 'send_social_club_message':
       return { social_club_id: 1, social_club_slug: 'h1', message: 'hello' };
+    case 'get_conversation_unread_summary':
+      return { conversation_id: 'c1' };
+    case 'update_conversation_title':
+      return { conversation_id: 'c1', title: 'Weekend plans' };
+    case 'delete_conversation':
+      return { conversation_id: 'c1' };
     case 'get_replay_channel':
       return { channel: 'replay-1' };
+    case 'get_replay_channel_chunk':
+      return { channel: 'replay-1', chunk: '0' };
     case 'get_highlight':
-      return { highlight_id: 'hl-1' };
+      return { id: 'hl-1' };
     default:
       return {};
   }

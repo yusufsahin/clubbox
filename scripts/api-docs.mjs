@@ -577,12 +577,14 @@ function buildRealtime(records, callsites) {
   return `${lines.join('\n').trim()}\n`;
 }
 
+const { applyWebClientMethodsToRoutes } = await import('./sync-web-client-methods.mjs');
 const savedRoutes = JSON.parse(fs.readFileSync(routesPath, 'utf8'));
 const records = readCaptures();
 const bundleHits = readBundleHits();
 const callsites = readCallsites();
 const bundleNames = [...new Set(bundleHits.map((hit) => hit.name))].sort();
 const routes = evidenceRoutes(mergeBundleRoutes(savedRoutes, bundleNames), records);
+applyWebClientMethodsToRoutes(routes);
 const webApi = buildWebApi(records, routes);
 const realtime = buildRealtime(records, callsites);
 const bundleDoc = buildBundleDoc(savedRoutes, routes, bundleHits);

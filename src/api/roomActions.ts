@@ -20,9 +20,11 @@ export function createChannelBody(
     audience?: CreateAudience | string;
     replayEnabled?: boolean;
     chatEnabled?: boolean;
-    socialClubId?: number;
+    socialClubId?: number | string;
     topicIds?: number[];
     userIds?: number[];
+    handraisePermission?: number;
+    link?: string;
   },
 ): Record<string, unknown> {
   const audience = normalizeAudience(options.audience);
@@ -33,6 +35,8 @@ export function createChannelBody(
     socialClubId: options.socialClubId,
     topicIds: options.topicIds,
     userIds: options.userIds,
+    handraisePermission: options.handraisePermission,
+    link: options.link,
   });
 }
 

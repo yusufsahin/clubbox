@@ -1,8 +1,9 @@
 import { ApiHealthStore, type ApiHealthFailure, type RedactedRequestLogEntry } from './apiHealth';
-import { canCall, evidenceOf, routeMethod, routePath, type Evidence, type Transport } from './capabilities';
+import { canCall, evidenceOf, routeMethod, routePath, routeRecord, type Evidence, type Transport } from './capabilities';
 import { PEOPLE_LIST_ENDPOINTS, readPeopleList, readProfile, type PeopleListKind, type PeopleListPage } from './relationship';
 import { businessFailure, classifyHttpFailure, nextBackoffMs, type ApiErrorKind } from './guards';
 import { FEED_MAX_PAGES, mergeFeedChannels, nextFeedCursor, type FeedPage } from './feedPagination';
+import { expandRoutePath } from './routeExpand';
 import { getEndpoint } from './registry';
 import { permissionOn } from './roomActions';
 import { SandboxBackend, SandboxTransport } from './sandboxTransport';
@@ -852,12 +853,22 @@ export class ClubhouseApiClient {
     }
     const headers = this.getHeaders();
     const meta = routeMeta(endpoint);
+    const route = routeRecord(endpoint);
+    const expanded = expandRoutePath(
+      { path: meta.path, pathParams: route?.pathParams },
+      (body && typeof body === 'object' ? body : {}) as Record<string, unknown>,
+    );
+    // GET query keys stay in the body for FakeTransport / Electron query string;
+    // path-param-only GETs send no JSON body.
+    const wireBody = meta.method === 'GET' && Object.keys(expanded.body).length === 0
+      ? null
+      : expanded.body;
     const result = await withTimeout(
       this.activeTransport!.request({
         endpoint,
         method: meta.method,
-        path: meta.path,
-        body: body ?? null,
+        path: expanded.pathName,
+        body: wireBody,
         headers,
       }),
       endpoint,
@@ -1021,28 +1032,64 @@ export class ClubhouseApiClient {
     return this.request('me');
   }
 
-  public async getChannels(): Promise<{ success: boolean; channels: CHChannel[]; available_topics?: FeedTopic[] }> {
+  /** One feed page. Pass `nextCursor` to load the next page (infinite scroll). */
+  public async getChannelsPage(options: {
+    nextCursor?: string | null;
+  } = {}): Promise<{
+    success: boolean;
+    channels: CHChannel[];
+    available_topics?: FeedTopic[];
+    next_cursor?: string | null;
+  }> {
+    const body: RequestBody = options.nextCursor ? { next_cursor: options.nextCursor } : {};
+    const res = await this.request<FeedPage & { success?: boolean }>('get_channels', body);
+    return {
+      success: true,
+      channels: res.channels ?? [],
+      available_topics: Array.isArray(res.available_topics) ? res.available_topics : undefined,
+      next_cursor: nextFeedCursor(res, options.nextCursor ?? null),
+    };
+  }
+
+  /** Load up to FEED_MAX_PAGES (used by refresh / tests). UI prefers getChannelsPage + load more. */
+  public async getChannels(): Promise<{
+    success: boolean;
+    channels: CHChannel[];
+    available_topics?: FeedTopic[];
+    next_cursor?: string | null;
+  }> {
     const pages: CHChannel[][] = [];
     let available_topics: FeedTopic[] | undefined;
     let cursor: string | null = null;
+    let lastNext: string | null = null;
     for (let page = 0; page < FEED_MAX_PAGES; page += 1) {
-      const body: RequestBody = cursor ? { next_cursor: cursor } : {};
-      const res = await this.request<FeedPage & { success?: boolean }>('get_channels', body);
-      pages.push(res.channels ?? []);
-      if (!available_topics && Array.isArray(res.available_topics)) available_topics = res.available_topics;
-      const next = nextFeedCursor(res, cursor);
-      if (!next) break;
-      cursor = next;
+      const res = await this.getChannelsPage({ nextCursor: cursor });
+      pages.push(res.channels);
+      if (!available_topics && res.available_topics) available_topics = res.available_topics;
+      lastNext = res.next_cursor ?? null;
+      if (!lastNext) break;
+      cursor = lastNext;
     }
     return {
       success: true,
       channels: mergeFeedChannels(pages),
       available_topics,
+      next_cursor: lastNext,
     };
   }
 
-  public async getConversations(): Promise<{ success: boolean; conversations: CHConversation[]; new_dm_requests_count?: number }> {
-    return this.request('get_conversations', { is_private_only: true });
+  public async getConversations(options: {
+    nextCursor?: string | null;
+    isPrivateOnly?: boolean;
+  } = {}): Promise<{
+    success: boolean;
+    conversations: CHConversation[];
+    new_dm_requests_count?: number;
+    next_cursor?: string | null;
+  }> {
+    const body: RequestBody = { is_private_only: options.isPrivateOnly !== false };
+    if (options.nextCursor) body.next_cursor = options.nextCursor;
+    return this.call('get_conversations', body);
   }
 
   public async getEdgeStories(): Promise<{ success: boolean; activities?: unknown[]; stories?: unknown[]; items?: unknown[] }> {
@@ -1084,7 +1131,9 @@ export class ClubhouseApiClient {
       audience?: 'public' | 'social' | 'friends' | 'friends-of-friends' | 'closed' | 'house';
       replayEnabled?: boolean;
       chatEnabled?: boolean;
-      socialClubId?: number;
+      socialClubId?: number | string;
+      handraisePermission?: number;
+      link?: string;
       talkWith?: { userId: number; name: string; username: string };
     } = {}
   ): Promise<CHChannelDetail> {
@@ -1098,6 +1147,8 @@ export class ClubhouseApiClient {
       replayEnabled,
       chatEnabled,
       socialClubId: options.socialClubId,
+      handraisePermission: options.handraisePermission,
+      link: options.link,
       talk_user_id: options.talkWith?.userId,
       talk_user_name: options.talkWith?.name,
       talk_user_username: options.talkWith?.username,
@@ -1214,8 +1265,8 @@ export class ClubhouseApiClient {
     });
   }
 
-  public async getConversationUnreadSummary(): Promise<{ success: boolean; unread_count?: number }> {
-    return this.call('get_conversation_unread_summary', {});
+  public async getConversationUnreadSummary(conversationId: string): Promise<{ success: boolean; unread_count?: number }> {
+    return this.call('get_conversation_unread_summary', { conversation_id: conversationId });
   }
 
   public async getUserSocialClubs(): Promise<{ success: boolean; social_clubs?: unknown[] }> {
@@ -1288,14 +1339,33 @@ export class ClubhouseApiClient {
   }
 
   public async getProfile(userId: number): Promise<{ success: boolean; user_profile: CHUser }> {
-    const res = await this.request<{ success?: boolean; user_profile?: unknown }>('get_profile', { user_id: userId });
+    const res = await this.call<{ success?: boolean; user_profile?: unknown }>('get_profile', { user_id: userId });
+    const user = readProfile(res.user_profile);
+    if (!user) throw new ClubhouseApiError(200, 'get_profile', 'Profile was missing', 'unknown');
+    return { success: res.success !== false, user_profile: user };
+  }
+
+  public async getProfileByUsername(username: string): Promise<{ success: boolean; user_profile: CHUser }> {
+    const res = await this.call<{ success?: boolean; user_profile?: unknown }>('get_profile', { username });
     const user = readProfile(res.user_profile);
     if (!user) throw new ClubhouseApiError(200, 'get_profile', 'Profile was missing', 'unknown');
     return { success: res.success !== false, user_profile: user };
   }
 
   public async follow(userId: number): Promise<ApiAck> {
-    return this.request('follow', { user_id: userId });
+    return this.call('follow', { user_id: userId, source: 4 });
+  }
+
+  public async updateConversationTitle(conversationId: string, title: string): Promise<ApiAck> {
+    return this.call('update_conversation_title', { conversation_id: conversationId, title });
+  }
+
+  public async deleteConversation(conversationId: string): Promise<ApiAck> {
+    return this.call('delete_conversation', { conversation_id: conversationId });
+  }
+
+  public async getReplayChannelChunk(channelId: string, chunk: string | number): Promise<unknown> {
+    return this.call('get_replay_channel_chunk', { channel: channelId, chunk: String(chunk) });
   }
 
   public async unfollow(userId: number): Promise<ApiAck> {

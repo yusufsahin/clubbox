@@ -925,6 +925,9 @@ export async function confirmCreateRoom(this: ClubboxApp) : Promise<void> {
     const replaysEl = document.getElementById('new-room-replays') as HTMLInputElement | null;
     const replayEnabled = replaysEl ? replaysEl.checked : false;
     const chatEnabled = (document.getElementById('new-room-chat') as HTMLInputElement | null)?.checked !== false;
+    const handraiseRaw = (document.getElementById('new-room-handraise') as HTMLSelectElement | null)?.value;
+    const handraisePermission = handraiseRaw === '2' ? 2 : handraiseRaw === '1' ? 1 : undefined;
+    const link = (document.getElementById('new-room-link') as HTMLInputElement | null)?.value.trim() || undefined;
     const confirmBtn = document.querySelector('[data-action="confirm-create"]') as HTMLButtonElement | null;
     if (!topic) {
       this.showToast(t('enterTopic'), '⚠️');
@@ -941,6 +944,8 @@ export async function confirmCreateRoom(this: ClubboxApp) : Promise<void> {
         replayEnabled,
         chatEnabled,
         ...(typeof socialClubId === 'number' && Number.isFinite(socialClubId) ? { socialClubId } : {}),
+        ...(handraisePermission != null ? { handraisePermission } : {}),
+        ...(link ? { link } : {}),
       });
       this.channelsList.unshift(newChan);
       this.closeCreateModal();

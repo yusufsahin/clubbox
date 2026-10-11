@@ -90,19 +90,19 @@ Feature: Host and moderate a room
     When I open the room composer and choose "friends of friends"
     Then I see "Approve speakers automatically" only when its create body key is documented
 
-  @pending @bundle @RH-7
+  @bundle @RH-7
   Scenario: Choose the hand-raise setting when starting a room
     When I start a room titled "Morning show" for "friends of friends" with hand raises limited to "friends of speakers"
     Then a "POST /web_api/create_channel" request is sent
-    And the body field "handraise_permission" is set from the composer choice
+    And the body field "handraise_permission" is 2
 
-  @pending @bundle @RH-12
+  @bundle @RH-12
   Scenario: Pin a link when starting a room
     When I start a room titled "Morning show" with the link "https://example.com/agenda"
     Then a "POST /web_api/create_channel" request is sent
     And the body field "link" is "https://example.com/agenda"
 
-  @pending @bundle @SO-6
+  @bundle @SO-6
   Scenario: Start a room in a house
     Given I am an admin of the house "h1"
     When I start a room titled "House night" in the house "h1"

@@ -64,15 +64,15 @@ Legend — Evidence: O observed · B bundle call site · C community · ? to dis
 | --- | --- | --- | --- | --- | --- | --- |
 | me | POST | {} | user_profile, pubnub_token, pubnub_origin, feature_flags, user_settings, has_unread_notifications, default_room_title_options | O | ✅ | Session, Realtime |
 | get_profile | POST | user_id | profile counts, mutual_follows[], mutual_cofollows[], social_clubs[], follows_me, chatting_with | O | ✅ | ProfileCtl |
-| follow | POST | user_id (+ source, user_ids, source_topic_id per C) | ack | C | ✅ experimental via supports/allowAction | ProfileCtl |
-| unfollow | POST | user_id | ack | C (not in webApiRoutes) | ❌ static “Following” label (SO-1) | — |
+| follow | POST | `{user_id, source}` (source: 4) | ack | B | ✅ ProfileCtl | ProfileCtl |
+| unfollow | — | not in web client | — | — | Decided: non-clickable “Following” in live (SO-1) | — |
 | search | POST | query, limit_to_object_types | hits (users/rooms/clubs) | O | ✅ | Discovery |
 
 ### 3.2 Hallway & discovery
 
 | Endpoint | Method | Request | Response → domain | Evid. | Today | Used by |
 | --- | --- | --- | --- | --- | --- | --- |
-| get_feed_v3 | POST | {} then `{ next_cursor }` pages (topic id still uncaptured) | items[].channel, available_topics, next_cursor | O | ✅ paginated (≤8 pages) | HallwayCtl |
+| get_feed_v3 | POST | `{next_cursor}` only (no server topic filter — local chips final) | items[].channel, available_topics, next_cursor | O | ✅ first page + load-more scroll | HallwayCtl |
 | get_create_channel_targets | POST | {} | channel_capabilities per privacy type, clubs[], events[], web_listening_default_on, channel_chat_default_on | O | ✅ drives composer (G-11 closed) | Composer |
 | get_edge_stories | GET | – | activities | O | ✅ | ActivityCtl |
 | get_group_suggested_invites | POST | {} | suggestions, next_cursor | O | ✅ | Ping picker |
@@ -85,7 +85,7 @@ Legend — Evidence: O observed · B bundle call site · C community · ? to dis
 
 | Endpoint | Method | Request | Response → domain | Evid. | Today | Used by |
 | --- | --- | --- | --- | --- | --- | --- |
-| create_channel | POST | topic, privacy_level, is_public_room, is_private, is_social_mode, is_replay_enabled, is_chat_enabled, user_ids, topic_ids, source (+ club id for house: ?) | full channel incl. token, rtm_token, pubnub_*, users, user_capabilities | O | ✅ any privacy from composer (G-01 closed) | RoomCtl |
+| create_channel | POST | documented keys + optional `social_club_id`, `handraise_permission`, `link` | full channel incl. token, rtm_token, pubnub_*, users, user_capabilities | O/B | ✅ composer incl. house / handraise / pin link | RoomCtl |
 | join_channel | POST | channel | channel detail incl. token, pubnub_* (assumed same shape as create) | O | ✅ | RoomCtl |
 | leave_channel | POST | channel | ack | O | ✅ | RoomCtl |
 | active_ping | POST | channel | ack | O | ✅ | RoomSession |
@@ -103,8 +103,8 @@ Legend — Evidence: O observed · B bundle call site · C community · ? to dis
 | end_channel | POST | channel, channel_id | ack | C | ✅ experimental + capabilities (G-04 closed) | RoomCtl |
 | make_channel_public / make_channel_social | POST | channel, channel_id | ack | C | ✅ stage visibility select (RH-10) | RoomCtl (mod) |
 | get_channel | POST | channel | channel detail | C (not in web bundle) | ❌ unused on web — PubNub is the room source (G-03 closed) | — |
-| get_replay_channel | POST | channel | replay meta (+ audio url when present) | B | ✅ replay player (rate/skip) | Replays |
-| get_replay_channel_chunk | POST | ? | audio chunks | in-bundle | ❌ | — |
+| get_replay_channel | GET | path `{channel}` (no body) | replay meta (+ chunk_count) | B | ✅ replay player (rate/skip) | Replays |
+| get_replay_channel_chunk | GET | path `{channel}/{chunk}` (no body) | audio chunk | B | ✅ chunk 0 fetched on play | Replays |
 | web_listener_* , guest_* | POST | session_id, staff_token, recaptcha_token… | — | B | won't do (reCAPTCHA) | — |
 
 ### 3.4 Messages (VMs, house chats)
@@ -117,7 +117,9 @@ Legend — Evidence: O observed · B bundle call site · C community · ? to dis
 | add_conversation_segment | POST | documented keys in documentedBodies | segment | B | ✅ live send when supported (G-05 closed) | Composer |
 | create_conversation | POST | documented keys in documentedBodies | conversation | B | ✅ new VM when supported (G-05 closed) | New VM |
 | send_conversation_emoji_reaction | POST | conversation_id, segment_id, emoji | ack | B (400 observed historically) | ✅ thread react pad; failures → API Health | Thread |
-| update_conversation_title / delete_conversation / delete_conversation_segment | POST | ? | ack | B (no body) | ❌ | Thread menu |
+| update_conversation_title | POST | `{conversation_id, title}` | ack | B | ✅ thread rename | MessagesCtl |
+| delete_conversation | POST | `{conversation_id}` | ack | B | ✅ thread delete + confirm | MessagesCtl |
+| delete_conversation_segment | POST | ? | ack | in-bundle | ❌ | — |
 | get_conversation_unread_summary | POST | ? (live 400: conversation_id required) | counts | B | 🟡 not called for badge until body captured; me.unread_conversations_count | Badge |
 
 ### 3.5 Houses

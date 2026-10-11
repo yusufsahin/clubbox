@@ -59,12 +59,18 @@ const REQUEST_BUILDERS: Partial<Record<string, (params: RequestBody) => RequestB
     const audience = typeof params.audience === 'string' ? params.audience as CreateAudience : 'public';
     const replayEnabled = params.replayEnabled !== false;
     const chatEnabled = params.chatEnabled !== false;
-    const socialClubId = typeof params.socialClubId === 'number' ? params.socialClubId : undefined;
+    const socialClubId = typeof params.socialClubId === 'number' || typeof params.socialClubId === 'string'
+      ? params.socialClubId
+      : undefined;
+    const handraisePermission = typeof params.handraisePermission === 'number' ? params.handraisePermission : undefined;
+    const link = typeof params.link === 'string' ? params.link : undefined;
     const body: RequestBody = createChannelBody(topic, {
       audience,
       replayEnabled,
       chatEnabled,
       socialClubId,
+      handraisePermission,
+      link,
     });
     if (params._sandbox === true) {
       if (typeof params.audience === 'string') body.audience = params.audience;
@@ -193,9 +199,67 @@ const REQUEST_BUILDERS: Partial<Record<string, (params: RequestBody) => RequestB
     segment_id: requireString(params, 'segment_id'),
     emoji: requireString(params, 'emoji'),
   }),
-  get_conversation_unread_summary: () => ({}),
+  get_conversation_unread_summary: (params) => ({
+    conversation_id: requireString(params, 'conversation_id'),
+  }),
+  update_conversation_title: (params) => ({
+    conversation_id: requireString(params, 'conversation_id'),
+    title: requireString(params, 'title'),
+  }),
+  delete_conversation: (params) => ({
+    conversation_id: requireString(params, 'conversation_id'),
+  }),
+  get_conversations: (params) => {
+    const body: RequestBody = {
+      is_private_only: params.is_private_only !== false,
+    };
+    if (typeof params.next_cursor === 'string' && params.next_cursor) body.next_cursor = params.next_cursor;
+    return body;
+  },
+  get_channels: (params) => {
+    const body: RequestBody = {};
+    if (typeof params.next_cursor === 'string' && params.next_cursor) body.next_cursor = params.next_cursor;
+    return body;
+  },
+  get_feed_v3: (params) => {
+    const body: RequestBody = {};
+    if (typeof params.next_cursor === 'string' && params.next_cursor) body.next_cursor = params.next_cursor;
+    return body;
+  },
+  get_edge_stories: (params) => {
+    const body: RequestBody = {};
+    if (typeof params.next_cursor === 'string' && params.next_cursor) body.next_cursor = params.next_cursor;
+    return body;
+  },
+  get_group_suggested_invites: (params) => {
+    const body: RequestBody = {};
+    if (typeof params.query === 'string') body.query = params.query;
+    if (typeof params.social_club_id === 'number') body.social_club_id = params.social_club_id;
+    return body;
+  },
+  get_profile: (params) => {
+    if (typeof params.username === 'string' && params.username.trim()) {
+      return { username: params.username.trim().replace(/^@/, '') };
+    }
+    return { user_id: requireNumber(params, 'user_id') };
+  },
+  follow: (params) => ({
+    user_id: requireNumber(params, 'user_id'),
+    source: typeof params.source === 'number' ? params.source : 4,
+  }),
+  gif_reaction: (params) => ({
+    channel: requireString(params, 'channel'),
+    giphy_id: requireString(params, 'giphy_id'),
+  }),
   get_user_social_clubs: () => ({}),
-  get_social_club: (params) => ({ social_club_slug: requireString(params, 'social_club_slug') }),
+  get_social_club: (params) => {
+    if (typeof params.social_club_id === 'number') {
+      const body: RequestBody = { social_club_id: params.social_club_id };
+      if (params.is_for_social_club_open === true) body.is_for_social_club_open = true;
+      return body;
+    }
+    return { social_club_slug: requireString(params, 'social_club_slug') };
+  },
   get_social_club_members: (params) => ({ social_club_id: requireNumber(params, 'social_club_id') }),
   get_social_club_messages: (params) => ({
     social_club_id: requireNumber(params, 'social_club_id'),
@@ -206,8 +270,34 @@ const REQUEST_BUILDERS: Partial<Record<string, (params: RequestBody) => RequestB
     social_club_slug: requireString(params, 'social_club_slug'),
     message: requireString(params, 'message'),
   }),
+  get_social_club_message_thread: (params) => ({
+    social_club_id: requireNumber(params, 'social_club_id'),
+    message_id_str: requireString(params, 'message_id_str'),
+  }),
+  send_social_club_message_emoji_reaction: (params) => ({
+    social_club_id: requireNumber(params, 'social_club_id'),
+    message_id: requireString(params, 'message_id'),
+    add_reaction: params.add_reaction !== false,
+    emoji_id: requireString(params, 'emoji_id'),
+  }),
+  send_social_club_threaded_message: (params) => ({
+    social_club_id: requireNumber(params, 'social_club_id'),
+    message_id_str: requireString(params, 'message_id_str'),
+    message: requireString(params, 'message'),
+  }),
+  update_last_read_social_club_message: (params) => ({
+    message_id: requireString(params, 'message_id'),
+    social_club_id: requireNumber(params, 'social_club_id'),
+  }),
+  // Path-param GETs: body carries path segments; Electron expands the URL.
   get_replay_channel: (params) => ({ channel: requireString(params, 'channel') }),
-  get_highlight: (params) => ({ highlight_id: requireString(params, 'highlight_id') }),
+  get_replay_channel_chunk: (params) => ({
+    channel: requireString(params, 'channel'),
+    chunk: requireString(params, 'chunk'),
+  }),
+  get_highlight: (params) => ({
+    id: typeof params.id === 'string' ? params.id : requireString(params, 'highlight_id'),
+  }),
 };
 
 function buildRegistry(): Record<string, EndpointDefinition> {

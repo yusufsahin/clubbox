@@ -7,19 +7,16 @@ _Last reviewed: 2026-10-11. “Uygulandı” means the code is in the tree. “C
 ### Next run (owner instruction, 2026-10-11 #2)
 
 The capture wait is over: request bodies for 60 web-client methods are documented in `docs/api/web-client-methods.md` (extracted from the web bundle's own API module). Do these, tick them, then continue:
-- [ ] Commit `docs/api/web-client-methods.md` and the new scenarios in features/ (room_host RH-7/RH-12/SO-6, messages rename/delete/pagination, hallway pagination/@username, replays by chunk path).
-- [ ] Task 12.1 — promote and bind every documented method; record the final decisions (topic chips local, unfollow/moderation not in web client).
+- [x] Commit `docs/api/web-client-methods.md` and the new scenarios in features/ (room_host RH-7/RH-12/SO-6, messages rename/delete/pagination, hallway pagination/@username, replays by chunk path).
+- [x] Task 12.1 — promote and bind every documented method; record the final decisions (topic chips local, unfollow/moderation not in web client).
 - [ ] Task 12.2 — live verification by normal use (request log + in-app triage); remove recorder steps from the workflow.
 - [ ] Then finish any remaining Autonomous plan items and run 11.8 in strict mode.
 ### Last autonomous run (2026-10-11)
 
-- Autonomous plan already **Done** through **11.8 (strict)**; triage **NO NEW FAILURES**.
-- Done this pass: none — recent Discover/Messages polish verified; no further clear local bugs without inventing endpoint bodies.
-- Prior polish still in tree (`a8419e3` pending thread pane, `4b213a4` immediate open + race guard).
-- **Stopped:** no further shippable product work without inventing endpoint bodies or owner capture.
-- Blocked: owner live room capture (0.9 S1–S3); topic-chip **server** `get_feed_v3` body; conversation delete/title + unread-summary body; replay chunk; `gif_reaction` body; unfollow omitted from web routes (capture needed).
+- In progress: Phase 12.1 binding from `web-client-methods.md` (sync script, GET path params, pagination, conversation menu, chunked replays).
 - Still @pending: ST-9 deferred; room_host DX-1/DX-3.
-- Questions for the owner: Capture a topic-chip click (`get_feed_v3` body) for server-side Hallway filter; capture `get_conversation_unread_summary` body (or confirm per-thread only); conversation delete/title and a replay chunk if those UIs should ship next.
+- Blocked (need live use, not bodies): 0.9 room smoke / Verified-by-use promotions; `gif_reaction` needs a Giphy picker decision (P3, left hidden).
+- Questions for the owner: none on bodies — closed by web-client-methods.md.
 
 ## Status
 

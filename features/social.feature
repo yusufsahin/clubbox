@@ -17,7 +17,7 @@ Feature: Profiles, follows, activity and private chat
   @bundle @SO-1
   Scenario: Follow and unfollow
     When I click profile action "Follow" for user "u1"
-    Then a "POST /web_api/follow" request is sent with body keys "user_id"
+    Then a "POST /web_api/follow" request is sent with body keys "user_id, source"
     When I click profile action "Following" for user "u1"
     Then the request used for unfollow is the documented one, or the button is a non-clickable "Following" when none is documented
 

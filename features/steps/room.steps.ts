@@ -211,6 +211,44 @@ When('I start a room titled {string} for {string} with replays on and chat on', 
   this.refreshModerationControls();
 });
 
+When(
+  'I start a room titled {string} for {string} with hand raises limited to {string}',
+  async function (this: ClubboxWorld, title: string, audience: string, handraise: string) {
+    assert.equal(audience, 'friends of friends');
+    assert.equal(handraise, 'friends of speakers');
+    await this.client.createChannel(title, {
+      audience: 'friends-of-friends',
+      replayEnabled: true,
+      chatEnabled: true,
+      handraisePermission: 2,
+    });
+  },
+);
+
+When(
+  'I start a room titled {string} with the link {string}',
+  async function (this: ClubboxWorld, title: string, link: string) {
+    await this.client.createChannel(title, {
+      audience: 'friends-of-friends',
+      replayEnabled: true,
+      chatEnabled: true,
+      link,
+    });
+  },
+);
+
+When(
+  'I start a room titled {string} in the house {string}',
+  async function (this: ClubboxWorld, title: string, house: string) {
+    await this.client.createChannel(title, {
+      audience: 'house',
+      socialClubId: house,
+      replayEnabled: true,
+      chatEnabled: true,
+    });
+  },
+);
+
 When('I play the soundboard pad {string}', function (this: ClubboxWorld, _pad: string) {
   this.session.playSoundboardWhileMicMuted();
 });

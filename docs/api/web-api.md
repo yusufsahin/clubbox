@@ -2420,9 +2420,21 @@ App endpoint key: `add_conversation_segment`.
 
 Not observed in a capture yet. No request or response example is included, because none was recorded.
 
+## POST /web_api/ask_question_about_conversation
+
+App endpoint key: `ask_question_about_conversation`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
 ## POST /web_api/create_conversation
 
 App endpoint key: `create_conversation`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /web_api/delete_conversation
+
+App endpoint key: `delete_conversation`.
 
 Not observed in a capture yet. No request or response example is included, because none was recorded.
 
@@ -2432,15 +2444,33 @@ App endpoint key: `get_conversation_unread_summary`.
 
 Not observed in a capture yet. No request or response example is included, because none was recorded.
 
-## POST /web_api/get_highlight
+## POST /web_api/get_friend_zone_match
+
+App endpoint key: `get_friend_zone_match`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## GET /web_api/get_highlight/{id}/
 
 App endpoint key: `get_highlight`.
 
 Not observed in a capture yet. No request or response example is included, because none was recorded.
 
-## POST /web_api/get_replay_channel
+## POST /web_api/get_invite_conversation
+
+App endpoint key: `get_invite_conversation`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## GET /web_api/get_replay_channel/{channel}
 
 App endpoint key: `get_replay_channel`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## GET /web_api/get_replay_channel_chunk/{channel}/{chunk}
+
+App endpoint key: `get_replay_channel_chunk`.
 
 Not observed in a capture yet. No request or response example is included, because none was recorded.
 
@@ -2456,6 +2486,12 @@ App endpoint key: `get_social_club_members`.
 
 Not observed in a capture yet. No request or response example is included, because none was recorded.
 
+## POST /web_api/get_social_club_message_thread
+
+App endpoint key: `get_social_club_message_thread`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
 ## POST /web_api/get_social_club_messages
 
 App endpoint key: `get_social_club_messages`.
@@ -2465,6 +2501,36 @@ Not observed in a capture yet. No request or response example is included, becau
 ## POST /web_api/get_user_social_clubs
 
 App endpoint key: `get_user_social_clubs`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /web_api/gif_reaction
+
+App endpoint key: `gif_reaction`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /web_api/guest_active_ping/{a}/{b}/{c}/{d}
+
+App endpoint key: `guest_active_ping`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /web_api/guest_join_channel/${[e,t,r].filter(e=>!!e).join("/")}
+
+App endpoint key: `guest_join_channel`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /web_api/guest_leave_channel/{a}/{b}/{c}/{d}
+
+App endpoint key: `guest_leave_channel`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /web_api/record_guest_action_trails
+
+App endpoint key: `record_guest_action_trails`.
 
 Not observed in a capture yet. No request or response example is included, because none was recorded.
 
@@ -2512,9 +2578,141 @@ App endpoint key: `send_social_club_message`.
 
 Not observed in a capture yet. No request or response example is included, because none was recorded.
 
+## POST /web_api/send_social_club_message_emoji_reaction
+
+App endpoint key: `send_social_club_message_emoji_reaction`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /web_api/send_social_club_threaded_message
+
+App endpoint key: `send_social_club_threaded_message`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /web_api/talk/update_username
+
+App endpoint key: `talk`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /web_api/update_conversation_title
+
+App endpoint key: `update_conversation_title`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /web_api/update_last_read_social_club_message
+
+App endpoint key: `update_last_read_social_club_message`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /web_api/talk/get_advisor_status
+
+App endpoint key: `talk_get_advisor_status`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /web_api/talk/get_config
+
+App endpoint key: `talk_get_config`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /web_api/talk/save_payment_method
+
+App endpoint key: `talk_save_payment_method`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /web_api/talk/set_web_call_experiment
+
+App endpoint key: `talk_set_web_call_experiment`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /web_api/talk/setup_payment
+
+App endpoint key: `talk_setup_payment`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /web_api/talk/start_web_call
+
+App endpoint key: `talk_start_web_call`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /web_api/talk/update_name
+
+App endpoint key: `talk_update_name`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /web_api/talk/update_username
+
+App endpoint key: `talk_update_username`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /web_api/record_action_trails
+
+Seen when: smoke-open.
+
+### Request
+
+- `action_trails`: array<object>
+  - `client_time_created`: number
+  - `blob_data`: object
+    - `platform`: string
+    - `is_from_web`: boolean
+    - `version`: string
+    - `client_time_recorded`: number
+    - `MyUserId`: number
+    - `client_event_id`: string
+    - `source`: number
+  - `client_event_id`: string
+  - `trail_type`: string
+
+```json
+{
+  "action_trails": [
+    {
+      "client_time_created": 1791667115.728,
+      "blob_data": {
+        "platform": "web",
+        "is_from_web": true,
+        "version": "22.2.0",
+        "client_time_recorded": 1791667115.728,
+        "MyUserId": 909585031,
+        "client_event_id": "129e11f4-e837-4e90-80a3-e2bf4058a3ea",
+        "source": 14
+      },
+      "client_event_id": "129e11f4-e837-4e90-80a3-e2bf4058a3ea",
+      "trail_type": "CONVERSATION_PLUS_CLICKED"
+    }
+  ]
+}
+```
+
+### Response
+
+- `success`: boolean
+
+```json
+{
+  "success": true
+}
+```
+
+Status codes seen: 200.
+
+App endpoint key: `record_action_trails`. Configured method: POST.
+
 ## Telemetry, not used
 
-- POST /web_api/record_action_trails — captured, not an app route.
+No telemetry calls were captured.
 
 ## Checklist coverage
 

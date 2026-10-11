@@ -261,3 +261,24 @@ Then('one {string} request is sent for {string}', function (this: ClubboxWorld, 
 Then('the saved column {string} is still there after restart', function (this: ClubboxWorld, query: string) {
   assert.ok(readHallwayPrefs().savedSearchColumns.includes(query));
 });
+
+Given('the hallway returned a next_cursor', async function (this: ClubboxWorld) {
+  this.transport.setFixture('get_channels', {
+    success: true,
+    channels: [{ channel: 'page1', topic: 'Page one', users: [], num_all: 1, num_speakers: 1 }],
+    next_cursor: 'page2',
+  });
+  const res = await this.client.getChannelsPage();
+  assert.equal(res.next_cursor, 'page2');
+  this.feedNextCursor = res.next_cursor;
+});
+
+When('I scroll to the end of the hallway', async function (this: ClubboxWorld) {
+  assert.ok(this.feedNextCursor);
+  this.transport.setFixture('get_channels', {
+    success: true,
+    channels: [{ channel: 'page2', topic: 'Page two', users: [], num_all: 1, num_speakers: 1 }],
+    next_cursor: null,
+  });
+  await this.client.getChannelsPage({ nextCursor: this.feedNextCursor });
+});

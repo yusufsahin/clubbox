@@ -78,11 +78,32 @@ function recordingFilename(topic: string | undefined, kind: 'recording' | 'clip'
 
 
 export async function reloadChannels(this: ClubboxApp) : Promise<void> {
-    const res = await clubhouseClient.getChannels();
+    const res = await clubhouseClient.getChannelsPage();
     this.channelsList = res.channels || [];
+    this.feedNextCursor = res.next_cursor ?? null;
     this.feedTopics = Array.isArray(res.available_topics)
       ? res.available_topics.filter((topic): topic is FeedTopic => !!topic && typeof topic.key === 'string' && typeof topic.display_name === 'string')
       : [];
+  }
+
+export async function loadMoreChannels(this: ClubboxApp): Promise<void> {
+    if (!this.feedNextCursor || this.feedLoadingMore) return;
+    this.feedLoadingMore = true;
+    try {
+      const res = await clubhouseClient.getChannelsPage({ nextCursor: this.feedNextCursor });
+      const merged = new Map<string, CHChannel>();
+      for (const channel of [...this.channelsList, ...(res.channels || [])]) {
+        const key = channel.channel || String(channel.channel_id);
+        merged.set(key, channel);
+      }
+      this.channelsList = [...merged.values()];
+      this.feedNextCursor = res.next_cursor ?? null;
+      if (this.currentTab === 'explore') this.render();
+    } catch (err) {
+      this.reportApiError(err);
+    } finally {
+      this.feedLoadingMore = false;
+    }
   }
 
 export async function refreshExplore(this: ClubboxApp) : Promise<void> {
@@ -204,6 +225,12 @@ export async function openReplay(this: ClubboxApp, replayId: string | undefined)
         this.showToast(t('somethingWrong'), '⚠️');
         return;
       }
+      const chunkCount = item.chunkCount ?? 0;
+      if (chunkCount > 0 && clubhouseClient.supports('get_replay_channel_chunk')) {
+        const chunk = await clubhouseClient.getReplayChannelChunk(replayId, 0);
+        const chunkUrl = readReplayPayload(chunk, replayId)?.audioUrl;
+        if (chunkUrl) item = { ...item, audioUrl: chunkUrl };
+      }
       if (!item.audioUrl && clubhouseClient.getConfig().useSandbox) {
         item = { ...item, audioUrl: sandboxToneUrl() };
       }
@@ -296,14 +323,14 @@ export async function openClubhouseLink(this: ClubboxApp, link: ParsedClubhouseL
       void this.loadEvents();
       return;
     }
-    const res = await clubhouseClient.search(link.username, ['UserProfile']);
-    const user = res.hits?.find((hit) => hit.kind === 'user' && hit.user.username === link.username)?.user
-      ?? res.users.find((entry) => entry.username === link.username);
-    if (user) {
-      this.inspectProfile(user);
-      return;
+    if (link.kind !== 'profile') return;
+    try {
+      const res = await clubhouseClient.getProfileByUsername(link.username);
+      this.inspectProfile(res.user_profile);
+    } catch (err) {
+      this.reportApiError(err);
+      this.showToast(t('somethingWrong'), '⚠️');
     }
-    this.showToast(t('somethingWrong'), '⚠️');
   }
 
 export async function runDiscoverSearch(this: ClubboxApp) : Promise<void> {
@@ -381,6 +408,7 @@ export function wireHallwayCtl(proto: ClubboxApp): void {
     (proto as ClubboxApp & { hallwayPrefs: HallwayPrefs }).hallwayPrefs = readHallwayPrefs();
   }
   proto.reloadChannels = reloadChannels;
+  proto.loadMoreChannels = loadMoreChannels;
   proto.refreshExplore = refreshExplore;
   proto.liveUpdatesUnavailable = liveUpdatesUnavailable;
   proto.refreshCurrentRoom = refreshCurrentRoom;

@@ -115,6 +115,10 @@ export class ClubboxWorld extends World {
   hallwayPrefs: HallwayPrefs = defaultHallwayPrefs();
   hallwayDisplayRooms: HallwayCard[] = [];
   selectedTopic: string | null = null;
+  feedNextCursor: string | null = null;
+  conversationsNextCursor: string | null = null;
+  replayId: string | null = null;
+  replayChunkCount = 0;
   searchTabs = new Set<string>();
   currentRoom: string | null = null;
   role: 'audience' | 'host' | null = null;

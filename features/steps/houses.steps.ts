@@ -99,3 +99,33 @@ When('I open a highlight', async function (this: ClubboxWorld) {
   await this.client.getHighlight('highlight-1');
   this.replayOpen = true;
 });
+
+Given('a saved replay {string} with {int} chunks', function (this: ClubboxWorld, id: string, chunks: number) {
+  this.transport.setFixture('get_replay_channel', {
+    success: true,
+    replay: { channel: id, topic: 'Chunked replay', chunk_count: chunks },
+  });
+  this.transport.setFixture('get_replay_channel_chunk', {
+    success: true,
+    replay: { channel: id, chunk: '0', audio_url: 'https://example.com/chunk0.mp3' },
+  });
+  this.replayChunkCount = chunks;
+  this.replayId = id;
+});
+
+When('I play the replay {string}', async function (this: ClubboxWorld, id: string) {
+  await this.client.getReplayChannel(id);
+  await this.client.getReplayChannelChunk(id, 0);
+  this.replayOpen = true;
+});
+
+Then('no body is sent with these requests', function (this: ClubboxWorld) {
+  const replayReqs = this.transport.requests.filter(
+    (req) => req.path.includes('/web_api/get_replay_channel'),
+  );
+  assert.ok(replayReqs.length >= 2);
+  for (const req of replayReqs) {
+    assert.equal(req.method, 'GET');
+    assert.equal(req.body, null);
+  }
+});

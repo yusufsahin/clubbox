@@ -53,7 +53,13 @@ export function exploreView(
   channels: CHChannel[],
   topics: FeedTopic[],
   notices: string[],
-  access: { canJoin: boolean; canCreate: boolean; canHide: boolean },
+  access: {
+    canJoin: boolean;
+    canCreate: boolean;
+    canHide: boolean;
+    canLoadMore?: boolean;
+    loadingMore?: boolean;
+  },
   hallway: HallwayPrefs,
   selectedTopicKey: string | null = null,
 ): SafeHtml {
@@ -150,6 +156,13 @@ export function exploreView(
         `;
         })}
       </div>
+      ${access.canLoadMore ? html`
+        <div style="margin:16px 0; text-align:center;">
+          <button class="btn btn-secondary" type="button" data-action="load-more-hallway" ${access.loadingMore ? 'disabled' : ''}>
+            ${t('loadMoreRooms')}
+          </button>
+        </div>
+      ` : ''}
       `}
       ${access.canCreate ? html`
         <button class="host-room-fab btn btn-primary" type="button" data-action="create-room">➕ ${t('startRoom')}</button>

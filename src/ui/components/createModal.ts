@@ -85,6 +85,23 @@ export function mountCreateModal(config: CreateModalConfig): HTMLElement {
         </label>
       </div>
 
+      ${initialCap?.is_handraise_available === true ? html`
+        <div class="form-group" id="new-room-handraise-group">
+          <label class="form-label" for="new-room-handraise">${t('handraiseAtCreate')}</label>
+          <select class="form-input" id="new-room-handraise">
+            <option value="1">${t('handraiseEveryone')}</option>
+            <option value="2">${t('handraiseFriendsOfSpeakers')}</option>
+          </select>
+        </div>
+      ` : ''}
+
+      ${initialCap?.is_pinned_links_available === true ? html`
+        <div class="form-group" id="new-room-link-group">
+          <label class="form-label" for="new-room-link">${t('pinnedLinkAtCreate')}</label>
+          <input class="form-input" id="new-room-link" type="url" placeholder="${t('pinnedLinkPlaceholder')}" />
+        </div>
+      ` : ''}
+
       <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:24px;">
         <button class="btn btn-secondary" data-action="close-create">${t('cancel')}</button>
         <button class="btn btn-primary" data-action="confirm-create">${t('goLive')}</button>

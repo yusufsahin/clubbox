@@ -8,9 +8,14 @@ type RouteRecord = {
   method: string;
   evidence?: string;
   mutation?: boolean;
+  pathParams?: string[];
 };
 
 const ROUTES = webApiRoutes as Record<string, RouteRecord>;
+
+export function routeRecord(endpoint: string): RouteRecord | undefined {
+  return ROUTES[endpoint];
+}
 
 const SANDBOX_ENDPOINTS = new Set([
   'start_phone_number_auth',
@@ -43,7 +48,18 @@ const SANDBOX_ENDPOINTS = new Set([
   'get_social_club_messages',
   'send_social_club_message',
   'get_replay_channel',
+  'get_replay_channel_chunk',
   'get_highlight',
+  'delete_conversation',
+  'update_conversation_title',
+  'add_conversation_segment',
+  'create_conversation',
+  'mark_conversation_segment_listened',
+  'gif_reaction',
+  'get_social_club_message_thread',
+  'send_social_club_message_emoji_reaction',
+  'send_social_club_threaded_message',
+  'update_last_read_social_club_message',
   'hide_channel',
   'change_handraise_settings',
   'set_channel_title',

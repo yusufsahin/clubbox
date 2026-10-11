@@ -15,6 +15,8 @@ export interface MessagesState {
   presence: PresenceFriend[];
   canCreateVm: boolean;
   canReact: boolean;
+  canLoadMore?: boolean;
+  loadingMore?: boolean;
   threadNote?: string;
 }
 
@@ -165,6 +167,7 @@ function threadPanel(item: CHConversation, state: MessagesState): SafeHtml {
         <div class="thread-actions thread-actions-secondary">
           ${item.can_add_members ? html`<button class="btn btn-secondary" type="button" data-action="add-thread-member" data-conversation-id="${item.conversation_id}">${t('addMember')}</button>` : ''}
           ${item.can_invite ? html`<button class="btn btn-secondary" type="button" data-action="thread-permission" data-permission="invite" data-conversation-id="${item.conversation_id}">${t('inviteMember')}</button>` : ''}
+          ${item.can_delete ? html`<button class="btn btn-secondary" type="button" data-action="thread-permission" data-permission="rename" data-conversation-id="${item.conversation_id}">${t('renameConversation')}</button>` : ''}
           ${item.can_delete ? html`<button class="btn btn-secondary" type="button" data-action="thread-permission" data-permission="delete" data-conversation-id="${item.conversation_id}">${t('deleteConversation')}</button>` : ''}
           ${item.can_leave ? html`<button class="btn btn-secondary" type="button" data-action="thread-permission" data-permission="leave" data-conversation-id="${item.conversation_id}">${t('leaveConversation')}</button>` : ''}
         </div>
@@ -288,6 +291,13 @@ export function messagesView(state: MessagesState): SafeHtml {
             ${archive.length > 0 && state.filter === 'all' ? html`
               <h3 class="archive-heading">${t('archiveHeading')}</h3>
               <div class="conversation-list">${archive.map((item) => conversationRow(item, state.openId))}</div>
+            ` : ''}
+            ${state.canLoadMore ? html`
+              <div style="margin:12px 0; text-align:center;">
+                <button class="btn btn-secondary" type="button" data-action="load-more-conversations" ${state.loadingMore ? 'disabled' : ''}>
+                  ${t('loadMoreConversations')}
+                </button>
+              </div>
             ` : ''}
           </div>
           ${threadPane}

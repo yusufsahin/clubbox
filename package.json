@@ -16,6 +16,7 @@
     "api:record": "node scripts/api-record.mjs",
     "api:docs": "node scripts/api-docs.mjs",
     "api:check": "node scripts/api-docs.mjs --check",
+    "api:sync-methods": "node scripts/sync-web-client-methods.mjs",
     "api:triage": "node scripts/api-triage.mjs",
     "api:discover": "node scripts/api-discover.mjs",
     "test:unit": "node --test electron/redact.test.cjs electron/apiRecorderFailure.test.cjs electron/ipcGuard.test.cjs electron/bundleScan.test.cjs electron/bundleCrawler.test.cjs electron/apiLog.test.cjs && node --import tsx --test tests/*.test.ts tests/live-failures/*.test.ts",

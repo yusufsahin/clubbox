@@ -7,7 +7,7 @@ test('evidence ladder: observed and bundle are callable; community needs experim
   assert.equal(evidenceOf('join_channel'), 'observed');
   assert.equal(evidenceOf('invite_speaker'), 'community');
   assert.equal(evidenceOf('get_social_club_members'), 'bundle');
-  assert.equal(evidenceOf('delete_conversation'), 'in-bundle');
+  assert.equal(evidenceOf('delete_conversation'), 'bundle');
   assert.equal(evidenceOf('get_followers'), 'unsupported');
   assert.deepEqual(transportsOf('me'), ['web-session']);
 
@@ -21,7 +21,7 @@ test('evidence ladder: observed and bundle are callable; community needs experim
 
   assert.equal(canCall('get_followers', 'web-session', { experimentalActions: true }), false);
   assert.equal(canCall('get_social_club_members', 'web-session', { experimentalActions: true }), true);
-  assert.equal(canCall('delete_conversation', 'web-session', { experimentalActions: true }), false);
+  assert.equal(canCall('delete_conversation', 'web-session'), true);
 });
 
 test('local unsupported overrides for the current app version block calls', () => {

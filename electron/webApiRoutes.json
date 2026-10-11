@@ -9,25 +9,37 @@
     "path": "/web_api/get_feed_v3",
     "method": "POST",
     "evidence": "observed",
-    "mutation": false
+    "mutation": false,
+    "bodyKeys": [
+      "next_cursor"
+    ]
   },
   "join_channel": {
     "path": "/web_api/join_channel",
     "method": "POST",
     "evidence": "observed",
-    "mutation": true
+    "mutation": true,
+    "bodyKeys": [
+      "channel"
+    ]
   },
   "leave_channel": {
     "path": "/web_api/leave_channel",
     "method": "POST",
     "evidence": "observed",
-    "mutation": true
+    "mutation": true,
+    "bodyKeys": [
+      "channel"
+    ]
   },
   "active_ping": {
     "path": "/web_api/active_ping",
     "method": "POST",
     "evidence": "observed",
-    "mutation": true
+    "mutation": true,
+    "bodyKeys": [
+      "channel"
+    ]
   },
   "create_channel": {
     "path": "/web_api/create_channel",
@@ -39,67 +51,108 @@
     "path": "/web_api/get_profile",
     "method": "POST",
     "evidence": "observed",
-    "mutation": false
+    "mutation": false,
+    "bodyKeys": [
+      "username",
+      "user_id"
+    ]
   },
   "follow": {
     "path": "/web_api/follow",
     "method": "POST",
-    "evidence": "community",
-    "mutation": true
+    "evidence": "bundle",
+    "mutation": true,
+    "bodyKeys": [
+      "user_id",
+      "source"
+    ]
   },
   "search_users": {
     "path": "/web_api/search",
     "method": "POST",
     "evidence": "observed",
-    "mutation": false
+    "mutation": false,
+    "bodyKeys": [
+      "query",
+      "limit_to_object_types"
+    ]
   },
   "become_speaker": {
     "path": "/web_api/become_speaker",
     "method": "POST",
     "evidence": "bundle",
-    "mutation": true
+    "mutation": true,
+    "bodyKeys": [
+      "channel"
+    ]
   },
   "audience_reply": {
     "path": "/web_api/audience_reply",
     "method": "POST",
     "evidence": "bundle",
-    "mutation": true
+    "mutation": true,
+    "bodyKeys": [
+      "channel",
+      "raise_hands",
+      "unraise_hands"
+    ]
   },
   "get_channel_messages": {
     "path": "/web_api/get_channel_messages",
     "method": "GET",
     "evidence": "observed",
-    "mutation": false
+    "mutation": false,
+    "bodyKeys": [
+      "channel"
+    ]
   },
   "send_channel_message": {
     "path": "/web_api/send_channel_message",
     "method": "POST",
     "evidence": "observed",
-    "mutation": true
+    "mutation": true,
+    "bodyKeys": [
+      "channel",
+      "message"
+    ]
   },
   "get_edge_stories": {
     "path": "/web_api/get_edge_stories",
     "method": "GET",
     "evidence": "observed",
-    "mutation": false
+    "mutation": false,
+    "bodyKeys": [
+      "next_cursor"
+    ]
   },
   "get_conversations": {
     "path": "/web_api/get_conversations",
     "method": "POST",
     "evidence": "observed",
-    "mutation": false
+    "mutation": false,
+    "bodyKeys": [
+      "is_private_only",
+      "next_cursor"
+    ]
   },
   "get_group_suggested_invites": {
     "path": "/web_api/get_group_suggested_invites",
     "method": "POST",
     "evidence": "observed",
-    "mutation": false
+    "mutation": false,
+    "bodyKeys": [
+      "query",
+      "social_club_id"
+    ]
   },
   "get_conversation": {
     "path": "/web_api/get_conversation",
     "method": "POST",
     "evidence": "observed",
-    "mutation": false
+    "mutation": false,
+    "bodyKeys": [
+      "conversation_id"
+    ]
   },
   "get_create_channel_targets": {
     "path": "/web_api/get_create_channel_targets",
@@ -111,43 +164,73 @@
     "path": "/web_api/get_feed_v3",
     "method": "POST",
     "evidence": "observed",
-    "mutation": false
+    "mutation": false,
+    "bodyKeys": [
+      "next_cursor"
+    ]
   },
   "mark_conversation_segment_listened": {
     "path": "/web_api/mark_conversation_segment_listened",
     "method": "POST",
     "evidence": "observed",
-    "mutation": true
+    "mutation": true,
+    "bodyKeys": [
+      "conversation_id",
+      "segment_id"
+    ]
   },
   "emoji_reaction": {
     "path": "/web_api/emoji_reaction",
     "method": "POST",
     "evidence": "bundle",
-    "mutation": true
+    "mutation": true,
+    "bodyKeys": [
+      "channel",
+      "emoji"
+    ]
   },
   "set_channel_title": {
     "path": "/web_api/set_channel_title",
     "method": "POST",
     "evidence": "bundle",
-    "mutation": true
+    "mutation": true,
+    "bodyKeys": [
+      "channel",
+      "title"
+    ]
   },
   "web_listener_active_ping": {
     "path": "/web_api/web_listener_active_ping",
     "method": "POST",
     "evidence": "bundle",
-    "mutation": true
+    "mutation": true,
+    "bodyKeys": [
+      "session_id",
+      "staff_token"
+    ]
   },
   "web_listener_join": {
     "path": "/web_api/web_listener_join",
     "method": "POST",
     "evidence": "bundle",
-    "mutation": false
+    "mutation": false,
+    "bodyKeys": [
+      "invite_code",
+      "name",
+      "recaptcha_token",
+      "session_id",
+      "staff_token"
+    ]
   },
   "web_listener_leave": {
     "path": "/web_api/web_listener_leave",
     "method": "POST",
     "evidence": "bundle",
-    "mutation": false
+    "mutation": false,
+    "bodyKeys": [
+      "session_id",
+      "staff_token"
+    ]
   },
   "invite_speaker": {
     "path": "/web_api/invite_speaker",
@@ -243,13 +326,26 @@
     "path": "/web_api/add_conversation_segment",
     "method": "POST",
     "evidence": "bundle",
-    "mutation": true
+    "mutation": true,
+    "bodyKeys": [
+      "conversation_id",
+      "audio_file",
+      "audio_format_type",
+      "client_segment_id",
+      "segment_batch_id",
+      "duration",
+      "attached_url"
+    ]
   },
   "ask_question_about_conversation": {
     "path": "/web_api/ask_question_about_conversation",
     "method": "POST",
-    "evidence": "in-bundle",
-    "mutation": false
+    "evidence": "bundle",
+    "mutation": false,
+    "bodyKeys": [
+      "conversation_id",
+      "prompt"
+    ]
   },
   "ask_question_about_me": {
     "path": "/web_api/ask_question_about_me",
@@ -267,13 +363,23 @@
     "path": "/web_api/create_conversation",
     "method": "POST",
     "evidence": "bundle",
-    "mutation": true
+    "mutation": true,
+    "bodyKeys": [
+      "privacy_level",
+      "social_club_id",
+      "is_private",
+      "user_ids",
+      "source"
+    ]
   },
   "delete_conversation": {
     "path": "/web_api/delete_conversation",
     "method": "POST",
-    "evidence": "in-bundle",
-    "mutation": true
+    "evidence": "bundle",
+    "mutation": true,
+    "bodyKeys": [
+      "conversation_id"
+    ]
   },
   "delete_conversation_segment": {
     "path": "/web_api/delete_conversation_segment",
@@ -285,43 +391,67 @@
     "path": "/web_api/get_conversation_unread_summary",
     "method": "POST",
     "evidence": "bundle",
-    "mutation": false
+    "mutation": false,
+    "bodyKeys": [
+      "conversation_id"
+    ]
   },
   "get_friend_zone_match": {
     "path": "/web_api/get_friend_zone_match",
     "method": "POST",
-    "evidence": "in-bundle",
-    "mutation": false
+    "evidence": "bundle",
+    "mutation": false,
+    "bodyKeys": [
+      "user_id"
+    ]
   },
   "get_highlight": {
-    "path": "/web_api/get_highlight",
-    "method": "POST",
+    "path": "/web_api/get_highlight/{id}/",
+    "method": "GET",
     "evidence": "bundle",
-    "mutation": false
+    "mutation": false,
+    "pathParams": [
+      "id"
+    ]
   },
   "get_invite_conversation": {
     "path": "/web_api/get_invite_conversation",
     "method": "POST",
-    "evidence": "in-bundle",
-    "mutation": false
+    "evidence": "bundle",
+    "mutation": false,
+    "bodyKeys": [
+      "invite_code"
+    ]
   },
   "get_replay_channel": {
-    "path": "/web_api/get_replay_channel",
-    "method": "POST",
+    "path": "/web_api/get_replay_channel/{channel}",
+    "method": "GET",
     "evidence": "bundle",
-    "mutation": false
+    "mutation": false,
+    "pathParams": [
+      "channel"
+    ]
   },
   "get_replay_channel_chunk": {
-    "path": "/web_api/get_replay_channel_chunk",
-    "method": "POST",
-    "evidence": "in-bundle",
-    "mutation": false
+    "path": "/web_api/get_replay_channel_chunk/{channel}/{chunk}",
+    "method": "GET",
+    "evidence": "bundle",
+    "mutation": false,
+    "pathParams": [
+      "channel",
+      "chunk"
+    ]
   },
   "get_social_club": {
     "path": "/web_api/get_social_club",
     "method": "POST",
     "evidence": "bundle",
-    "mutation": false
+    "mutation": false,
+    "bodyKeys": [
+      "social_club_slug",
+      "social_club_id",
+      "is_for_social_club_open"
+    ]
   },
   "get_social_club_members": {
     "path": "/web_api/get_social_club_members",
@@ -332,14 +462,22 @@
   "get_social_club_message_thread": {
     "path": "/web_api/get_social_club_message_thread",
     "method": "POST",
-    "evidence": "in-bundle",
-    "mutation": false
+    "evidence": "bundle",
+    "mutation": false,
+    "bodyKeys": [
+      "social_club_id",
+      "message_id_str"
+    ]
   },
   "get_social_club_messages": {
     "path": "/web_api/get_social_club_messages",
     "method": "POST",
     "evidence": "bundle",
-    "mutation": false
+    "mutation": false,
+    "bodyKeys": [
+      "social_club_id",
+      "social_club_slug"
+    ]
   },
   "get_user_social_clubs": {
     "path": "/web_api/get_user_social_clubs",
@@ -350,32 +488,52 @@
   "gif_reaction": {
     "path": "/web_api/gif_reaction",
     "method": "POST",
-    "evidence": "in-bundle",
-    "mutation": true
+    "evidence": "bundle",
+    "mutation": true,
+    "bodyKeys": [
+      "channel",
+      "giphy_id"
+    ]
   },
   "guest_active_ping": {
-    "path": "/web_api/guest_active_ping",
+    "path": "/web_api/guest_active_ping/{a}/{b}/{c}/{d}",
     "method": "POST",
-    "evidence": "in-bundle",
-    "mutation": true
+    "evidence": "bundle",
+    "mutation": true,
+    "pathParams": [
+      "a",
+      "b",
+      "c",
+      "d"
+    ]
   },
   "guest_join_channel": {
-    "path": "/web_api/guest_join_channel",
+    "path": "/web_api/guest_join_channel/${[e,t,r].filter(e=>!!e).join(\"/\")}",
     "method": "POST",
-    "evidence": "in-bundle",
+    "evidence": "bundle",
     "mutation": false
   },
   "guest_leave_channel": {
-    "path": "/web_api/guest_leave_channel",
+    "path": "/web_api/guest_leave_channel/{a}/{b}/{c}/{d}",
     "method": "POST",
-    "evidence": "in-bundle",
-    "mutation": false
+    "evidence": "bundle",
+    "mutation": false,
+    "pathParams": [
+      "a",
+      "b",
+      "c",
+      "d"
+    ]
   },
   "record_guest_action_trails": {
     "path": "/web_api/record_guest_action_trails",
     "method": "POST",
-    "evidence": "in-bundle",
-    "mutation": false
+    "evidence": "bundle",
+    "mutation": true,
+    "bodyKeys": [
+      "action_trails",
+      "guest_user_id"
+    ]
   },
   "resend_phone_number_auth": {
     "path": "/web_api/resend_phone_number_auth",
@@ -387,25 +545,45 @@
     "path": "/web_api/send_conversation_emoji_reaction",
     "method": "POST",
     "evidence": "bundle",
-    "mutation": true
+    "mutation": true,
+    "bodyKeys": [
+      "conversation_id",
+      "segment_id",
+      "emoji"
+    ]
   },
   "send_social_club_message": {
     "path": "/web_api/send_social_club_message",
     "method": "POST",
     "evidence": "bundle",
-    "mutation": true
+    "mutation": true,
+    "bodyKeys": [
+      "social_club_id",
+      "message"
+    ]
   },
   "send_social_club_message_emoji_reaction": {
     "path": "/web_api/send_social_club_message_emoji_reaction",
     "method": "POST",
-    "evidence": "in-bundle",
-    "mutation": true
+    "evidence": "bundle",
+    "mutation": true,
+    "bodyKeys": [
+      "social_club_id",
+      "message_id",
+      "add_reaction",
+      "emoji_id"
+    ]
   },
   "send_social_club_threaded_message": {
     "path": "/web_api/send_social_club_threaded_message",
     "method": "POST",
-    "evidence": "in-bundle",
-    "mutation": true
+    "evidence": "bundle",
+    "mutation": true,
+    "bodyKeys": [
+      "social_club_id",
+      "message_id_str",
+      "message"
+    ]
   },
   "start_phone_number_web_auth": {
     "path": "/web_api/start_phone_number_web_auth",
@@ -414,21 +592,109 @@
     "mutation": false
   },
   "talk": {
-    "path": "/web_api/talk",
+    "path": "/web_api/talk/update_username",
     "method": "POST",
-    "evidence": "in-bundle",
-    "mutation": true
+    "evidence": "bundle",
+    "mutation": true,
+    "bodyKeys": [
+      "username"
+    ]
   },
   "update_conversation_title": {
     "path": "/web_api/update_conversation_title",
     "method": "POST",
-    "evidence": "in-bundle",
-    "mutation": true
+    "evidence": "bundle",
+    "mutation": true,
+    "bodyKeys": [
+      "conversation_id",
+      "title"
+    ]
   },
   "update_last_read_social_club_message": {
     "path": "/web_api/update_last_read_social_club_message",
     "method": "POST",
-    "evidence": "in-bundle",
-    "mutation": true
+    "evidence": "bundle",
+    "mutation": true,
+    "bodyKeys": [
+      "message_id",
+      "social_club_id"
+    ]
+  },
+  "talk_get_advisor_status": {
+    "path": "/web_api/talk/get_advisor_status",
+    "method": "POST",
+    "evidence": "bundle",
+    "mutation": false,
+    "bodyKeys": [
+      "advisor_user_profile_id"
+    ]
+  },
+  "talk_get_config": {
+    "path": "/web_api/talk/get_config",
+    "method": "POST",
+    "evidence": "bundle",
+    "mutation": false
+  },
+  "talk_save_payment_method": {
+    "path": "/web_api/talk/save_payment_method",
+    "method": "POST",
+    "evidence": "bundle",
+    "mutation": false,
+    "bodyKeys": [
+      "payment_method_id"
+    ]
+  },
+  "talk_set_web_call_experiment": {
+    "path": "/web_api/talk/set_web_call_experiment",
+    "method": "POST",
+    "evidence": "bundle",
+    "mutation": false,
+    "bodyKeys": [
+      "advisor_phone_number",
+      "exp"
+    ]
+  },
+  "talk_setup_payment": {
+    "path": "/web_api/talk/setup_payment",
+    "method": "POST",
+    "evidence": "bundle",
+    "mutation": false
+  },
+  "talk_start_web_call": {
+    "path": "/web_api/talk/start_web_call",
+    "method": "POST",
+    "evidence": "bundle",
+    "mutation": false,
+    "bodyKeys": [
+      "advisor_user_profile_id",
+      "caller_phone_number"
+    ]
+  },
+  "talk_update_name": {
+    "path": "/web_api/talk/update_name",
+    "method": "POST",
+    "evidence": "bundle",
+    "mutation": false,
+    "bodyKeys": [
+      "name"
+    ]
+  },
+  "talk_update_username": {
+    "path": "/web_api/talk/update_username",
+    "method": "POST",
+    "evidence": "bundle",
+    "mutation": false,
+    "bodyKeys": [
+      "username"
+    ]
+  },
+  "record_action_trails": {
+    "path": "/web_api/record_action_trails",
+    "method": "POST",
+    "evidence": "bundle",
+    "mutation": true,
+    "bodyKeys": [
+      "action_trails"
+    ]
   }
 }

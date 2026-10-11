@@ -17,6 +17,7 @@ import type {
 interface SandboxInput {
   channel?: string;
   userId?: number;
+  username?: string;
   raiseHands: boolean;
   topic?: string;
   isPrivate: boolean;
@@ -33,6 +34,9 @@ interface SandboxInput {
   isEnabled?: boolean;
   handraisePermission?: number;
   highlightId?: string;
+  id?: string;
+  chunk?: string;
+  chunkCount?: number;
 }
 
 function readRequestBody(body: RequestBody | undefined): SandboxInput {
@@ -40,6 +44,7 @@ function readRequestBody(body: RequestBody | undefined): SandboxInput {
   return {
     channel: typeof record.channel === 'string' ? record.channel : undefined,
     userId: typeof record.user_id === 'number' ? record.user_id : undefined,
+    username: typeof record.username === 'string' ? record.username : undefined,
     raiseHands: record.raise_hands === true,
     topic: typeof record.topic === 'string' ? record.topic : undefined,
     isPrivate: record.is_private === true,
@@ -56,6 +61,9 @@ function readRequestBody(body: RequestBody | undefined): SandboxInput {
     isEnabled: typeof record.is_enabled === 'boolean' ? record.is_enabled : undefined,
     handraisePermission: typeof record.handraise_permission === 'number' ? record.handraise_permission : undefined,
     highlightId: typeof record.highlight_id === 'string' ? record.highlight_id : undefined,
+    id: typeof record.id === 'string' ? record.id : undefined,
+    chunk: typeof record.chunk === 'string' || typeof record.chunk === 'number' ? String(record.chunk) : undefined,
+    chunkCount: typeof record.chunk_count === 'number' ? record.chunk_count : undefined,
   };
 }
 
@@ -539,6 +547,17 @@ export class SandboxBackend {
           replay: {
             channel: input.channel || 'replay-1',
             topic: 'Sandbox replay',
+            chunk_count: typeof input.chunkCount === 'number' ? input.chunkCount : 3,
+          },
+        } as T;
+
+      case 'get_replay_channel_chunk':
+        return {
+          success: true,
+          replay: {
+            channel: input.channel || 'replay-1',
+            chunk: input.chunk || '0',
+            audio_url: 'https://example.com/sandbox-replay.mp3',
           },
         } as T;
 
@@ -546,7 +565,7 @@ export class SandboxBackend {
         return {
           success: true,
           highlight: {
-            highlight_id: input.highlightId || 'hl-1',
+            highlight_id: input.highlightId || input.id || 'hl-1',
             title: 'Sandbox highlight',
           },
         } as T;
@@ -584,6 +603,16 @@ export class SandboxBackend {
         } as T;
 
       case 'get_profile': {
+        const username = typeof input.username === 'string' ? input.username.replace(/^@/, '') : '';
+        if (username) {
+          const byName = this.mockChannels
+            .flatMap((c) => c.users)
+            .find((u) => u.username === username);
+          return {
+            success: true,
+            user_profile: byName || { ...MOCK_ME, username, name: username },
+          } as T;
+        }
         const userId = input.userId;
         const channelUser = this.mockChannels
           .flatMap((c) => c.users)

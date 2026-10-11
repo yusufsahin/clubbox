@@ -106,9 +106,11 @@ export function buildCreateChannelBody(
     audience?: CreateAudience;
     replayEnabled?: boolean;
     chatEnabled?: boolean;
-    socialClubId?: number;
+    socialClubId?: number | string;
     topicIds?: number[];
     userIds?: number[];
+    handraisePermission?: number;
+    link?: string;
   } = {},
 ): Record<string, unknown> {
   const audience = options.audience ?? 'public';
@@ -128,8 +130,14 @@ export function buildCreateChannelBody(
     topic_ids: options.topicIds ?? [],
     source: 14,
   };
-  if (audience === 'house' && typeof options.socialClubId === 'number') {
+  if (audience === 'house' && (typeof options.socialClubId === 'number' || typeof options.socialClubId === 'string')) {
     body[CLUB_CREATE_BODY_KEY] = options.socialClubId;
+  }
+  if (typeof options.handraisePermission === 'number') {
+    body.handraise_permission = options.handraisePermission;
+  }
+  if (typeof options.link === 'string' && options.link.trim()) {
+    body.link = options.link.trim();
   }
   return body;
 }
