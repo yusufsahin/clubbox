@@ -107,7 +107,7 @@ export function settingsView(
           <p id="output-device-note" hidden style="font-size:12px; color:var(--text-dim); margin-top:8px;">${t('outputUnsupported')}</p>
         </div>
         <label style="display:flex; align-items:flex-start; gap:8px; margin-top:16px; cursor:pointer;">
-          <input type="checkbox" id="cfg-spatial-audio" data-action="toggle-spatial-audio" ${spatialAudio ? 'checked' : ''} />
+          <input type="checkbox" id="cfg-spatial-audio" ${spatialAudio ? 'checked' : ''} />
           <span><strong>${t('spatialAudio')}</strong><br />${t('spatialAudioHelp')}</span>
         </label>
         <div class="form-group" style="margin-top:16px;">
@@ -198,7 +198,7 @@ export function settingsView(
       <div style="background:var(--bg-card); border:1px solid var(--border-subtle); border-radius:var(--radius-lg); padding:24px; margin-bottom:20px;">
         <h3 style="font-size:16px; font-weight:700; margin-bottom:16px;">${t('appearanceSection')}</h3>
         <div class="form-group">
-          <label class="form-label" for="cfg-theme">${t('appearanceSection')}</label>
+          <label class="form-label" for="cfg-theme">${t('themeLabel')}</label>
           <select class="form-input" id="cfg-theme">
             <option value="light" ${appPrefs.theme === 'light' ? 'selected' : ''}>${t('themeLight')}</option>
             <option value="dark" ${appPrefs.theme === 'dark' ? 'selected' : ''}>${t('themeDark')}</option>
@@ -239,7 +239,7 @@ export function settingsView(
 
         <div class="form-group">
           <label class="form-label">${t('agoraAppId')}</label>
-          <input class="form-input" id="cfg-agora-app-id" placeholder="Agora project App ID" value="${config.agoraAppId}" />
+          <input class="form-input" id="cfg-agora-app-id" placeholder="${t('agoraAppIdPlaceholder')}" value="${config.agoraAppId}" />
         </div>
 
         <button class="btn btn-primary" data-action="save-settings" style="margin-top:8px;">${t('saveSettings')}</button>

@@ -739,7 +739,7 @@ export class ClubboxApp {
           </div>
 
           <div class="top-actions">
-            <button class="top-icon-btn" type="button" data-action="nav" data-tab="messages" title="${t('newMessage')}">
+            <button class="top-icon-btn" type="button" data-action="nav" data-tab="messages" title="${t('messages')}">
               ✉️
               ${this.unreadConversations > 0 ? html`<span class="nav-dot">${this.unreadConversations}</span>` : ''}
             </button>
@@ -1148,7 +1148,7 @@ export class ClubboxApp {
         this.togglePingSelect(target.dataset.userId);
         return;
       }
-      if (action === 'toggle-spatial-audio' && target instanceof HTMLInputElement) {
+      if (target.id === 'cfg-spatial-audio' && target instanceof HTMLInputElement) {
         this.audioPrefs.spatialAudioEnabled = target.checked === true;
         audioEngine.setSpatialAudioEnabled(this.audioPrefs.spatialAudioEnabled);
         this.saveAudioPrefs();
@@ -1509,17 +1509,6 @@ export class ClubboxApp {
         this.saveAudioPrefs();
         this.renderCockpit();
         break;
-      case 'toggle-spatial-audio': {
-        const box = el as HTMLInputElement;
-        this.audioPrefs.spatialAudioEnabled = box.checked === true;
-        audioEngine.setSpatialAudioEnabled(this.audioPrefs.spatialAudioEnabled);
-        this.saveAudioPrefs();
-        this.showToast(
-          this.audioPrefs.spatialAudioEnabled ? t('spatialAudioOn') : t('spatialAudioOff'),
-          '🎧',
-        );
-        break;
-      }
       case 'pick-voice-effect': {
         const select = el as HTMLSelectElement;
         const value = select.value;

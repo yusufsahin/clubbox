@@ -86,6 +86,11 @@ export function setupHotkeys(this: ClubboxApp) {
         void this.runDiscoverSearch();
         return;
       }
+      if (target?.id === 'hallway-keyword-input' && e.key === 'Enter') {
+        e.preventDefault();
+        this.addHallwayKeyword();
+        return;
+      }
       if (target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) {
         return;
       }
@@ -96,6 +101,7 @@ export function setupHotkeys(this: ClubboxApp) {
         const next = adjustZoomPercent(prefs.zoomPercent, 1);
         writeAppPrefs({ ...prefs, zoomPercent: next });
         void electronAPI()?.setZoomFactor?.(zoomFactorFromPercent(next));
+        if (this.currentTab === 'settings') this.render();
         return;
       }
       if ((e.ctrlKey || e.metaKey) && e.key === '-') {
@@ -104,6 +110,7 @@ export function setupHotkeys(this: ClubboxApp) {
         const next = adjustZoomPercent(prefs.zoomPercent, -1);
         writeAppPrefs({ ...prefs, zoomPercent: next });
         void electronAPI()?.setZoomFactor?.(zoomFactorFromPercent(next));
+        if (this.currentTab === 'settings') this.render();
         return;
       }
       if ((e.ctrlKey || e.metaKey) && e.key === '0') {
@@ -111,6 +118,7 @@ export function setupHotkeys(this: ClubboxApp) {
         const prefs = readAppPrefs();
         writeAppPrefs({ ...prefs, zoomPercent: 100 });
         void electronAPI()?.setZoomFactor?.(1);
+        if (this.currentTab === 'settings') this.render();
         return;
       }
 

@@ -167,7 +167,15 @@ export function runThreadPermission(this: ClubboxApp, conversationId: string | u
     if (!allowed) return;
     if (this.liveMessageBlocked()) return;
     if (permission === 'invite') {
-      this.showToast(t('inviteMember'), '✉️');
+      const sandbox = clubhouseClient.getSandbox();
+      const count = (sandbox?.thread(conversationId)?.members.length ?? 0) + 1;
+      const name = `Invited member ${count}`;
+      if (!sandbox?.addMember(conversationId, name)) {
+        this.showToast(t('unverifiedAction'), '🔒');
+        return;
+      }
+      this.showToast(t('memberAdded', { name }), '✉️');
+      this.render();
       return;
     }
     clubhouseClient.getSandbox()?.removeConversation(conversationId);

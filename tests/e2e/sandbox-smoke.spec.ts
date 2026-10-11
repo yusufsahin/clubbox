@@ -124,6 +124,11 @@ test('sandbox studio path: join, hand, pad, chat, leave, messages, theme', async
       await expect(page.locator('.thread-panel, .thread-scroll, body')).toBeVisible();
     }
 
+    await page.locator('.nav-item[data-action="nav"][data-tab="discover"]').click();
+    await expect(page.locator('body')).toContainText(/Discover|Search|Keşfet|Ara/i, { timeout: 10_000 });
+    await page.locator('.nav-item[data-action="nav"][data-tab="friends"]').click();
+    await expect(page.locator('body')).toContainText(/Friends|suggestions|Arkadaş|öneri/i, { timeout: 10_000 });
+
     await page.locator('.nav-item[data-action="nav"][data-tab="settings"]').click();
     await page.locator('#cfg-theme').selectOption('dark');
     await page.locator('#cfg-language').selectOption('tr');

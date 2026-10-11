@@ -14,10 +14,14 @@ Do these before continuing the Autonomous plan, then tick them:
 ### Last autonomous run (2026-10-11)
 
 - Autonomous plan already **Done** through **11.8 (strict)**; triage **NO NEW FAILURES**.
-- Done: Settings voice-effect dropdown shows **applied** broadcast effect (not draft selected); topic-chip button font inherit (`c9b27f9`).
+- Done (local polish, no new API bodies):
+  - Spatial audio: single `change` path (no double toast from click + change)
+  - Settings zoom % refreshes after Ctrl+=/−/0
+  - Hallway keyword Enter adds chip; theme label + Agora placeholder i18n; header Messages title matches nav
+  - Sandbox thread Invite adds a member (was toast-only); e2e covers Discover + Friends
 - Tests: unit 127 pass · BDD 123 scenarios / 717 steps · trace strict 0 errors · lint + build green.
 - **Stopped:** no further shippable product work without inventing endpoint bodies or owner capture.
-- Blocked: owner live room capture (0.9 S1–S3); topic-chip **server** `get_feed_v3` body; conversation delete/title + unread-summary body; replay chunk; `gif_reaction` body; unfollow undocumented.
+- Blocked: owner live room capture (0.9 S1–S3); topic-chip **server** `get_feed_v3` body; conversation delete/title + unread-summary body; replay chunk; `gif_reaction` body; unfollow omitted from web routes (capture needed).
 - Still @pending: ST-9 deferred; room_host DX-1/DX-3.
 - Questions for the owner: Capture a topic-chip click (`get_feed_v3` body) for server-side Hallway filter; capture `get_conversation_unread_summary` body (or confirm per-thread only); conversation delete/title and a replay chunk if those UIs should ship next.
 
