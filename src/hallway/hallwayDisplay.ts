@@ -66,8 +66,17 @@ export function splitKeywordHighlight(title: string, keyword: string): Array<{ t
   return parts.filter((part) => part.text.length > 0);
 }
 
-export function prepareHallwayChannels(channels: CHChannel[], prefs: HallwayPrefs): CHChannel[] {
-  return sortHallwayRooms(filterNsfwHallwayRooms(channels, prefs));
+export function filterHallwayByTopic(channels: CHChannel[], topicKey: string | null): CHChannel[] {
+  if (!topicKey) return channels;
+  return channels.filter((channel) => channel.topic_key === topicKey);
+}
+
+export function prepareHallwayChannels(
+  channels: CHChannel[],
+  prefs: HallwayPrefs,
+  topicKey: string | null = null,
+): CHChannel[] {
+  return sortHallwayRooms(filterNsfwHallwayRooms(filterHallwayByTopic(channels, topicKey), prefs));
 }
 
 export function prepareHallwayFeedRooms<T extends HallwayFeedRoom>(rooms: T[], prefs: HallwayPrefs): T[] {

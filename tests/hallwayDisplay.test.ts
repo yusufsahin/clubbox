@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  filterHallwayByTopic,
   filterNsfwHallwayRooms,
   roomTitleKeywordHits,
   sortHallwayRooms,
@@ -30,4 +31,14 @@ test('keyword highlight helpers', () => {
     { text: 'Tech', hit: true },
     { text: ' Talk', hit: false },
   ]);
+});
+
+test('filterHallwayByTopic keeps matching topic_key or all when unset', () => {
+  const rooms = [
+    { topic: 'A', topic_key: 'tech' },
+    { topic: 'B', topic_key: 'business' },
+    { topic: 'C' },
+  ];
+  assert.equal(filterHallwayByTopic(rooms, null).length, 3);
+  assert.deepEqual(filterHallwayByTopic(rooms, 'tech').map((r) => r.topic), ['A']);
 });

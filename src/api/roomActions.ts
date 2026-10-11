@@ -64,6 +64,25 @@ export function leaveClosesRoom(
   return !users.some((user) => user.user_id !== myId && user.is_moderator);
 }
 
+/**
+ * How Leave quietly talks to the server.
+ * Sole-moderator leave may try end_channel first, but must never skip leave_channel
+ * when end is unavailable or fails — otherwise Clubhouse keeps the user in the room.
+ */
+export type LeaveServerPlan =
+  | { action: 'end_then_local' }
+  | { action: 'leave' }
+  | { action: 'leave_after_end_failed' };
+
+export function planLeaveServer(options: {
+  wantEnd: boolean;
+  endSupported: boolean;
+}): LeaveServerPlan {
+  if (options.wantEnd && options.endSupported) return { action: 'end_then_local' };
+  if (options.wantEnd && !options.endSupported) return { action: 'leave' };
+  return { action: 'leave' };
+}
+
 export function roomHasOthers(users: { user_id: number }[], myId: number): boolean {
   return users.some((user) => user.user_id !== myId);
 }

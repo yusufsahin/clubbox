@@ -62,6 +62,8 @@ export function resolvedTheme(
 export function applyThemeToDocument(choice: ThemeChoice, prefersDark = false): 'light' | 'dark' {
   const resolved = resolvedTheme(choice, prefersDark);
   document.documentElement.dataset.theme = resolved;
+  // Keeps native <select>/<option> menus readable with the active palette.
+  document.documentElement.style.colorScheme = resolved;
   return resolved;
 }
 

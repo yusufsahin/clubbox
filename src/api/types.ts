@@ -69,6 +69,8 @@ export interface CHChannel {
   is_replay_enabled?: boolean;
   is_nsfw?: boolean;
   is_active_trending_topic_channel?: boolean;
+  /** From feed logging_context when present — used for topic-chip filtering. */
+  topic_key?: string;
   num_speakers: number;
   num_all: number;
   has_raised_hands?: boolean;

@@ -1,10 +1,13 @@
 :root {
+  color-scheme: dark;
   --bg-app: #080a0f;
   --bg-sidebar: #0e111a;
   --bg-card: #151924;
   --bg-card-hover: #1c2232;
   --bg-dock: rgba(14, 17, 26, 0.88);
   --bg-cockpit: rgba(18, 22, 33, 0.95);
+  --input-bg: rgba(255, 255, 255, 0.05);
+  --input-bg-focus: rgba(255, 255, 255, 0.08);
   
   --border-subtle: rgba(255, 255, 255, 0.08);
   --border-focus: rgba(121, 82, 245, 0.5);
@@ -42,12 +45,15 @@
 }
 
 :root[data-theme='light'] {
+  color-scheme: light;
   --bg-app: #f1f5f9;
   --bg-sidebar: #ffffff;
   --bg-card: #ffffff;
   --bg-card-hover: #f8fafc;
   --bg-dock: rgba(255, 255, 255, 0.92);
   --bg-cockpit: rgba(255, 255, 255, 0.96);
+  --input-bg: rgba(15, 23, 42, 0.04);
+  --input-bg-focus: rgba(15, 23, 42, 0.07);
   --border-subtle: rgba(15, 23, 42, 0.1);
   --text-main: #0f172a;
   --text-muted: #475569;
@@ -1715,7 +1721,7 @@ span.topic-chip {
 }
 
 .form-input {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--input-bg);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   padding: 12px 14px;
@@ -1723,13 +1729,46 @@ span.topic-chip {
   font-family: var(--font-sans);
   font-size: 14px;
   outline: none;
-  transition: all 0.2s ease;
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
 }
 
 .form-input:focus {
   border-color: var(--accent-purple);
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--input-bg-focus);
   box-shadow: 0 0 0 3px var(--accent-purple-glow);
+}
+
+/* Native <select> popups follow color-scheme; pin option colors for Chromium/Electron. */
+select.form-input {
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: var(--bg-card);
+  background-image: linear-gradient(45deg, transparent 50%, var(--text-muted) 50%),
+    linear-gradient(135deg, var(--text-muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) calc(50% - 2px),
+    calc(100% - 12px) calc(50% - 2px);
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+  padding-right: 36px;
+  cursor: pointer;
+}
+
+select.form-input:focus {
+  background-color: var(--bg-card);
+  background-image: linear-gradient(45deg, transparent 50%, var(--text-muted) 50%),
+    linear-gradient(135deg, var(--text-muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) calc(50% - 2px),
+    calc(100% - 12px) calc(50% - 2px);
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+}
+
+select.form-input option,
+select.form-input optgroup {
+  background-color: var(--bg-card);
+  color: var(--text-main);
 }
 
 /* Someone else's profile stays a card over the current section. */

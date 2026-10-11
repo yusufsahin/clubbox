@@ -2,6 +2,7 @@ import { ApiHealthStore, type ApiHealthFailure, type RedactedRequestLogEntry } f
 import { canCall, evidenceOf, routeMethod, routePath, type Evidence, type Transport } from './capabilities';
 import { PEOPLE_LIST_ENDPOINTS, readPeopleList, readProfile, type PeopleListKind, type PeopleListPage } from './relationship';
 import { businessFailure, classifyHttpFailure, nextBackoffMs, type ApiErrorKind } from './guards';
+import { FEED_MAX_PAGES, mergeFeedChannels, nextFeedCursor, type FeedPage } from './feedPagination';
 import { getEndpoint } from './registry';
 import { permissionOn } from './roomActions';
 import { SandboxBackend, SandboxTransport } from './sandboxTransport';
@@ -328,6 +329,10 @@ function feedChannel(item: unknown): Record<string, unknown> | null {
     const text = privacy as { display_text?: unknown; tooltip_text?: unknown };
     if (typeof text.display_text === 'string') channel.privacy_label = text.display_text;
     if (typeof text.tooltip_text === 'string') channel.privacy_tooltip = text.tooltip_text;
+  }
+  const logging = asRecord(channel.logging_context);
+  if (logging && typeof logging.topic_key === 'string' && logging.topic_key.length > 0) {
+    channel.topic_key = logging.topic_key;
   }
   if (typeof channel.topic !== 'string') channel.topic = 'Live room';
   if (typeof channel.is_private !== 'boolean') channel.is_private = false;
@@ -1015,7 +1020,23 @@ export class ClubhouseApiClient {
   }
 
   public async getChannels(): Promise<{ success: boolean; channels: CHChannel[]; available_topics?: FeedTopic[] }> {
-    return this.request('get_channels');
+    const pages: CHChannel[][] = [];
+    let available_topics: FeedTopic[] | undefined;
+    let cursor: string | null = null;
+    for (let page = 0; page < FEED_MAX_PAGES; page += 1) {
+      const body: RequestBody = cursor ? { next_cursor: cursor } : {};
+      const res = await this.request<FeedPage & { success?: boolean }>('get_channels', body);
+      pages.push(res.channels ?? []);
+      if (!available_topics && Array.isArray(res.available_topics)) available_topics = res.available_topics;
+      const next = nextFeedCursor(res, cursor);
+      if (!next) break;
+      cursor = next;
+    }
+    return {
+      success: true,
+      channels: mergeFeedChannels(pages),
+      available_topics,
+    };
   }
 
   public async getConversations(): Promise<{ success: boolean; conversations: CHConversation[]; new_dm_requests_count?: number }> {

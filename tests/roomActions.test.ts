@@ -5,6 +5,7 @@ import {
   conversationKind,
   createChannelBody,
   leaveClosesRoom,
+  planLeaveServer,
   permissionOn,
   roomHasOthers,
   segmentsForMember,
@@ -63,6 +64,12 @@ test('only the last moderator closes the room by leaving', () => {
   assert.equal(leaveClosesRoom([{ user_id: 1, is_moderator: true }], 1), true);
   assert.equal(roomHasOthers(users, 1), true);
   assert.equal(roomHasOthers([{ user_id: 1, is_moderator: true }], 1), false);
+});
+
+test('leave quietly always plans a leave_channel when end_channel is unavailable', () => {
+  assert.deepEqual(planLeaveServer({ wantEnd: false, endSupported: false }), { action: 'leave' });
+  assert.deepEqual(planLeaveServer({ wantEnd: true, endSupported: false }), { action: 'leave' });
+  assert.deepEqual(planLeaveServer({ wantEnd: true, endSupported: true }), { action: 'end_then_local' });
 });
 
 test('a member added later does not see earlier segments', () => {

@@ -72,7 +72,7 @@ Legend — Evidence: O observed · B bundle call site · C community · ? to dis
 
 | Endpoint | Method | Request | Response → domain | Evid. | Today | Used by |
 | --- | --- | --- | --- | --- | --- | --- |
-| get_feed_v3 | POST | {} (+ topic id?) | items[].channel, available_topics | O | ✅ | HallwayCtl |
+| get_feed_v3 | POST | {} then `{ next_cursor }` pages (topic id still uncaptured) | items[].channel, available_topics, next_cursor | O | ✅ paginated (≤8 pages) | HallwayCtl |
 | get_create_channel_targets | POST | {} | channel_capabilities per privacy type, clubs[], events[], web_listening_default_on, channel_chat_default_on | O | ✅ drives composer (G-11 closed) | Composer |
 | get_edge_stories | GET | – | activities | O | ✅ | ActivityCtl |
 | get_group_suggested_invites | POST | {} | suggestions, next_cursor | O | ✅ | Ping picker |
