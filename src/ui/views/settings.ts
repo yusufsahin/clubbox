@@ -71,12 +71,12 @@ export function settingsView(
       <h2 style="font-size:22px; font-weight:700; margin-bottom:4px;">${t('settingsTitle')}</h2>
       <p style="color:var(--text-muted); font-size:13px; margin-bottom:28px;">${t('settingsHelp')}</p>
 
-      <div style="background: linear-gradient(135deg, rgba(121, 82, 245, 0.18), rgba(16, 185, 129, 0.12)); border: 1px solid rgba(121, 82, 245, 0.4); border-radius: var(--radius-lg); padding: 22px; margin-bottom: 24px;">
+      <div class="settings-signin-banner">
         <div style="display:flex; justify-content:space-between; align-items:center; gap:16px;">
           <div>
             <div style="display:flex; align-items:center; gap:8px;">
               <span style="font-size:18px;">⚡</span>
-              <h3 style="font-size:15px; font-weight:700; color:#fff;">${t('signInHelper')}</h3>
+              <h3 class="settings-signin-title">${t('signInHelper')}</h3>
             </div>
             <p style="font-size:12px; color:var(--text-muted); margin-top:6px; line-height:1.5;">
               ${t('signInHelperHelp')}

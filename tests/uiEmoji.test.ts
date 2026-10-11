@@ -20,8 +20,8 @@ test('sidebar and top-bar chrome keep real emoji icons', () => {
   assert.match(src, /data-tab="soundboard">[\s\S]*?class="icon">🎛️</);
   assert.match(src, /data-tab="settings">[\s\S]*?class="icon">⚙️</);
   assert.match(src, /data-action="create-room">[\s\S]*?class="icon">➕</);
-  assert.match(src, /title="\$\{t\('messages'\)\}">\s*✉️/);
-  assert.match(src, /title="\$\{t\('activity'\)\}">\s*🔔/);
+  assert.match(src, /title="\$\{t\('messages'\)\}">\s*<svg/);
+  assert.match(src, /title="\$\{t\('activity'\)\}">\s*<svg/);
   assert.equal(/class="icon">\?/.test(src), false);
   assert.equal(/brand-icon">\?/.test(src), false);
 });

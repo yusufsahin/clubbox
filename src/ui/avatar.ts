@@ -23,7 +23,8 @@ function colorFor(user: AvatarUser): string {
   const key = user.user_id != null ? String(user.user_id) : (user.username || user.name || '?');
   let hash = 0;
   for (let i = 0; i < key.length; i++) hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
-  return `hsl(${hash % 360} 42% 38%)`;
+  // Dark enough that --text-on-accent / white initials stay ≥ 4.5:1 (axe color-contrast).
+  return `hsl(${hash % 360} 48% 28%)`;
 }
 
 function initialsHtml(user: AvatarUser, size: number, className: string): SafeHtml {
@@ -54,7 +55,7 @@ export function installAvatarFallback(): void {
     const extra = img.dataset.avatarClass || '';
     fallback.className = ['avatar-initials', extra].filter(Boolean).join(' ');
     fallback.textContent = img.dataset.avatarInitials;
-    fallback.style.background = img.dataset.avatarColor || 'hsl(220 42% 38%)';
+    fallback.style.background = img.dataset.avatarColor || 'hsl(220 48% 28%)';
     fallback.style.width = `${size}px`;
     fallback.style.height = `${size}px`;
     fallback.style.fontSize = `${img.dataset.avatarFont || Math.max(11, Math.round(size * 0.36))}px`;
