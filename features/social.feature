@@ -46,3 +46,11 @@ Feature: Profiles, follows, activity and private chat
     When I open a private chat with "Ayse" from her card and send "hi"
     Then the message is sent through the documented conversation endpoint
     And I stay in the room without interrupting the audio
+
+  @pending @observed @SO-7
+  Scenario: Follow back from search results
+    Given "Arzu" follows me and I do not follow her
+    When I search for "A"
+    Then the result for "Arzu" shows "Follow back"
+    When I click "Follow back"
+    Then a "POST /web_api/follow" request is sent with body keys "user_id, source"

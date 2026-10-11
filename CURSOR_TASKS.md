@@ -11,6 +11,7 @@ Light mode is broken and dark mode has contrast failures (owner screenshot + aud
 - [x] 15.1 semantic tokens for both themes; replace the 70 hard-coded colours and 3 undefined variables
 - [x] 15.2 system-theme listener + nativeTheme, remove/fix the overlapping "Start a Room" FAB, SVG icons in the top bar, HOST label contrast
 - [ ] Phase 16 — simplified navigation (NAVIGATION.md v2): 16.1 new shell → 16.2 one way back, settings, toasts
+- [ ] Phase 17 — mobile-app parity: simple composer (17.1), room details panel (17.2), follow back (17.3)
 - [x] Attach light/dark screenshots (reports/theme/) in the summary; commit per item; stop
 ### Last autonomous run (2026-10-11)
 
@@ -1176,4 +1177,40 @@ Acceptance: themeContrast + theme-audit + e2e axe checks green for both themes; 
 3. Settings: one page with General (language, theme, zoom), Audio (devices, music mode, monitor, voice effects, shortcuts), Account (sign-in/out); "Advanced" collapsed at the bottom with runtime mode, headers, API Health, experimental actions, request log.
 4. Replace the 26 showToast(..., '??') icons; add a check in npm test that fails on '??' as a toast icon.
 Acceptance (Phase 16): navigation.feature green; trace strict passes; e2e (sandbox) walks Hallway → Discover → house → back, Messages → conversation → Esc, room → Minimize → back, Settings → Advanced, in light and dark mode without console errors.
+```
+
+---
+
+## Phase 17 — Mobile-app parity for hosting and room details (simplify)
+
+From owner screenshots of the Clubhouse iOS app (host a room, select room type, more room options, live details, discover search). Acceptance: new @pending scenarios RH-13, RH-14 in `features/room_host.feature` and SO-7 in `features/social.feature`. Principle: make Clubbox as simple as the app — fewer fields, sensible defaults, no controls that cannot work on web.
+
+### Task 17.1 — Simple composer (RH-14)
+
+```
+Today createModal.ts is a long form (title, privacy <select>, house <select>, replays, chat, hand raise, pinned link, topics, auto-approve). Replace with the app's flow in one panel:
+1. Title field (+ existing title suggestions).
+2. "Room type" list (not a <select>): Public room (anyone can join), Friends of friends, My friends, then each of my houses with photo and its access label ("anyone can join" / "house members & guests added by mods") — data from get_create_channel_targets (channel_capabilities + clubs). Map to privacy_level public / friend_of_friend / friend / club + social_club_id.
+3. "Go live" button. Replays ON by default; "More options" (collapsed) contains: Disable replay, chat on/off, hand raise setting, pinned link, topics, auto-approve — each only when the capability says it is available.
+4. Do not render "Show replay on profile" or "Allow web listening" — they are not in the web client (PRD §4.7).
+5. Keyboard: Enter in the title = Go live when a room type is selected; Esc closes.
+```
+
+### Task 17.2 — Room details panel (RH-13)
+
+```
+A "Room details" side sheet opened from the room header (replaces scattered room controls), mirroring the app's "live details":
+1. Replay status card: "Replays on/off" + one-line explanation (+ learn-more link to the Help Center Replays article).
+2. Audio quality: Normal / High / Music → Clubbox encoder profiles (speech_standard, high_quality, music mode with the headphone warning). Same setting the cockpit Music toggle uses.
+3. Search the audience (reuse RL-10).
+4. Mute all other speakers (moderator, community mute_speaker; hidden when experimental actions are off).
+5. Share room (copy link).
+6. No report actions and no captions toggle (not available on web).
+```
+
+### Task 17.3 — Follow back (SO-7)
+
+```
+Where a person appears (Discover results, profile sheet, room cards' people list): if follows_me is true and I do not follow them, the primary button is "Follow back" (same follow request, body {user_id, source}). After following, show "Following" (non-clickable in live mode, as decided for unfollow).
+Acceptance (Phase 17): the three scenario groups green; e2e: composer → pick My friends → Go live (sandbox) and Room details panel open/close in light and dark mode.
 ```
