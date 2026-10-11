@@ -12,6 +12,7 @@ Legend: **Uygulandı** = code is in the tree. **Canlı doğrulandı** = exercise
 | --- | --- | --- |
 | 1 | **0.7 Review fixes (2026-10-11 #2)** — navigation guard, packaged recorder, clip worklet path, auto-armed clip buffer, 429/visibility, CORS proxy token leak | Uygulandı |
 | 1b | **0.8 Followers / following / friends lists** — bundle scan + labeled UI hunt; live UI uses only counts + mutual lists | Uygulandı for counts, mutual names, and chat people. The public web bundle does not contain get_followers, get_following, or get_online_friends. get_friend_zone_match and get_social_club_members are in-bundle and not called. The labeled click-through still needs a signed-in session. |
+| 0 | **Phase 10 Hybrid evidence + BDD/TDD + R1** — PRD in docs/product/PRD.md, acceptance in features/*.feature. Order 10.1 → 10.2 → 10.3 → 10.4 | 🆕 Do next. Bundle/community routes no longer wait for a capture |
 | 1c | **0.9 Real room capture** — recorder misses clubhouse.pubnubapi.com, bundle scan saw 1 chunk, corrected smoke test (replays ON) | Steps 1–2 are in. S1–S3 still need a signed-in capture. |
 | 2 | **0.6 Community Guidelines risk** — hidden reCAPTCHA sign-in, polling, recording, distribution | Uygulandı (code). Sign-in is a visible clubhouse.com window, polling pauses when the window is hidden, recording is opt-in, and there is no publish config. A public release is still your decision. |
 | 3 | **0.5 Capture gaps** — labeled sessions, two-party protocol, evidence sync, room smoke test | `create_channel` is observed for a friends-of-friends room with chat and replays off (`source` 14). Join, leave, ping, and room chat are still not in a capture. |
@@ -720,4 +721,78 @@ Moderator-only "Room settings" menu: edit title, hand raise queue (off / everyon
 2. Script: "dist": "npm run build && electron-builder".
 3. Keep start-clubdeck.bat for dev only, or remove it.
 4. Optional: electron-updater with GitHub releases.
+```
+
+
+---
+
+## Phase 10 — Hybrid evidence (B + C), BDD/TDD, Release R1
+
+**Source of truth:** `docs/product/PRD.md` (feature catalog, evidence policy, releases) and the Gherkin files in `features/`. The feature files ARE the acceptance criteria. Do not change a scenario to make it pass; if a scenario is wrong, say why and ask the owner.
+
+Working agreement for every task in this phase:
+- TDD: write the failing test first (unit/contract in `tests/`, or a scenario step), then make it pass, in the same commit.
+- Every live failure the owner reports from API Health becomes a failing test before the fix.
+- Keep sandbox green. Never call clubhouseapi.com. Never automate reCAPTCHA.
+
+### Task 10.1 — BDD and contract-test harness
+
+```
+1. Add @cucumber/cucumber and tsx (dev). Config cucumber.mjs: features/**/*.feature, steps in features/steps/**/*.ts loaded through tsx, progress format + html report to reports/cucumber.html (gitignore reports/).
+2. World (features/support/world.ts): builds a ClubhouseApiClient with a FakeTransport that
+   - records every request (endpoint, method, path, body),
+   - answers from fixtures in features/fixtures/*.json (shapes copied from the redacted captures / bundle docs, placeholders only),
+   - can be told "<endpoint> will answer <status> [n times]".
+   Inject the transport through a small seam in client.ts (constructor option), not by monkey-patching fetch.
+   Add a fake clock (timers), a fake document.visibilityState for timing scenarios, and a fake Agora facade that records join role, token and publish.
+3. Generic steps: request assertions ("a \"METHOD /path\" request is sent with body keys \"a, b\"", "the body field \"x\" is y", "no \"endpoint\" request is sent", "N … requests are sent"), evidence/experimental setup, time passing, window hidden.
+   UI-level steps (I click "Join") call ClubboxApp controller methods directly (no browser automation). Extract controller logic out of DOM handlers where needed so it is testable; use jsdom only for render assertions such as "shown as plain text".
+4. Contract tests (tests/contract.test.ts): for every route in electron/webApiRoutes.json with level observed/bundle/community and a documented body (PRD §2 table and docs/api/bundle-callsites.md), build the request through ClubhouseApiClient and assert method, path and the exact set of body keys.
+5. Scripts: "test:unit" (the existing node --test list), "test:bdd" (cucumber, excluding @pending), "test" (= test:unit && test:bdd). Add npm test to the Definition of Done in this file's Project context.
+6. Tag scenarios that need code from later tasks with @pending so the suite is green at the end of 10.1; 10.2–10.4 remove the tags.
+
+Acceptance: npm test passes; contract tests cover every documented route; the harness can express every step used in features/*.feature (pending or not).
+```
+
+### Task 10.2 — Evidence ladder, circuit breaker, API Health
+
+```
+Implement PRD §2 exactly. Remove @pending from features/api_health.feature.
+1. Evidence levels in webApiRoutes.json: observed | bundle | community | unsupported (plus the existing non-callable "in-bundle" for bundle names with no call-site body). Migrate: in-bundle WITH a call-site body → "bundle". Add the community routes from the PRD §2 table (path "/web_api/<name>", method and body as listed).
+2. Fix mutation flags: today every in-bundle route is mutation:false, including send_social_club_message, delete_conversation, create_conversation, emoji_reaction, talk and mark_conversation_segment_listened. Apply the rule from the last scenario in api_health.feature and add a unit test that enforces it for every route.
+3. capabilities.ts canCall(): observed/bundle callable; community only when config.experimentalActions; unsupported/in-bundle never. Persist local "unsupported" overrides (after 404/405) in config, keyed by app version so an update can retry.
+4. Circuit breaker + backoff in ClubhouseApiClient as in the scenarios (404/405 → unsupported; 2 consecutive 4xx except 401/429 → disabled for the session; 429 → 1, 2, 4 … 30 min).
+5. First use of any community route shows a confirmation ("Experimental: this action is guessed from older Clubhouse clients and may fail"). Remember the answer per route.
+6. Settings → "Experimental actions" toggle (off by default) and an "API Health" panel: recent failures (endpoint, method, status, time, message), "Copy report" (redacted: endpoint, method, status, body KEYS, error message — no values), "Reset unsupported routes".
+7. Optional opt-in "Log requests for evidence": writes redacted records in the recorder's JSONL format to userData/api-log/; scripts/api-docs.mjs also reads that folder, so a 2xx promotes the route to observed.
+8. i18n en + tr for every new string.
+Acceptance: api_health.feature green; contract + unit tests green; with experimental off, no community route can be called from the UI.
+```
+
+### Task 10.3 — Release R1 "Listen & Host"
+
+```
+Make features/room_listener.feature and features/room_host.feature green (remove @pending as you go), then verify live with the owner.
+1. Join (bundle): join_channel {channel}; on success Agora joins as audience with the response token. Leave (bundle): leave_channel {channel}. Presence (bundle): active_ping {channel} every 30 s, kept alive while hidden.
+2. Hosting (observed): after create_channel, use its token / rtm_token / pubnub_* fields; no join_channel.
+3. Agora app id: the web bundle reads NEXT_PUBLIC_AGORA_KEY (docs/api/realtime.md). In the visible sign-in window (same session), read that value once from the loaded bundle, store it in config (never in docs or logs). If missing, show "Audio key not found" in API Health instead of joining silently.
+4. Live updates: PubNub subscriber behind RoomUpdateSource using origin clubhouse.pubnubapi.com and the pubnub_* fields from the join/create response. Handle channel_message and channel_reaction (bundle). For the channel name and stage/hand/invite events use community naming at level "community", and log unknown message types (type + keys only) to API Health. Keep a manual "Refresh stage" button (Ctrl+P, like Clubdeck's PTR) as fallback.
+5. Hand raise (audience_reply), accept invite (become_speaker → Agora host + publish, mic muted), decline (reject_speaker_invite, community), chat read/send (bundle; poll only while the chat panel is open, or use PubNub channel_message when available), reactions (emoji_reaction, bundle).
+6. Host controls in room_host.feature: set_channel_title (bundle); invite_speaker, mute_speaker + "Mute everyone", change_handraise_settings, end_channel (community, experimental).
+7. Log out (ACC-3): clear clubhouse.com cookies for the session, local identity, timers and Agora; return to sign-in.
+8. Live check by the owner: host one short friends-only room with replays and chat on; listen to one public room. Every failure must be visible in API Health; fix each with TDD. Run api:docs afterwards.
+Acceptance: both feature files green; PRD §5 R1 exit criteria met, or remaining failures listed under "R1 open issues" at the end of this file.
+```
+
+### Task 10.4 — Studio quick wins (no new endpoints)
+
+```
+Make features/studio.feature green.
+1. Chapters (ST-5): Ctrl+T while recording opens a small title prompt; on stop, save "<recording-name>.chapters.txt" with a YouTube block ("00:05:57 Title") and a Spotify block ("(00:05:57) Title"); the first chapter is "00:00:00 Intro" unless the user named one at 0.
+2. Recording only in rooms with replays on (ST-4), with the message from the scenario.
+3. Paste link (HAL-7): the search box accepts https://www.clubhouse.com/room/<id>, /@<username>, /event/<id>, /replay/<id>; anything else → "Only clubhouse.com links". Rooms open through the R1 join flow.
+4. Audience search (RL-10): Ctrl+S filters the current room's users by name/bio locally; updates as users join/leave; no requests.
+5. Hallway keyword filters + highlight + "rooms with friends first" + NSFW toggle (HAL-4), client-side only, persisted in localStorage (try/catch).
+6. Update the PRD catalog "Today" column for every item you finish.
+Acceptance: studio.feature green; the FakeTransport records no new network calls for these features.
 ```
