@@ -17,6 +17,18 @@ export type EventListItem = {
   houseName: string;
 };
 
+export type HouseChatMessage = {
+  id: string;
+  authorName: string;
+  text: string;
+  time: string;
+};
+
+export type HouseChatState = {
+  messages: HouseChatMessage[];
+  canPost: boolean;
+};
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? value as Record<string, unknown>
@@ -63,6 +75,51 @@ export function readHouseDetail(payload: unknown): HouseListItem | null {
   const nested = asRecord(root.social_club) ?? root;
   const list = readHousesPayload({ social_clubs: [nested] });
   return list[0] ?? null;
+}
+
+export function readHouseChatPayload(payload: unknown): HouseChatState {
+  const root = asRecord(payload);
+  if (!root) return { messages: [], canPost: false };
+  const list = Array.isArray(root.messages)
+    ? root.messages
+    : (Array.isArray(root.items) ? root.items : []);
+  const messages: HouseChatMessage[] = [];
+  for (const entry of list) {
+    const raw = asRecord(entry);
+    if (!raw) continue;
+    const author = asRecord(raw.user_profile) ?? asRecord(raw.user) ?? asRecord(raw.author);
+    const text = readString(raw.message, raw.text, raw.body);
+    const id = readString(raw.message_id, raw.id, String(messages.length + 1));
+    if (!text && !id) continue;
+    messages.push({
+      id: id || `m-${messages.length + 1}`,
+      authorName: author ? readString(author.name, author.username) : readString(raw.author_name, raw.name),
+      text: text || '',
+      time: readString(raw.time_created, raw.created_at, raw.time),
+    });
+  }
+  const permissions = asRecord(root.permissions);
+  const hasCapabilitySignal = [
+    root.can_post,
+    root.viewer_can_post,
+    root.is_admin,
+    root.is_leader,
+    root.viewer_is_admin,
+    root.viewer_is_leader,
+    permissions?.can_post,
+  ].some((value) => typeof value === 'boolean');
+  const canPost = !hasCapabilitySignal
+    ? true
+    : (
+      root.can_post === true
+      || root.viewer_can_post === true
+      || root.is_admin === true
+      || root.is_leader === true
+      || root.viewer_is_admin === true
+      || root.viewer_is_leader === true
+      || permissions?.can_post === true
+    );
+  return { messages, canPost };
 }
 
 export function readEventsPayload(payload: unknown): EventListItem[] {

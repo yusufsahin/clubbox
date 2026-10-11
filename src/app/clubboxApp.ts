@@ -15,7 +15,7 @@ import { applyThemeToDocument, readAppPrefs, writeAppPrefs, zoomFactorFromPercen
 import { eventToAccelerator, normalizeShortcuts, readShortcuts, writeShortcuts, type ShortcutAction, type ShortcutMap } from '../shortcuts';
 import { agoraVoice } from '../audio/agoraVoice';
 import type { ActivityItem } from '../api/activityFeed';
-import type { EventListItem, HouseListItem } from '../api/communityLists';
+import type { EventListItem, HouseChatMessage, HouseListItem } from '../api/communityLists';
 import type { PingCandidate } from '../api/pingInvites';
 import type { CHChannel, CHChannelDetail, CHChatMessage, CHConversation, ConversationThread, CHUser, FeedTopic, MeSettings, SearchHit, SearchObjectType } from '../api/types';
 import { eventsView } from '../ui/views/events';
@@ -91,6 +91,9 @@ export class ClubboxApp {
   private currentTab: 'stage' | 'explore' | 'discover' | 'friends' | 'messages' | 'activity' | 'houses' | 'events' | 'soundboard' | 'settings' | 'login' = 'stage';
   housesList: HouseListItem[] | null = null;
   selectedHouse: HouseListItem | null = null;
+  houseChatOpen = false;
+  houseChatMessages: HouseChatMessage[] | null = null;
+  houseChatCanPost = false;
   eventsList: EventListItem[] | null = null;
   pingPanelOpen = false;
   pingQuery = '';
@@ -901,6 +904,10 @@ export class ClubboxApp {
         items: this.housesList,
         open: this.selectedHouse,
         canHost: clubhouseClient.supports('create_channel'),
+        canChat: clubhouseClient.supports('get_social_club_messages'),
+        chatOpen: this.houseChatOpen,
+        chatMessages: this.houseChatMessages,
+        canPost: this.houseChatCanPost && clubhouseClient.supports('send_social_club_message'),
       });
     } else if (this.currentTab === 'events') {
       return eventsView({
@@ -1329,6 +1336,15 @@ export class ClubboxApp {
             this.showToast(t('houseViewMembers'), '🏛');
           }).catch((err) => this.reportApiError(err));
         }
+        break;
+      case 'open-house-chat':
+        void this.loadHouseChat(el.dataset.houseId, el.dataset.houseSlug);
+        break;
+      case 'close-house-chat':
+        this.closeHouseChat();
+        break;
+      case 'send-house-chat':
+        void this.sendHouseChat(el.dataset.houseId, el.dataset.houseSlug);
         break;
       case 'host-house-room': {
         const houseId = Number(el.dataset.houseId);

@@ -1,4 +1,4 @@
-import type { HouseListItem } from '../../api/communityLists';
+import type { HouseChatMessage, HouseListItem } from '../../api/communityLists';
 import { t } from '../../i18n';
 import { html, safeUrl, type SafeHtml } from '../html';
 
@@ -6,6 +6,10 @@ export type HousesViewState = {
   items: HouseListItem[] | null;
   open: HouseListItem | null;
   canHost: boolean;
+  canChat: boolean;
+  chatOpen: boolean;
+  chatMessages: HouseChatMessage[] | null;
+  canPost: boolean;
 };
 
 function housePhoto(url: string): SafeHtml | string {
@@ -49,10 +53,42 @@ export function housesView(state: HousesViewState): SafeHtml {
           <p class="conversation-meta">${t('houseMembers', { count: state.open.members })}</p>
           <div class="thread-actions">
             <button class="btn btn-secondary" type="button" data-action="open-house-members" data-house-id="${state.open.id}" data-house-slug="${state.open.slug}">${t('houseViewMembers')}</button>
+            ${state.canChat ? html`
+              <button class="btn btn-secondary" type="button" data-action="open-house-chat" data-house-id="${state.open.id}" data-house-slug="${state.open.slug}">${t('houseChat')}</button>
+            ` : ''}
             ${state.canHost ? html`
               <button class="btn btn-primary" type="button" data-action="host-house-room" data-house-id="${state.open.id}" data-house-slug="${state.open.slug}">${t('hostInHouse')}</button>
             ` : ''}
           </div>
+
+          ${state.chatOpen ? html`
+            <div class="house-chat">
+              <div class="house-chat-header">
+                <strong>${t('houseChat')}</strong>
+                <button class="btn btn-secondary" type="button" data-action="close-house-chat">${t('close')}</button>
+              </div>
+              ${state.chatMessages == null ? html`<p class="list-empty">${t('listLoading')}</p>` : state.chatMessages.length === 0 ? html`
+                <p class="list-empty">${t('houseChatEmpty')}</p>
+              ` : html`
+                <div class="house-chat-messages">
+                  ${state.chatMessages.map((msg) => html`
+                    <div class="house-chat-row">
+                      <div class="conversation-title">${msg.authorName || t('houseChat')}</div>
+                      <div class="conversation-meta">${msg.text}</div>
+                    </div>
+                  `)}
+                </div>
+              `}
+              ${state.canPost ? html`
+                <div class="house-chat-compose">
+                  <input class="form-input" id="house-chat-input" placeholder="${t('houseChatPlaceholder')}" />
+                  <button class="btn btn-primary" type="button" data-action="send-house-chat" data-house-id="${state.open.id}" data-house-slug="${state.open.slug}">${t('send')}</button>
+                </div>
+              ` : html`
+                <p class="list-note">${t('houseChatAdminsOnly')}</p>
+              `}
+            </div>
+          ` : ''}
         </section>
       ` : ''}
     </div>

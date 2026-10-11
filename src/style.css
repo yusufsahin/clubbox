@@ -1135,6 +1135,41 @@ span.topic-chip {
   background: var(--bg-card);
 }
 
+.house-chat {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.house-chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.house-chat-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 260px;
+  overflow: auto;
+  margin-bottom: 12px;
+}
+
+.house-chat-row {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-elevated, rgba(255, 255, 255, 0.03));
+}
+
+.house-chat-compose {
+  display: flex;
+  gap: 8px;
+}
+
 .event-row {
   display: flex;
   align-items: center;

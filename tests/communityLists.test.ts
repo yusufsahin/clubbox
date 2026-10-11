@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildEventIcs, readEventsPayload, readHousesPayload } from '../src/api/communityLists.ts';
+import { buildEventIcs, readEventsPayload, readHouseChatPayload, readHousesPayload } from '../src/api/communityLists.ts';
 
 test('readHousesPayload maps social_clubs', () => {
   const houses = readHousesPayload({
@@ -16,6 +16,27 @@ test('readHousesPayload maps social_clubs', () => {
   assert.equal(houses.length, 1);
   assert.equal(houses[0].slug, 'h1');
   assert.equal(houses[0].members, 12);
+});
+
+test('readHouseChatPayload maps messages and admin-only post', () => {
+  const open = readHouseChatPayload({
+    messages: [{
+      message_id: 'm1',
+      message: 'hello',
+      user_profile: { name: 'Ayse' },
+      time_created: '2026-10-11T12:00:00Z',
+    }],
+    can_post: true,
+  });
+  assert.equal(open.messages[0].text, 'hello');
+  assert.equal(open.canPost, true);
+
+  const locked = readHouseChatPayload({
+    messages: [],
+    viewer_can_post: false,
+    is_admin: false,
+  });
+  assert.equal(locked.canPost, false);
 });
 
 test('readEventsPayload and ICS export', () => {

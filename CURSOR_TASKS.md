@@ -13,9 +13,9 @@ Do these before continuing the Autonomous plan, then tick them:
 
 ### Last autonomous run (2026-10-11)
 
-- Autonomous plan already **Done** through **11.8 (strict)**; this devam wired RH-9/RH-10 stage UI.
-- Done: Invite people ping panel (`get_group_suggested_invites` + search → `invite_to_existing_channel`); room visibility select (`make_channel_public` / `make_channel_social`); DESIGN Today for reject/ping/visibility.
-- Tests: `npm test` — **116** unit + **123 BDD** + trace strict; tsc/lint/build green.
+- Autonomous plan already **Done** through **11.8 (strict)**; this devam wired Houses chat (SO-6).
+- Done: House chat panel (`get_social_club_messages` / `send_social_club_message`) with admin-only post copy; sandbox fixtures; DESIGN Today updated.
+- Tests: `npm test` — **117** unit + **123 BDD** + trace strict; tsc/lint/build green.
 - Blocked: `test:e2e:packaged`; owner live room capture (0.9 S1–S3); topic-chip request body uncaptured.
 - Still @pending: ST-9 deferred; room_host DX-1/DX-3.
 - Questions for the owner: Capture a topic-chip click on clubhouse.com (`get_feed_v3` body) so Hallway topics can filter server-side.

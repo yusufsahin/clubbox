@@ -38,6 +38,8 @@ const SANDBOX_ENDPOINTS = new Set([
   'get_user_social_clubs',
   'get_social_club',
   'get_social_club_members',
+  'get_social_club_messages',
+  'send_social_club_message',
   'hide_channel',
   'change_handraise_settings',
   'set_channel_title',

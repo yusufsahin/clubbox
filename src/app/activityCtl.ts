@@ -10,6 +10,7 @@ import {
 import {
   buildEventIcs,
   readEventsPayload,
+  readHouseChatPayload,
   readHouseDetail,
   readHousesPayload,
   type EventListItem,
@@ -70,6 +71,9 @@ export async function loadHouses(this: ClubboxApp): Promise<void> {
 
 export async function openHouse(this: ClubboxApp, slug: string | undefined): Promise<void> {
     if (!slug || !clubhouseClient.supports('get_social_club')) return;
+    this.houseChatOpen = false;
+    this.houseChatMessages = null;
+    this.houseChatCanPost = false;
     try {
       const res = await clubhouseClient.getSocialClub(slug);
       this.selectedHouse = readHouseDetail(res);
@@ -77,6 +81,49 @@ export async function openHouse(this: ClubboxApp, slug: string | undefined): Pro
       this.reportApiError(err);
     }
     if (this.currentTab === 'houses') this.render();
+  }
+
+export async function loadHouseChat(this: ClubboxApp, houseIdRaw: string | undefined, slug: string | undefined): Promise<void> {
+    if (!slug || !clubhouseClient.supports('get_social_club_messages')) return;
+    const houseId = Number(houseIdRaw);
+    if (!Number.isFinite(houseId)) return;
+    this.houseChatOpen = true;
+    this.houseChatMessages = null;
+    if (this.currentTab === 'houses') this.render();
+    try {
+      const res = await clubhouseClient.getSocialClubMessages(houseId, slug);
+      const chat = readHouseChatPayload(res);
+      this.houseChatMessages = chat.messages;
+      this.houseChatCanPost = chat.canPost;
+    } catch (err) {
+      this.houseChatMessages = [];
+      this.houseChatCanPost = false;
+      this.reportApiError(err);
+    }
+    if (this.currentTab === 'houses') this.render();
+  }
+
+export function closeHouseChat(this: ClubboxApp): void {
+    this.houseChatOpen = false;
+    this.houseChatMessages = null;
+    this.houseChatCanPost = false;
+    if (this.currentTab === 'houses') this.render();
+  }
+
+export async function sendHouseChat(this: ClubboxApp, houseIdRaw: string | undefined, slug: string | undefined): Promise<void> {
+    if (!slug || !this.houseChatCanPost || !clubhouseClient.supports('send_social_club_message')) return;
+    const houseId = Number(houseIdRaw);
+    if (!Number.isFinite(houseId)) return;
+    const input = document.getElementById('house-chat-input') as HTMLInputElement | null;
+    const message = input?.value.trim() || '';
+    if (!message) return;
+    try {
+      await clubhouseClient.sendSocialClubMessage(houseId, slug, message);
+      if (input) input.value = '';
+      await this.loadHouseChat(String(houseId), slug);
+    } catch (err) {
+      this.reportApiError(err);
+    }
   }
 
 export async function loadEvents(this: ClubboxApp): Promise<void> {
@@ -176,6 +223,9 @@ export function wireActivityCtl(proto: ClubboxApp): void {
   proto.loadSuggestions = loadSuggestions;
   proto.loadHouses = loadHouses;
   proto.openHouse = openHouse;
+  proto.loadHouseChat = loadHouseChat;
+  proto.closeHouseChat = closeHouseChat;
+  proto.sendHouseChat = sendHouseChat;
   proto.loadEvents = loadEvents;
   proto.downloadEventIcs = downloadEventIcs;
   proto.startActivityRefresh = startActivityRefresh;

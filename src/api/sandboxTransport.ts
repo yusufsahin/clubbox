@@ -516,6 +516,21 @@ export class SandboxBackend {
           ],
         } as T;
 
+      case 'get_social_club_messages':
+        return {
+          success: true,
+          can_post: true,
+          messages: [{
+            message_id: 'hm-1',
+            message: 'Welcome to Sandbox House',
+            user_profile: { name: 'Ayse', username: 'ayse' },
+            time_created: new Date().toISOString(),
+          }],
+        } as T;
+
+      case 'send_social_club_message':
+        return { success: true } as T;
+
       case 'hide_channel':
         return { success: true } as T;
 

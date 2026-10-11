@@ -125,7 +125,8 @@ Legend — Evidence: O observed · B bundle call site · C community · ? to dis
 | --- | --- | --- | --- | --- |
 | get_user_social_clubs | POST | ? | B | ✅ Houses tab |
 | get_social_club / get_social_club_members | POST | ? | B | ✅ detail + members toast |
-| get_social_club_messages / _message_thread / send_social_club_message (+ threaded, emoji) / update_last_read_social_club_message | POST | ? | B | ❌ |
+| get_social_club_messages / send_social_club_message | POST | social_club_id, social_club_slug (, message) | B | ✅ Houses chat panel |
+| get_social_club_message_thread / send threaded/emoji / update_last_read_social_club_message | POST | ? | B/in-bundle | ❌ |
 
 "?" bodies are filled automatically by the bundle crawler (§6) before implementation.
 
