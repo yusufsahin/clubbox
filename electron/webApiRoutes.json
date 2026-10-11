@@ -14,19 +14,19 @@
   "join_channel": {
     "path": "/web_api/join_channel",
     "method": "POST",
-    "evidence": "bundle",
+    "evidence": "observed",
     "mutation": true
   },
   "leave_channel": {
     "path": "/web_api/leave_channel",
     "method": "POST",
-    "evidence": "bundle",
+    "evidence": "observed",
     "mutation": true
   },
   "active_ping": {
     "path": "/web_api/active_ping",
     "method": "POST",
-    "evidence": "bundle",
+    "evidence": "observed",
     "mutation": true
   },
   "create_channel": {
@@ -68,13 +68,13 @@
   "get_channel_messages": {
     "path": "/web_api/get_channel_messages",
     "method": "GET",
-    "evidence": "bundle",
+    "evidence": "observed",
     "mutation": false
   },
   "send_channel_message": {
     "path": "/web_api/send_channel_message",
     "method": "POST",
-    "evidence": "bundle",
+    "evidence": "observed",
     "mutation": true
   },
   "get_edge_stories": {

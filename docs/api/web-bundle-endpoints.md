@@ -17,7 +17,7 @@ If a list name is only `in-bundle, not observed`, leave it. Do not add a button 
 
 ## Every name
 
-- `active_ping` — configured
+- `active_ping` — observed
 - `add_conversation_segment` — configured
 - `ask_question_about_conversation` — configured
 - `ask_question_about_me` — configured
@@ -30,7 +30,7 @@ If a list name is only `in-bundle, not observed`, leave it. Do not add a button 
 - `delete_conversation_segment` — configured
 - `emoji_reaction` — configured
 - `follow` — configured
-- `get_channel_messages` — configured
+- `get_channel_messages` — observed
 - `get_conversation` — observed
 - `get_conversation_unread_summary` — configured
 - `get_conversations` — observed
@@ -53,15 +53,15 @@ If a list name is only `in-bundle, not observed`, leave it. Do not add a button 
 - `guest_active_ping` — configured
 - `guest_join_channel` — configured
 - `guest_leave_channel` — configured
-- `join_channel` — configured
-- `leave_channel` — configured
+- `join_channel` — observed
+- `leave_channel` — observed
 - `mark_conversation_segment_listened` — observed
 - `me` — observed
 - `record_action_trails` — in-bundle, not observed
 - `record_guest_action_trails` — configured
 - `resend_phone_number_auth` — configured
 - `search` — observed
-- `send_channel_message` — configured
+- `send_channel_message` — observed
 - `send_conversation_emoji_reaction` — configured
 - `send_social_club_message` — configured
 - `send_social_club_message_emoji_reaction` — configured

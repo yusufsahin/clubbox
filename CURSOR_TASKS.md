@@ -13,12 +13,12 @@ Do these before continuing the Autonomous plan, then tick them:
 
 ### Last autonomous run (2026-10-11)
 
-- Done (this devam): Next-run regression (ST/HAL/SO/ACC) → **11.0** crawler → **11.1** registry/SandboxTransport → **11.2** RoomSession + controllers → **11.3** room API bindings → **11.4** PubNub/Agora hub → **10.4** studio quick wins → **11.5–11.7** hallway/messages/houses → **11.9** catalog → **11.10** e2e → **11.8** trace **strict**.
-- Follow-up: Hallway For You was short because `get_feed_v3` only loaded page 1; now follows `next_cursor` (≤8 pages). Leave-quietly always sends `leave_channel` when `end_channel` is unavailable.
-- Tests: `npm test` — **102** unit + **123 BDD** (717 steps) + trace strict (0 errors); tsc/lint/build green (`api:check` still wants `npm run api:docs`).
-- Blocked: `test:e2e:packaged` — Playwright cannot launch existing `release/win-unpacked/Clubbox.exe` (dev e2e OK). Owner live room capture still outstanding.
+- Autonomous plan already **Done** through **11.8 (strict)**; this devam shipped follow-ups and triage.
+- Done: Messages live thread (`readConversationThread`) + messenger UI; Activity feed (edge stories + experimental `get_notifications`) with Join; select `color-scheme` + mojibake emoji restore; `api:triage` promoted join/leave/active_ping/chat routes to **observed**.
+- Tests: `npm test` — **108** unit + **123 BDD** + trace strict; tsc/lint/build after commits.
+- Blocked: `test:e2e:packaged`; owner live room capture (0.9 S1–S3); topic-chip request body uncaptured.
 - Still @pending: ST-9 deferred; room_host DX-1/DX-3.
-- Questions for the owner: Topic chips still display-only — captures never show a `get_feed_v3` request body with a topic key (and `logging_context.topic_key` is often null). If you capture a topic-chip click on clubhouse.com, we can wire real topic feeds.
+- Questions for the owner: Capture a topic-chip click on clubhouse.com (`get_feed_v3` body) so Hallway topics can filter server-side.
 
 ## Status
 

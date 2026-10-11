@@ -1212,7 +1212,7 @@ App endpoint key: `search_users`. Configured method: POST.
 
 ## POST /web_api/become_speaker
 
-App endpoint key: `accept_speaker_invite`.
+App endpoint key: `become_speaker`.
 
 Not observed in a capture yet. No request or response example is included, because none was recorded.
 
@@ -2414,7 +2414,59 @@ App endpoint key: `get_events`.
 
 Not observed in a capture yet. No request or response example is included, because none was recorded.
 
-## Captured paths the app does not call yet
+## POST /web_api/add_conversation_segment
+
+App endpoint key: `add_conversation_segment`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /web_api/create_conversation
+
+App endpoint key: `create_conversation`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /web_api/get_conversation_unread_summary
+
+App endpoint key: `get_conversation_unread_summary`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /web_api/get_highlight
+
+App endpoint key: `get_highlight`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /web_api/get_replay_channel
+
+App endpoint key: `get_replay_channel`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /web_api/get_social_club
+
+App endpoint key: `get_social_club`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /web_api/get_social_club_members
+
+App endpoint key: `get_social_club_members`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /web_api/get_social_club_messages
+
+App endpoint key: `get_social_club_messages`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /web_api/get_user_social_clubs
+
+App endpoint key: `get_user_social_clubs`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
 
 ## POST /web_api/send_conversation_emoji_reaction
 
@@ -2451,6 +2503,14 @@ No successful response was captured, so this request body is not treated as the 
 ```
 
 Status codes seen: 400.
+
+App endpoint key: `send_conversation_emoji_reaction`. Configured method: POST.
+
+## POST /web_api/send_social_club_message
+
+App endpoint key: `send_social_club_message`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
 
 ## Telemetry, not used
 
