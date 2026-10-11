@@ -13,6 +13,8 @@ const REQUEST_TIMEOUT_MS = 20000;
 const DEV_SERVER_ORIGIN = 'http://localhost:5173';
 
 const CH_WEB_APP_VERSION = '22.2.0';
+/** Same browser UA as the API recorder — Electron's default UA often gets 403 from Clubhouse web_api. */
+const PAGE_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
 app.setName('Clubbox');
 if (process.platform === 'win32') {
@@ -483,17 +485,24 @@ function showEmbeddedSignIn(bounds) {
     return;
   }
   lastSignInNotice = '';
+  try {
+    session.defaultSession.setUserAgent(PAGE_UA);
+  } catch {
+    // ignore
+  }
   signInView = new BrowserView({
     webPreferences: {
       // Same jar as ch:request /web_api calls — required for adoptWebSession.
       session: session.defaultSession,
       nodeIntegration: false,
       contextIsolation: true,
-      sandbox: true,
+      // Match the API recorder window: sandbox can interfere with auth cookies.
+      sandbox: false,
     },
   });
   mainWindow.setBrowserView(signInView);
   signInView.setBounds(bounds);
+  signInView.webContents.setUserAgent(PAGE_UA);
   // Keep Clubhouse's SMS/code steps in the same BrowserView — never spawn a popup window.
   signInView.webContents.setWindowOpenHandler(({ url }) => {
     if (isClubhouseHttps(url) && signInView && !signInView.webContents.isDestroyed()) {
@@ -510,12 +519,21 @@ function showEmbeddedSignIn(bounds) {
   signInView.webContents.on('did-navigate-in-page', notice);
   signInView.webContents.on('did-finish-load', () => {
     void extractAgoraAppIdFromSignIn(signInView);
+    const url = signInView.webContents.getURL();
+    // After SMS verify Clubhouse often lands on /home — adopt immediately.
+    if (url && !/\/signin|\/login/i.test(url)) {
+      notifyWebSessionMaybe(url, { force: true });
+    }
   });
   signInView.webContents.on('destroyed', () => {
     signInView = null;
     lastSignInNotice = '';
   });
-  void signInView.webContents.loadURL('https://www.clubhouse.com/signin');
+  armSignInNetworkWatch();
+  void signInView.webContents.loadURL('https://www.clubhouse.com/signin', {
+    userAgent: PAGE_UA,
+    httpReferrer: 'https://www.clubhouse.com/',
+  });
 }
 
 function readRealtimeConfig() {
@@ -686,6 +704,7 @@ function maybeNotifyWebSession(target) {
 
 let cookieNotifyTimer = null;
 let cookieWatchArmed = false;
+let signInNetworkWatchArmed = false;
 
 function armWebSessionCookieWatch() {
   if (cookieWatchArmed) return;
@@ -694,6 +713,11 @@ function armWebSessionCookieWatch() {
     if (removed || !cookie || !signInView) return;
     const domain = String(cookie.domain || '').toLowerCase();
     if (!domain.includes('clubhouse.com')) return;
+    const name = String(cookie.name || '');
+    // Auth-ish cookies are the signal that SMS verify landed.
+    if (/session|auth|token|csrf/i.test(name)) {
+      console.log('[web] cookie set:', name);
+    }
     if (cookieNotifyTimer) clearTimeout(cookieNotifyTimer);
     cookieNotifyTimer = setTimeout(() => {
       cookieNotifyTimer = null;
@@ -701,6 +725,23 @@ function armWebSessionCookieWatch() {
       notifyWebSessionMaybe(`cookie:${cookie.name}:${Date.now()}`, { force: true });
     }, 500);
   });
+}
+
+function armSignInNetworkWatch() {
+  if (signInNetworkWatchArmed) return;
+  signInNetworkWatchArmed = true;
+  session.defaultSession.webRequest.onCompleted(
+    { urls: ['https://www.clubhouse.com/web_api/*', 'https://clubhouse.com/web_api/*'] },
+    (details) => {
+      if (!signInView) return;
+      const path = String(details.url || '');
+      if (!/web_api\/(me|complete_phone|start_phone|resend_phone)/i.test(path)) return;
+      console.log('[web] xhr', details.method, path.replace(/^https:\/\/www\.clubhouse\.com/, ''), details.statusCode);
+      if (details.statusCode >= 200 && details.statusCode < 400 && /complete_phone|me/i.test(path)) {
+        notifyWebSessionMaybe(`xhr:${details.statusCode}:${Date.now()}`, { force: true });
+      }
+    },
+  );
 }
 
 async function extractAgoraAppIdFromSignIn(view) {
@@ -858,6 +899,7 @@ async function probeMeInSignInPage() {
             'X-CSRFToken': csrf,
             'CH-Web-AppVersion': ${JSON.stringify(CH_WEB_APP_VERSION)},
             'CH-Web-Version': ${JSON.stringify(CH_WEB_APP_VERSION)},
+            'User-Agent': ${JSON.stringify(PAGE_UA)},
           },
           body: '{}',
         });
@@ -929,6 +971,7 @@ async function postWithWebSession(endpoint, body) {
         'X-CSRFToken': csrf,
         'CH-Web-AppVersion': CH_WEB_APP_VERSION,
         'CH-Web-Version': CH_WEB_APP_VERSION,
+        'User-Agent': PAGE_UA,
         Origin: 'https://www.clubhouse.com',
         Referer: 'https://www.clubhouse.com/home',
       },
@@ -938,6 +981,11 @@ async function postWithWebSession(endpoint, body) {
     ok = response.ok;
     text = await response.text();
     console.log('[web]', endpoint, status);
+  }
+
+  if (!ok && (status === 403 || status === 401)) {
+    const snippet = String(text || '').replace(/\s+/g, ' ').slice(0, 160);
+    console.log('[web]', endpoint, 'error body:', snippet || '(empty)');
   }
 
   logResponseShape(endpoint, text);
