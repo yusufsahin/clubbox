@@ -28,6 +28,9 @@ import { messagesView } from '../ui/views/messages.ts';
 import { settingsView } from '../ui/views/settings.ts';
 import { soundboardView } from '../ui/views/soundboard.ts';
 import { chatList, emptyStageView, stageColumn, stageView } from '../ui/views/stage.ts';
+import { prepareHallwayChannels } from '../hallway/hallwayDisplay.ts';
+import { type HallwayPrefs, readHallwayPrefs, writeHallwayPrefs } from '../hallway/hallwayPrefs.ts';
+import { parseClubhouseLink, type ParsedClubhouseLink } from '../studio/clubhouseLink.ts';
 import type { ClubboxApp } from './clubboxApp.ts';
 
 const CHAT_POLL_MS = 15_000;
@@ -120,6 +123,57 @@ export function scheduleDiscoverSearch(this: ClubboxApp) : void {
     }, 250);
   }
 
+export function displayedHallwayChannels(this: ClubboxApp): CHChannel[] {
+    return prepareHallwayChannels(this.channelsList, this.hallwayPrefs);
+  }
+
+export function persistHallwayPrefs(this: ClubboxApp): void {
+    writeHallwayPrefs(this.hallwayPrefs);
+  }
+
+export function addHallwayKeyword(this: ClubboxApp): void {
+    const input = document.getElementById('hallway-keyword-input') as HTMLInputElement | null;
+    const word = input?.value.trim();
+    if (!word) return;
+    if (!this.hallwayPrefs.keywords.includes(word)) {
+      this.hallwayPrefs.keywords.push(word);
+    }
+    this.persistHallwayPrefs();
+    if (input) input.value = '';
+    if (this.currentTab === 'explore') this.render();
+  }
+
+export function removeHallwayKeyword(this: ClubboxApp, keyword: string): void {
+    this.hallwayPrefs.keywords = this.hallwayPrefs.keywords.filter((entry) => entry !== keyword);
+    this.persistHallwayPrefs();
+    if (this.currentTab === 'explore') this.render();
+  }
+
+export function setHallwayShowNsfw(this: ClubboxApp, enabled: boolean): void {
+    this.hallwayPrefs.showNsfw = enabled;
+    this.persistHallwayPrefs();
+    if (this.currentTab === 'explore') this.render();
+  }
+
+export async function openClubhouseLink(this: ClubboxApp, link: ParsedClubhouseLink): Promise<void> {
+    if (link.kind === 'room' || link.kind === 'replay') {
+      await this.joinRoom(link.kind === 'room' ? link.channelId : link.replayId);
+      return;
+    }
+    if (link.kind === 'event') {
+      await this.joinRoom(link.eventId);
+      return;
+    }
+    const res = await clubhouseClient.search(link.username, ['UserProfile']);
+    const user = res.hits?.find((hit) => hit.kind === 'user' && hit.user.username === link.username)?.user
+      ?? res.users.find((entry) => entry.username === link.username);
+    if (user) {
+      this.inspectProfile(user);
+      return;
+    }
+    this.showToast(t('somethingWrong'), '⚠️');
+  }
+
 export async function runDiscoverSearch(this: ClubboxApp) : Promise<void> {
     if (this.discoverTimer != null) {
       window.clearTimeout(this.discoverTimer);
@@ -129,6 +183,27 @@ export async function runDiscoverSearch(this: ClubboxApp) : Promise<void> {
     if (!query) {
       this.discoverHits = null;
       this.discoverLoading = false;
+      this.render();
+      return;
+    }
+    const link = parseClubhouseLink(query);
+    if (/^https?:\/\//i.test(query) && !link) {
+      this.discoverSeq += 1;
+      this.discoverHits = null;
+      this.discoverLoading = false;
+      this.showToast(t('onlyClubhouseLinks'), '🔗');
+      this.render();
+      return;
+    }
+    if (link) {
+      this.discoverSeq += 1;
+      this.discoverHits = null;
+      this.discoverLoading = false;
+      try {
+        await this.openClubhouseLink(link);
+      } catch (err) {
+        this.reportApiError(err);
+      }
       this.render();
       return;
     }
@@ -154,6 +229,9 @@ export async function runDiscoverSearch(this: ClubboxApp) : Promise<void> {
   }
 
 export function wireHallwayCtl(proto: ClubboxApp): void {
+  if (!('hallwayPrefs' in proto)) {
+    (proto as ClubboxApp & { hallwayPrefs: HallwayPrefs }).hallwayPrefs = readHallwayPrefs();
+  }
   proto.reloadChannels = reloadChannels;
   proto.refreshExplore = refreshExplore;
   proto.liveUpdatesUnavailable = liveUpdatesUnavailable;
@@ -163,4 +241,10 @@ export function wireHallwayCtl(proto: ClubboxApp): void {
   proto.discoverTypes = discoverTypes;
   proto.scheduleDiscoverSearch = scheduleDiscoverSearch;
   proto.runDiscoverSearch = runDiscoverSearch;
+  proto.displayedHallwayChannels = displayedHallwayChannels;
+  proto.persistHallwayPrefs = persistHallwayPrefs;
+  proto.addHallwayKeyword = addHallwayKeyword;
+  proto.removeHallwayKeyword = removeHallwayKeyword;
+  proto.setHallwayShowNsfw = setHallwayShowNsfw;
+  proto.openClubhouseLink = openClubhouseLink;
 }

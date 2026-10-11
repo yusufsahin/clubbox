@@ -38,7 +38,7 @@ Feature: Hallway and discovery
     Then a "POST /web_api/hide_channel" request is sent with body keys "channel, hide"
     And "Tech Talk" disappears from the hallway
 
-  @pending @local @HAL-4
+  @local @HAL-4
   Scenario: Keyword highlight and friends first
     Given I added the hallway keyword "tech"
     And "Ayse" is my friend and speaks in "Music Night"
@@ -47,7 +47,7 @@ Feature: Hallway and discovery
     And the word "tech" is highlighted in matching room titles
     And no new request is sent for filtering
 
-  @pending @local @HAL-4
+  @local @HAL-4
   Scenario: NSFW rooms are hidden by default
     Given the hallway contains a room marked NSFW
     Then that room is not shown

@@ -90,10 +90,10 @@ Legend — Today: ✅ works live · 🧪 sandbox/UI only · ❌ missing. Evidenc
 | HAL-1 | Hallway feed with topic chips | ✓ | ✓ | ✅ | O (get_feed_v3) | P0 |
 | HAL-2 | Room card: title, house, replays/clips on, age, listeners, speakers, copy link, hide, join | ✓ | ✓ | 🧪 partial | O | P0 |
 | HAL-3 | Hide room from hallway | ✓ | ✓ | ❌ | C (hide_channel) | P2 |
-| HAL-4 | Keyword filters + highlight; highlight rooms with friends; NSFW toggle | | ✓ | ❌ | — (client side) | P1 |
+| HAL-4 | Keyword filters + highlight; highlight rooms with friends; NSFW toggle | | ✓ | ✅ | — (client side) | P1 |
 | HAL-5 | Search people/rooms/houses (tabs) | ✓ | ✓ | ✅ | O (search) | P1 |
 | HAL-6 | Saved search columns that refresh (≥ 60 s, paused when hidden) | | ✓ | ❌ | O | P2 |
-| HAL-7 | Paste a clubhouse.com link (room, profile, event, replay) to open it | | ✓ | ❌ | — + O/B | P1 |
+| HAL-7 | Paste a clubhouse.com link (room, profile, event, replay) to open it | | ✓ | ✅ | — + O/B | P1 |
 | HAL-8 | Events: upcoming list, RSVP/notify, .ics export, copy link | ✓ | ✓ | ❌ | C (get_events) | P2 |
 
 ### 4.3 Room — listener
@@ -109,7 +109,7 @@ Legend — Today: ✅ works live · 🧪 sandbox/UI only · ❌ missing. Evidenc
 | RL-7 | Accept / decline stage invite | ✓ | ✓ | 🧪 | B (become_speaker) / C | P0 |
 | RL-8 | Emoji reactions to a speaker | ✓ | | ✅ | B (emoji_reaction) | P1 |
 | RL-9 | Private chat with a person in the room (text) | ✓ | ✓ | 🧪 | O (conversations) | P2 |
-| RL-10 | Audience search by name/bio (Ctrl+S) | | ✓ | ❌ | — (client side on room users) | P1 |
+| RL-10 | Audience search by name/bio (Ctrl+S) | | ✓ | ✅ | — (client side on room users) | P1 |
 | RL-11 | Spatial audio (local) | ✓ | ✓ | ❌ | — | P2 |
 | RL-12 | Replays: play saved replays | ✓ | ✓ | ❌ | B (get_replay_channel) | P2 |
 
@@ -137,8 +137,8 @@ Legend — Today: ✅ works live · 🧪 sandbox/UI only · ❌ missing. Evidenc
 | ST-1 | Input/output device, mic gain, monitor | | ✓ | ✅ | — | P0 |
 | ST-2 | Music mode (no AEC/NS/AGC, stereo, headphone warning) | ✓ | ✓ | ✅ | — | P0 |
 | ST-3 | Soundboard: local files, volume, duck button, stop all, hotkeys | | ✓ | ✅ | — | P0 |
-| ST-4 | Recording (opt-in, replays-on rooms, compressed/lossless) | | ✓ | ✅ partial | — | P1 |
-| ST-5 | Chapters: Ctrl+T adds a timestamp; export YouTube + Spotify chapter file | | ✓ | ❌ | — | P1 |
+| ST-4 | Recording (opt-in, replays-on rooms, compressed/lossless) | | ✓ | ✅ | — | P1 |
+| ST-5 | Chapters: Ctrl+T adds a timestamp; export YouTube + Spotify chapter file | | ✓ | ✅ | — | P1 |
 | ST-6 | Clip (5–55 s) from local buffer, only when allowed | ✓ | ✓ | ✅ partial | — | P2 |
 | ST-7 | Voice effects (preview, apply, none) | | ✓ | ❌ | — | P2 |
 | ST-8 | Global shortcuts (mute, hand, accept/decline invite, pads) | | ✓ | ✅ partial | — | P1 |

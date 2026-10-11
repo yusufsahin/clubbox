@@ -1,6 +1,7 @@
 import { t } from '../../i18n';
 import { relationshipFromStatus } from '../../api/relationship';
 import type { CHChannelDetail, CHChatMessage, CHUser } from '../../api/types';
+import { audienceMatchesQuery } from '../../studio/audienceSearch';
 import { avatarHtml } from '../avatar';
 import { html, type SafeHtml } from '../html';
 
@@ -18,6 +19,7 @@ export interface StageState {
   canMuteEveryone: boolean;
   canBlock: boolean;
   canFollow: boolean;
+  audienceSearch: string;
 }
 
 function unverifiedAction(): SafeHtml {
@@ -65,7 +67,10 @@ export function stageView(column: SafeHtml, messages: SafeHtml, chatOpen: boolea
 export function stageColumn(state: StageState): SafeHtml {
   const speakers = state.channel.users.filter((u) => u.is_speaker);
   const raisedHands = state.channel.users.filter((u) => !u.is_speaker && u.is_hand_raised);
-  const audience = state.channel.users.filter((u) => !u.is_speaker && !u.is_hand_raised);
+  let audience = state.channel.users.filter((u) => !u.is_speaker && !u.is_hand_raised);
+  if (state.audienceSearch.trim()) {
+    audience = audience.filter((user) => audienceMatchesQuery(user, state.audienceSearch));
+  }
   return html`
         <div class="stage-section">
           <div>
@@ -158,7 +163,7 @@ function listenerCards(listeners: CHUser[], state: StageState): SafeHtml {
   `;
 }
 
-function audienceSection(title: string, listeners: CHUser[], state: StageState): SafeHtml {
+function audienceSection(title: string, listeners: CHUser[], state: StageState, showSearch: boolean): SafeHtml {
   return html`
     <div>
       <div class="stage-header" style="margin-bottom:16px;">
@@ -166,6 +171,9 @@ function audienceSection(title: string, listeners: CHUser[], state: StageState):
           <span>${title}</span>
           <span class="badge">${listeners.length}</span>
         </div>
+        ${showSearch ? html`
+          <input class="form-input" id="audience-search" value="${state.audienceSearch}" placeholder="${t('audienceSearchPlaceholder')}" style="max-width:240px; font-size:12px;" />
+        ` : ''}
       </div>
       ${listenerCards(listeners, state)}
     </div>
@@ -182,11 +190,11 @@ function audienceSections(listeners: CHUser[], state: StageState): SafeHtml {
   // A house-member section waits until a capture marks membership on each user.
   // is_following is not a friend marker. Only a mapped follow_status splits the room.
   const friends = listeners.filter((listener) => relationshipFromStatus(listener.follow_status) === 'friends');
-  if (friends.length === 0) return audienceSection(t('audience'), listeners, state);
+  if (friends.length === 0) return audienceSection(t('audience'), listeners, state, true);
   const others = listeners.filter((listener) => relationshipFromStatus(listener.follow_status) !== 'friends');
   return html`
-    ${audienceSection(t('friendsHere'), friends, state)}
-    ${others.length > 0 ? audienceSection(t('audience'), others, state) : ''}
+    ${audienceSection(t('friendsHere'), friends, state, false)}
+    ${others.length > 0 ? audienceSection(t('audience'), others, state, true) : ''}
   `;
 }
 

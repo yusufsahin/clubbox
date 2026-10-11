@@ -1,6 +1,7 @@
 import { Before } from '@cucumber/cucumber';
 import { RoomSessionController } from '../../src/api/roomSession.ts';
 import { FakeAgora } from './fakeAgora.ts';
+import { defaultHallwayPrefs } from '../../src/hallway/hallwayPrefs.ts';
 import type { ClubboxWorld } from './world.ts';
 
 Before(function (this: ClubboxWorld) {
@@ -38,6 +39,8 @@ Before(function (this: ClubboxWorld) {
   this.role = null;
   this.hallwayRoom = null;
   this.hallwayRooms = [];
+  this.hallwayPrefs = defaultHallwayPrefs();
+  this.hallwayDisplayRooms = [];
   this.hallwayTopics = [];
   this.selectedTopic = null;
   this.searchTabs.clear();

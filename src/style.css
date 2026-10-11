@@ -1270,6 +1270,34 @@ span.topic-chip {
   padding: 8px 16px;
 }
 
+.hallway-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.hallway-keyword-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  font-size: 12px;
+}
+
+.keyword-hit {
+  background: rgba(250, 204, 21, 0.35);
+  border-radius: 2px;
+}
+
+.friend-star {
+  color: var(--accent-amber);
+  margin-left: 2px;
+}
+
 .rec-banner[hidden] {
   display: none;
 }

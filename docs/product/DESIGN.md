@@ -222,7 +222,7 @@ Severity: **S1** blocks a P0 flow · **S2** wrong/unsafe behaviour · **S3** mis
 | G-15 | `main.ts` ~2,300 lines mixes state, timers, API calls, rendering | main.ts | S4 | Closed in 11.2 — `src/app/*Ctl.ts` + domain `roomSession`; `main.ts` bootstrap only |
 | G-16 | No log out | — | S3 | Closed in 66c8c22 (10.3 / ACC-3) |
 | G-17 | Discovery depends on the owner browsing; only 1 chunk scanned | recorder | S2 (process) | Closed in aab24e4 (11.0 bundle crawler) |
-| G-18 | Clubdeck-level studio features missing: chapters, paste link, audience search, keyword filters, mute everyone, ping multi-select | — | S3 | 10.4, 11.5 |
+| G-18 | Clubdeck-level studio features missing: chapters, paste link, audience search, keyword filters, mute everyone, ping multi-select | — | S3 | Partial — chapters, paste link, audience search, keyword filters closed in Task 10.4; mute everyone + ping multi-select remain 11.5 |
 
 ---
 

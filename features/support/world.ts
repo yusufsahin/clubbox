@@ -12,6 +12,8 @@ import { FakeClock } from './fakeClock.ts';
 import { FakeTransport } from './fakeTransport.ts';
 import { FakePubNub } from './fakePubnub.ts';
 import { RealtimeRoomCoordinator } from '../../src/api/realtimeRoomCoordinator.ts';
+import { channelHasFriendSpeaker, prepareHallwayFeedRooms } from '../../src/hallway/hallwayDisplay.ts';
+import { defaultHallwayPrefs, type HallwayPrefs } from '../../src/hallway/hallwayPrefs.ts';
 
 export type ApiHealthEntry = {
   endpoint: string;
@@ -39,6 +41,9 @@ export type HallwayCard = {
   speakers: number;
   url: string;
   topicKey: string;
+  is_nsfw?: boolean;
+  friendSpeaker?: string;
+  users?: Array<{ name: string; is_speaker?: boolean; follow_status?: string }>;
 };
 
 export type StudioPad = {
@@ -89,6 +94,8 @@ export class ClubboxWorld extends World {
   hallwayRoom: HallwayCard | null = null;
   hallwayRooms: HallwayCard[] = [];
   hallwayTopics: string[] = [];
+  hallwayPrefs: HallwayPrefs = defaultHallwayPrefs();
+  hallwayDisplayRooms: HallwayCard[] = [];
   selectedTopic: string | null = null;
   searchTabs = new Set<string>();
   currentRoom: string | null = null;
@@ -351,6 +358,17 @@ export class ClubboxWorld extends World {
   filteredHallway(): HallwayCard[] {
     if (!this.selectedTopic) return this.hallwayRooms;
     return this.hallwayRooms.filter((room) => room.topicKey === this.selectedTopic);
+  }
+
+  applyHallwayDisplay(): HallwayCard[] {
+    const feed = this.hallwayRooms.map((room) => ({
+      ...room,
+      users: room.users ?? [],
+    }));
+    return prepareHallwayFeedRooms(feed, this.hallwayPrefs).map((room) => ({
+      ...room,
+      friendSpeaker: room.friendSpeaker ?? channelHasFriendSpeaker(room.users ?? [])?.name,
+    }));
   }
 }
 

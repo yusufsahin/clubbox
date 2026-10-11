@@ -2,6 +2,8 @@ import { t } from '../../i18n';
 import type { CHChannel, FeedTopic } from '../../api/types';
 import { avatarHtml } from '../avatar';
 import { html, safeUrl, type SafeHtml } from '../html';
+import { channelHasFriendSpeaker, roomTitleKeywordHits, speakerIsFriend, splitKeywordHighlight } from '../../hallway/hallwayDisplay';
+import type { HallwayPrefs } from '../../hallway/hallwayPrefs';
 
 // Preview listening and "in a house" stay hidden until a capture shows those requests.
 
@@ -24,11 +26,25 @@ function roomSpeakers(channel: CHChannel) {
   return speakers.length > 0 ? speakers : channel.users;
 }
 
+function renderTopicTitle(topic: string, keywords: string[]): SafeHtml {
+  const hits = roomTitleKeywordHits(topic, keywords);
+  if (hits.length === 0) return html`${topic}`;
+  const keyword = hits[0];
+  const parts = splitKeywordHighlight(topic, keyword);
+  return html`${parts.map((part) => part.hit ? html`<span class="keyword-hit">${part.text}</span>` : part.text)}`;
+}
+
+function speakerName(user: CHChannel['users'][number]): SafeHtml {
+  const friend = speakerIsFriend(user);
+  return html`${user.name}${friend ? html`<span class="friend-star" title="${t('friendsHere')}">★</span>` : ''}`;
+}
+
 export function exploreView(
   channels: CHChannel[],
   topics: FeedTopic[],
   notices: string[],
   access: { canJoin: boolean; canCreate: boolean },
+  hallway: HallwayPrefs,
 ): SafeHtml {
   return html`
     <div style="max-width:1100px; margin:0 auto;">
@@ -38,6 +54,20 @@ export function exploreView(
           <p style="color:var(--text-muted); font-size:13px; margin-top:4px;">${t('liveRoomsHelp')}</p>
         </div>
         <button class="btn btn-secondary" data-action="refresh-explore">${t('refresh')}</button>
+      </div>
+      <div class="hallway-filters">
+        <label style="font-size:13px; color:var(--text-muted);">${t('hallwayKeywords')}</label>
+        <input class="form-input" id="hallway-keyword-input" placeholder="${t('hallwayKeywordPlaceholder')}" style="max-width:220px;" />
+        <button class="btn btn-secondary" type="button" data-action="add-hallway-keyword">${t('addKeyword')}</button>
+        ${hallway.keywords.map((keyword) => html`
+          <span class="hallway-keyword-chip">${keyword}
+            <button type="button" class="top-icon-btn" data-action="remove-hallway-keyword" data-keyword="${keyword}">×</button>
+          </span>
+        `)}
+        <label style="font-size:13px; display:flex; align-items:center; gap:6px;">
+          <input type="checkbox" id="hallway-show-nsfw" data-action="toggle-hallway-nsfw" ${hallway.showNsfw ? 'checked' : ''} />
+          ${t('showNsfwRooms')}
+        </label>
       </div>
       <div class="topic-chips">
           <button class="topic-chip active" type="button" data-action="refresh-explore">${t('forYou')}</button>
@@ -58,6 +88,7 @@ export function exploreView(
           const extra = speakers.length - shown.length;
           const talking = speakers.filter((user) => user.is_speaking).map((user) => user.name).filter(Boolean);
           const channelId = ch.channel || ch.channel_id;
+          const friendSpeaker = channelHasFriendSpeaker(ch.users);
           return html`
           <div class="room-card ${ch.visited ? 'is-visited' : ''}" ${access.canJoin ? html`data-action="join-room" data-channel-id="${channelId}"` : ''}>
             <div>
@@ -68,11 +99,13 @@ export function exploreView(
                   <span>🎙️ ${ch.num_speakers}</span>
                 </div>
               </div>
-              <div class="room-card-topic">${ch.topic}</div>
+              <div class="room-card-topic">${renderTopicTitle(ch.topic, hallway.keywords)}</div>
               ${privacyLine(ch)}
               ${ch.is_replay_enabled ? html`<div class="replay-note">${t('replayAvailable')}</div>` : ''}
               ${ch.is_active_trending_topic_channel ? html`<div class="replay-note">${t('trending')}</div>` : ''}
               ${ch.is_social_mode ? html`<div class="replay-note">${t('socialRoom')}</div>` : ''}
+              ${ch.is_nsfw ? html`<div class="replay-note">${t('showNsfwRooms')}</div>` : ''}
+              ${friendSpeaker ? html`<div class="replay-note">${t('friendsHere')}: ${friendSpeaker.name}★</div>` : ''}
             </div>
 
             <div>
@@ -82,7 +115,7 @@ export function exploreView(
                   ${extra > 0 ? html`<span class="room-card-more">${t('moreSpeakers', { count: extra })}</span>` : ''}
                 </div>
                 <div class="speaker-names-list">
-                  ${shown.map((user, index) => html`${index > 0 ? ', ' : ''}${user.name}${ch.creator_user_profile_id === user.user_id ? html` <span class="host-tag">${t('host')}</span>` : ''}`)}
+                  ${shown.map((user, index) => html`${index > 0 ? ', ' : ''}${speakerName(user)}${ch.creator_user_profile_id === user.user_id ? html` <span class="host-tag">${t('host')}</span>` : ''}`)}
                 </div>
               </div>
               ${talking.length > 0 ? html`<div class="room-card-speaking">${t('speakingNow', { names: talking.join(', ') })}</div>` : ''}

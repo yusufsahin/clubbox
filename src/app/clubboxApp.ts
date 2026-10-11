@@ -32,6 +32,8 @@ import { messagesView } from '../ui/views/messages';
 import { settingsView } from '../ui/views/settings';
 import { soundboardView } from '../ui/views/soundboard';
 import { chatList, emptyStageView, stageColumn, stageView } from '../ui/views/stage';
+import { readHallwayPrefs, type HallwayPrefs } from '../hallway/hallwayPrefs';
+import type { RecordingChapter } from '../studio/recordingChapters';
 
 interface ElectronAPI {
   isElectron: boolean;
@@ -195,6 +197,9 @@ export class ClubboxApp {
   private shortcuts: ShortcutMap = readShortcuts();
   private recordingShortcut: ShortcutAction | null = null;
   private editingSoundId: string | null = null;
+  hallwayPrefs: HallwayPrefs = readHallwayPrefs();
+  audienceSearchQuery = '';
+  recordingChapters: RecordingChapter[] = [];
 
   constructor() {
     installAvatarFallback();
@@ -883,6 +888,7 @@ export class ClubboxApp {
       moderator: this.isMeModerator(),
       ...controls,
       canFollow: clubhouseClient.evidence('follow') === 'observed',
+      audienceSearch: this.audienceSearchQuery,
     });
   }
 
@@ -900,10 +906,10 @@ export class ClubboxApp {
 
 
   private renderExploreView(): ReturnType<typeof html> {
-    return exploreView(this.channelsList, this.feedTopics, this.hallwayNotices(), {
+    return exploreView(this.displayedHallwayChannels(), this.feedTopics, this.hallwayNotices(), {
       canJoin: clubhouseClient.supports('join_channel'),
       canCreate: clubhouseClient.supports('create_channel'),
-    });
+    }, this.hallwayPrefs);
   }
 
 
@@ -1007,7 +1013,13 @@ export class ClubboxApp {
       const target = event.target as HTMLInputElement | null;
       if (!target) return;
       if (target.id === 'discover-query') {
+        this.discoverQuery = target.value;
         this.scheduleDiscoverSearch();
+        return;
+      }
+      if (target.id === 'audience-search') {
+        this.audienceSearchQuery = target.value;
+        this.renderStage();
         return;
       }
       if (target.id === 'soundpad-vol-slider') {
@@ -1052,6 +1064,8 @@ export class ClubboxApp {
         audioEngine.setOutputDevice(target.value);
       } else if (target.id === 'sound-name' || target.id === 'sound-icon' || target.id === 'sound-hotkey' || target.id === 'sound-loop' || target.id === 'sound-volume') {
         void this.commitSoundEdit(target);
+      } else if (target.id === 'hallway-show-nsfw') {
+        this.setHallwayShowNsfw(target.checked);
       } else if (target.id === 'sound-upload-input' && target.files?.[0]) {
         const file = target.files[0];
         void audioEngine.loadCustomAudioFile(file, file.name.split('.')[0]).then(() => {
@@ -1363,6 +1377,14 @@ export class ClubboxApp {
       case 'search-discover':
         void this.runDiscoverSearch();
         break;
+      case 'add-hallway-keyword':
+        this.addHallwayKeyword();
+        break;
+      case 'remove-hallway-keyword': {
+        const keyword = el.dataset.keyword;
+        if (keyword) this.removeHallwayKeyword(keyword);
+        break;
+      }
       case 'open-profile': {
         const uid = el.dataset.userId;
         const user = uid ? this.findKnownUser(uid) : undefined;

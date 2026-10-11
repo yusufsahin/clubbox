@@ -67,6 +67,7 @@ export interface CHChannel {
   privacy_tooltip?: string;
   visited?: boolean;
   is_replay_enabled?: boolean;
+  is_nsfw?: boolean;
   is_active_trending_topic_channel?: boolean;
   num_speakers: number;
   num_all: number;

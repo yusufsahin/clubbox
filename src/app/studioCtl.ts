@@ -28,6 +28,7 @@ import { messagesView } from '../ui/views/messages.ts';
 import { settingsView } from '../ui/views/settings.ts';
 import { soundboardView } from '../ui/views/soundboard.ts';
 import { chatList, emptyStageView, stageColumn, stageView } from '../ui/views/stage.ts';
+import { buildChapterFileContent, chapterFilename, type RecordingChapter } from '../studio/recordingChapters.ts';
 import type { ClubboxApp } from './clubboxApp.ts';
 
 const CHAT_POLL_MS = 15_000;
@@ -102,6 +103,21 @@ export function setupHotkeys(this: ClubboxApp) {
         e.preventDefault();
         audioEngine.stopAllSounds();
         this.showToast(t('soundsStopped'), 'ΓÅ╣');
+      } else if ((e.key === 't' || e.key === 'T') && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        if (!audioEngine.getIsRecording()) return;
+        const title = window.prompt(t('chapterTitlePrompt'));
+        if (!title?.trim()) return;
+        const chapters = this.recordingChapters as RecordingChapter[];
+        chapters.push({ atSec: this.recordDurationSec, title: title.trim() });
+      } else if ((e.key === 's' || e.key === 'S') && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        if (!this.currentChannel) return;
+        const field = document.getElementById('audience-search') as HTMLInputElement | null;
+        if (field) {
+          field.focus();
+          field.select();
+        }
       } else if (e.key === 'r' || e.key === 'R') {
         this.toggleRecording();
       } else if (e.key === 'c' || e.key === 'C') {
@@ -179,6 +195,7 @@ export function handleRecordingStateChange(this: ClubboxApp, isRecording: boolea
 
     if (isRecording) {
       recBtn?.classList.add('record-active');
+      this.recordingChapters = [];
       this.recordDurationSec = 0;
       this.recordTimerInterval = window.setInterval(() => {
         this.recordDurationSec++;
@@ -201,10 +218,19 @@ export function handleRecordingStateChange(this: ClubboxApp, isRecording: boolea
 
       if (blobUrl) {
         this.showToast(t('recordingReady'), '≡ƒÆ╛');
+        const recName = recordingFilename(this.currentChannel?.topic);
         const a = document.createElement('a');
         a.href = blobUrl;
-        a.download = recordingFilename(this.currentChannel?.topic);
+        a.download = recName;
         a.click();
+        const chapterBody = buildChapterFileContent(this.recordingChapters as RecordingChapter[]);
+        const chapterBlob = new Blob([chapterBody], { type: 'text/plain;charset=utf-8' });
+        const chapterUrl = URL.createObjectURL(chapterBlob);
+        const chapterLink = document.createElement('a');
+        chapterLink.href = chapterUrl;
+        chapterLink.download = chapterFilename(recName);
+        chapterLink.click();
+        window.setTimeout(() => URL.revokeObjectURL(chapterUrl), 1500);
       }
     }
   }

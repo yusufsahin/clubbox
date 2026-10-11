@@ -660,6 +660,7 @@ export async function leaveRoom(this: ClubboxApp, options: { silent?: boolean; e
 export function afterRoomExit(this: ClubboxApp, hadRoom: boolean, silent: boolean, ended: boolean) : void {
     this.currentTab = 'explore';
     this.chatOpen = true;
+    this.audienceSearchQuery = '';
     this.render();
     if (hadRoom && !silent) this.showToast(ended ? t('endedRoom') : t('leftRoom'), ended ? 'ΓÅ╣' : '≡ƒæï');
     if (!hadRoom) return;
