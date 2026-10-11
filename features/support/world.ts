@@ -185,6 +185,7 @@ export class ClubboxWorld extends World {
   openHouseSlug: string | null = null;
   houseAdmin = false;
   houseChatReadOnly = false;
+  houseThreadMessageId: string | null = null;
   icsExport = '';
   replayOpen = false;
   replayRates: number[] = [];

@@ -1178,6 +1178,20 @@ body {
   gap: 8px;
 }
 
+.house-chat-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.house-chat-thread {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+
 .replay-page .replay-audio {
   width: 100%;
   margin: 12px 0 16px;

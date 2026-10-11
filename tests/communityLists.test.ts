@@ -35,6 +35,7 @@ test('readHouseChatPayload maps messages and admin-only post', () => {
     can_post: true,
   });
   assert.equal(open.messages[0].text, 'hello');
+  assert.equal(open.messages[0].id, 'm1');
   assert.equal(open.canPost, true);
 
   const locked = readHouseChatPayload({
@@ -43,6 +44,16 @@ test('readHouseChatPayload maps messages and admin-only post', () => {
     is_admin: false,
   });
   assert.equal(locked.canPost, false);
+
+  const thread = readHouseChatPayload({
+    messages: [{
+      message_id: 'hm-1-r1',
+      message: 'Thread reply',
+      user_profile: { name: 'Ali' },
+    }],
+  });
+  assert.equal(thread.messages[0].id, 'hm-1-r1');
+  assert.equal(thread.messages[0].text, 'Thread reply');
 });
 
 test('readHouseMembersPayload maps members', () => {

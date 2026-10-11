@@ -1325,6 +1325,52 @@ export class ClubhouseApiClient {
     return this.call('send_social_club_message', { social_club_id: socialClubId, social_club_slug: slug, message });
   }
 
+  public async getSocialClubMessageThread(
+    socialClubId: number,
+    messageIdStr: string,
+  ): Promise<{ success: boolean; messages?: unknown[] }> {
+    return this.call('get_social_club_message_thread', {
+      social_club_id: socialClubId,
+      message_id_str: messageIdStr,
+    });
+  }
+
+  public async sendSocialClubThreadedMessage(
+    socialClubId: number,
+    messageIdStr: string,
+    message: string,
+  ): Promise<ApiAck> {
+    return this.call('send_social_club_threaded_message', {
+      social_club_id: socialClubId,
+      message_id_str: messageIdStr,
+      message,
+    });
+  }
+
+  public async sendSocialClubMessageEmojiReaction(
+    socialClubId: number,
+    messageId: string,
+    emojiId: string,
+    addReaction = true,
+  ): Promise<ApiAck> {
+    return this.call('send_social_club_message_emoji_reaction', {
+      social_club_id: socialClubId,
+      message_id: messageId,
+      add_reaction: addReaction,
+      emoji_id: emojiId,
+    });
+  }
+
+  public async updateLastReadSocialClubMessage(
+    socialClubId: number,
+    messageId: string,
+  ): Promise<ApiAck> {
+    return this.call('update_last_read_social_club_message', {
+      social_club_id: socialClubId,
+      message_id: messageId,
+    });
+  }
+
   public async getReplayChannel(channelId: string): Promise<{ success: boolean; replay?: unknown }> {
     return this.call('get_replay_channel', { channel: channelId });
   }

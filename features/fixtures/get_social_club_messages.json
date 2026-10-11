@@ -1,0 +1,12 @@
+{
+  "success": true,
+  "can_post": true,
+  "messages": [
+    {
+      "message_id": "hm-1",
+      "message": "Welcome to the house",
+      "user_profile": { "name": "Ayse", "username": "ayse" },
+      "time_created": "2026-10-11T12:00:00.000Z"
+    }
+  ]
+}

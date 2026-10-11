@@ -541,6 +541,22 @@ export class SandboxBackend {
       case 'send_social_club_message':
         return { success: true } as T;
 
+      case 'get_social_club_message_thread':
+        return {
+          success: true,
+          messages: [{
+            message_id: 'hm-1-r1',
+            message: 'Thread reply',
+            user_profile: { name: 'Ali', username: 'ali' },
+            time_created: new Date().toISOString(),
+          }],
+        } as T;
+
+      case 'send_social_club_threaded_message':
+      case 'send_social_club_message_emoji_reaction':
+      case 'update_last_read_social_club_message':
+        return { success: true } as T;
+
       case 'get_replay_channel':
         return {
           success: true,

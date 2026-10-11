@@ -101,6 +101,8 @@ export class ClubboxApp {
   houseChatOpen = false;
   houseChatMessages: HouseChatMessage[] | null = null;
   houseChatCanPost = false;
+  houseChatThreadId: string | null = null;
+  houseChatThreadMessages: HouseChatMessage[] | null = null;
   houseMembersOpen = false;
   houseMembers: HouseMemberItem[] | null = null;
   eventsList: EventListItem[] | null = null;
@@ -955,6 +957,12 @@ export class ClubboxApp {
         chatOpen: this.houseChatOpen,
         chatMessages: this.houseChatMessages,
         canPost: this.houseChatCanPost && clubhouseClient.supports('send_social_club_message'),
+        canThread: clubhouseClient.supports('get_social_club_message_thread'),
+        canReact: clubhouseClient.supports('send_social_club_message_emoji_reaction'),
+        canReplyThread: this.houseChatCanPost
+          && clubhouseClient.supports('send_social_club_threaded_message'),
+        threadId: this.houseChatThreadId,
+        threadMessages: this.houseChatThreadMessages,
         membersOpen: this.houseMembersOpen,
         members: this.houseMembers,
       });
@@ -1468,6 +1476,18 @@ export class ClubboxApp {
         break;
       case 'send-house-chat':
         void this.sendHouseChat(el.dataset.houseId, el.dataset.houseSlug);
+        break;
+      case 'open-house-thread':
+        void this.openHouseChatThread(el.dataset.houseId, el.dataset.messageId);
+        break;
+      case 'close-house-thread':
+        this.closeHouseChatThread();
+        break;
+      case 'send-house-thread':
+        void this.sendHouseChatThreadReply(el.dataset.houseId);
+        break;
+      case 'react-house-message':
+        void this.reactHouseChatMessage(el.dataset.houseId, el.dataset.messageId, el.dataset.emoji);
         break;
       case 'open-replay':
         void this.openReplay(el.dataset.replayId);

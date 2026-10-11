@@ -68,6 +68,14 @@ export function documentedBodyKeys(endpoint: string): string[] {
       return ['social_club_id', 'social_club_slug'];
     case 'send_social_club_message':
       return ['message', 'social_club_id', 'social_club_slug'];
+    case 'get_social_club_message_thread':
+      return ['message_id_str', 'social_club_id'];
+    case 'send_social_club_threaded_message':
+      return ['message', 'message_id_str', 'social_club_id'];
+    case 'send_social_club_message_emoji_reaction':
+      return ['add_reaction', 'emoji_id', 'message_id', 'social_club_id'];
+    case 'update_last_read_social_club_message':
+      return ['message_id', 'social_club_id'];
     default:
       return [];
   }
@@ -114,6 +122,14 @@ export function sampleParamsForDocumentedBody(endpoint: string): RequestBody {
       return { social_club_id: 1, social_club_slug: 'h1' };
     case 'send_social_club_message':
       return { social_club_id: 1, social_club_slug: 'h1', message: 'hello' };
+    case 'get_social_club_message_thread':
+      return { social_club_id: 1, message_id_str: 'hm-1' };
+    case 'send_social_club_threaded_message':
+      return { social_club_id: 1, message_id_str: 'hm-1', message: 'nice' };
+    case 'send_social_club_message_emoji_reaction':
+      return { social_club_id: 1, message_id: 'hm-1', add_reaction: true, emoji_id: '❤️' };
+    case 'update_last_read_social_club_message':
+      return { social_club_id: 1, message_id: 'hm-1' };
     case 'get_conversation_unread_summary':
       return { conversation_id: 'c1' };
     case 'update_conversation_title':

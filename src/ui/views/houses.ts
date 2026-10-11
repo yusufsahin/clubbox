@@ -11,9 +11,16 @@ export type HousesViewState = {
   chatOpen: boolean;
   chatMessages: HouseChatMessage[] | null;
   canPost: boolean;
+  canThread: boolean;
+  canReact: boolean;
+  canReplyThread: boolean;
+  threadId: string | null;
+  threadMessages: HouseChatMessage[] | null;
   membersOpen: boolean;
   members: HouseMemberItem[] | null;
 };
+
+const HOUSE_CHAT_REACTIONS = ['❤️', '👏', '🔥', '😂'] as const;
 
 function housePhoto(url: string): SafeHtml | string {
   const photo = safeUrl(url);
@@ -21,8 +28,43 @@ function housePhoto(url: string): SafeHtml | string {
   return html`<img class="house-list-avatar" src="${photo}" alt="" width="48" height="48" />`;
 }
 
+function houseMessageActions(
+  houseId: string,
+  msg: HouseChatMessage,
+  state: HousesViewState,
+): SafeHtml {
+  return html`
+    <div class="house-chat-actions">
+      ${state.canThread ? html`
+        <button
+          class="btn btn-secondary"
+          type="button"
+          data-action="open-house-thread"
+          data-house-id="${houseId}"
+          data-message-id="${msg.id}"
+        >${t('houseChatReplies')}</button>
+      ` : ''}
+      ${state.canReact ? html`
+        <div class="thread-react-pad" role="group" aria-label="${t('reactToSegment')}">
+          ${HOUSE_CHAT_REACTIONS.map((emoji) => html`
+            <button
+              class="btn btn-secondary reaction-btn"
+              type="button"
+              data-action="react-house-message"
+              data-house-id="${houseId}"
+              data-message-id="${msg.id}"
+              data-emoji="${emoji}"
+            >${emoji}</button>
+          `)}
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
 export function housesView(state: HousesViewState): SafeHtml {
   const items = state.items;
+  const houseId = state.open?.id ?? '';
   return html`
     <div class="list-page houses-page">
       <header class="activity-header">
@@ -103,6 +145,7 @@ export function housesView(state: HousesViewState): SafeHtml {
                     <div class="house-chat-row">
                       <div class="conversation-title">${msg.authorName || t('houseChat')}</div>
                       <div class="conversation-meta">${msg.text}</div>
+                      ${houseMessageActions(houseId, msg, state)}
                     </div>
                   `)}
                 </div>
@@ -115,6 +158,33 @@ export function housesView(state: HousesViewState): SafeHtml {
               ` : html`
                 <p class="list-note">${t('houseChatAdminsOnly')}</p>
               `}
+
+              ${state.threadId ? html`
+                <div class="house-chat-thread">
+                  <div class="house-chat-header">
+                    <strong>${t('houseChatThread')}</strong>
+                    <button class="btn btn-secondary" type="button" data-action="close-house-thread">${t('close')}</button>
+                  </div>
+                  ${state.threadMessages == null ? html`<p class="list-empty">${t('listLoading')}</p>` : state.threadMessages.length === 0 ? html`
+                    <p class="list-empty">${t('houseChatThreadEmpty')}</p>
+                  ` : html`
+                    <div class="house-chat-messages">
+                      ${state.threadMessages.map((msg) => html`
+                        <div class="house-chat-row">
+                          <div class="conversation-title">${msg.authorName || t('houseChat')}</div>
+                          <div class="conversation-meta">${msg.text}</div>
+                        </div>
+                      `)}
+                    </div>
+                  `}
+                  ${state.canReplyThread ? html`
+                    <div class="house-chat-compose">
+                      <input class="form-input" id="house-thread-input" placeholder="${t('houseChatThreadPlaceholder')}" />
+                      <button class="btn btn-primary" type="button" data-action="send-house-thread" data-house-id="${state.open.id}">${t('send')}</button>
+                    </div>
+                  ` : ''}
+                </div>
+              ` : ''}
             </div>
           ` : ''}
         </section>

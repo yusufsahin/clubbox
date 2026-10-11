@@ -26,13 +26,37 @@ When('I open the members of the house {string}', async function (this: ClubboxWo
 
 When('I open the chat of the house {string}', async function (this: ClubboxWorld, slug: string) {
   this.openHouseSlug = slug;
-  await this.client.getSocialClubMessages(1, slug);
+  const res = await this.client.getSocialClubMessages(1, slug);
+  const messages = Array.isArray((res as { messages?: unknown[] }).messages)
+    ? (res as { messages: Array<{ message_id?: string }> }).messages
+    : [];
+  const lastId = messages.map((m) => m.message_id).find((id): id is string => Boolean(id));
+  if (lastId) {
+    await this.client.updateLastReadSocialClubMessage(1, lastId);
+  }
 });
 
 When('I post {string} and I am allowed to post', async function (this: ClubboxWorld, message: string) {
   assert.ok(this.openHouseSlug);
   await this.client.sendSocialClubMessage(1, this.openHouseSlug, message);
 });
+
+When('I open the thread for house message {string}', async function (this: ClubboxWorld, messageId: string) {
+  this.houseThreadMessageId = messageId;
+  await this.client.getSocialClubMessageThread(1, messageId);
+});
+
+When('I reply in the house thread with {string}', async function (this: ClubboxWorld, message: string) {
+  assert.ok(this.houseThreadMessageId);
+  await this.client.sendSocialClubThreadedMessage(1, this.houseThreadMessageId, message);
+});
+
+When(
+  'I react to house message {string} with {string}',
+  async function (this: ClubboxWorld, messageId: string, emoji: string) {
+    await this.client.sendSocialClubMessageEmojiReaction(1, messageId, emoji);
+  },
+);
 
 Then('when I am not allowed to post the input says {string}', function (this: ClubboxWorld, message: string) {
   this.houseChatReadOnly = true;

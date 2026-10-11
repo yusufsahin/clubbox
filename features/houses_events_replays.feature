@@ -28,6 +28,17 @@ Feature: Houses, events and replays
     Then a "POST /web_api/send_social_club_message" request is sent with the documented body keys
     And when I am not allowed to post the input says "Only admins and leaders can post"
 
+  @bundle @SO-6
+  Scenario: House chat thread, react and mark read
+    When I open the chat of the house "h1"
+    Then a "POST /web_api/update_last_read_social_club_message" request is sent with the documented body keys
+    When I open the thread for house message "hm-1"
+    Then a "POST /web_api/get_social_club_message_thread" request is sent with the documented body keys
+    When I reply in the house thread with "nice"
+    Then a "POST /web_api/send_social_club_threaded_message" request is sent with the documented body keys
+    When I react to house message "hm-1" with "❤️"
+    Then a "POST /web_api/send_social_club_message_emoji_reaction" request is sent with the documented body keys
+
   @observed @SO-6
   Scenario: Host a room in a house
     Given I am an admin of the house "h1"

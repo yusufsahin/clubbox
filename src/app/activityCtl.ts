@@ -78,6 +78,8 @@ export async function openHouse(this: ClubboxApp, slug: string | undefined): Pro
       this.houseChatOpen = false;
       this.houseChatMessages = null;
       this.houseChatCanPost = false;
+      this.houseChatThreadId = null;
+      this.houseChatThreadMessages = null;
       this.houseMembersOpen = false;
       this.houseMembers = null;
       this.selectedHouse = null;
@@ -92,6 +94,8 @@ export async function openHouse(this: ClubboxApp, slug: string | undefined): Pro
         this.houseChatOpen = false;
         this.houseChatMessages = null;
         this.houseChatCanPost = false;
+        this.houseChatThreadId = null;
+        this.houseChatThreadMessages = null;
         this.houseMembersOpen = false;
         this.houseMembers = null;
       }
@@ -106,6 +110,8 @@ export async function loadHouseMembers(this: ClubboxApp, houseIdRaw: string | un
     if (!Number.isFinite(houseId)) return;
     this.houseChatOpen = false;
     this.houseChatMessages = null;
+    this.houseChatThreadId = null;
+    this.houseChatThreadMessages = null;
     this.houseMembersOpen = true;
     this.houseMembers = null;
     if (this.currentTab === 'houses') this.render();
@@ -133,12 +139,22 @@ export async function loadHouseChat(this: ClubboxApp, houseIdRaw: string | undef
     this.houseMembers = null;
     this.houseChatOpen = true;
     this.houseChatMessages = null;
+    this.houseChatThreadId = null;
+    this.houseChatThreadMessages = null;
     if (this.currentTab === 'houses') this.render();
     try {
       const res = await clubhouseClient.getSocialClubMessages(houseId, slug);
       const chat = readHouseChatPayload(res);
       this.houseChatMessages = chat.messages;
       this.houseChatCanPost = chat.canPost;
+      const lastId = chat.messages[chat.messages.length - 1]?.id;
+      if (lastId && clubhouseClient.supports('update_last_read_social_club_message')) {
+        try {
+          await clubhouseClient.updateLastReadSocialClubMessage(houseId, lastId);
+        } catch (err) {
+          this.reportApiError(err);
+        }
+      }
     } catch (err) {
       this.houseChatMessages = [];
       this.houseChatCanPost = false;
@@ -151,6 +167,8 @@ export function closeHouseChat(this: ClubboxApp): void {
     this.houseChatOpen = false;
     this.houseChatMessages = null;
     this.houseChatCanPost = false;
+    this.houseChatThreadId = null;
+    this.houseChatThreadMessages = null;
     if (this.currentTab === 'houses') this.render();
   }
 
@@ -169,6 +187,74 @@ export async function sendHouseChat(this: ClubboxApp, houseIdRaw: string | undef
       this.reportApiError(err);
     }
   }
+
+export async function openHouseChatThread(
+  this: ClubboxApp,
+  houseIdRaw: string | undefined,
+  messageId: string | undefined,
+): Promise<void> {
+  if (!messageId || !clubhouseClient.supports('get_social_club_message_thread')) return;
+  const houseId = Number(houseIdRaw);
+  if (!Number.isFinite(houseId)) return;
+  this.houseChatThreadId = messageId;
+  this.houseChatThreadMessages = null;
+  if (this.currentTab === 'houses') this.render();
+  try {
+    const res = await clubhouseClient.getSocialClubMessageThread(houseId, messageId);
+    this.houseChatThreadMessages = readHouseChatPayload(res).messages;
+  } catch (err) {
+    this.houseChatThreadMessages = [];
+    this.reportApiError(err);
+  }
+  if (this.currentTab === 'houses') this.render();
+}
+
+export function closeHouseChatThread(this: ClubboxApp): void {
+  this.houseChatThreadId = null;
+  this.houseChatThreadMessages = null;
+  if (this.currentTab === 'houses') this.render();
+}
+
+export async function sendHouseChatThreadReply(
+  this: ClubboxApp,
+  houseIdRaw: string | undefined,
+): Promise<void> {
+  const messageId = this.houseChatThreadId;
+  if (!messageId || !this.houseChatCanPost || !clubhouseClient.supports('send_social_club_threaded_message')) {
+    return;
+  }
+  const houseId = Number(houseIdRaw);
+  if (!Number.isFinite(houseId)) return;
+  const input = document.getElementById('house-thread-input') as HTMLInputElement | null;
+  const message = input?.value.trim() || '';
+  if (!message) return;
+  try {
+    await clubhouseClient.sendSocialClubThreadedMessage(houseId, messageId, message);
+    if (input) input.value = '';
+    await this.openHouseChatThread(String(houseId), messageId);
+  } catch (err) {
+    this.reportApiError(err);
+  }
+}
+
+export async function reactHouseChatMessage(
+  this: ClubboxApp,
+  houseIdRaw: string | undefined,
+  messageId: string | undefined,
+  emoji: string | undefined,
+): Promise<void> {
+  if (!messageId || !emoji || !clubhouseClient.supports('send_social_club_message_emoji_reaction')) {
+    return;
+  }
+  const houseId = Number(houseIdRaw);
+  if (!Number.isFinite(houseId)) return;
+  try {
+    await clubhouseClient.sendSocialClubMessageEmojiReaction(houseId, messageId, emoji);
+    this.showToast(t('reactionSent'), emoji);
+  } catch (err) {
+    this.reportApiError(err);
+  }
+}
 
 export async function loadEvents(this: ClubboxApp): Promise<void> {
     if (!clubhouseClient.supports('get_events')) {
@@ -272,6 +358,10 @@ export function wireActivityCtl(proto: ClubboxApp): void {
   proto.loadHouseChat = loadHouseChat;
   proto.closeHouseChat = closeHouseChat;
   proto.sendHouseChat = sendHouseChat;
+  proto.openHouseChatThread = openHouseChatThread;
+  proto.closeHouseChatThread = closeHouseChatThread;
+  proto.sendHouseChatThreadReply = sendHouseChatThreadReply;
+  proto.reactHouseChatMessage = reactHouseChatMessage;
   proto.loadEvents = loadEvents;
   proto.downloadEventIcs = downloadEventIcs;
   proto.startActivityRefresh = startActivityRefresh;
