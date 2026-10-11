@@ -14,8 +14,8 @@ Do these before continuing the Autonomous plan, then tick them:
 ### Last autonomous run (2026-10-11)
 
 - Autonomous plan already **Done** through **11.8 (strict)**; triage **NO NEW FAILURES**.
-- Done: Discover→Messages shows a loading thread panel while the inbox row is still missing (no false “Select a conversation”).
-- Tests: unit 128 pass · BDD 123 scenarios / 717 steps · trace strict 0 errors · lint + build green.
+- Done this pass: none — recent Discover/Messages polish verified; no further clear local bugs without inventing endpoint bodies.
+- Prior polish still in tree (`a8419e3` pending thread pane, `4b213a4` immediate open + race guard).
 - **Stopped:** no further shippable product work without inventing endpoint bodies or owner capture.
 - Blocked: owner live room capture (0.9 S1–S3); topic-chip **server** `get_feed_v3` body; conversation delete/title + unread-summary body; replay chunk; `gif_reaction` body; unfollow omitted from web routes (capture needed).
 - Still @pending: ST-9 deferred; room_host DX-1/DX-3.
