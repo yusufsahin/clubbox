@@ -2,6 +2,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
   isElectron: true,
+  forceSandbox: process.env.CLUBBOX_FORCE_SANDBOX === '1',
   platform: process.platform,
   version: process.versions.electron,
   request: (endpoint, body, headers) => ipcRenderer.invoke('ch:request', { endpoint, body, headers }),
@@ -25,6 +26,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('clubbox:agora-app-id', listener);
   },
   clearWebSession: () => ipcRenderer.invoke('clubbox:clear-web-session'),
+  setZoomFactor: (factor) => ipcRenderer.invoke('clubbox:set-zoom', factor),
+  showDesktopNotification: (payload) => ipcRenderer.invoke('clubbox:desktop-notification', payload),
   appendApiLog: (record) => ipcRenderer.invoke('clubbox:api-log-append', record),
   pubnubSubscribe: (params) => ipcRenderer.invoke('clubbox:pubnub-subscribe', params),
   pubnubResubscribe: () => ipcRenderer.invoke('clubbox:pubnub-resubscribe'),

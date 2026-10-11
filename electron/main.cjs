@@ -1,4 +1,4 @@
-const { app, BrowserWindow, session, ipcMain, globalShortcut, shell } = require('electron');
+const { app, BrowserWindow, session, ipcMain, globalShortcut, shell, Notification } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -16,6 +16,9 @@ const CH_WEB_APP_VERSION = '22.2.0';
 app.setName('Clubbox');
 if (process.platform === 'win32') {
   app.setAppUserModelId('app.clubbox.desktop');
+}
+if (process.env.CLUBBOX_USER_DATA) {
+  app.setPath('userData', process.env.CLUBBOX_USER_DATA);
 }
 
 // Chromium renames Cache to old_Cache_* on startup. On Windows that rename
@@ -270,6 +273,28 @@ ipcMain.handle('clubbox:shortcuts-set', (event, shortcuts) => {
 ipcMain.handle('clubbox:open-signin', (event) => {
   if (!isTrustedSender(event)) return { ok: false };
   openOfficialSignIn();
+  return { ok: true };
+});
+
+ipcMain.handle('clubbox:set-zoom', (event, factor) => {
+  if (!isTrustedSender(event)) return { ok: false };
+  const value = typeof factor === 'number' && Number.isFinite(factor) ? factor : 1;
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.setZoomFactor(Math.max(0.5, Math.min(2, value)));
+  }
+  return { ok: true };
+});
+
+ipcMain.handle('clubbox:desktop-notification', (event, payload) => {
+  if (!isTrustedSender(event)) return { ok: false };
+  if (!Notification.isSupported()) return { ok: false };
+  const title = payload && typeof payload.title === 'string' ? payload.title : 'Clubbox';
+  const body = payload && typeof payload.body === 'string' ? payload.body : '';
+  const note = new Notification({ title, body });
+  note.on('click', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.show();
+  });
+  note.show();
   return { ok: true };
 });
 

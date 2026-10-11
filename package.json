@@ -20,6 +20,8 @@
     "test:unit": "node --test electron/redact.test.cjs electron/apiRecorderFailure.test.cjs electron/ipcGuard.test.cjs electron/bundleScan.test.cjs electron/bundleCrawler.test.cjs electron/apiLog.test.cjs && node --import tsx --test tests/*.test.ts",
     "test:bdd": "node --import tsx ./node_modules/@cucumber/cucumber/bin/cucumber.js --tags \"not @pending\"",
     "test:trace": "node scripts/trace.mjs",
+    "test:e2e": "npm run build && playwright test -g \"sandbox dev\"",
+    "test:e2e:packaged": "npm run dist && playwright test -g \"win-unpacked\"",
     "test": "npm run test:unit && npm run test:bdd && npm run test:trace",
     "test:redact": "npm run test:unit",
     "lint": "eslint . && npm run api:check",
@@ -75,6 +77,7 @@
   "devDependencies": {
     "@cucumber/cucumber": "^13.3.0",
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.55.0",
     "@resvg/resvg-js": "^2.6.2",
     "@types/jsdom": "^30.0.0",
     "electron": "^44.7.0",
