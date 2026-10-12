@@ -35,6 +35,7 @@ function details(quality: RoomDetailsState['audioQuality'], externalActive: bool
     voiceEffect: 'none',
     voiceEffectOptions: [{ id: 'none', label: 'None' }],
     spatialAudio: false,
+    micVolume: 1,
     canMuteAll: false,
     canShare: false,
     canModerate: false,
@@ -45,6 +46,7 @@ function details(quality: RoomDetailsState['audioQuality'], externalActive: bool
     canHandraise: false,
     visibilityMode: 'open',
     handraiseMode: '1',
+    audienceSearch: '',
     helpUrl: 'https://support.clubhouse.com/hc/en-us/articles/360059385913',
     showExternalAudio: true,
     externalDevices: [],
@@ -67,6 +69,8 @@ test('room details select keeps High selected', () => {
   assert.doesNotMatch(markup, /value="normal" selected/);
   assert.doesNotMatch(markup, /value="music" selected/);
   assert.doesNotMatch(markup, /data-quality="music"/);
+  assert.match(markup, /data-action="preview-voice-effect"/);
+  assert.match(markup, /data-action="apply-voice-effect"/);
 });
 
 test('normal quality with external audio offers a one-tap music switch', () => {
