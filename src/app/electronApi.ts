@@ -15,6 +15,12 @@ export type ElectronAPI = {
   hideEmbeddedSignIn?: () => Promise<{ ok: boolean }>;
   setEmbeddedSignInBounds?: (bounds?: { x: number; y: number; width: number; height: number }) => Promise<{ ok: boolean }>;
   hasWebSession?: () => Promise<{ ok: boolean; hasSession?: boolean; authReady?: boolean }>;
+  /** Phase 27 — allow-listed moderation on clubhouseapi.com (web-session cookies + CSRF). */
+  mobileCall?: (
+    endpoint: string,
+    body?: Record<string, unknown>,
+  ) => Promise<{ ok: boolean; status: number; body: string }>;
+  mobileAuthStatus?: () => Promise<{ linked: boolean; mode?: string; userIdMatchesWeb?: boolean }>;
   onWebSessionMaybe?: (callback: () => void) => void;
   onSignInProgress?: (callback: (payload: { step?: string }) => void) => () => void;
   onAgoraAppId?: (callback: (appId: string) => void) => () => void;

@@ -6,7 +6,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   platform: process.platform,
   version: process.versions.electron,
   request: (endpoint, body, headers) => ipcRenderer.invoke('ch:request', { endpoint, body, headers }),
+  /** Phase 27 — allow-listed moderation on clubhouseapi.com (web session cookies + CSRF). */
+  mobileCall: (endpoint, body) => ipcRenderer.invoke('clubbox:mobile-call', { endpoint, body }),
+  mobileAuthStatus: () => ipcRenderer.invoke('clubbox:mobile-auth-status'),
   getGlobalShortcuts: () => ipcRenderer.invoke('clubbox:shortcuts-get'),
+
   setGlobalShortcuts: (shortcuts) => ipcRenderer.invoke('clubbox:shortcuts-set', shortcuts),
   onGlobalShortcut: (callback) => {
     const listener = (_event, action) => callback(action);

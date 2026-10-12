@@ -1,0 +1,84 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const {
+  ALLOWED_MOBILE_ENDPOINTS,
+  isAllowedMobileEndpoint,
+  mobileAuthHeadersFromCookies,
+  callMobileApi,
+  MOBILE_API_BASE,
+} = require('./mobileApi.cjs');
+
+test('mobile allow-list only accepts the seven moderation endpoints', () => {
+  assert.deepEqual(ALLOWED_MOBILE_ENDPOINTS.slice().sort(), [
+    'block_from_channel',
+    'change_handraise_settings',
+    'end_channel',
+    'invite_speaker',
+    'make_moderator',
+    'mute_speaker',
+    'uninvite_speaker',
+  ]);
+  assert.equal(isAllowedMobileEndpoint('mute_speaker'), true);
+  assert.equal(isAllowedMobileEndpoint('get_profile'), false);
+  assert.equal(isAllowedMobileEndpoint('me'), false);
+  assert.equal(isAllowedMobileEndpoint('../mute_speaker'), false);
+});
+
+test('mobile auth headers use cookie + csrf like the 200 probe variant', () => {
+  const headers = mobileAuthHeadersFromCookies(
+    [
+      { name: 'sessionid', value: 'secret-session' },
+      { name: 'csrftoken', value: 'secret-csrf' },
+    ],
+    { userAgent: 'TestUA' },
+  );
+  assert.equal(headers.Origin, 'https://www.clubhouse.com');
+  assert.equal(headers.Referer, 'https://www.clubhouse.com/home');
+  assert.equal(headers['User-Agent'], 'TestUA');
+  assert.equal(headers.Cookie, 'sessionid=secret-session; csrftoken=secret-csrf');
+  assert.equal(headers['X-CSRFToken'], 'secret-csrf');
+  assert.equal(headers['Content-Type'], 'application/json; charset=utf-8');
+});
+
+test('callMobileApi refuses non-allow-listed endpoints without fetch', async () => {
+  let fetched = false;
+  const result = await callMobileApi({
+    fetchFn: async () => {
+      fetched = true;
+      return { ok: true, status: 200, text: async () => '{}' };
+    },
+    endpoint: 'get_profile',
+    body: {},
+    cookies: [],
+    userAgent: 'TestUA',
+  });
+  assert.equal(fetched, false);
+  assert.equal(result.ok, false);
+  assert.equal(result.status, 0);
+  assert.match(result.body, /not allowed/i);
+});
+
+test('callMobileApi posts to clubhouseapi.com/api/<endpoint>', async () => {
+  /** @type {{ url: string, init: RequestInit } | null} */
+  let seen = null;
+  const result = await callMobileApi({
+    fetchFn: async (url, init) => {
+      seen = { url, init };
+      return {
+        ok: true,
+        status: 200,
+        text: async () => JSON.stringify({ success: true }),
+      };
+    },
+    endpoint: 'mute_speaker',
+    body: { channel: 'abc', user_id: 9 },
+    cookies: [{ name: 'csrftoken', value: 'tok' }],
+    userAgent: 'TestUA',
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.status, 200);
+  assert.equal(seen?.url, `${MOBILE_API_BASE}/mute_speaker`);
+  assert.equal(seen?.init?.method, 'POST');
+  assert.equal(seen?.init?.body, JSON.stringify({ channel: 'abc', user_id: 9 }));
+  assert.equal(seen?.init?.headers?.['X-CSRFToken'], 'tok');
+});

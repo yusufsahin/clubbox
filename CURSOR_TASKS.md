@@ -17,7 +17,13 @@ Owner reported: triage noise, new-room participants invisible, moderation action
 
 Idle recheck after 24.7.
 
-### Last autonomous run (2026-10-12 — demote stops adopted mic)
+### Last autonomous run (2026-10-12 — Phase 27.1 reduced mobile API)
+
+- Probe 27.0b: web session + cookie/csrf → 200 on clubhouseapi.com; SMS linking skipped (27.1 token / 27.3 N/A).
+- `electron/mobileApi.cjs` allow-list + `clubbox:mobile-call` / `mobile-auth-status` (linked = web session).
+- Next: 27.2 route moderation. **Not doing 27.4.** ST-9 `@deferred`; ACC-1 open.
+
+### Previous last autonomous run (2026-10-12 — demote stops adopted mic)
 
 - `demoteToAudience` calls `audioEngine.stopMicrophone()` after unpublish (leave parity); Details refreshes on demote.
 - Prior: demoteLocalSpeaker shared path + Hear myself sync.
@@ -54,6 +60,7 @@ Legend: **Uygulandı** = code is in the tree. **Canlı doğrulandı** = exercise
 | 0a | **Phase 23 Live room audio (Agora)** — DNS -105 is a red herring; real join error not yet visible; web vs native SDK decision gate at 23.3 | **Web path** — 23.1–23.5 done on `phase-23-24-agora`; native 23.6+ deferred |
 | 0b | **Phase 24 Agora feature completeness** — broadcast mix, reconnect + quality, token lifecycle, device hot-swap, speaking rings, lifecycle, AI noise suppression | **Closed** — 24.1–24.7 done (AI denoiser + CSP/WASM); e2e green |
 | 0c | **Phase 25 Room exit and mic state** — leave_channel on close/quit/Ctrl+C + crash recovery, mute badge/state sync, AI denoiser init bug, log hygiene | **Closed** — 25.1–25.4 done. 25.5 moved to Phase 26 |
+| 0e | **Phase 27 Host tools via mobile API** — end room, invite to stage, mute, move to audience, remove from room; web API has none of these (404 / not in bundle) | **In progress** — 27.0b probe 200 (web session + cookie/csrf); SMS skipped; 27.1 reduced allow-list IPC; 27.2 next |
 | 0d | **Phase 26 Studio audio routing** — VB-Cable / Voicemeeter (Clubdeck parity): device classification, working quality levels, mixer-as-mic, loop guard, setup wizard, capture truth, live test matrix | **Code done** — 26.1–26.6 + mid-room `applyMicDevice` harden. **26.7 owner live matrix** still open |
 | 1 | **0.7 Review fixes (2026-10-11 #2)** — navigation guard, packaged recorder, clip worklet path, auto-armed clip buffer, 429/visibility, CORS proxy token leak | Uygulandı |
 | 1b | **0.8 Followers / following / friends lists** — bundle scan + labeled UI hunt; live UI uses only counts + mutual lists | Uygulandı for counts, mutual names, and chat people. The public web bundle does not contain get_followers, get_following, or get_online_friends. get_friend_zone_match and get_social_club_members are in-bundle and not called. The labeled click-through still needs a signed-in session. |
@@ -925,4 +932,133 @@ Acceptance (Phase 26): all rows pass or are marked n/a with a reason; unit tests
 Sources: clubdeck.app (features + release notes), Clubdeck Reference Manual (clubdeck.app/assets/
 Clubdeck_Reference_Manual.pdf, "Audio settings" + "Audio effects"), vowe.net/2022/01/02/mixing-voice-and-music-for-
 clubdeck-in-software/, VB-Audio VB-CABLE reference manual + forum (stereo format), Agora rtc-sdk_en.d.ts presets.
+```
+
+## Phase 27 — Host tools that actually work: mobile API transport for moderation
+
+```text
+Owner report 2026-10-12: as moderator I still cannot (1) end the room for everyone, (2) bring a listener up to the
+stage, (3) mute a speaker, (4) move a speaker down to the audience, (5) remove someone from the room. "Bunları mutlaka
+yapabilmeliyiz."
+
+Diagnosis (Claude Code, 2026-10-12; evidence, not guesses):
+1. The UI is wired. src/app/roomCtl.ts:319 inviteSpeaker, :343-346 mute / block / uninvite, :1160 endChannel;
+   stage.ts has data-mod-action mute / audience / block / moderator. Every call goes to the web session transport
+   (client.ts transport() → 'web-session' → https://www.clubhouse.com/web_api/<name>).
+2. The Clubhouse WEB API has no host endpoints. Owner api-log (%APPDATA%/Clubbox/api-log/*.jsonl):
+   end_channel → 404 "Not found" ×3, make_moderator → 404 ×3. invite_speaker / mute_speaker / uninvite_speaker /
+   block_from_channel were never accepted either (all "community" evidence in electron/webApiRoutes.json).
+   The current clubhouse.com bundle (bundle-cache yxtvL3q3kYoTq_mA4knuv, 57 /web_api paths) contains NONE of
+   end_channel, mute_speaker, invite_speaker, uninvite_speaker, block_from_channel, make_moderator. The web client
+   simply cannot moderate. No amount of UI work on /web_api will fix this.
+3. Clubdeck (installed on the owner's PC, v2.6.5, %LOCALAPPDATA%/Programs/Clubdeck/resources/app.asar) does these
+   actions through the MOBILE API: base "https://www.clubhouseapi.com/api", paths '/end_channel', '/mute_speaker',
+   '/invite_speaker', '/uninvite_speaker', '/block_from_channel', '/make_moderator', '/change_handraise_settings',
+   auth via '/start_phone_number_auth' + '/complete_phone_number_auth' ("requestMobileAuth"). Its UI has
+   "Move to audience" (action 'mute_and_move_to_audience' = mute_speaker then uninvite_speaker) and "End room".
+4. Body shapes (stypr/clubhouse-py, clubhouse/clubhouse.py, master; same base URL):
+     end_channel          { channel, channel_id }
+     invite_speaker       { channel, user_id:int }      (listener → stage invite; user must accept)
+     uninvite_speaker     { channel, user_id:int }      (speaker → audience)
+     mute_speaker         { channel, user_id:int }      (host can mute, never unmute others)
+     block_from_channel   { channel, user_id:int }      (remove from room)
+     make_moderator       { channel, user_id:int }
+     accept_speaker_invite{ channel, user_id:int }
+   Auth headers: Authorization "Token <user_token>", CH-UserID, CH-DeviceId, CH-AppVersion, CH-AppBuild,
+   CH-Languages, CH-Locale, User-Agent. Phone auth: start_phone_number_auth { phone_number } →
+   complete_phone_number_auth { phone_number, verification_code } → { auth_token, user_profile.user_id }.
+   clubhouse-py is from 2021; header/version values may be stale — the spike (27.0) decides what works today.
+
+Design: hybrid transport. Everything stays on the web session EXCEPT moderation endpoints, which use a "mobile"
+transport when the owner has linked host tools. Never mix identities: the mobile token must belong to the same
+user_id as the web session (check after sign-in; refuse otherwise).
+Risks to state in the UI and PR: unofficial API, may break on any Clubhouse release; account-level risk is the
+owner's decision (CURSOR_TASKS 0.6 Community Guidelines). A mobile sign-in may create a new device session — the
+spike must check that the owner's phone app stays signed in.
+```
+
+### Task 27.0 — Spike: prove the mobile API works today (STOP and report before 27.1)
+
+```text
+0. Already proven (Claude Code, 2026-10-12, unauthenticated POST with body {}): https://www.clubhouseapi.com/api/
+   end_channel, mute_speaker, invite_speaker, uninvite_speaker, block_from_channel, make_moderator all answer
+   401 {"detail":"Authentication credentials were not provided."}; a made-up endpoint answers 404. The mobile API and
+   these endpoints are live. (/api/me answered 503 "Application temporarily unavailable" — do not use it as a probe.)
+0b. Cheapest path first — does the existing WEB session authenticate on the mobile API? (Django REST error text
+   suggests it may accept session auth.) Add a dev-only main-process probe behind env CLUBBOX_PROBE_MOBILE=1 that,
+   inside the running app's own defaultSession, POSTs READ-ONLY calls to https://www.clubhouseapi.com/api/get_profile
+   { user_id: <me> } and /api/get_channels {} with (a) the clubhouse.com cookies as a Cookie header, (b) the same plus
+   X-CSRFToken + Origin/Referer https://www.clubhouse.com. Log status + response KEYS only, never cookie/csrf values.
+   If either variant returns 200 with profile keys → moderation can use the web session; skip SMS linking (27.1
+   token storage and 27.3 become unnecessary; keep the allow-list IPC). If 401/403 → continue with step 1.
+1. Owner check first (ask in the summary, do not automate): in Clubdeck 2.6.5 as moderator of a test room, try End
+   room, Mute, Move to audience, Invite to speak, Remove from room. If Clubdeck itself fails → STOP and report: the
+   mobile API route is closed too, Phase 27 is blocked.
+2. Dev-only script scripts/mobile-api-spike.mjs (never shipped, never run by the app): phone auth with SMS
+   (normalize TR numbers: strip the trunk 0 → +905…, see memory note "clubhouse-tr-trunk-zero"), then call `me` or
+   get_profile and ONE harmless moderation call in the owner's own empty test room (mute_speaker on a second test
+   account, or end_channel on a throwaway room). Print status codes and response KEYS only; never print tokens.
+3. Record in docs/api/mobile-api.md: base URL, headers that were required, app version/build values that worked,
+   status/shape of each call, whether the phone app stayed signed in.
+Acceptance: a written yes/no with evidence. If no → mark Phase 27 blocked in Status and stop.
+```
+
+### Task 27.1 — Mobile transport in the main process (token never reaches the renderer)
+
+```text
+1. electron/mobileApi.cjs: fetch to https://www.clubhouseapi.com/api/<endpoint> with the headers proven in 27.0.
+   Device id: one random UUID per install, stored in userData. App version/build: config values from 27.0 (not
+   hard-coded in many places).
+2. Token storage: Electron safeStorage.encryptString → userData/mobile-auth.bin { token, userId }. Never sent to the
+   renderer, never logged, never in api-log (redactor must cover "Authorization" / "auth_token" / "Token ").
+3. IPC: clubbox:mobile-auth-start { phone }, clubbox:mobile-auth-complete { phone, code }, clubbox:mobile-auth-status
+   → { linked, userIdMatchesWeb }, clubbox:mobile-auth-unlink, clubbox:mobile-call { endpoint, body } with an
+   ALLOW-LIST: end_channel, invite_speaker, uninvite_speaker, mute_speaker, block_from_channel, make_moderator,
+   change_handraise_settings. Anything else → refused.
+4. 401/403 from mobile → mark unlinked, emit to renderer "host tools sign-in expired".
+5. Tests: allow-list refusal, redaction of token in logs, unlink deletes the file.
+```
+
+### Task 27.2 — Route moderation endpoints through it
+
+```text
+1. webApiRoutes.json: add "transport": "mobile" + "mobilePath" for the seven endpoints; evidence "mobile-spike"
+   after 27.0. capabilities.ts: supports(endpoint) is true only when the mobile link is active (status from 27.1).
+2. client.ts: call() picks the mobile IPC for those endpoints; bodies exactly as in Diagnosis 4 (user_id as int,
+   end_channel sends both channel and channel_id).
+3. Move to audience = mute_speaker then uninvite_speaker (Clubdeck 'mute_and_move_to_audience'); show one action
+   "Move to audience" in the speaker menu.
+4. End room: sole or any moderator → end_channel; on success leave locally with skipServer (roomCtl.leaveRoom
+   end_then_local path already exists). Confirm dialog stays.
+5. Invite to speak: invite_speaker; the listener sees the invite (existing speaker-invite UI) and joins the stage via
+   accept path / become_speaker on web. Raised-hand list gets an "Invite" button per user.
+6. Remove from room: block_from_channel with a confirm ("They cannot rejoin this room").
+7. Optimistic UI only after 2xx; on error show the real reason (not a generic toast). PubNub events
+   (remove_from_channel, add_speaker, uninvite…) remain the source of truth for the stage.
+8. Tests (sandbox transport + fake mobile IPC): each action calls the right endpoint with the right body; actions are
+   hidden or disabled with "Link host tools" when the mobile link is absent; End room leaves locally after success.
+```
+
+### Task 27.3 — Settings › Account › "Host tools (phone sign-in)"
+
+```text
+1. Card with status (Linked as @username / Not linked), "Link with SMS" (phone input with TR trunk-zero fix, code
+   input, resend), "Unlink". Plain warning text: unofficial Clubhouse mobile API, may stop working, your choice.
+2. After linking: compare mobile user_id with the web session `me`; mismatch → unlink immediately with an error.
+3. In the room, when a moderator opens a speaker/listener menu and host tools are not linked, the actions show a
+   single "Link host tools to mute / move / remove" entry that opens this card.
+```
+
+### Task 27.4 — Owner live test (record in the PR)
+
+```text
+Two accounts in the owner's own test room (owner = moderator in Clubbox, second account on a phone):
+a. Raise hand on phone → Clubbox "Invite" → phone gets the invite, accepts, appears on stage.
+b. Mute the phone speaker from Clubbox → phone shows muted (cannot be unmuted by host; phone can unmute itself).
+c. Move to audience → phone leaves the stage, stays in the room.
+d. Remove from room → phone is kicked and cannot rejoin.
+e. End room → room disappears for the phone and from the hallway; Clubbox returns to the hallway.
+f. The owner's own phone app is still signed in after linking host tools.
+Acceptance (Phase 27): a-f pass; npm test green; no token in any log or api-log file (grep check in the PR).
+Sources: owner api-log + bundle-cache (2026-10-12), Clubdeck 2.6.5 app.asar strings, github.com/stypr/clubhouse-py.
 ```

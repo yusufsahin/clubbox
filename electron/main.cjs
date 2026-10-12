@@ -20,6 +20,12 @@ const { runStartupTriage } = require('./apiTriage.cjs');
 const { createBundleCrawler } = require('./bundleCrawler.cjs');
 const { createPubNubClient } = require('./pubnubClient.cjs');
 const { writeLastRoom, clearLastRoom, peekStaleRoom } = require('./lastRoom.cjs');
+const {
+  isAllowedMobileEndpoint,
+  mobileAuthHeadersFromCookies,
+  callMobileApi,
+  MOBILE_API_BASE,
+} = require('./mobileApi.cjs');
 
 const REQUEST_TIMEOUT_MS = 20000;
 const DEV_SERVER_ORIGIN = 'http://localhost:5173';
@@ -1210,6 +1216,66 @@ function expandRoutePath(route, body) {
   return { pathName, body: payload };
 }
 
+/**
+ * Phase 27.0 step 0b (dev only, CLUBBOX_PROBE_MOBILE=1): does the signed-in web session authenticate on the
+ * mobile API (www.clubhouseapi.com/api)? Read-only calls; logs status + response keys, never cookie/csrf values.
+ * Proven path: cookie+csrf (same headers as mobileApi.cjs) returned 200.
+ */
+let mobileProbeDone = false;
+async function probeMobileApiWithWebSession(sess, meText) {
+  if (mobileProbeDone) return;
+  mobileProbeDone = true;
+  let userId = null;
+  try {
+    const me = JSON.parse(meText);
+    userId = me?.user_profile?.user_id ?? me?.user_id ?? null;
+  } catch {
+    // keep null
+  }
+  const cookies = await listClubhouseCookies(sess);
+  const cookieHeader = cookies.map((cookie) => `${cookie.name}=${cookie.value}`).join('; ');
+  const fullHeaders = mobileAuthHeadersFromCookies(cookies, { userAgent: PAGE_UA });
+  const variants = {
+    cookie: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json; charset=utf-8',
+      'CH-Languages': 'en-US',
+      'CH-Locale': 'en_US',
+      'User-Agent': PAGE_UA,
+      Cookie: cookieHeader,
+    },
+    'cookie+csrf': fullHeaders,
+  };
+  const calls = [
+    ['get_profile', { user_id: userId }],
+    ['get_channels', {}],
+  ];
+  console.log('[mobile-probe] start userId', userId != null ? 'yes' : 'no', 'cookies', cookies.map((c) => c.name).join(','));
+  for (const [name, headers] of Object.entries(variants)) {
+    for (const [endpoint, body] of calls) {
+      try {
+        const response = await sess.fetch(`${MOBILE_API_BASE}/${endpoint}`, {
+          method: 'POST',
+          signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+          headers,
+          body: JSON.stringify(body),
+        });
+        const raw = await response.text();
+        let shape;
+        try {
+          const json = JSON.parse(raw);
+          shape = `keys=${Object.keys(json).join(',')}${json.detail ? ` detail=${json.detail}` : ''}`;
+        } catch {
+          shape = `non-json ${raw.slice(0, 60).replace(/\s+/g, ' ')}`;
+        }
+        console.log('[mobile-probe]', name, endpoint, response.status, shape);
+      } catch (err) {
+        console.log('[mobile-probe]', name, endpoint, 'error', err instanceof Error ? err.message : String(err));
+      }
+    }
+  }
+}
+
 function webSessionUrl(pathName, method, body) {
   const base = `https://www.clubhouse.com${pathName}`;
   if (method !== 'GET' || !body || typeof body !== 'object') return base;
@@ -1442,6 +1508,7 @@ async function postWithWebSession(endpoint, body) {
     }
     console.log('[web] me ok; cookies synced to defaultSession:', synced);
     void recoverStaleRoom();
+    if (process.env.CLUBBOX_PROBE_MOBILE === '1') void probeMobileApiWithWebSession(sess, text);
   }
   try {
     appendApiLog(app.getPath('userData'), {
@@ -1785,6 +1852,55 @@ ipcMain.handle('ch:request', async (event, payload) => {
     status: 0,
     body: JSON.stringify({ error_message: 'Token sign-in is not supported. Use web sign-in.' }),
   };
+});
+
+/**
+ * Phase 27.1 reduced: web session cookies + X-CSRFToken on the mobile API host (no SMS token).
+ * Allow-list only; never log Cookie / X-CSRFToken values.
+ */
+ipcMain.handle('clubbox:mobile-auth-status', async (event) => {
+  if (!isTrustedSender(event)) return { linked: false, mode: 'web-session' };
+  const linked = await hasClubhouseSessionCookie(authSession());
+  return { linked, mode: 'web-session', userIdMatchesWeb: linked };
+});
+
+ipcMain.handle('clubbox:mobile-call', async (event, payload) => {
+  if (!isTrustedSender(event)) {
+    return { ok: false, status: 0, body: 'Unauthorized frame' };
+  }
+  const endpoint = String(payload?.endpoint || '').replace(/^\//, '');
+  if (!isAllowedMobileEndpoint(endpoint)) {
+    return { ok: false, status: 0, body: 'Endpoint is not allowed' };
+  }
+  if (!isPlainPayload(payload?.body, 0)) {
+    return { ok: false, status: 0, body: 'Invalid payload' };
+  }
+  const sess = authSession();
+  const cookies = await listClubhouseCookies(sess);
+  const requestBody = payload?.body && typeof payload.body === 'object' ? payload.body : {};
+  const result = await callMobileApi({
+    fetchFn: (url, init) => sess.fetch(url, init),
+    endpoint,
+    body: requestBody,
+    cookies,
+    userAgent: PAGE_UA,
+    timeoutMs: REQUEST_TIMEOUT_MS,
+  });
+  console.log('[mobile]', endpoint, result.status);
+  try {
+    appendApiLog(app.getPath('userData'), {
+      endpoint,
+      body: Object.fromEntries(Object.keys(requestBody).map((key) => [key, typeof requestBody[key]])),
+      status: result.status,
+      ok: result.ok,
+      responseBody: result.body,
+      appVersion: CH_WEB_APP_VERSION,
+      kind: 'mobile_api',
+    });
+  } catch (err) {
+    console.warn('[Clubbox] api-log write failed:', err);
+  }
+  return result;
 });
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
