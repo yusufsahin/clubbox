@@ -23,7 +23,7 @@ Each endpoint in `electron/webApiRoutes.json` has an evidence level. The level d
 | `observed` | A redacted capture shows a 2xx response | Yes | Normal |
 | `bundle` | Path + method + body keys found at a call site in the web bundle | Yes | Normal; failures go to API Health |
 | `community` | Name + body from C, mapped to `/web_api/<name>` | Visibility, hide, ping, reject invite: always callable on a web session. Speculative community (events, notifications, …) only when Settings → "Experimental actions" is on | Speculative community: first use asks for confirmation |
-| `mobile-spike` | Host moderation on `clubhouseapi.com/api` (allow-list in `docs/api/mobile-api.md`). Transport ready; **live auth needs `Authorization: Token`** — web session only unlocks `get_profile`-class calls; SMS from Electron failed 27.5.0 (`token validation`) | Callable in code when mobile link reports linked; **live 2xx blocked until Token** (owner A2 import vs B) | Host tools shown; live mute/invite/end fail until Token |
+| `mobile-spike` | Host moderation on `clubhouseapi.com/api` (allow-list in `docs/api/mobile-api.md`). Token store/transport/UX (27.5.1–4) ready; **live auth needs `Authorization: Token`** — web session only unlocks `get_profile`-class calls; Electron SMS failed 27.5.0 (`token validation`) | Callable in code when mobile link reports linked; **live 2xx blocked until Token** | Host tools shown; live mute/invite/end fail until Token |
 | `unsupported` | Tried and failed with 404/405, or proven absent | No | "Available in the Clubhouse app" |
 
 Rules:
