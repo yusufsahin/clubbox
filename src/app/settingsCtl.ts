@@ -481,6 +481,8 @@ export async function refreshConnectionStatus(this: ClubboxApp): Promise<void> {
   const agoraResult = agoraVoice.getLastJoinResult();
   const broadcastExtras = agoraVoice.getExtrasSending();
   const verboseVoiceLog = agoraVoice.getVerboseLog();
+  const micCapture = audioEngine.getMicCapture();
+  const externalCapture = audioEngine.getExternalCapture();
   if (agoraJoined) agoraVoice.refreshRtcStats();
   const rtc = agoraVoice.getRtcStatsSnapshot();
   const base = {
@@ -488,6 +490,8 @@ export async function refreshConnectionStatus(this: ClubboxApp): Promise<void> {
     agoraResult,
     broadcastExtras,
     verboseVoiceLog,
+    micCapture,
+    externalCapture,
     rtc,
   };
   if (!api?.connectionStatus) {
@@ -517,6 +521,8 @@ export async function refreshConnectionStatus(this: ClubboxApp): Promise<void> {
       && prev.agoraResult === next.agoraResult
       && prev.broadcastExtras === next.broadcastExtras
       && prev.verboseVoiceLog === next.verboseVoiceLog
+      && JSON.stringify(prev.micCapture) === JSON.stringify(next.micCapture)
+      && JSON.stringify(prev.externalCapture) === JSON.stringify(next.externalCapture)
       && JSON.stringify(prev.rtc) === JSON.stringify(next.rtc)
     ) {
       return;

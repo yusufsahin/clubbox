@@ -2,6 +2,7 @@ import type { SoundEffectItem } from '../api/types';
 import { type AudioQuality } from './audioQuality';
 import { isVirtualInput, micTrackConstraints } from './mixerMic';
 import { createVoiceEffectChain, panForUid, type EffectChain } from './effectChain';
+import { captureTruthFromSettings, formatCaptureLog, type CaptureSettings, type CaptureTruth } from './captureTruth';
 import { externalInputConstraints, SYSTEM_AUDIO_DEVICE_ID } from './externalConstraints';
 import {
   DEFAULT_DUCK_DB,
@@ -78,6 +79,8 @@ export class AudioEngine {
   private micOwnedExternally = false;
   private outputDeviceId = '';
   private outputDeviceLabel = '';
+  private micCapture: CaptureTruth | null = null;
+  private externalCapture: CaptureTruth | null = null;
   /** Device ids whose getUserMedia failed. Labels only are shown in the pickers. */
   public readonly unavailableDeviceIds = new Set<string>();
   private unavailableListener: (() => void) | null = null;
@@ -262,6 +265,8 @@ export class AudioEngine {
       this.startMeterLoop();
       const liveTracks = this.micStream?.getAudioTracks().filter((track) => track.readyState === 'live').length ?? 0;
       console.log('[Clubbox] mic tracks', liveTracks, 'muted=', this.isMuted);
+      const opened = this.micStream?.getAudioTracks().find((track) => track.readyState === 'live');
+      if (opened) this.rememberCapture('mic', opened);
       return true;
     } catch (err: unknown) {
       this.lastMicError = this.classifyMicError(err);
@@ -323,6 +328,7 @@ export class AudioEngine {
     this.monitorGain.gain.value = 1;
     this.wireMicEffects();
     this.startMeterLoop();
+    this.rememberCapture('mic', track);
     console.log('[Clubbox] adopted Agora mic track muted=', this.isMuted);
   }
 
@@ -540,6 +546,36 @@ export class AudioEngine {
     return typeof AudioContext !== 'undefined' && 'setSinkId' in AudioContext.prototype;
   }
 
+  public getMicCapture(): CaptureTruth | null {
+    return this.micCapture;
+  }
+
+  public getExternalCapture(): CaptureTruth | null {
+    return this.externalCapture;
+  }
+
+  /** Read the opened track. Logs one line and never includes the device id. */
+  private rememberCapture(which: 'mic' | 'external', track: MediaStreamTrack, labelOverride?: string): void {
+    let settings: CaptureSettings = {};
+    try {
+      settings = track.getSettings() as CaptureSettings;
+    } catch {
+      settings = {};
+    }
+    const stored = which === 'mic' ? this.inputDeviceLabel : this.externalDeviceLabel;
+    const truth = captureTruthFromSettings({
+      channelCount: settings.channelCount,
+      sampleRate: settings.sampleRate,
+      echoCancellation: settings.echoCancellation,
+      noiseSuppression: settings.noiseSuppression,
+      autoGainControl: settings.autoGainControl,
+      label: settings.label || labelOverride || stored,
+    });
+    if (which === 'mic') this.micCapture = truth;
+    else this.externalCapture = truth;
+    console.log(formatCaptureLog(which, truth));
+  }
+
   public getOutputDeviceId(): string {
     return this.outputDeviceId;
   }
@@ -681,6 +717,7 @@ export class AudioEngine {
     this.micSource = null;
     this.micGain = null;
     this.monitorGain = null;
+    this.micCapture = null;
   }
 
   private disposeMicEffects(): void {
@@ -949,6 +986,7 @@ export class AudioEngine {
     this.externalLevel = 0;
     this.lastExternalConstraints = null;
     this.lastExternalCapture = null;
+    this.externalCapture = null;
     this.externalDuckState = initialDuckState();
     if (wasLive) this.notifyExtrasActivity();
   }
@@ -1046,7 +1084,7 @@ export class AudioEngine {
    * Open an external input (device) or system loopback and mix into broadcast + record.
    * Does not touch mic mute. Returns false if getUserMedia / getDisplayMedia fails.
    */
-  public async startExternal(deviceId: string): Promise<boolean> {
+  public async startExternal(deviceId: string, label?: string): Promise<boolean> {
     this.externalDeviceId = deviceId;
     this.releaseExternal();
     try {
@@ -1070,6 +1108,8 @@ export class AudioEngine {
       this.externalStream = stream;
       this.externalSource = ctx.createMediaStreamSource(stream);
       this.wireExternalGraph();
+      const opened = stream.getAudioTracks().find((track) => track.readyState === 'live');
+      if (opened) this.rememberCapture('external', opened, label);
       this.notifyExtrasActivity();
       return true;
     } catch (err: unknown) {

@@ -2,6 +2,7 @@ import { t } from '../../i18n';
 import type { AppPrefs } from '../../app/appPrefs';
 import type { ClubhouseConfig } from '../../api/client';
 import type { MeSettings, SoundEffectItem } from '../../api/types';
+import { showWindowsFormatHint, type CaptureTruth } from '../../audio/captureTruth';
 import { SHORTCUT_ACTIONS, type ShortcutAction, type ShortcutMap } from '../../shortcuts';
 import { html, type SafeHtml } from '../html';
 import type { LoopGuard } from '../../audio/loopGuard';
@@ -35,6 +36,26 @@ function accountSection(account: AccountReadout | null): SafeHtml {
   `;
 }
 
+function captureLine(truth: CaptureTruth | null): SafeHtml {
+  if (!truth) return html`${t('connectionStatusCaptureNone')}`;
+  return html`${t('connectionStatusCaptureValue', {
+    ch: truth.channelCount == null ? '—' : String(truth.channelCount),
+    sr: truth.sampleRate == null ? '—' : String(truth.sampleRate),
+    aec: truth.echoCancellation == null ? '—' : String(truth.echoCancellation),
+    ns: truth.noiseSuppression == null ? '—' : String(truth.noiseSuppression),
+    agc: truth.autoGainControl == null ? '—' : String(truth.autoGainControl),
+    family: truth.family,
+  })}`;
+}
+
+function windowsFormatNotes(status: ConnectionStatusReadout | null): SafeHtml {
+  if (!showWindowsFormatHint([status?.micCapture, status?.externalCapture])) return html``;
+  return html`
+    <p class="list-note" data-capture-format>${t('captureFormatHint')}</p>
+    <p class="list-note" data-capture-format-render>${t('captureFormatHintRender')}</p>
+  `;
+}
+
 function settingRow(label: string, enabled: boolean): SafeHtml {
   return html`<div class="profile-setting-row"><span>${label}</span><span>${enabled ? t('settingOn') : t('settingOff')}</span></div>`;
 }
@@ -65,6 +86,8 @@ export type ConnectionStatusReadout = {
   /** null = extras not published; true/false = sendBitrate/volume probe. */
   broadcastExtras: boolean | null;
   verboseVoiceLog: boolean;
+  micCapture: CaptureTruth | null;
+  externalCapture: CaptureTruth | null;
   rtc?: {
     rtt: number;
     sendBitrate: number;
@@ -161,6 +184,8 @@ export function settingsView(
           <h4 style="font-size:14px; font-weight:700; margin-bottom:6px;">${t('virtualCableGuideTitle')}</h4>
           <p class="list-note">${t('virtualCableGuideBody')}</p>
           <button class="btn btn-secondary" type="button" data-action="open-audio-setup">${t('audioSetupOpen')}</button>
+          <p class="list-note" data-asio-bridge>${t('asioBridgeHelp')}</p>
+          ${windowsFormatNotes(connectionStatus)}
         </div>
       </div>
 
@@ -283,6 +308,9 @@ export function settingsView(
                 ? t('connectionStatusOk')
                 : t('connectionStatusBad')
           }</span></div>
+          <div class="profile-setting-row" data-connection-capture="mic"><span>${t('connectionStatusCaptureMic')}</span><span>${captureLine(connectionStatus.micCapture)}</span></div>
+          <div class="profile-setting-row" data-connection-capture="external"><span>${t('connectionStatusCaptureExternal')}</span><span>${captureLine(connectionStatus.externalCapture)}</span></div>
+          ${windowsFormatNotes(connectionStatus)}
           ${connectionStatus.rtc ? html`
             <div class="profile-setting-row"><span>${t('connectionStatusRtcRtt')}</span><span>${connectionStatus.rtc.rtt} ms</span></div>
             <div class="profile-setting-row"><span>${t('connectionStatusRtcBitrate')}</span><span>${connectionStatus.rtc.sendBitrate} / ${connectionStatus.rtc.recvBitrate}</span></div>

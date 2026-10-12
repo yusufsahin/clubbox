@@ -16,6 +16,7 @@ import { readAudioPrefs, type AudioPrefs } from '../audio/audioPrefs';
 import { SYSTEM_AUDIO_DEVICE_ID } from '../audio/externalConstraints';
 import { externalDoublesMic, shouldPromptMixerMusic } from '../audio/mixerMic';
 import { compareAudioDevices, displayDeviceLabel, installedAudioSummary, missingChosenDevices, suggestAudioSetup, type AudioSetupDraft, type ListedDevice, type SetupChoice } from '../audio/devicePicker';
+import type { CaptureTruth } from '../audio/captureTruth';
 import { loopGuard, type LoopGuard } from '../audio/loopGuard';
 import { systemAudioCaptureAllowed } from '../audio/externalDuck';
 import { readAppPrefs, syncSystemThemeListener, zoomFactorFromPercent } from './appPrefs';
@@ -225,6 +226,8 @@ export class ClubboxApp {
     agoraResult: string | null;
     broadcastExtras: boolean | null;
     verboseVoiceLog: boolean;
+    micCapture: CaptureTruth | null;
+    externalCapture: CaptureTruth | null;
     rtc?: {
       rtt: number;
       sendBitrate: number;
@@ -932,7 +935,10 @@ export class ClubboxApp {
       this.renderRoomDetails();
       return;
     }
-    const ok = await audioEngine.startExternal(deviceId);
+    const ok = await audioEngine.startExternal(
+      deviceId,
+      deviceId === SYSTEM_AUDIO_DEVICE_ID ? '' : externalLabel,
+    );
     if (!ok) {
       this.showToast(t('externalAudioOff'), '🔊');
       this.renderRoomDetails();
