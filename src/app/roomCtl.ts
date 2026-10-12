@@ -1046,6 +1046,10 @@ export async function connectRoomAudio(this: ClubboxApp, generation: number) : P
       return;
     }
     this.audioConnected = ok;
+    if (ok) {
+      this.promptMixerMicIfKnown();
+      this.renderCockpit();
+    }
     if (!ok) {
       const reason = agoraVoice.getLastJoinResult();
       this.showToast(

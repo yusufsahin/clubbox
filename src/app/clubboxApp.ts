@@ -14,6 +14,7 @@ import { roomSync } from '../api/roomSync';
 import { audioEngine } from '../audio/audioEngine';
 import { readAudioPrefs, type AudioPrefs } from '../audio/audioPrefs';
 import { SYSTEM_AUDIO_DEVICE_ID } from '../audio/externalConstraints';
+import { externalDoublesMic, shouldPromptMixerMusic } from '../audio/mixerMic';
 import { systemAudioCaptureAllowed } from '../audio/externalDuck';
 import { readAppPrefs, syncSystemThemeListener, zoomFactorFromPercent } from './appPrefs';
 import { popView, pushView, type ViewSnapshot } from './viewStack';
@@ -276,6 +277,7 @@ export class ClubboxApp {
     }
     void electronAPI()?.setZoomFactor?.(zoomFactorFromPercent(readAppPrefs().zoomPercent));
     this.applyAudioPrefs();
+    void this.syncMixerMicLabel();
     navigator.mediaDevices?.addEventListener('devicechange', () => {
       if (this.currentTab === 'settings') void this.fillAudioDevices();
     });
@@ -793,6 +795,11 @@ export class ClubboxApp {
     } catch {
       devices = [];
     }
+    const selectedMic = devices.find((device) => device.kind === 'audioinput' && device.deviceId === micId);
+    if (selectedMic?.label) {
+      audioEngine.setInputDeviceLabel(selectedMic.label);
+      this.promptMixerMicIfKnown();
+    }
     const nextOptions = devices
       .filter((device) => device.kind === 'audioinput' && device.deviceId && device.deviceId !== micId)
       .map((device, index) => ({
@@ -873,6 +880,7 @@ export class ClubboxApp {
     if (!deviceId) {
       audioEngine.releaseExternal();
       audioEngine.setExternalDeviceId('');
+      audioEngine.setExternalDeviceLabel('');
       this.audioPrefs.externalDeviceId = '';
       this.saveAudioPrefs();
       this.renderRoomDetails();
@@ -891,6 +899,15 @@ export class ClubboxApp {
       this.audioPrefs.externalCopyrightSeen = true;
       this.saveAudioPrefs();
     }
+    const externalLabel = this.externalInputOptions.find((device) => device.id === deviceId)?.label ?? '';
+    if (
+      deviceId !== SYSTEM_AUDIO_DEVICE_ID
+      && externalDoublesMic(audioEngine.getInputDevice(), { label: externalLabel, kind: 'audioinput' })
+    ) {
+      this.showToast(t('mixerDoubleSignal'), '🔊');
+      this.renderRoomDetails();
+      return;
+    }
     const ok = await audioEngine.startExternal(deviceId);
     if (!ok) {
       this.showToast(t('externalAudioOff'), '🔊');
@@ -898,8 +915,34 @@ export class ClubboxApp {
       return;
     }
     this.audioPrefs.externalDeviceId = deviceId;
+    audioEngine.setExternalDeviceLabel(deviceId === SYSTEM_AUDIO_DEVICE_ID ? '' : externalLabel);
     this.saveAudioPrefs();
     this.renderRoomDetails();
+  }
+
+  /**
+   * Ask once per virtual-mic id whether to switch the saved quality to Music.
+   * Returns true when the user accepts, so the caller does not also reopen the mic.
+   */
+  promptMixerMicIfKnown(): boolean {
+    const deviceId = audioEngine.getInputDeviceId();
+    const label = audioEngine.getInputDeviceLabel();
+    if (!deviceId || !label) return false;
+    const device = { label, kind: 'audioinput' as const };
+    if (!shouldPromptMixerMusic(device, deviceId, this.audioPrefs.mixerPromptedDeviceIds, this.audioPrefs.audioQuality)) {
+      return false;
+    }
+    this.audioPrefs.mixerPromptedDeviceIds = [...this.audioPrefs.mixerPromptedDeviceIds, deviceId].slice(-40);
+    this.saveAudioPrefs();
+    if (!window.confirm(t('mixerOfferMusic'))) return false;
+    this.setAudioQuality('music');
+    return true;
+  }
+
+  async syncMixerMicLabel(): Promise<void> {
+    await audioEngine.ensureInputDeviceLabel();
+    this.promptMixerMicIfKnown();
+    this.renderCockpit();
   }
 
   ensureShell(): void {
@@ -1303,6 +1346,7 @@ export class ClubboxApp {
     return cockpitBar({
       muted: audioEngine.getIsMuted(),
       musicMode: this.audioPrefs.audioQuality === 'music',
+      mixerMic: audioEngine.isMixerMic(),
       recording: audioEngine.getIsRecording(),
       handRaised: clubhouseClient.isHandRaised(),
       handDisabled: !this.currentChannel || this.isMeSpeaker() || stageAccessMode(this.currentChannel) !== 'raise',
@@ -1503,16 +1547,32 @@ export class ClubboxApp {
       }
       if (target.id === 'radio-sandbox' || target.id === 'radio-live') {
         void this.switchRuntimeMode(target.id === 'radio-sandbox');
-      } else if (target.id === 'cfg-input-device') {
+      } else if (target.id === 'cfg-input-device' && target instanceof HTMLSelectElement) {
+        const label = target.selectedOptions[0]?.text ?? '';
+        if (
+          audioEngine.isExternalActive()
+          && externalDoublesMic(
+            { label, kind: 'audioinput' },
+            { label: audioEngine.getExternalDeviceLabel(), kind: 'audioinput' },
+          )
+        ) {
+          this.showToast(t('mixerDoubleSignal'), '🔊');
+          target.value = audioEngine.getInputDeviceId();
+          return;
+        }
         this.audioPrefs.inputDeviceId = target.value;
         this.saveAudioPrefs();
-        audioEngine.setInputDeviceId(target.value);
-        // In a room: switch the live Agora mic track (Phase 24.4) — no republish.
-        if (agoraVoice.getIsJoined() && agoraVoice.getIsSpeaker()) {
-          void agoraVoice.setMicrophoneDevice(target.value);
-        } else {
-          void audioEngine.restartMicrophone();
+        audioEngine.setInputDeviceId(target.value, label);
+        const offeredMusic = this.promptMixerMicIfKnown();
+        if (!offeredMusic) {
+          // In a room: switch the live Agora mic track (Phase 24.4) — no republish.
+          if (agoraVoice.getIsJoined() && agoraVoice.getIsSpeaker()) {
+            void agoraVoice.setMicrophoneDevice(target.value);
+          } else {
+            void audioEngine.restartMicrophone();
+          }
         }
+        this.renderCockpit();
       } else if (target.id === 'cfg-output-device') {
         this.audioPrefs.outputDeviceId = target.value;
         this.saveAudioPrefs();

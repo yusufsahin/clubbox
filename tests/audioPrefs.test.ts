@@ -45,6 +45,7 @@ test('audioPrefs round-trips applied voice effect and spatial flag', () => {
     externalCopyrightSeen: true,
     aiNoiseSuppression: true,
     audioQuality: 'normal',
+    mixerPromptedDeviceIds: [],
   };
   writeAudioPrefs(prefs);
   const next = readAudioPrefs();

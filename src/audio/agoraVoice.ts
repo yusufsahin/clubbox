@@ -9,6 +9,7 @@ import type {
 
 type AgoraSdk = typeof import('agora-rtc-sdk-ng').default;
 import { audioPublishProfile, type AudioQuality } from './audioQuality';
+import { micCaptureProfile } from './mixerMic';
 import { audioEngine } from './audioEngine';
 import { clubhouseClient } from '../api/client';
 import { muteFromAgoraEvent } from '../api/remoteMute';
@@ -162,7 +163,7 @@ export class AgoraVoiceEngine {
       const next = mics.find((d) => d.deviceId && d.deviceId !== goneId) || mics[0];
       if (!next?.deviceId) return;
       await this.localAudioTrack.setDevice(next.deviceId);
-      audioEngine.setInputDeviceId(next.deviceId);
+      audioEngine.setInputDeviceId(next.deviceId, next.label || '');
       const label = next.label || next.deviceId;
       console.log('[AgoraRTC] mic hot-swap', `label=${label.slice(0, 48)}`);
       this.onMicChangedCallbacks.forEach((cb) => cb(label));
@@ -194,6 +195,13 @@ export class AgoraVoiceEngine {
       }
       if (!id) return false;
       await this.localAudioTrack.setDevice(id);
+      await audioEngine.ensureInputDeviceLabel();
+      const capture = micCaptureProfile(audioEngine.getInputDevice(), audioEngine.getAudioQuality());
+      await this.applyLineInputConstraints(capture);
+      if (capture.virtual) {
+        const AgoraRTC = await this.loadSdk();
+        await syncAiDenoiserOnTrack(AgoraRTC, this.localAudioTrack, true);
+      }
       console.log('[AgoraRTC] setMicrophoneDevice', `idLen=${id.length}`);
       return true;
     } catch (err) {
@@ -616,6 +624,22 @@ export class AgoraVoiceEngine {
     this.isSpeaker = false;
   }
 
+  /** Line-input open: processing flags from the capture profile, stereo only when virtual. */
+  private async applyLineInputConstraints(capture: { virtual: boolean; echoCancellation: boolean; noiseSuppression: boolean; autoGainControl: boolean }): Promise<void> {
+    if (!this.localAudioTrack) return;
+    const audio: MediaTrackConstraints = {
+      echoCancellation: capture.echoCancellation,
+      noiseSuppression: capture.noiseSuppression,
+      autoGainControl: capture.autoGainControl,
+    };
+    if (capture.virtual) audio.channelCount = 2;
+    try {
+      await this.localAudioTrack.getMediaStreamTrack().applyConstraints(audio);
+    } catch {
+      // Some virtual drivers reject channelCount. Create already requested AEC/ANS/AGC.
+    }
+  }
+
   public async republish(quality: AudioQuality): Promise<void> {
     if (!this.client || !this.isJoined || !this.isSpeaker) return;
     await this.unpublishLocal();
@@ -637,33 +661,38 @@ export class AgoraVoiceEngine {
     audioEngine.stopMicrophone();
     audioEngine.ensureAudioContext();
     audioEngine.refreshBroadcastDestination();
+    await audioEngine.ensureInputDeviceLabel();
 
     const profile = audioPublishProfile(quality);
+    const capture = micCaptureProfile(audioEngine.getInputDevice(), quality);
     const micId = audioEngine.getInputDeviceId() || undefined;
     try {
       this.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack({
         microphoneId: micId,
         encoderConfig: profile.encoder,
-        AEC: profile.aec,
-        ANS: profile.ans,
-        AGC: profile.agc,
+        AEC: capture.echoCancellation,
+        ANS: capture.noiseSuppression,
+        AGC: capture.autoGainControl,
       });
     } catch (firstErr) {
       if (!micId) throw firstErr;
       console.warn('[AgoraRTC] preferred mic failed — retrying default:', firstErr);
       this.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack({
         encoderConfig: profile.encoder,
-        AEC: profile.aec,
-        ANS: profile.ans,
-        AGC: profile.agc,
+        AEC: capture.echoCancellation,
+        ANS: capture.noiseSuppression,
+        AGC: capture.autoGainControl,
       });
     }
+    await audioEngine.ensureInputDeviceLabel();
+    const opened = micCaptureProfile(audioEngine.getInputDevice(), quality);
+    await this.applyLineInputConstraints(opened);
 
     // Feed Agora's live track into the local graph for VU / monitor / effects (no second capture).
     audioEngine.adoptMicrophoneTrack(this.localAudioTrack.getMediaStreamTrack());
 
-    // Phase 24.7: AI denoiser pipe (no republish to toggle; music mode forces off).
-    await syncAiDenoiserOnTrack(AgoraRTC, this.localAudioTrack, !profile.aiDenoiserAllowed);
+    // Phase 24.7: AI denoiser pipe (no republish to toggle; music mode and a virtual mic force it off).
+    await syncAiDenoiserOnTrack(AgoraRTC, this.localAudioTrack, !opened.aiDenoiser);
 
     // Phase 24.1: second track = soundboard + external (+ effected voice when FX applied).
     // Voice effects: SDK localAudioTrack.pipe(processor) exists, but Clubbox FX are Web Audio
@@ -784,7 +813,8 @@ export class AgoraVoiceEngine {
     setAiNoisePreference(enabled);
     if (!this.localAudioTrack || !this.isJoined) return;
     const AgoraRTC = await this.loadSdk();
-    await syncAiDenoiserOnTrack(AgoraRTC, this.localAudioTrack, audioEngine.getIsMusicMode());
+    const capture = micCaptureProfile(audioEngine.getInputDevice(), audioEngine.getAudioQuality());
+    await syncAiDenoiserOnTrack(AgoraRTC, this.localAudioTrack, !capture.aiDenoiser);
   }
 
   private async unpublishLocal(): Promise<void> {

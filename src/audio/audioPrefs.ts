@@ -22,6 +22,8 @@ export interface AudioPrefs {
   aiNoiseSuppression: boolean;
   /** Design D level. Replaces the old music-mode boolean. */
   audioQuality: AudioQuality;
+  /** Virtual-mic device ids already asked whether to switch to Music. */
+  mixerPromptedDeviceIds: string[];
 }
 
 const DEFAULT_PREFS: AudioPrefs = {
@@ -40,7 +42,19 @@ const DEFAULT_PREFS: AudioPrefs = {
   externalCopyrightSeen: false,
   aiNoiseSuppression: false,
   audioQuality: 'normal',
+  mixerPromptedDeviceIds: [],
 };
+
+function readPromptedDeviceIds(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const ids: string[] = [];
+  for (const entry of value) {
+    if (typeof entry !== 'string' || entry.length === 0 || entry.length > 256) continue;
+    if (!ids.includes(entry)) ids.push(entry);
+    if (ids.length >= 40) break;
+  }
+  return ids;
+}
 
 function readAudioQuality(parsed: {
   audioQuality?: unknown;
@@ -101,6 +115,7 @@ export function readAudioPrefs(): AudioPrefs {
       externalCopyrightSeen: parsed.externalCopyrightSeen === true,
       aiNoiseSuppression: parsed.aiNoiseSuppression === true,
       audioQuality: readAudioQuality(parsed),
+      mixerPromptedDeviceIds: readPromptedDeviceIds(parsed.mixerPromptedDeviceIds),
     };
   } catch {
     return { ...DEFAULT_PREFS, remoteVolumes: {} };

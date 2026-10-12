@@ -142,6 +142,7 @@ export function paintNavUi(world: ClubboxWorld): NavUi {
     ? markup(cockpitBar({
       muted: true,
       musicMode: false,
+      mixerMic: false,
       recording: false,
       handRaised: false,
       handDisabled: false,

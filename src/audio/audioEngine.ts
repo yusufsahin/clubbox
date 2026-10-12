@@ -1,5 +1,6 @@
 import type { SoundEffectItem } from '../api/types';
 import { type AudioQuality } from './audioQuality';
+import { isVirtualInput, micTrackConstraints } from './mixerMic';
 import { createVoiceEffectChain, panForUid, type EffectChain } from './effectChain';
 import { externalInputConstraints, SYSTEM_AUDIO_DEVICE_ID } from './externalConstraints';
 import {
@@ -71,6 +72,8 @@ export class AudioEngine {
   private spatialAudioEnabled = false;
 
   private inputDeviceId = '';
+  private inputDeviceLabel = '';
+  private externalDeviceLabel = '';
   /** When true, mic MediaStreamTrack is owned by Agora — do not stop() it on release. */
   private micOwnedExternally = false;
   private outputDeviceId = '';
@@ -182,18 +185,7 @@ export class AudioEngine {
   }
 
   private micConstraintBase(): MediaTrackConstraints {
-    return this.audioQuality === 'music'
-      ? {
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
-          sampleRate: 48000,
-        }
-      : {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        };
+    return micTrackConstraints(this.getInputDevice(), this.audioQuality);
   }
 
   /** Last mic open failure — 'system' = OS privacy block (Windows/macOS). */
@@ -217,6 +209,7 @@ export class AudioEngine {
   private async openMicrophone(): Promise<boolean> {
     this.lastMicError = null;
     try {
+      await this.ensureInputDeviceLabel();
       const ctx = this.initContextIfNeeded();
       if (ctx.state === 'suspended') {
         try {
@@ -490,10 +483,51 @@ export class AudioEngine {
     return this.inputDeviceId;
   }
 
-  public setInputDeviceId(deviceId: string): void {
+  public setInputDeviceId(deviceId: string, label?: string): void {
+    const changed = deviceId !== this.inputDeviceId;
     this.inputDeviceId = deviceId;
+    if (typeof label === 'string') this.inputDeviceLabel = label;
+    else if (changed) this.inputDeviceLabel = '';
     const live = this.micStream?.getAudioTracks().some((track) => track.readyState === 'live') ?? false;
     if (live) void this.restartMicrophone();
+  }
+
+  public setInputDeviceLabel(label: string): void {
+    this.inputDeviceLabel = label;
+  }
+
+  public getInputDeviceLabel(): string {
+    return this.inputDeviceLabel;
+  }
+
+  public getInputDevice(): { label: string; kind: 'audioinput' } | null {
+    if (!this.inputDeviceLabel) return null;
+    return { label: this.inputDeviceLabel, kind: 'audioinput' };
+  }
+
+  public isMixerMic(): boolean {
+    return isVirtualInput(this.getInputDevice());
+  }
+
+  /** Fill a missing label from the device list. Never logs the id. */
+  public async ensureInputDeviceLabel(): Promise<void> {
+    if (!this.inputDeviceId || this.inputDeviceLabel) return;
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.enumerateDevices) return;
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const match = devices.find((device) => device.kind === 'audioinput' && device.deviceId === this.inputDeviceId);
+      if (match?.label) this.inputDeviceLabel = match.label;
+    } catch {
+      // Leave the mic unclassified until a later list.
+    }
+  }
+
+  public setExternalDeviceLabel(label: string): void {
+    this.externalDeviceLabel = label;
+  }
+
+  public getExternalDeviceLabel(): string {
+    return this.externalDeviceLabel;
   }
 
   public canSelectOutput(): boolean {
