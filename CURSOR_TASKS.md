@@ -17,7 +17,13 @@ Owner reported: triage noise, new-room participants invisible, moderation action
 
 Idle recheck after 24.7.
 
-### Last autonomous run (2026-10-12 — Phase 28.4.1–3 room card actions)
+### Last autonomous run (2026-10-12 — Phase 28.0 + 28.6 discovery STOP)
+
+- Probe allow-list + CLI second-instance poke; Node `httpsPostJson` so Cookie is not stripped.
+- Auth canary: `get_profile` **200** (web session works on mobile host). All 28.0/28.6 room reads (`get_channel`, queues, history, link check) **401** with the same cookies — Token-class endpoints.
+- Mutations not run (would 401). Docs: `docs/api/mobile-api.md`. **STOP before 28.1.**
+
+### Previous last autonomous run (2026-10-12 — Phase 28.4.1–3 room card actions)
 
 - `roomActionsFor(role, flags, target)` + stage menus driven from it (listener/speaker/self cards). Leave stage stays gated until 28.2 verifies self-uninvite.
 - 28.4.3: server `error_message` already surfaces via `parseLiveResponse` → `reportApiError` toast.
@@ -79,7 +85,7 @@ Legend: **Uygulandı** = code is in the tree. **Canlı doğrulandı** = exercise
 | 0b | **Phase 24 Agora feature completeness** — broadcast mix, reconnect + quality, token lifecycle, device hot-swap, speaking rings, lifecycle, AI noise suppression | **Closed** — 24.1–24.7 done (AI denoiser + CSP/WASM); e2e green |
 | 0c | **Phase 25 Room exit and mic state** — leave_channel on close/quit/Ctrl+C + crash recovery, mute badge/state sync, AI denoiser init bug, log hygiene | **Closed** — 25.1–25.4 done. 25.5 moved to Phase 26 |
 | 0g | **Phase 29 Live details + full moderator toolset** — Live details panel, room settings (mute all, chat, queue, replay, web listening), host banner, polls, highlights, full audience list, server-driven flags | **Open** — after Phase 28; 29.0 discovery first |
-| 0f | **Phase 28 Room actions per role** — role × action matrix (Clubhouse parity), mobile body discovery, authoritative room state via get_channel, listener/speaker/moderator actions, UI gating, headphones banner fix, Moderator actions panel (Requests + History) | **28.0 tooling + 28.4 UI (1–4) done** — auth body shapes pending re-sign-in; **28.1 blocked** until 28.0 auth |
+| 0f | **Phase 28 Room actions per role** — role × action matrix (Clubhouse parity), mobile body discovery, authoritative room state via get_channel, listener/speaker/moderator actions, UI gating, headphones banner fix, Moderator actions panel (Requests + History) | **28.0 discovery done** — `get_profile` 200 via session; room/28.6 endpoints **401** (need Token); 28.4 UI done; **28.1 blocked** |
 | 0e | **Phase 27 Host tools via mobile API** — end room, invite to stage, mute, move to audience, remove from room; web API has none of these (404 / not in bundle) | **Code + docs done** — 27.1–27.2 + mobile-api.md (SMS skipped); **27.4 owner live matrix** open |
 | 0d | **Phase 26 Studio audio routing** — VB-Cable / Voicemeeter (Clubdeck parity): device classification, working quality levels, mixer-as-mic, loop guard, setup wizard, capture truth, live test matrix | **Code done** — 26.1–26.6 + mid-room `applyMicDevice` harden. **26.7 owner live matrix** still open |
 | 1 | **0.7 Review fixes (2026-10-11 #2)** — navigation guard, packaged recorder, clip worklet path, auto-armed clip buffer, 429/visibility, CORS proxy token leak | Uygulandı |

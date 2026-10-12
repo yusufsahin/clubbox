@@ -5,7 +5,7 @@ room-management tools. Clubbox calls `https://www.clubhouseapi.com/api/<endpoint
 Electron main process with the **web session** (cookies + CSRF). Never log Cookie / CSRF /
 Authorization values.
 
-## Auth (proven 2026-10-12, Phase 27)
+## Auth (proven 2026-10-12)
 
 | Header | Value |
 | --- | --- |
@@ -16,11 +16,19 @@ Authorization values.
 | `CH-Languages` / `CH-Locale` | `en-US` / `en_US` |
 | `User-Agent` | same browser UA as the web session |
 
-**Do not set `Referer`.** Chromium `session.fetch` treats `Referer` as a forbidden header and
-fails with `net::ERR_BLOCKED_BY_CLIENT` (found during Phase 28.0 probe tooling).
+**Transport:** use Node `https.request` (see `electron/mobileApi.cjs` `httpsPostJson`). Chromium
+`session.fetch` and undici `fetch` **strip the Cookie header** (Fetch forbidden header list), so
+calls look unauthenticated (`401 Authentication credentials were not provided`) even when
+`sessionid` + `csrftoken` are present. Do **not** set `Referer` (also forbidden →
+`ERR_BLOCKED_BY_CLIENT`).
 
-Probe (`CLUBBOX_PROBE_MOBILE=1`): read-only `get_profile` + `get_channels` with cookie+csrf
-returned **HTTP 200** (Phase 27). SMS / stored mobile Token not used.
+### Session cookie canary (2026-10-12, live web session)
+
+| Endpoint | Body | Status | Response keys | Meaning |
+| --- | --- | --- | --- | --- |
+| `get_profile` | `{ user_id }` (from web `/me`) | **200** | `user_profile,chatting_with,finish_profile_setup_upsell,success` | Web session **is** accepted on the mobile host |
+| `get_profile` | `{}` | 400 | `success,error_message` | Auth ok; body incomplete |
+| `get_channels` | `{}` | 404 | non-json | Not this path on mobile (use web `/web_api`) |
 
 ## Production allow-list (`electron/mobileApi.cjs`)
 
@@ -36,62 +44,59 @@ returned **HTTP 200** (Phase 27). SMS / stored mobile Token not used.
 
 IPC: `clubbox:mobile-call`. Evidence: `mobile-spike` in `webApiRoutes.json`.
 
-## Phase 28.0 — body discovery
+**Re-verify host tools** after the https Cookie fix (same session that returns `get_profile` 200).
+
+## Phase 28.0 — body discovery (STOP before 28.1)
 
 ### Tooling
 
 - Dev allow-list (not production): `electron/mobileProbe.cjs` → `PROBE_MOBILE_ENDPOINTS`
-- In-app (restart with env): `$env:CLUBBOX_PROBE_MOBILE=1` then join a room  
-  - Auto read-only on `clubbox:room-presence`  
-  - DevTools: `await electronAPI.mobileProbeReadOnly()`  
-  - Mutations: `await electronAPI.mobileProbeMutate({ endpoint, confirm: 'I_CONFIRM_THROWAY_ROOM', link?, userId? })`
-- CLI: `node scripts/mobile-probe-28.mjs --channel=<id>`  
-  Mutations: `--mutate=disable_replay --confirm=I_CONFIRM_THROWAY_ROOM` or `--mutate=all`
+  (includes 28.6: `get_moderator_action_history`, `update_handraise_queue_setting`)
+- While Clubbox is running: `node scripts/mobile-probe-28.mjs --channel=<id>` pokes the live
+  app via `second-instance` (`--clubbox-mobile-probe=…`) so cookies stay in-memory (`csrftoken`)
+- Headless: close Clubbox, then the same script runs `scripts/_mobile-probe-28-electron.cjs`
+- Mutations: `--mutate=… --confirm=I_CONFIRM_THROWAY_ROOM` (throwaway room only)
+- Report: `reports/mobile-probe-28.json` (status + keys only; cookie **names** / value **lengths**)
 
-### Unauthenticated liveness (2026-10-12, empty body / documented body, no session)
+### Unauthenticated liveness (empty / documented body, no session)
 
-All of the following answered **401** `detail=Authentication credentials were not provided.`
+All Phase 28.0 targets answered **401** `detail=Authentication credentials were not provided.`
 (endpoint exists). None returned 404.
 
-| Endpoint | Probe body | Status | Response keys |
-| --- | --- | --- | --- |
-| `get_channel` | `{ channel }` | 401 | `detail` |
-| `get_handraise_queue` | `{ channel }` | 401 | `detail` |
-| `get_suggested_speakers` | `{ channel }` | 401 | `detail` |
-| `check_channel_link` | `{ channel, link }` | 401 | `detail` |
-| `add_channel_link` | `{ channel, link }` | 401 | `detail` |
-| `remove_channel_link` | `{ channel }` | 401 | `detail` |
-| `disable_channel_messages` | `{ channel }` | 401 | `detail` |
-| `enable_channel_messages` | `{ channel }` | 401 | `detail` |
-| `update_nsfw_status` | `{ channel, is_nsfw }` | 401 | `detail` |
-| `disable_replay` | `{ channel }` | 401 | `detail` |
-| `uninvite_speaker` | `{ channel, user_id }` | 401 | `detail` |
+### Authenticated discovery (2026-10-12, live sessionid+csrf via Node https)
 
-### Authenticated discovery (owner session)
+Channel probed: `xewy04pp`. Same Cookie/CSRF that yields `get_profile` **200**.
 
-**Blocked in this 28.0 run:** Clubbox `userData` had `web-session-ok` but **zero** clubhouse.com
-session cookies (only intermittent `__cf_bm`). Authenticated `get_channel` / mutations could not
-be completed. Re-sign-in on clubhouse.com, then re-run the in-app or CLI probe.
-
-| Endpoint | Working body | Status | Response keys | Notes |
+| Endpoint | Probe body | Status | Response keys | Notes |
 | --- | --- | --- | --- | --- |
-| `get_channel` | `{ channel }` | *pending auth* | | Need `users[0]` keys |
-| `get_handraise_queue` | `{ channel }` | *pending auth* | | |
-| `get_suggested_speakers` | `{ channel }` | *pending auth* | | |
-| `check_channel_link` | `{ channel, link }` | *pending auth* | | `link` = https URL |
-| `add_channel_link` | *pending* | | | confirm `I_CONFIRM_THROWAY_ROOM` |
-| `remove_channel_link` | *pending* | | | |
-| `disable_channel_messages` | *pending* | | | |
-| `enable_channel_messages` | *pending* | | | |
-| `update_nsfw_status` | *pending* | | | try `is_nsfw` then `nsfw` |
-| `disable_replay` | *pending* | | | |
-| `uninvite_speaker` (self) | *pending* | | | verify leave-stage for 28.2 |
+| `get_channel` | `{ channel }` | **401** | `detail` | Session auth **rejected** (unlike `get_profile`) |
+| `get_handraise_queue` | `{ channel }` (+ page_size retries) | **401** | `detail` | Same |
+| `get_suggested_speakers` | `{ channel }` | **401** | `detail` | Same |
+| `check_channel_link` | `{ channel, link }` | **401** | `detail` | Same |
+| `get_moderator_action_history` | `{ channel }` (+ cursor/page_size) | **401** | `detail` | 28.6 read-only — same |
+| `add_channel_link` / `remove_channel_link` / `disable_channel_messages` / `enable_channel_messages` / `update_nsfw_status` / `disable_replay` / `update_handraise_queue_setting` | — | **not run** | | Mutations skipped: read-only already 401 with session |
+| `uninvite_speaker` (self) | — | **not run** | | Needs Token path first (28.2) |
+
+### Conclusion for Phase 28.1+
+
+Web session cookies authenticate **some** mobile endpoints (`get_profile`) but **not** the
+Phase 28 room/moderation-discovery set (`get_channel`, queues, history, link checks). Those
+endpoints behave like Token-only (classic `Authorization: Token …` + `CH-UserID` clients).
+
+**Do not start 28.1** until either:
+
+1. Owner confirms a working Token/link path (SMS skipped earlier — reopen only if policy allows), or
+2. A new capture shows these endpoints accepting the web session under different headers/bodies.
+
+Production host-tool allow-list stays unchanged; transport now uses Node https so Cookie is actually sent.
 
 ### Probe findings (tooling)
 
-1. Empty `Cookie` / `X-CSRFToken` headers → `ERR_BLOCKED_BY_CLIENT` (omit when empty).
-2. Manual `Referer` header → `ERR_BLOCKED_BY_CLIENT` (omit always for `session.fetch`).
-3. Production allow-list unchanged; probe uses a separate allow-list + typed mutation confirm.
+1. Empty `Cookie` / `X-CSRFToken` → omit (empty headers → `ERR_BLOCKED_BY_CLIENT` on session.fetch).
+2. Manual `Referer` → `ERR_BLOCKED_BY_CLIENT`.
+3. `session.fetch` / undici strip `Cookie` → false 401; use `httpsPostJson`.
+4. Second Electron against the same `userData` while Clubbox runs → cookie DB locked (0 cookies). Prefer second-instance poke.
+5. Production allow-list unchanged; probe uses a separate allow-list + typed mutation confirm.
 
 ## App behaviour (Phase 27)
 

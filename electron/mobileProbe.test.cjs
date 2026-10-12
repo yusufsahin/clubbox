@@ -13,7 +13,10 @@ const { isAllowedMobileEndpoint } = require('./mobileApi.cjs');
 test('probe allow-list is separate from production host-tool allow-list', () => {
   assert.equal(isProbeMobileEndpoint('get_channel'), true);
   assert.equal(isProbeMobileEndpoint('add_channel_link'), true);
+  assert.equal(isProbeMobileEndpoint('get_moderator_action_history'), true);
+  assert.equal(isProbeMobileEndpoint('update_handraise_queue_setting'), true);
   assert.equal(isAllowedMobileEndpoint('get_channel'), false);
+  assert.equal(isAllowedMobileEndpoint('get_moderator_action_history'), false);
   assert.equal(isAllowedMobileEndpoint('mute_speaker'), true);
   assert.ok(PROBE_MOBILE_ENDPOINTS.includes('check_channel_link'));
 });
@@ -25,11 +28,24 @@ test('summarizeResponseBody logs keys and users[0] for get_channel', () => {
       success: true,
       users: [{ user_id: 1, is_moderator: true, secret_token: 'x' }],
       channel: 'abc',
+      handraise_queue_setting: 2,
     }),
   );
-  assert.match(shape, /keys=success,users,channel/);
+  assert.match(shape, /keys=success,users,channel,handraise_queue_setting/);
   assert.match(shape, /users\[0\]\.keys=user_id,is_moderator,secret_token/);
+  assert.match(shape, /handraise_queue_setting=2/);
   assert.doesNotMatch(shape, /secret_token=x/);
+});
+
+test('summarizeResponseBody digs into history[0] for moderator action history', () => {
+  const shape = summarizeResponseBody(
+    'get_moderator_action_history',
+    JSON.stringify({
+      success: true,
+      history: [{ action: 'mute', actor_user_id: 1, target_user_id: 2 }],
+    }),
+  );
+  assert.match(shape, /history\[0\]\.keys=action,actor_user_id,target_user_id/);
 });
 
 test('mutation probe refuses without exact typed confirm', async () => {

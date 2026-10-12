@@ -24,6 +24,7 @@ const {
   isAllowedMobileEndpoint,
   mobileAuthHeadersFromCookies,
   callMobileApi,
+  httpsPostJson,
   MOBILE_API_BASE,
 } = require('./mobileApi.cjs');
 const {
@@ -1983,12 +1984,214 @@ ipcMain.handle('clubbox:mobile-probe-mutate', async (event, payload) => {
   return { ok: true, channel, endpoint: payload?.endpoint, results: out.results };
 });
 
+/**
+ * Phase 28.0 — CLI can poke the already-running Clubbox (live session cookies) via
+ * second-instance argv. Never logs Cookie / CSRF values. Writes reports/mobile-probe-28.json.
+ *
+ *   electron . --clubbox-mobile-probe=readonly --channel=abc
+ *   electron . --clubbox-mobile-probe=mutate --mutate=all --confirm=I_CONFIRM_THROWAY_ROOM --channel=abc
+ */
+async function runCliMobileProbeFromArgv(argv) {
+  const probeFlag = argv.find((a) => a === '--clubbox-mobile-probe' || a.startsWith('--clubbox-mobile-probe='));
+  if (!probeFlag) return false;
+  const mode = probeFlag.includes('=') ? probeFlag.split('=').slice(1).join('=') : 'readonly';
+  const channelArg = argv.find((a) => a.startsWith('--channel='));
+  const channel = channelArg
+    ? channelArg.slice('--channel='.length)
+    : (currentRoomChannel || '');
+  const confirmArg = argv.find((a) => a.startsWith('--confirm='));
+  const confirm = confirmArg ? confirmArg.slice('--confirm='.length) : '';
+  const mutateArg = argv.find((a) => a.startsWith('--mutate='));
+  const mutate = mutateArg ? mutateArg.slice('--mutate='.length) : (mode.startsWith('mutate:') ? mode.slice(7) : '');
+  const userIdArg = argv.find((a) => a.startsWith('--userId='));
+  const userId = userIdArg && /^\d+$/.test(userIdArg.slice('--userId='.length))
+    ? Number(userIdArg.slice('--userId='.length))
+    : null;
+  if (!channel || !ROOM_CHANNEL_ID.test(channel)) {
+    console.error('[mobile-probe] no valid --channel= (or current room)');
+    return true;
+  }
+  const sess = authSession();
+  const cookies = await listClubhouseCookies(sess);
+  const sessionLen = String(cookies.find((c) => c.name === 'sessionid')?.value || '').length;
+  const csrfLen = String(cookies.find((c) => c.name === 'csrftoken')?.value || '').length;
+  console.log(
+    '[mobile-probe] cli via running app channel',
+    channel,
+    'cookieNames',
+    cookies.map((c) => c.name).join(','),
+    'sessionidLen',
+    sessionLen,
+    'csrfLen',
+    csrfLen,
+  );
+  // Mirror clubhouse.com session onto the API host so Chromium can attach cookies
+  // without relying on the forbidden Cookie header (Fetch spec).
+  for (const cookie of cookies) {
+    if (!cookie?.name || !cookie.value) continue;
+    try {
+      await sess.cookies.set({
+        url: 'https://www.clubhouseapi.com/',
+        name: cookie.name,
+        value: cookie.value,
+        path: '/',
+        secure: true,
+        httpOnly: !!cookie.httpOnly,
+        sameSite: 'no_restriction',
+      });
+    } catch {
+      /* ignore per-cookie mirror failures */
+    }
+  }
+  const fetchNoAbort = async (url, init) => {
+    const next = { ...init };
+    delete next.signal;
+    // Prefer headers without Cookie — browser sends mirrored api-host cookies.
+    if (next.headers && typeof next.headers === 'object') {
+      const h = { ...next.headers };
+      delete h.Cookie;
+      next.headers = h;
+    }
+    return sess.fetch(url, next);
+  };
+  const report = {
+    channel,
+    confirmRequired: MUTATION_CONFIRM,
+    readOnly: [],
+    mutations: {},
+    authCanary: [],
+    cookieNames: cookies.map((c) => c.name),
+    sessionidLen: sessionLen,
+    csrfLen,
+    userData: app.getPath('userData'),
+    via: 'second-instance',
+  };
+  // Auth canary + read-only discovery via Node https only (Cookie header kept).
+  // Chromium session.fetch strips Cookie and is unreliable for clubhouseapi.com.
+  {
+    const headers = mobileAuthHeadersFromCookies(cookies, { userAgent: PAGE_UA });
+    const httpsFetch = async (url, init) => {
+      const result = await httpsPostJson(
+        url,
+        init.headers || headers,
+        typeof init.body === 'string' ? init.body : JSON.stringify(init.body || {}),
+        REQUEST_TIMEOUT_MS,
+      );
+      return {
+        ok: result.ok,
+        status: result.status,
+        text: async () => result.body,
+      };
+    };
+    let meUserId = null;
+    try {
+      const meRes = await sess.fetch('https://www.clubhouse.com/web_api/me', {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json; charset=utf-8',
+          'User-Agent': PAGE_UA,
+        },
+        body: '{}',
+      });
+      const meText = await meRes.text();
+      const meJson = JSON.parse(meText);
+      meUserId = meJson?.user_profile?.user_id ?? meJson?.user_id ?? null;
+    } catch {
+      /* ignore */
+    }
+    for (const [endpoint, body] of [
+      ['get_profile', meUserId != null ? { user_id: meUserId } : {}],
+      ['get_channels', {}],
+      ['get_channel', { channel }],
+      ['get_handraise_queue', { channel }],
+      ['get_suggested_speakers', { channel }],
+      ['check_channel_link', { channel, link: 'https://example.com/clubbox-probe' }],
+      ['get_moderator_action_history', { channel }],
+    ]) {
+      try {
+        const result = await httpsPostJson(
+          `${MOBILE_API_BASE}/${endpoint}`,
+          headers,
+          JSON.stringify(body),
+          REQUEST_TIMEOUT_MS,
+        );
+        let shape = `status=${result.status}`;
+        try {
+          const json = JSON.parse(result.body);
+          shape += ` keys=${Object.keys(json).join(',')}`;
+          if (json.detail) shape += ` detail=${String(json.detail).slice(0, 120)}`;
+          if (json.error_message) shape += ` error_message=${String(json.error_message).slice(0, 160)}`;
+          if (endpoint === 'get_channel' && Array.isArray(json.users) && json.users[0]) {
+            shape += ` users[0].keys=${Object.keys(json.users[0]).join(',')}`;
+          }
+        } catch {
+          shape += ` non-json`;
+        }
+        console.log('[mobile-probe] auth-canary https', endpoint, shape);
+        report.authCanary.push({ endpoint, transport: 'https', status: result.status, shape });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.log('[mobile-probe] auth-canary https', endpoint, 'error', msg.slice(0, 80));
+        report.authCanary.push({ endpoint, transport: 'https', status: 0, shape: msg.slice(0, 80) });
+      }
+    }
+    report.readOnly = await probeMobileReadOnly({
+      fetchFn: httpsFetch,
+      cookies,
+      userAgent: PAGE_UA,
+      timeoutMs: REQUEST_TIMEOUT_MS,
+      channel,
+    });
+  }
+  if (mode === 'mutate' || mode.startsWith('mutate') || mutate) {
+    if (confirm !== MUTATION_CONFIRM) {
+      console.log('[mobile-probe] mutations skipped — pass --confirm=' + MUTATION_CONFIRM);
+    } else {
+      const order = [
+        'add_channel_link',
+        'remove_channel_link',
+        'disable_channel_messages',
+        'enable_channel_messages',
+        'update_nsfw_status',
+        'disable_replay',
+        'update_handraise_queue_setting',
+      ];
+      const endpoints = mutate === 'all' || !mutate ? order : [mutate];
+      for (const endpoint of endpoints) {
+        report.mutations[endpoint] = await probeMobileMutation({
+          fetchFn: fetchNoAbort,
+          cookies,
+          userAgent: PAGE_UA,
+          timeoutMs: REQUEST_TIMEOUT_MS,
+          channel,
+          endpoint,
+          confirm,
+          link: 'https://example.com/clubbox-probe',
+          userId: endpoint === 'uninvite_speaker' ? userId : undefined,
+        });
+      }
+    }
+  }
+  const outDir = path.join(__dirname, '..', 'reports');
+  fs.mkdirSync(outDir, { recursive: true });
+  const outPath = path.join(outDir, 'mobile-probe-28.json');
+  fs.writeFileSync(outPath, `${JSON.stringify(report, null, 2)}\n`);
+  fs.writeFileSync(path.join(outDir, 'mobile-probe-28.done'), `${Date.now()}\n`);
+  console.log('[mobile-probe] wrote', outPath);
+  return true;
+}
+
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 if (!hasSingleInstanceLock) {
   console.error('[Electron] Clubbox is already running. Close that window, then start again.');
   app.quit();
 } else {
   app.on('second-instance', (_event, argv) => {
+    if (argv.some((a) => a === '--clubbox-mobile-probe' || String(a).startsWith('--clubbox-mobile-probe='))) {
+      void runCliMobileProbeFromArgv(argv);
+      return;
+    }
     if (argv.includes('--api-recorder')) {
       startRecorderIfAllowed(argv);
       return;

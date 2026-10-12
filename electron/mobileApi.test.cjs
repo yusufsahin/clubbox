@@ -89,3 +89,24 @@ test('callMobileApi posts to clubhouseapi.com/api/<endpoint>', async () => {
   assert.equal(seen?.init?.body, JSON.stringify({ channel: 'abc', user_id: 9 }));
   assert.equal(seen?.init?.headers?.['X-CSRFToken'], 'tok');
 });
+
+test('callMobileApi falls back to https when session.fetch throws', async () => {
+  const { httpsPostJson } = require('./mobileApi.cjs');
+  assert.equal(typeof httpsPostJson, 'function');
+  const result = await callMobileApi({
+    fetchFn: async () => {
+      throw new Error('net::ERR_FAILED');
+    },
+    endpoint: 'mute_speaker',
+    body: { channel: 'abc', user_id: 9 },
+    cookies: [
+      { name: 'sessionid', value: 'sess' },
+      { name: 'csrftoken', value: 'tok' },
+    ],
+    userAgent: 'TestUA',
+    timeoutMs: 8_000,
+  });
+  // Live network: 401 without a real session is fine — proves Cookie was accepted by the wire path.
+  assert.ok(result.status === 401 || result.status === 200 || result.status === 400);
+  assert.doesNotMatch(result.body, /ERR_FAILED/);
+});

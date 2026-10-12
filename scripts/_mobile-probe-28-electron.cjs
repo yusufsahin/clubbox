@@ -45,6 +45,7 @@ const MUTATION_ORDER = [
   'enable_channel_messages',
   'update_nsfw_status',
   'disable_replay',
+  'update_handraise_queue_setting',
 ];
 
 app.whenReady().then(async () => {
@@ -62,8 +63,23 @@ app.whenReady().then(async () => {
     const sess = session.defaultSession;
     const cookies = await listClubhouseCookies(sess);
     report.cookieNames = cookies.map((c) => c.name);
-    console.log('[mobile-probe-28] channel', channel, 'cookieNames', report.cookieNames.join(','));
+    // Shape only — never log cookie values.
+    report.cookieMeta = cookies.map((c) => ({
+      name: c.name,
+      domain: c.domain,
+      path: c.path,
+      httpOnly: !!c.httpOnly,
+      secure: !!c.secure,
+      valueLen: String(c.value || '').length,
+    }));
+    console.log(
+      '[mobile-probe-28] channel',
+      channel,
+      'cookieMeta',
+      report.cookieMeta.map((c) => `${c.name}@${c.domain}:len=${c.valueLen}`).join(' '),
+    );
 
+    // Cookie-aware https fallback lives inside callMobileApi when session.fetch throws.
     const fetchNoAbort = async (url, init) => {
       const next = { ...init };
       delete next.signal;
