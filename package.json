@@ -100,6 +100,7 @@
     "vite": "^8.3.0"
   },
   "dependencies": {
+    "agora-extension-ai-denoiser": "^2.0.2",
     "agora-rtc-sdk-ng": "^4.24.8"
   }
 }

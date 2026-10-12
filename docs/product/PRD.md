@@ -139,6 +139,7 @@ Legend — Today: ✅ works live · ✅* wired (live verification pending) · �
 | ID | Feature | HC | CD | Today | Evidence | Priority |
 | --- | --- | --- | --- | --- | --- | --- |
 | ST-1 | Input/output device, mic gain, monitor | | ✓ | ✅ | — | P0 |
+| ST-1b | AI noise suppression (Agora WASM denoiser; Settings › Audio; off by default; off in music mode) | | ✓ | ✅* | — | P2 |
 | ST-2 | Music mode (no AEC/NS/AGC, stereo, headphone warning) | ✓ | ✓ | ✅ | — | P0 |
 | ST-3 | Soundboard: local files, volume, duck button, stop all, hotkeys | | ✓ | ✅ | — | P0 |
 | ST-4 | Recording (opt-in, replays-on rooms, compressed/lossless) | | ✓ | ✅ | — | P1 |

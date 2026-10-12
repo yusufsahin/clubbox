@@ -84,6 +84,7 @@ export function settingsView(
   soundEffects: SoundEffectItem[] = [],
   editingSoundId: string | null = null,
   connectionStatus: ConnectionStatusReadout | null = null,
+  aiNoiseSuppression = false,
 ): SafeHtml {
   return html`
     <div style="max-width:780px; margin:0 auto;" data-page="settings" data-nav-contains="api-config">
@@ -144,6 +145,10 @@ export function settingsView(
           </select>
           <p id="output-device-note" hidden style="font-size:12px; color:var(--text-dim); margin-top:8px;">${t('outputUnsupported')}</p>
         </div>
+        <label style="display:flex; align-items:flex-start; gap:8px; margin-top:12px; cursor:pointer;">
+          <input type="checkbox" id="cfg-ai-noise" ${aiNoiseSuppression ? 'checked' : ''} />
+          <span><strong>${t('aiNoiseSuppression')}</strong><br />${t('aiNoiseSuppressionHelp')}</span>
+        </label>
         <p class="list-note" style="margin-top:12px;">${t('recordingNeedsConsent')}</p>
         <div class="virtual-cable-guide" data-virtual-cable-guide style="margin-top:16px; padding-top:12px; border-top:1px solid var(--border-subtle);">
           <h4 style="font-size:14px; font-weight:700; margin-bottom:6px;">${t('virtualCableGuideTitle')}</h4>

@@ -43,6 +43,7 @@ test('audioPrefs round-trips applied voice effect and spatial flag', () => {
     externalDuck: true,
     externalDuckDb: -12,
     externalCopyrightSeen: true,
+    aiNoiseSuppression: true,
   };
   writeAudioPrefs(prefs);
   const next = readAudioPrefs();
@@ -54,4 +55,12 @@ test('audioPrefs round-trips applied voice effect and spatial flag', () => {
   assert.equal(next.externalVolume, 0.6);
   assert.equal(next.externalMonitor, true);
   assert.equal(next.externalCopyrightSeen, true);
+  assert.equal(next.aiNoiseSuppression, true);
+});
+
+test('audioPrefs defaults aiNoiseSuppression to off', () => {
+  installMemoryStorage();
+  localStorage.setItem('clubbox_audio', JSON.stringify({ micVolume: 0.5 }));
+  const next = readAudioPrefs();
+  assert.equal(next.aiNoiseSuppression, false);
 });

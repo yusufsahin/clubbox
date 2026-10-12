@@ -4,36 +4,30 @@ Each task below is a self-contained prompt. Paste one task at a time into Cursor
 
 _Last reviewed: 2026-10-11. “Uygulandı” means the code is in the tree. “Canlı doğrulandı” means it was exercised against the official Clubhouse web session. This pass is implemented; the live room, hand, invite, and chat capture is still outstanding._
 
-### Next run (owner instruction, 2026-10-12 #8)
+### Next run (owner instruction, 2026-10-12 #9)
+
+Owner said `evet` → implement deferred **24.7** AI denoiser.
+- [x] Install `agora-extension-ai-denoiser@2.0.2` + CSP `wasm-unsafe-eval` + Vite copy of WASM
+- [x] Settings › Audio toggle (off by default); pipe enable/disable without republish; music mode forces off
+- [x] i18n en/tr, unit tests, `npm test` + e2e (12) + theme settings shots
+- [x] Commit 24.7; Status idle again (ST-9 `@deferred` only)
+
+### Previous run (owner instruction, 2026-10-12 #8)
 
 Owner added Phase 23 (live room audio / Agora). Run it in order and respect the decision gate:
-- [x] 23.1 Remove the DNS workarounds (wrong diagnosis)
-- [x] 23.2 Make the real Agora join result visible
-- [x] 23.3 A/B reference tooling shipped — **web path chosen** (live audio worked; see `docs/history/agora-voice-dns-fix.md` A/B)
-- [x] 23.4–23.5 (web path)
-- [x] then Phase 24 (Agora feature completeness) 24.1 → 24.7; **24.1–24.6 done; 24.7 deferred (no install)**
+- [x] 23.1–23.5 web path; Phase 24.1–24.6; 24.7 deferred then approved via `evet` (#9)
 - [x] 23.6–23.8 native SDK path deferred unless web regresses
-- [x] 24.7 evaluated — not installed (owner kept saying devam without approving WASM/CSP/licence)
-- [x] Phase 24 UI gate: `npm run test:e2e` (12 passed) + fresh `reports/theme/` settings + room-bar shots
-- [x] autonomous idle — no further Status-table work (ST-9 `@deferred` only)
+- [x] Phase 24 UI gate: e2e + `reports/theme/`
 
-### Previous run (owner instruction, 2026-10-12 #7)
+### Last autonomous run (2026-10-12 #9 — 24.7)
 
-Owner added Phase 22 (HAL-9 room type chips). Continue from there:
-- [x] Phases 18–21 (see history above)
-- [x] Phase 22 — hallway room types (HAL-9): chips, sparse load-more, badges, empty state
-- [x] npm test + e2e + light/dark hallway screenshots; PRD HAL-9 Today; commit; stop
-
-### Last autonomous run (2026-10-12 #idle)
-
-- Phases **12–24** closed on `phase-23-24-agora` (24.7 deferred, no WASM). Status table **idle**.
-- Only leftover: ST-9 Restream `@deferred`; optional `24.7 evet`; ACC-1 wording question.
-- Stopped per Hard rule — no open Autonomous-plan task.
+- **24.7 done:** Agora AI denoiser installed; Settings toggle; music-mode bypass; WASM ~6 MB copied at build.
+- Tests: unit+BDD green; e2e 12 passed; fresh `reports/theme/*-settings.png`.
+- Status table **idle**. Leftover: ST-9 Restream `@deferred`; ACC-1 wording question.
 
 ### Questions for the owner
 
 - **ACC-1 wording:** Sign-in is now a visible Clubhouse `/signin` surface embedded in the main window (BrowserView), not a separate BrowserWindow. Should `features/account.feature` ACC-1 say “visible Clubhouse sign-in surface” instead of “visible window”? (Feature file not edited by the agent.)
-- **24.7 AI denoiser:** Deferred without install (browser ANS only). Say `24.7 evet` later if you want the Agora WASM package after all.
 
 
 ## Status
@@ -43,10 +37,10 @@ Legend: **Uygulandı** = code is in the tree. **Canlı doğrulandı** = exercise
 | Order | Task | Status |
 | --- | --- | --- |
 | 0a | **Phase 23 Live room audio (Agora)** — DNS -105 is a red herring; real join error not yet visible; web vs native SDK decision gate at 23.3 | **Web path** — 23.1–23.5 done on `phase-23-24-agora`; native 23.6+ deferred |
-| 0b | **Phase 24 Agora feature completeness** — broadcast mix, reconnect + quality, token lifecycle, device hot-swap, speaking rings, lifecycle, AI noise suppression | **Closed** — 24.1–24.6 done; 24.7 deferred (no WASM); e2e green |
+| 0b | **Phase 24 Agora feature completeness** — broadcast mix, reconnect + quality, token lifecycle, device hot-swap, speaking rings, lifecycle, AI noise suppression | **Closed** — 24.1–24.7 done (AI denoiser + CSP/WASM); e2e green |
 | 1 | **0.7 Review fixes (2026-10-11 #2)** — navigation guard, packaged recorder, clip worklet path, auto-armed clip buffer, 429/visibility, CORS proxy token leak | Uygulandı |
 | 1b | **0.8 Followers / following / friends lists** — bundle scan + labeled UI hunt; live UI uses only counts + mutual lists | Uygulandı for counts, mutual names, and chat people. The public web bundle does not contain get_followers, get_following, or get_online_friends. get_friend_zone_match and get_social_club_members are in-bundle and not called. The labeled click-through still needs a signed-in session. |
-| 0 | **Autonomous plan** (see `.cursor/rules/clubbox.mdc`): 10.1 → 11.8 (warn mode) → 10.2 → 10.5 → 11.0 → 11.1 → 11.2 → 11.3 → 11.4 → 10.4 → 11.5 → 11.6 → 11.7 → 11.9 → 11.10 → 11.8 (strict). Acceptance files: account, hallway, room_listener, room_realtime, room_host, room_moderation, audio_studio, studio, social, messages, houses_events_replays, api_health. Requirements: `docs/product/PRD.md`; design + gap list G-01…G-18: `docs/product/DESIGN.md`; acceptance: `features/*.feature` | **Idle** — Phases 12–**24** done. Only ST-9 Restream remains `@deferred`. |
+| 0 | **Autonomous plan** (see `.cursor/rules/clubbox.mdc`): 10.1 → 11.8 (warn mode) → 10.2 → 10.5 → 11.0 → 11.1 → 11.2 → 11.3 → 11.4 → 10.4 → 11.5 → 11.6 → 11.7 → 11.9 → 11.10 → 11.8 (strict). Acceptance files: account, hallway, room_listener, room_realtime, room_host, room_moderation, audio_studio, studio, social, messages, houses_events_replays, api_health. Requirements: `docs/product/PRD.md`; design + gap list G-01…G-18: `docs/product/DESIGN.md`; acceptance: `features/*.feature` | **Idle** — Phases 12–**24** (incl. 24.7) done. Only ST-9 Restream remains `@deferred`. |
 | — | **10.1** / **10.2** / **10.4** / **10.5** / **11.0** / **11.8 (warn)** | Uygulandı |
 | 1c | **0.9 / 12.2 Verified by use** — request log + in-app triage (no recorder) | Uygulandı. Verified by use: endpoints the owner exercises become `observed` via userData `api-log` + startup triage / `npm run api:triage` (list grows with normal use). |
 | 2 | **0.6 Community Guidelines risk** — hidden reCAPTCHA sign-in, polling, recording, distribution | Uygulandı (code). Sign-in is a visible clubhouse.com window, polling pauses when the window is hidden, recording is opt-in, and there is no publish config. A public release is still your decision. |

@@ -25,6 +25,11 @@ import {
   type SpeakingHoldState,
 } from './speakingRings';
 import { createExclusiveQueue } from './asyncQueue';
+import {
+  detachAiDenoiser,
+  setAiNoisePreference,
+  syncAiDenoiserOnTrack,
+} from './aiDenoiser';
 
 export interface AgoraJoinOptions {
   isSpeaker: boolean;
@@ -635,6 +640,9 @@ export class AgoraVoiceEngine {
     // Feed Agora's live track into the local graph for VU / monitor / effects (no second capture).
     audioEngine.adoptMicrophoneTrack(this.localAudioTrack.getMediaStreamTrack());
 
+    // Phase 24.7: AI denoiser pipe (no republish to toggle; music mode forces off).
+    await syncAiDenoiserOnTrack(AgoraRTC, this.localAudioTrack, isMusicMode);
+
     // Phase 24.1: second track = soundboard + external (+ effected voice when FX applied).
     // Voice effects: SDK localAudioTrack.pipe(processor) exists, but Clubbox FX are Web Audio
     // (effectChain). When applied !== 'none', processed mic is wired into extrasDest and the
@@ -742,7 +750,16 @@ export class AgoraVoiceEngine {
     }
   }
 
+  /** Settings › Audio AI noise suppression (off by default). Live toggle without republish. */
+  public async setAiNoiseSuppression(enabled: boolean): Promise<void> {
+    setAiNoisePreference(enabled);
+    if (!this.localAudioTrack || !this.isJoined) return;
+    const AgoraRTC = await this.loadSdk();
+    await syncAiDenoiserOnTrack(AgoraRTC, this.localAudioTrack, audioEngine.getIsMusicMode());
+  }
+
   private async unpublishLocal(): Promise<void> {
+    await detachAiDenoiser();
     this.stopExtrasStatsProbe();
     this.extrasSending = null;
     const tracks = [this.localAudioTrack, this.extrasAudioTrack].filter(

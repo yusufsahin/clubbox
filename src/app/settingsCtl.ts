@@ -449,6 +449,7 @@ export function renderSettingsView(this: ClubboxApp) {
     audioEngine.soundEffects,
     this.editingSoundId,
     this.connectionStatus,
+    this.audioPrefs.aiNoiseSuppression === true,
   );
 }
 

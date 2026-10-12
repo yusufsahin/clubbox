@@ -6,6 +6,9 @@ dist
 dist-ssr
 .vite
 
+# Copied from node_modules/agora-extension-ai-denoiser/external by Vite
+public/agora-denoiser/
+
 # electron-builder output (also written to ../clubdeck-app/release)
 release
 

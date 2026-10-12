@@ -16,6 +16,8 @@ export interface AudioPrefs {
   externalDuck: boolean;
   externalDuckDb: number;
   externalCopyrightSeen: boolean;
+  /** Agora AI noise suppression (Phase 24.7); off by default; forced off in music mode. */
+  aiNoiseSuppression: boolean;
 }
 
 const DEFAULT_PREFS: AudioPrefs = {
@@ -32,6 +34,7 @@ const DEFAULT_PREFS: AudioPrefs = {
   externalDuck: true,
   externalDuckDb: -12,
   externalCopyrightSeen: false,
+  aiNoiseSuppression: false,
 };
 
 function readVoiceEffect(value: unknown): StoredVoiceEffect {
@@ -78,6 +81,7 @@ export function readAudioPrefs(): AudioPrefs {
       externalDuck: parsed.externalDuck !== false,
       externalDuckDb: clampDuckDb(parsed.externalDuckDb ?? DEFAULT_PREFS.externalDuckDb),
       externalCopyrightSeen: parsed.externalCopyrightSeen === true,
+      aiNoiseSuppression: parsed.aiNoiseSuppression === true,
     };
   } catch {
     return { ...DEFAULT_PREFS, remoteVolumes: {} };

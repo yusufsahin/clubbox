@@ -1447,6 +1447,16 @@ export class ClubboxApp {
         );
         return;
       }
+      if (target.id === 'cfg-ai-noise' && target instanceof HTMLInputElement) {
+        this.audioPrefs.aiNoiseSuppression = target.checked === true;
+        this.saveAudioPrefs();
+        void agoraVoice.setAiNoiseSuppression(this.audioPrefs.aiNoiseSuppression);
+        this.showToast(
+          this.audioPrefs.aiNoiseSuppression ? t('aiNoiseSuppressionOn') : t('aiNoiseSuppressionOff'),
+          '🔇',
+        );
+        return;
+      }
       if (action === 'pick-voice-effect' && target instanceof HTMLSelectElement) {
         const value = target.value;
         if (value === 'none' || value === 'radio' || value === 'deep' || value === 'robot' || value === 'echo') {
@@ -1585,9 +1595,9 @@ export class ClubboxApp {
       case 'set-audio-quality': {
         const quality = (el as HTMLSelectElement).value;
         if (quality === 'music') {
-          if (!audioEngine.getIsMusicMode()) audioEngine.toggleMusicMode();
+          if (!audioEngine.getIsMusicMode()) this.toggleMusicMode();
         } else if (audioEngine.getIsMusicMode()) {
-          audioEngine.toggleMusicMode();
+          this.toggleMusicMode();
         }
         this.render();
         break;

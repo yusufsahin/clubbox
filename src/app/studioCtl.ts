@@ -302,6 +302,7 @@ export function applyAudioPrefs(this: ClubboxApp) : void {
     audioEngine.setExternalMonitor(this.audioPrefs.externalMonitor === true);
     audioEngine.setExternalDuckEnabled(this.audioPrefs.externalDuck !== false);
     audioEngine.setExternalDuckDb(this.audioPrefs.externalDuckDb ?? -12);
+    void agoraVoice.setAiNoiseSuppression(this.audioPrefs.aiNoiseSuppression === true);
     for (const [uid, volume] of Object.entries(this.audioPrefs.remoteVolumes)) {
       audioEngine.setRemoteVolume(uid, volume);
     }
