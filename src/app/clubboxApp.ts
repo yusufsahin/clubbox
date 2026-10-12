@@ -178,6 +178,8 @@ export class ClubboxApp {
   chatMessages: CHChatMessage[] = [];
   unreadChat = 0;
   chatOpen = true;
+  /** Session-only dismiss of the music-mode headphones strip (28.4.4). */
+  headphonesBannerDismissed = readHeadphonesBannerDismissed();
   pubnubSource = new PubNubRoomSource({
     onUnknownMessage: ({ type, keys }) => {
       clubhouseClient.noteApiHealth('pubnub', `Unknown realtime message type: ${type}`, keys);
@@ -1527,7 +1529,9 @@ export class ClubboxApp {
 
   renderStageView(): ReturnType<typeof html> {
     if (!this.currentChannel) return emptyStageView();
-    const headphones = this.isMeSpeaker() && this.audioPrefs.audioQuality === 'music';
+    const headphones = this.isMeSpeaker()
+      && this.audioPrefs.audioQuality === 'music'
+      && !this.headphonesBannerDismissed;
     return stageView(
       this.stageColumn(),
       this.chatList(),
@@ -2409,6 +2413,11 @@ export class ClubboxApp {
         if (this.currentTab === 'explore') void this.refreshExplore();
         break;
       }
+      case 'dismiss-headphones-banner':
+        this.headphonesBannerDismissed = true;
+        writeHeadphonesBannerDismissed(true);
+        this.render();
+        break;
       case 'toggle-chat':
         if (!this.currentChannel) return;
         if (this.currentChannel.is_chat_enabled === false) {
@@ -2636,6 +2645,25 @@ export class ClubboxApp {
 
 
 
+}
+
+const HEADPHONES_BANNER_DISMISSED_KEY = 'clubbox.headphonesBannerDismissed';
+
+function readHeadphonesBannerDismissed(): boolean {
+  try {
+    return sessionStorage.getItem(HEADPHONES_BANNER_DISMISSED_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function writeHeadphonesBannerDismissed(dismissed: boolean): void {
+  try {
+    if (dismissed) sessionStorage.setItem(HEADPHONES_BANNER_DISMISSED_KEY, '1');
+    else sessionStorage.removeItem(HEADPHONES_BANNER_DISMISSED_KEY);
+  } catch {
+    /* private mode / quota — in-memory flag still applies for this session */
+  }
 }
 
 // Prototype methods are wired by wire*Ctl (Task 13.1). Declaration merging keeps

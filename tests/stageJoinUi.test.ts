@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { markup } from '../src/ui/html.ts';
-import { stageColumn, type StageState } from '../src/ui/views/stage.ts';
+import { html, markup } from '../src/ui/html.ts';
+import { stageColumn, stageView, type StageState } from '../src/ui/views/stage.ts';
 import type { CHChannelDetail } from '../src/api/types.ts';
 
 function baseState(overrides: Partial<StageState> = {}): StageState {
@@ -138,4 +138,23 @@ test('moderator can remove an audience member from the room', () => {
   })));
   assert.match(html, /data-mod-action="block"/);
   assert.match(html, /data-user-id="4"/);
+});
+
+test('headphones banner is a full-width strip above the stage row, dismissable', () => {
+  const out = markup(stageView(html`<div data-col>col</div>`, html``, false, true));
+  assert.match(out, /data-headphones-banner/);
+  assert.match(out, /stage-strip-banner/);
+  assert.match(out, /data-action="dismiss-headphones-banner"/);
+  assert.match(out, /class="stage-main-row"/);
+  // Banner must sit outside the content column (layout bug was flex-row stretch).
+  const bannerAt = out.indexOf('data-headphones-banner');
+  const rowAt = out.indexOf('stage-main-row');
+  const colAt = out.indexOf('id="stage-column"');
+  assert.ok(bannerAt >= 0 && rowAt > bannerAt && colAt > rowAt);
+});
+
+test('headphones banner omitted when not requested', () => {
+  const out = markup(stageView(html`<div data-col>col</div>`, html``, false, false));
+  assert.doesNotMatch(out, /data-headphones-banner/);
+  assert.match(out, /class="stage-main-row"/);
 });

@@ -52,29 +52,40 @@ export function stageView(
 ): SafeHtml {
   return html`
     <div class="stage-main-wrapper">
-      <div id="realtime-banner" hidden class="rec-banner" style="margin: 0 0 8px;">${t('realtimeReconnecting')}</div>
+      <div id="realtime-banner" hidden class="rec-banner stage-strip-banner">${t('realtimeReconnecting')}</div>
       ${headphonesBanner ? html`
-        <div class="rec-banner" data-headphones-banner>${t('musicHeadphonesBanner')}</div>
+        <div class="rec-banner stage-strip-banner" data-headphones-banner role="status">
+          <span class="stage-strip-banner-text">${t('musicHeadphonesBanner')}</span>
+          <button
+            class="stage-strip-banner-dismiss"
+            type="button"
+            data-action="dismiss-headphones-banner"
+            title="${t('close')}"
+            aria-label="${t('close')}"
+          >✕</button>
+        </div>
       ` : ''}
-      <div class="stage-content-col" id="stage-column">
-        ${column}
-      </div>
+      <div class="stage-main-row">
+        <div class="stage-content-col" id="stage-column">
+          ${column}
+        </div>
 
-      ${chatOpen ? html`
-        <aside class="stage-chat-panel">
-          <div class="chat-panel-header">
-            <span>${t('roomChat')}</span>
-            <button class="top-icon-btn" type="button" data-action="toggle-chat" title="${t('close')}">✕</button>
-          </div>
-          <div class="chat-messages-scroll" id="chat-scroll">
-            ${messages}
-          </div>
-          <div class="chat-input-bar">
-            <input class="form-input" id="chat-input" placeholder="${t('chatPlaceholder')}" style="padding: 8px 12px; font-size: 13px;" />
-            <button class="btn btn-primary" data-action="send-chat" style="padding: 8px 12px;">${t('send')}</button>
-          </div>
-        </aside>
-      ` : ''}
+        ${chatOpen ? html`
+          <aside class="stage-chat-panel">
+            <div class="chat-panel-header">
+              <span>${t('roomChat')}</span>
+              <button class="top-icon-btn" type="button" data-action="toggle-chat" title="${t('close')}">✕</button>
+            </div>
+            <div class="chat-messages-scroll" id="chat-scroll">
+              ${messages}
+            </div>
+            <div class="chat-input-bar">
+              <input class="form-input" id="chat-input" placeholder="${t('chatPlaceholder')}" style="padding: 8px 12px; font-size: 13px;" />
+              <button class="btn btn-primary" data-action="send-chat" style="padding: 8px 12px;">${t('send')}</button>
+            </div>
+          </aside>
+        ` : ''}
+      </div>
     </div>
   `;
 }

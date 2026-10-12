@@ -17,7 +17,13 @@ Owner reported: triage noise, new-room participants invisible, moderation action
 
 Idle recheck after 24.7.
 
-### Last autonomous run (2026-10-12 — Phase 28.0 body discovery)
+### Last autonomous run (2026-10-12 — Phase 28.4.4 headphones banner)
+
+- Fixed music-mode banner layout: was a flex-row sibling of the stage column (full-height red block). Now a thin full-width strip above `stage-main-row`, dismissable for the session (`sessionStorage`).
+- Files: `stage.ts`, `style.css`, `clubboxApp.ts`; unit tests in `stageJoinUi.test.ts`.
+- `npm test` / `tsc` / lint / build green. **28.0 auth body shapes still blocked** (re-sign-in). Did not start 28.1.
+
+### Previous last autonomous run (2026-10-12 — Phase 28.0 body discovery)
 
 - Probe tooling: `mobileProbe.cjs` (separate allow-list), in-app IPC + `scripts/mobile-probe-28.mjs`, docs updated.
 - Unauth: all 28.0 endpoints **401** (live). Auth discovery blocked — userData had no session cookies.
@@ -66,7 +72,7 @@ Legend: **Uygulandı** = code is in the tree. **Canlı doğrulandı** = exercise
 | 0a | **Phase 23 Live room audio (Agora)** — DNS -105 is a red herring; real join error not yet visible; web vs native SDK decision gate at 23.3 | **Web path** — 23.1–23.5 done on `phase-23-24-agora`; native 23.6+ deferred |
 | 0b | **Phase 24 Agora feature completeness** — broadcast mix, reconnect + quality, token lifecycle, device hot-swap, speaking rings, lifecycle, AI noise suppression | **Closed** — 24.1–24.7 done (AI denoiser + CSP/WASM); e2e green |
 | 0c | **Phase 25 Room exit and mic state** — leave_channel on close/quit/Ctrl+C + crash recovery, mute badge/state sync, AI denoiser init bug, log hygiene | **Closed** — 25.1–25.4 done. 25.5 moved to Phase 26 |
-| 0f | **Phase 28 Room actions per role** — role × action matrix (Clubhouse parity), mobile body discovery, authoritative room state via get_channel, listener/speaker/moderator actions, UI gating, headphones banner fix, Moderator actions panel (Requests + History) | **28.0 tooling done** — unauth 401 all targets; **auth body shapes pending re-sign-in** |
+| 0f | **Phase 28 Room actions per role** — role × action matrix (Clubhouse parity), mobile body discovery, authoritative room state via get_channel, listener/speaker/moderator actions, UI gating, headphones banner fix, Moderator actions panel (Requests + History) | **28.0 tooling + 28.4.4 banner done** — auth body shapes pending re-sign-in; **28.1 blocked** until 28.0 auth |
 | 0e | **Phase 27 Host tools via mobile API** — end room, invite to stage, mute, move to audience, remove from room; web API has none of these (404 / not in bundle) | **Code + docs done** — 27.1–27.2 + mobile-api.md (SMS skipped); **27.4 owner live matrix** open |
 | 0d | **Phase 26 Studio audio routing** — VB-Cable / Voicemeeter (Clubdeck parity): device classification, working quality levels, mixer-as-mic, loop guard, setup wizard, capture truth, live test matrix | **Code done** — 26.1–26.6 + mid-room `applyMicDevice` harden. **26.7 owner live matrix** still open |
 | 1 | **0.7 Review fixes (2026-10-11 #2)** — navigation guard, packaged recorder, clip worklet path, auto-armed clip buffer, 429/visibility, CORS proxy token leak | Uygulandı |
@@ -1213,7 +1219,7 @@ Tests for each handler; buttons hidden for non-moderators.
    Mute, Move to audience, Make moderator, Remove from room. Self card: Leave stage / Leave room.
 3. Error surface: show error_message from the server in the toast.
 4. Banner bug: "Use headphones — echo cancellation is off" must be a thin full-width strip above the stage (one line,
-   dismissable for the session), not a full-height block in the left column.
+   dismissable for the session), not a full-height block in the left column. **Done** (2026-10-12).
 ```
 
 ### Task 28.5 — Tests and owner live matrix
