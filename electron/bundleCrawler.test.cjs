@@ -7,6 +7,7 @@ const {
   analyzeChunk,
   extractBuildId,
   extractPubNubTemplates,
+  extractScriptPathsFromHtml,
   extractSecrets,
   parseBuildManifest,
 } = require('./bundleScan.cjs');
@@ -23,6 +24,9 @@ test('extractBuildId and parseBuildManifest read Next.js assets', () => {
   const chunks = parseBuildManifest(manifest, 'buildAbc123XYZ');
   assert.ok(chunks.includes('/_next/static/chunks/fixture-room.js'));
   assert.ok(chunks.includes('/_next/static/chunks/webpack.js'));
+  const fromHtml = extractScriptPathsFromHtml(homeHtml);
+  assert.ok(fromHtml.includes('/_next/static/chunks/webpack-fixture.js'));
+  assert.ok(fromHtml.includes('/_next/static/chunks/main-app-fixture.js'));
 });
 
 test('fixture chunk yields call sites and PubNub templates', () => {
@@ -54,6 +58,8 @@ test('secret values never land outside realtime-config.json', async () => {
     ['https://www.clubhouse.com/_next/static/buildAbc123XYZ/_buildManifest.js', manifest],
     ['https://www.clubhouse.com/_next/static/chunks/fixture-room.js', roomChunk],
     ['https://www.clubhouse.com/_next/static/chunks/webpack.js', 'console.log("webpack");'],
+    ['https://www.clubhouse.com/_next/static/chunks/webpack-fixture.js', 'console.log("webpack-fixture");'],
+    ['https://www.clubhouse.com/_next/static/chunks/main-app-fixture.js', 'console.log("main-app");'],
   ]);
 
   const crawler = createBundleCrawler({
@@ -107,6 +113,8 @@ test('runtime crawl writes only under userData (never projectRoot)', async () =>
     ['https://www.clubhouse.com/_next/static/buildAbc123XYZ/_buildManifest.js', manifest],
     ['https://www.clubhouse.com/_next/static/chunks/fixture-room.js', roomChunk],
     ['https://www.clubhouse.com/_next/static/chunks/webpack.js', 'console.log("webpack");'],
+    ['https://www.clubhouse.com/_next/static/chunks/webpack-fixture.js', 'console.log("webpack-fixture");'],
+    ['https://www.clubhouse.com/_next/static/chunks/main-app-fixture.js', 'console.log("main-app");'],
   ]);
 
   const crawler = createBundleCrawler({
@@ -148,6 +156,8 @@ test('a cache written by an older extractor is re-crawled for the same build', a
     ['https://www.clubhouse.com/_next/static/buildAbc123XYZ/_buildManifest.js', manifest],
     ['https://www.clubhouse.com/_next/static/chunks/fixture-room.js', roomChunk],
     ['https://www.clubhouse.com/_next/static/chunks/webpack.js', 'console.log("webpack");'],
+    ['https://www.clubhouse.com/_next/static/chunks/webpack-fixture.js', 'console.log("webpack-fixture");'],
+    ['https://www.clubhouse.com/_next/static/chunks/main-app-fixture.js', 'console.log("main-app");'],
   ]);
   const crawler = createBundleCrawler({
     userDataPath: userData,
@@ -179,6 +189,8 @@ test('cache hit is skipped when realtime-config secrets are missing', async () =
     ['https://www.clubhouse.com/_next/static/buildAbc123XYZ/_buildManifest.js', manifest],
     ['https://www.clubhouse.com/_next/static/chunks/fixture-room.js', roomChunk],
     ['https://www.clubhouse.com/_next/static/chunks/webpack.js', 'console.log("webpack");'],
+    ['https://www.clubhouse.com/_next/static/chunks/webpack-fixture.js', 'console.log("webpack-fixture");'],
+    ['https://www.clubhouse.com/_next/static/chunks/main-app-fixture.js', 'console.log("main-app");'],
   ]);
   const crawler = createBundleCrawler({
     userDataPath: userData,

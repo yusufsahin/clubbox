@@ -50,7 +50,14 @@ export function groupFailures(records) {
   const groups = new Map();
   for (const record of records) {
     const status = Number(record.status) || 0;
-    if (status < 400 && record.kind !== 'pubnub-unknown' && record.kind !== 'agora') continue;
+    // Agora success (status 200) and connection-state chatter are not product failures.
+    if (record.kind === 'agora') {
+      if (record.ok === true || status >= 200) continue;
+      if (record.endpoint === 'agora_connection') continue;
+      // Keep agora_join (and similar) hard failures: status 0 / ok false.
+    } else if (status < 400 && record.kind !== 'pubnub-unknown') {
+      continue;
+    }
     if (record.kind === 'web_api' && status < 400) continue;
     const key = failureKey(record);
     if (!groups.has(key)) groups.set(key, record);

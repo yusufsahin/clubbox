@@ -8,6 +8,8 @@ const path = require('node:path');
 const {
   analyzeChunk,
   extractBuildId,
+  extractChunkPathsFromWebpack,
+  extractScriptPathsFromHtml,
   parseBuildManifest,
   scrubBundleText,
 } = require('./bundleScan.cjs');
@@ -15,7 +17,8 @@ const { outputHasLeak } = require('./redact.cjs');
 
 // Bump when extraction logic changes so an existing cache for the same Clubhouse build is re-analyzed.
 // 2: production config block (live Stripe key) instead of the first (dev) block for Agora/PubNub keys.
-const EXTRACTOR_VERSION = 2;
+// 3: also crawl HTML <script src> + webpack-referenced chunks (config left the route manifest).
+const EXTRACTOR_VERSION = 3;
 
 const PAGE_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 const MAX_CHUNKS = 200;
@@ -271,14 +274,36 @@ function createBundleCrawler(options) {
 
     const manifestUrl = `${base}/_next/static/${buildId}/_buildManifest.js`;
     const manifest = await pacedGet(manifestUrl, path.join(buildCacheDir, '_buildManifest.js'));
-    const chunkPaths = parseBuildManifest(manifest, buildId).slice(0, MAX_CHUNKS);
+    const pending = new Set([
+      ...parseBuildManifest(manifest, buildId),
+      ...extractScriptPathsFromHtml(html || ''),
+    ]);
 
     const analyzed = [];
     const secretValues = readJson(realtimeConfigPath, {});
-    for (const chunkPath of chunkPaths) {
+    const scanned = new Set();
+    let chunksFetched = 0;
+
+    const hasSecrets = () => typeof secretValues.pubnubSubscribeKey === 'string'
+      && secretValues.pubnubSubscribeKey.length > 0
+      && typeof secretValues.agoraAppId === 'string'
+      && /^[a-fA-F0-9]{32}$/.test(secretValues.agoraAppId);
+
+    while (pending.size && chunksFetched < MAX_CHUNKS) {
+      const chunkPath = [...pending][0];
+      pending.delete(chunkPath);
+      if (scanned.has(chunkPath)) continue;
+      scanned.add(chunkPath);
       const url = chunkPath.startsWith('http') ? chunkPath : `${base}${chunkPath}`;
       const cacheName = chunkPath.replace(/[\\/]/g, '__');
-      const body = await pacedGet(url, path.join(buildCacheDir, cacheName));
+      let body;
+      try {
+        body = await pacedGet(url, path.join(buildCacheDir, cacheName));
+      } catch (err) {
+        console.warn('[Clubbox] bundle chunk fetch failed:', chunkPath, err instanceof Error ? err.message : err);
+        continue;
+      }
+      chunksFetched += 1;
       const result = analyzeChunk(body, { path: chunkPath, page: 'crawler' });
       const values = result._secretValues;
       delete result._secretValues;
@@ -287,6 +312,12 @@ function createBundleCrawler(options) {
       if (values.pubnubSubscribeKey) secretValues.pubnubSubscribeKey = values.pubnubSubscribeKey;
       if (values.envKeys?.length) {
         secretValues.envKeys = [...new Set([...(secretValues.envKeys || []), ...values.envKeys])].sort();
+      }
+      // Webpack/runtime bodies name more chunks than the route manifest.
+      if (/webpack|main-app|main-|polyfills|app\/layout/i.test(chunkPath) || pending.size < 8) {
+        for (const extra of extractChunkPathsFromWebpack(body)) {
+          if (!scanned.has(extra)) pending.add(extra);
+        }
       }
       if (
         result.calls.length
@@ -298,6 +329,8 @@ function createBundleCrawler(options) {
       ) {
         analyzed.push(result);
       }
+      // Runtime crawl only needs keys; stop early once they land.
+      if (hasSecrets() && !writeProjectArtifacts) break;
     }
 
     ensureDir(path.dirname(realtimeConfigPath));
@@ -307,7 +340,13 @@ function createBundleCrawler(options) {
       throw new Error('Refusing to write realtime-config.json: redaction check failed');
     }
     fs.writeFileSync(realtimeConfigPath, secretsText);
-    writeJsonChecked(metaPath, { buildId, complete: true, chunks: chunkPaths.length, extractorVersion: EXTRACTOR_VERSION });
+    const secretsOk = hasSecrets();
+    writeJsonChecked(metaPath, {
+      buildId,
+      complete: secretsOk,
+      chunks: chunksFetched,
+      extractorVersion: EXTRACTOR_VERSION,
+    });
 
     let scripts = analyzed;
     let reportPathOut = null;
@@ -326,10 +365,10 @@ function createBundleCrawler(options) {
     }
 
     return {
-      ok: true,
-      reason: 'crawled',
+      ok: secretsOk,
+      reason: secretsOk ? 'crawled' : 'secrets_missing',
       buildId,
-      chunks: chunkPaths.length,
+      chunks: chunksFetched,
       scripts: scripts.length,
       reportPath: reportPathOut,
       realtimeConfigPath,

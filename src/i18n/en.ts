@@ -582,6 +582,7 @@ export const en = {
   endedRoom: 'Room ended',
   roomEndedByHost: 'The room has ended',
   realtimeReconnecting: 'Reconnecting…',
+  realtimeKeysMissing: 'Realtime keys missing — room updates and hand queue will not appear until Clubhouse scripts are crawled. Open Settings › Connection, or restart after sign-in.',
   messageFilterAll: 'All',
   messageFilterHouse: 'House',
   messageFilterVm: 'Voice messages',

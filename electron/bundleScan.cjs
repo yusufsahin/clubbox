@@ -162,6 +162,33 @@ function parseBuildManifest(source, buildId) {
   return [...chunks].sort();
 }
 
+/**
+ * Shared Next.js runtime chunks (webpack / main-app / layout) live in the HTML
+ * <script src>, not in `_buildManifest` route lists. PubNub/Agora config is there.
+ */
+function extractScriptPathsFromHtml(html) {
+  const text = typeof html === 'string' ? html : '';
+  const chunks = new Set();
+  for (const match of text.matchAll(/(?:src|href)=["']([^"']*\/_next\/static\/[^"']+\.js)["']/gi)) {
+    let value = match[1];
+    try {
+      if (/^https?:\/\//i.test(value)) value = new URL(value).pathname;
+    } catch {
+      continue;
+    }
+    if (value.startsWith('/_next/static/') && value.endsWith('.js')) chunks.add(value);
+  }
+  for (const match of text.matchAll(/["'](\/_next\/static\/(?:chunks|css)\/[^"']+\.js)["']/g)) {
+    chunks.add(match[1]);
+  }
+  return [...chunks].sort();
+}
+
+/** Extra chunk paths referenced from a webpack/runtime body. */
+function extractChunkPathsFromWebpack(source) {
+  return parseBuildManifest(source, null);
+}
+
 /** PubNub channel name templates (string literals with ${…} or channel_ prefixes). */
 function extractPubNubTemplates(source) {
   const text = typeof source === 'string' ? source : '';
@@ -185,9 +212,19 @@ function extractPubNubTemplates(source) {
  * order. Production is the block whose Stripe key is live; take the PubNub/Agora values from that block.
  */
 function productionConfigBlock(text) {
-  const blocks = [...text.matchAll(/stripe:\{publishableKey:"(pk_(?:live|test)_[^"]*)"\},pubnub:\{origin:"[^"]*",publish:"(pub-c-[A-Za-z0-9-]+)",subscribe:"(sub-c-[A-Za-z0-9-]+)"\},agora:\{key:"([A-Fa-f0-9]{32})"\}/g)];
-  const live = blocks.find((block) => block[1].startsWith('pk_live_'));
-  return live ? { publish: live[2], subscribe: live[3], agora: live[4] } : null;
+  // Compact minified shape: stripe:{publishableKey:"pk_…"},pubnub:{origin:"…",publish:"pub-c-…",subscribe:"sub-c-…"},agora:{key:"…"}
+  const compact = [...text.matchAll(/stripe:\{publishableKey:"(pk_(?:live|test)_[^"]*)"\},pubnub:\{origin:"[^"]*",publish:"(pub-c-[A-Za-z0-9-]+)",subscribe:"(sub-c-[A-Za-z0-9-]+)"\},agora:\{key:"([A-Fa-f0-9]{32})"\}/g)];
+  const liveCompact = compact.find((block) => block[1].startsWith('pk_live_'));
+  if (liveCompact) {
+    return { publish: liveCompact[2], subscribe: liveCompact[3], agora: liveCompact[4] };
+  }
+  // Spaced / quoted property names (some builds): pubnub:{origin:"…",publishKey:"…",subscribeKey:"…"}
+  const spaced = [...text.matchAll(/stripe\s*:\s*\{\s*publishableKey\s*:\s*["'](pk_(?:live|test)_[^"']*)["'][\s\S]{0,200}?pubnub\s*:\s*\{[\s\S]{0,240}?publish(?:Key)?\s*:\s*["'](pub-c-[A-Za-z0-9-]+)["'][\s\S]{0,120}?subscribe(?:Key)?\s*:\s*["'](sub-c-[A-Za-z0-9-]+)["'][\s\S]{0,200}?agora\s*:\s*\{\s*key\s*:\s*["']([A-Fa-f0-9]{32})["']/gi)];
+  const liveSpaced = spaced.find((block) => block[1].startsWith('pk_live_'));
+  if (liveSpaced) {
+    return { publish: liveSpaced[2], subscribe: liveSpaced[3], agora: liveSpaced[4] };
+  }
+  return null;
 }
 
 function extractSecrets(source) {
@@ -204,10 +241,10 @@ function extractSecrets(source) {
   }
   const agora = text.match(/NEXT_PUBLIC_AGORA_KEY["'\s:=]+["']([A-Fa-f0-9]{32})["']/)
     || text.match(/agora\s*[:=]\s*\{\s*key\s*:\s*["']([A-Fa-f0-9]{32})["']/);
-  const pub = text.match(/(?:publishKey|publish_key|PUBLISH_KEY)["'\s:=]+["'](pub-c-[A-Za-z0-9-]+)["']/i)
-    || text.match(/["'](pub-c-[A-Za-z0-9-]+)["']/);
-  const sub = text.match(/(?:subscribeKey|subscribe_key|SUBSCRIBE_KEY)["'\s:=]+["'](sub-c-[A-Za-z0-9-]+)["']/i)
-    || text.match(/["'](sub-c-[A-Za-z0-9-]+)["']/);
+  const pub = text.match(/(?:publishKey|publish_key|PUBLISH_KEY)\s*[:=]\s*["'](pub-c-[A-Za-z0-9-]+)["']/i)
+    || text.match(/\bpublish\s*:\s*["'](pub-c-[A-Za-z0-9-]+)["']/i);
+  const sub = text.match(/(?:subscribeKey|subscribe_key|SUBSCRIBE_KEY)\s*[:=]\s*["'](sub-c-[A-Za-z0-9-]+)["']/i)
+    || text.match(/\bsubscribe\s*:\s*["'](sub-c-[A-Za-z0-9-]+)["']/i);
   return {
     envKeys,
     agoraAppId: agora ? agora[1] : null,
@@ -283,8 +320,10 @@ module.exports = {
   extractBuildId,
   extractBundleEndpoints,
   extractCallSites,
+  extractChunkPathsFromWebpack,
   extractEndpointCalls,
   extractPubNubTemplates,
+  extractScriptPathsFromHtml,
   extractSecrets,
   isBundleScript,
   keyShape,

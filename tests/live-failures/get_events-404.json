@@ -1,0 +1,11 @@
+{
+  "endpoint": "get_events",
+  "status": 404,
+  "bodyKeys": [
+    "is_filtered",
+    "page",
+    "page_size"
+  ],
+  "error": "Not found",
+  "evidence": "community"
+}

@@ -584,6 +584,7 @@ export const tr: Record<MessageKey, string> = {
   endedRoom: 'Oda bitti',
   roomEndedByHost: 'Oda sona erdi',
   realtimeReconnecting: 'Yeniden bağlanıyor…',
+  realtimeKeysMissing: 'Realtime anahtarları yok — Clubhouse script’leri taranana kadar oda güncellemeleri ve el kaldırma görünmez. Ayarlar › Bağlantı’yı aç veya girişten sonra yeniden başlat.',
   messageFilterAll: 'Tümü',
   messageFilterHouse: 'Kulüp',
   messageFilterVm: 'Sesli mesaj',

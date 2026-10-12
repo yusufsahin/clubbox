@@ -1,0 +1,10 @@
+{
+  "endpoint": "end_channel",
+  "status": 404,
+  "bodyKeys": [
+    "channel",
+    "channel_id"
+  ],
+  "error": "Not found",
+  "evidence": "community"
+}

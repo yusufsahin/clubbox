@@ -23,6 +23,17 @@ test('groupFailures keys by endpoint+status+error', () => {
   assert.ok([...groups.keys()].some((key) => key.startsWith('join_channel|404|')));
 });
 
+test('groupFailures ignores successful Agora join/connection chatter', () => {
+  const groups = groupFailures([
+    { endpoint: 'agora_join', status: 200, ok: true, kind: 'agora', error: 'source=bundle' },
+    { endpoint: 'agora_connection', status: 0, ok: false, kind: 'agora', error: 'DISCONNECTED->CONNECTING' },
+    { endpoint: 'agora_join', status: 0, ok: false, kind: 'agora', error: 'INVALID_TOKEN;source=bundle' },
+  ]);
+  assert.equal([...groups.keys()].some((key) => key.startsWith('agora_join|200|')), false);
+  assert.equal([...groups.keys()].some((key) => key.startsWith('agora_connection|')), false);
+  assert.ok([...groups.keys()].some((key) => key.startsWith('agora_join|0|')));
+});
+
 test('api:triage creates a live-failure test once, promotes community 2xx, and is idempotent', () => {
   const root = mkdtempSync(join(tmpdir(), 'clubbox-triage-'));
   const logDir = join(root, 'api-log');

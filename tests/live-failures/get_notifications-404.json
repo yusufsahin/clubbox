@@ -1,0 +1,10 @@
+{
+  "endpoint": "get_notifications",
+  "status": 404,
+  "bodyKeys": [
+    "page",
+    "page_size"
+  ],
+  "error": "Not found",
+  "evidence": "community"
+}

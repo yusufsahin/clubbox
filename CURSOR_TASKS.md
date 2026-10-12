@@ -4,23 +4,23 @@ Each task below is a self-contained prompt. Paste one task at a time into Cursor
 
 _Last reviewed: 2026-10-11. “Uygulandı” means the code is in the tree. “Canlı doğrulandı” means it was exercised against the official Clubhouse web session. This pass is implemented; the live room, hand, invite, and chat capture is still outstanding._
 
-### Next run (owner instruction, 2026-10-12 #10)
+### Next run (owner instruction, 2026-10-12 #11)
 
-Owner said `devam` after 24.7. Autonomous plan is idle — recheck only:
-- [x] Status table: no open Autonomous-plan task (Phases 12–24 closed)
-- [x] `npm run api:triage` → NO NEW FAILURES
-- [x] Do not build ST-9 Restream (`@deferred`; needs Clubhouse App Certificate)
-- [x] Stop; leave ACC-1 question for owner
+Owner reported: triage noise, new-room participants invisible, moderation actions unavailable.
+- [x] Root cause: bundle crawl missed HTML runtime chunks → `realtime-config.json` empty → `missing_subscribe_key`
+- [x] Fix crawler extractor v3 (HTML `<script>` + webpack expansion); force rediscover keys
+- [x] Triage: ignore Agora 200/connection chatter; keep real 404 fixtures (end_channel / events / notifications)
+- [x] Toast when PubNub keys missing; moderation still needs Settings › Experimental actions
 
-### Previous run (owner instruction, 2026-10-12 #9)
+### Previous run (owner instruction, 2026-10-12 #10)
 
-Owner said `evet` → **24.7** AI denoiser shipped (`5afb536`).
+Idle recheck after 24.7.
 
-### Last autonomous run (2026-10-12 #10 — idle)
+### Last autonomous run (2026-10-12 #11 — PubNub keys)
 
-- No Status-table work left. Triage clean.
-- Leftover: ST-9 Restream `@deferred`; ACC-1 wording question.
-- Stopped per Hard rule — no open Autonomous-plan task.
+- Fixed empty realtime keys (participants now update via PubNub once app restarted).
+- Moderation routes remain `community` → enable **Experimental actions** in Settings.
+- Leftover: ST-9 `@deferred`; ACC-1 wording question.
 
 ### Questions for the owner
 

@@ -72,6 +72,14 @@ export function startRoomPresence(this: ClubboxApp, channelId: string) : void {
     this.pubnubSource.setToken(pubnubToken);
     this.pubnubSource.setChatOpen(this.chatOpen);
     this.pubnubSource.start(channelId);
+    // PubNub subscribe is async; surface missing crawl keys so the stage is not a silent empty room.
+    window.setTimeout(() => {
+      if (!this.currentChannel) return;
+      if (this.pubnubSource.getLastFailureReason() === 'missing_subscribe_key') {
+        this.showToast(t('realtimeKeysMissing'), '⚠️');
+        void electronAPI()?.ensureRealtimeConfig?.();
+      }
+    }, 800);
     if (this.pollsPaused) return;
     this.syncChatPolling();
   }

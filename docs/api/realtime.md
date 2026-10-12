@@ -31,7 +31,7 @@ PubNub message types the room UI parses: `channel_message`, `channel_reaction`.
 - `channel_message` keys read by the ticker: `message_id`, `from_user_id`, `from_name`, `from_photo_url`, `message`, `message_type`, `time_received`.
 - `channel_reaction` keys read by the ticker: `message_id`, `action_user_profile` (`id`, `name`, `photo_url`), `message`, `message_type`, `time_received`, `reaction`, `target_user_profile`.
 
-PubNub channel templates: not found in the scanned chunks (run `npm run api:discover` after sign-in).
+PubNub channel templates: `${e}_channel_back_link`, `/web_api/get_replay_channel/${e}`, `/web_api/get_replay_channel_chunk/${e}/${t}`, `/web_api/guest_join_channel/${[e,t,r].filter(e=>!!e).join("/")}`, `/web_api/guest_leave_channel/${e}/${t}/${r}/${n}`, `/web_api/join_channel/${e}/`, `CHANNEL_PREVIEW`, `channel_message`, `channel_reaction`, `channel_speaker_mute`, `channel_speaker_unmute`, `channel_web_listening_disabled`.
 
 ## Room channels and actions (community sources, 2026-10-11)
 
