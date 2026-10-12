@@ -1,4 +1,4 @@
-import type { CHChannelDetail, CHChatMessage } from './types';
+import type { CHChannelDetail, CHChatMessage, CHUser } from './types';
 import type { RoomUpdateSource } from './roomSync';
 import { RealtimeRoomCoordinator } from './realtimeRoomCoordinator.ts';
 import type { RealtimeHub } from './realtimeHub.ts';
@@ -140,6 +140,15 @@ export class PubNubRoomSource implements RoomUpdateSource {
   /** Agora remote mute → same channel snapshot / onUpdate path as PubNub stage events. */
   applyAgoraMute(uid: number | string, muted: boolean): void {
     this.coordinator?.applyAgoraMute(uid, muted);
+  }
+
+  /** Remember our own mute (or an Agora mute) so the next snapshot cannot flip the badge. */
+  noteMute(uid: number | string, muted: boolean): void {
+    this.coordinator?.noteMute(uid, muted);
+  }
+
+  overlayMutes(users: CHUser[]): CHUser[] {
+    return this.coordinator?.overlayUsers(users) ?? users;
   }
 
   shouldPollChat(): boolean {

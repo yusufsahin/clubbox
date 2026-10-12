@@ -1,3 +1,4 @@
+import { applySelfMute, chainLatestMute } from '../api/remoteMute.ts';
 import { audioEngine } from '../audio/audioEngine.ts';
 import { writeAudioPrefs } from '../audio/audioPrefs.ts';
 import { eventToAccelerator, normalizeShortcuts, writeShortcuts, type ShortcutAction, type ShortcutMap } from '../shortcuts.ts';
@@ -238,19 +239,31 @@ export function toggleMute(this: ClubboxApp) {
     }
 
     const isMuted = audioEngine.toggleMute();
-    void agoraVoice.setMuted(isMuted).then(() => {
-      console.log(`[Clubbox] mute toggled muted=${isMuted} agoraJoined=${agoraVoice.getIsJoined()}`);
+    this.syncSelfMuteFromEngine();
+    void this.queueMuteSync().then(() => {
+      console.log(`[Clubbox] mute toggled muted=${audioEngine.getIsMuted()} agoraJoined=${agoraVoice.getIsJoined()}`);
     });
 
     if (isMuted) {
       this.showToast(t('micMuted'), '🔇');
-      this.renderCockpit();
       return;
     }
 
-    // Join may have failed to open the mic — open + publish on first unmute.
-    if (agoraVoice.getIsJoined() && agoraVoice.getIsSpeaker()) {
-      void agoraVoice.ensurePublished(audioEngine.getIsMusicMode()).then((ok) => {
+    if (!(agoraVoice.getIsJoined() && agoraVoice.getIsSpeaker())) {
+      this.showToast(t('micLive'), '🎙️');
+    }
+  }
+
+/** Apply the latest mic mute to Agora, then refresh the badge once that settles. */
+export function queueMuteSync(this: ClubboxApp): Promise<void> {
+    this.muteChain = chainLatestMute(
+      this.muteChain,
+      () => audioEngine.getIsMuted(),
+      async (muted) => {
+        await agoraVoice.setMuted(muted);
+        if (muted || !agoraVoice.getIsJoined() || !agoraVoice.getIsSpeaker()) return;
+        const ok = await agoraVoice.ensurePublished(audioEngine.getIsMusicMode());
+        if (audioEngine.getIsMuted()) return;
         if (!ok) {
           if (audioEngine.lastMicError === 'system') {
             this.showToast(t('micPermissionDenied'), '🔇');
@@ -261,11 +274,23 @@ export function toggleMute(this: ClubboxApp) {
         } else {
           this.showToast(t('micLive'), '🎙️');
         }
-        this.renderCockpit();
-      });
-      return;
+      },
+    ).then(() => {
+      this.syncSelfMuteFromEngine();
+    }).catch((err) => {
+      this.reportApiError(err);
+    });
+    return this.muteChain;
+  }
+
+/** Badge follows the mic button now, and the overlay keeps it across room snapshots. */
+export function syncSelfMuteFromEngine(this: ClubboxApp): void {
+    const muted = audioEngine.getIsMuted();
+    if (this.currentChannel && this.me) {
+      this.pubnubSource.noteMute(this.me.user_id, muted);
+      this.currentChannel.users = applySelfMute(this.currentChannel.users, this.me.user_id, muted);
     }
-    this.showToast(t('micLive'), '🎙️');
+    if (!this.selfProfileOpen && this.currentTab === 'stage') this.renderStage();
     this.renderCockpit();
   }
 
@@ -426,6 +451,8 @@ export function wireStudioCtl(proto: ClubboxApp): void {
   proto.updateVuMeter = updateVuMeter;
   proto.handleRecordingStateChange = handleRecordingStateChange;
   proto.toggleMute = toggleMute;
+  proto.queueMuteSync = queueMuteSync;
+  proto.syncSelfMuteFromEngine = syncSelfMuteFromEngine;
   proto.toggleMusicMode = toggleMusicMode;
   proto.applyMusicMode = applyMusicMode;
   proto.applyAudioPrefs = applyAudioPrefs;

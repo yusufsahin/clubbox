@@ -218,7 +218,7 @@ export function applyRoomUpdate(this: ClubboxApp, detail: CHChannelDetail) : voi
       detail.channel === this.currentChannel.channel;
     if (!sameRoom || !detail.users) return;
 
-    this.currentChannel.users = detail.users;
+    this.currentChannel.users = this.pubnubSource.overlayMutes(detail.users);
     this.currentChannel.num_all = detail.num_all;
     this.currentChannel.num_speakers = detail.num_speakers;
     this.currentChannel.has_raised_hands = detail.has_raised_hands;
@@ -277,6 +277,8 @@ export async function runAgoraRoleSync(this: ClubboxApp) : Promise<void> {
             await agoraVoice.demoteToAudience();
             audioEngine.releaseExternal();
             audioEngine.setMuted(true);
+            this.syncSelfMuteFromEngine();
+            void this.queueMuteSync();
             const micBtn = document.getElementById('mic-toggle-btn');
             if (micBtn) {
               micBtn.classList.remove('unmuted');
@@ -341,7 +343,14 @@ export async function moderateSpeaker(this: ClubboxApp, userId: number, action: 
       if (action === 'block') {
         this.currentChannel.users = this.currentChannel.users.filter((user) => user.user_id !== userId);
       } else if (target) {
-        if (action === 'mute') target.is_muted = true;
+        if (action === 'mute') {
+          target.is_muted = true;
+          if (this.me && userId === this.me.user_id) {
+            audioEngine.setMuted(true);
+            this.syncSelfMuteFromEngine();
+            void this.queueMuteSync();
+          }
+        }
         else if (action === 'moderator') target.is_moderator = true;
         else if (action === 'audience') {
           target.is_speaker = false;
@@ -405,6 +414,7 @@ export async function promoteToStage(
     this.agoraRoleSyncing = true;
     // Stage etiquette: Accept / open-stage join always start muted.
     audioEngine.setMuted(true);
+    this.syncSelfMuteFromEngine();
     try {
       await clubhouseClient.becomeSpeaker(this.channelApiId(this.currentChannel));
       if (options.fromInvite) this.closeSpeakerInvite(false);
@@ -417,13 +427,12 @@ export async function promoteToStage(
       if (!clubhouseClient.getConfig().useSandbox && agoraVoice.getIsJoined()) {
         const ok = await agoraVoice.promoteToSpeaker();
         this.audioConnected = ok;
-        await agoraVoice.setMuted(true);
+        await this.queueMuteSync();
         if (!ok) {
           this.showToast(t('micStageFailed'), '🔇');
           return;
         }
       }
-      audioEngine.setMuted(true);
       this.agoraPromoteFailures = 0;
       this.showToast(t('onStage'), '🎙️');
       this.render();
@@ -800,6 +809,7 @@ export async function joinRoom(this: ClubboxApp, channelId: string, preset?: CHC
     this.roomSession = begun.session;
     const generation = begun.generation;
     this.joinInFlight = true;
+    let noteJoinMute = false;
 
     try {
       const joined = preset ?? await clubhouseClient.joinChannel(channelId);
@@ -844,8 +854,10 @@ export async function joinRoom(this: ClubboxApp, channelId: string, preset?: CHC
       );
       if (joined.should_join_muted === true && asSpeaker && !asMod) {
         audioEngine.setMuted(true);
+        noteJoinMute = true;
       } else if (asSpeaker) {
         audioEngine.setMuted(false);
+        noteJoinMute = true;
       }
     } catch (err) {
       if (this.roomSession.generation !== generation) return;
@@ -866,6 +878,7 @@ export async function joinRoom(this: ClubboxApp, channelId: string, preset?: CHC
     this.syncClipArm();
     this.audioConnected = clubhouseClient.getConfig().useSandbox ? null : false;
     this.startRoomPresence(this.channelApiId(this.currentChannel));
+    if (noteJoinMute) this.syncSelfMuteFromEngine();
     this.chatMessages = [];
     if (this.currentTab !== 'stage') this.pushCurrentView();
     this.currentTab = 'stage';
@@ -881,6 +894,7 @@ export async function joinRoom(this: ClubboxApp, channelId: string, preset?: CHC
       // Re-apply after stage render — id/type mismatches can miss the earlier unmute.
       if (this.isMeSpeaker() && (this.isMeModerator() || this.currentChannel?.should_join_muted !== true)) {
         audioEngine.setMuted(false);
+        this.syncSelfMuteFromEngine();
       }
       if (this.isMeSpeaker()) {
         const micOk = await audioEngine.startMicrophone();
@@ -957,7 +971,8 @@ export async function handleAgoraTokenEvent(this: ClubboxApp, kind: 'will-expire
   await this.rejoinAgoraAudio();
   if (wasMuted) {
     audioEngine.setMuted(true);
-    void agoraVoice.setMuted(true);
+    this.syncSelfMuteFromEngine();
+    void this.queueMuteSync();
   }
 }
 

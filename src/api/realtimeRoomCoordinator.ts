@@ -6,9 +6,9 @@ import {
   roomPubNubChannels,
   type ParsedRealtimeEvent,
 } from './realtimeEvents.ts';
-import { applyRemoteMute } from './remoteMute.ts';
+import { overlayMuteStates } from './remoteMute.ts';
 import type { RealtimeHub, PubNubSubscribeParams } from './realtimeHub.ts';
-import type { CHChannelDetail, CHChatMessage } from './types.ts';
+import type { CHChannelDetail, CHChatMessage, CHUser } from './types.ts';
 
 export type RealtimeRoomCallbacks = {
   onChannelUpdate?: (detail: CHChannelDetail) => void;
@@ -48,6 +48,8 @@ export class RealtimeRoomCoordinator {
   private pingTimer: number | null = null;
   private unsubMessage: (() => void) | null = null;
   private unsubStatus: (() => void) | null = null;
+  /** Agora-observed mute flags plus our own mic button. Snapshots must not wipe these. */
+  private muteStates = new Map<number, boolean>();
 
   constructor(deps: RealtimeRoomCoordinatorDeps) {
     this.client = deps.client;
@@ -102,6 +104,18 @@ export class RealtimeRoomCoordinator {
     this.hub.unsubscribe();
     this.channel = null;
     this.chatMessages = [];
+    this.muteStates.clear();
+  }
+
+  /** Record a mute the next snapshot must keep. uid is the Clubhouse user_id. */
+  noteMute(uid: number | string, muted: boolean): void {
+    const id = Number(uid);
+    if (!Number.isFinite(id)) return;
+    this.muteStates.set(id, muted);
+  }
+
+  overlayUsers(users: CHUser[]): CHUser[] {
+    return overlayMuteStates(users, this.muteStates);
   }
 
   setChatOpen(open: boolean): void {
@@ -117,8 +131,9 @@ export class RealtimeRoomCoordinator {
 
   /** Agora uid = Clubhouse user_id. Mute is not on PubNub (docs/api/realtime.md). */
   applyAgoraMute(uid: number | string, muted: boolean): void {
+    this.noteMute(uid, muted);
     if (!this.channel) return;
-    const users = applyRemoteMute(this.channel.users, uid, muted);
+    const users = this.overlayUsers(this.channel.users);
     if (users === this.channel.users) return;
     this.channel = mergeChannelUsers(this.channel, users);
     this.callbacks.onChannelUpdate?.(this.channel);
@@ -210,13 +225,13 @@ export class RealtimeRoomCoordinator {
       if (parsed.type === 'invite_to_speak') {
         // The invite arrives on my channel_user.* channel; from_name is the inviter, the target is me.
         const users = applyStageEvent(this.channel.users, { ...parsed, userId: this.myUserId, profile: null });
-        this.channel = mergeChannelUsers(this.channel, users);
+        this.channel = mergeChannelUsers(this.channel, this.overlayUsers(users));
         this.callbacks.onInvite?.();
         this.callbacks.onChannelUpdate?.(this.channel);
         return;
       }
       const users = applyStageEvent(this.channel.users, parsed);
-      this.channel = mergeChannelUsers(this.channel, users);
+      this.channel = mergeChannelUsers(this.channel, this.overlayUsers(users));
       this.callbacks.onChannelUpdate?.(this.channel);
     }
   }

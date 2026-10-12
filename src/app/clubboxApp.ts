@@ -155,6 +155,7 @@ export class ClubboxApp {
   pollsPaused = false;
   rateLimitNotices = new Set<string>();
   musicModeChain: Promise<void> = Promise.resolve();
+  muteChain: Promise<void> = Promise.resolve();
   eventsBound = false;
 
   chatMessages: CHChatMessage[] = [];
@@ -359,6 +360,9 @@ export class ClubboxApp {
     agoraVoice.onRemoteMute(({ uid, muted }) => {
       if (!this.currentChannel?.users) return;
       this.pubnubSource.applyAgoraMute(uid, muted);
+    });
+    audioEngine.setExtrasActivityListener(() => {
+      void agoraVoice.syncMuteSignal();
     });
     agoraVoice.onReconnectUi((reconnecting) => {
       const banner = document.getElementById('realtime-banner');
@@ -2014,7 +2018,9 @@ export class ClubboxApp {
         const applied = audioEngine.getBroadcastEffect();
         this.audioPrefs.voiceEffectApplied = applied;
         this.saveAudioPrefs();
-        void agoraVoice.syncVoiceEffectPublish();
+        void agoraVoice.syncVoiceEffectPublish().then(() => {
+          this.syncSelfMuteFromEngine();
+        });
         this.showToast(t('voiceEffectApply'), '🎙️');
         break;
       }

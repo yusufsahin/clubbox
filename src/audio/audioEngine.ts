@@ -90,6 +90,10 @@ export class AudioEngine {
   private animationFrameId: number | null = null;
   private micStartPromise: Promise<boolean> | null = null;
   private activeVoices = new Set<AudioScheduledSourceNode>();
+  /** Non-local soundboard voices still playing into the extras mix. */
+  private broadcastPads = 0;
+  private trackingBroadcast = false;
+  private extrasActivityListener: (() => void) | null = null;
 
   public soundEffects: SoundEffectItem[] = [
     { id: 'fx-applause', name: 'Applause', hotkey: '1', icon: '👏', type: 'synth', synthType: 'applause' },
@@ -640,12 +644,14 @@ export class AudioEngine {
   public applyVoiceEffect(): void {
     this.voiceEffects = applyEffect(this.voiceEffects);
     if (this.micGain) this.wireMicEffects();
+    this.notifyExtrasActivity();
   }
 
   /** Restore a previously applied effect (e.g. from audioPrefs) without preview. */
   public restoreAppliedVoiceEffect(effect: VoiceEffectId): void {
     this.voiceEffects = { selected: effect, applied: effect, previewActive: false };
     if (this.micGain) this.wireMicEffects();
+    this.notifyExtrasActivity();
   }
 
   public getVoiceEffectState(): VoiceEffectState {
@@ -836,6 +842,7 @@ export class AudioEngine {
   }
 
   public releaseExternal(): void {
+    const wasLive = this.isExternalActive() || !!this.externalSource;
     if (this.externalStream) {
       this.externalStream.getTracks().forEach((track) => track.stop());
       this.externalStream = null;
@@ -850,6 +857,7 @@ export class AudioEngine {
     this.lastExternalConstraints = null;
     this.lastExternalCapture = null;
     this.externalDuckState = initialDuckState();
+    if (wasLive) this.notifyExtrasActivity();
   }
 
   public getExternalDeviceId(): string {
@@ -884,6 +892,21 @@ export class AudioEngine {
     return !!this.externalStream?.getAudioTracks().some((track) => track.readyState === 'live');
   }
 
+  /** No soundboard pad, live external input, or broadcast voice effect is feeding extras. */
+  public isExtrasMixIdle(): boolean {
+    return this.broadcastPads === 0
+      && !(this.isExternalActive() && !this.externalMuted)
+      && this.getBroadcastEffect() === 'none';
+  }
+
+  public setExtrasActivityListener(listener: (() => void) | null): void {
+    this.extrasActivityListener = listener;
+  }
+
+  private notifyExtrasActivity(): void {
+    this.extrasActivityListener?.();
+  }
+
   /** Routing snapshot for tests — independent of mic mute. */
   public getExternalRoutePlan() {
     return planExternalRouting({
@@ -902,6 +925,7 @@ export class AudioEngine {
   public setExternalMuted(muted: boolean): void {
     this.externalMuted = muted;
     this.applyExternalGain();
+    this.notifyExtrasActivity();
   }
 
   public setExternalMonitor(enabled: boolean): void {
@@ -953,6 +977,7 @@ export class AudioEngine {
       this.externalStream = stream;
       this.externalSource = ctx.createMediaStreamSource(stream);
       this.wireExternalGraph();
+      this.notifyExtrasActivity();
       return true;
     } catch (err: unknown) {
       const detail = err instanceof Error ? err.message : String(err);
@@ -971,6 +996,7 @@ export class AudioEngine {
     this.lastExternalConstraints = externalInputConstraints(this.externalDeviceId || 'test');
     this.lastExternalCapture = 'device';
     this.wireExternalGraph();
+    this.notifyExtrasActivity();
   }
 
   // --- Soundboard Synthesizers & Sampler ---
@@ -979,6 +1005,8 @@ export class AudioEngine {
     const fx = this.soundEffects.find((s) => s.id === effectId);
     if (!fx) return;
 
+    this.trackingBroadcast = !opts?.localOnly;
+    try {
     const ctx = this.initContextIfNeeded();
     const padGain = ctx.createGain();
     padGain.gain.value = Math.max(0, Math.min(1, fx.volume ?? 1));
@@ -1020,6 +1048,9 @@ export class AudioEngine {
           break;
       }
     }
+    } finally {
+      this.trackingBroadcast = false;
+    }
   }
 
   public stopAllSounds(): void {
@@ -1032,12 +1063,24 @@ export class AudioEngine {
       this.safeDisconnect(voice);
     }
     this.activeVoices.clear();
+    if (this.broadcastPads !== 0) {
+      this.broadcastPads = 0;
+      this.notifyExtrasActivity();
+    }
   }
 
   private trackVoice(node: AudioScheduledSourceNode): void {
+    const broadcast = this.trackingBroadcast;
     this.activeVoices.add(node);
+    if (broadcast) {
+      this.broadcastPads += 1;
+      this.notifyExtrasActivity();
+    }
     node.addEventListener('ended', () => {
-      this.activeVoices.delete(node);
+      if (!this.activeVoices.delete(node)) return;
+      if (!broadcast) return;
+      this.broadcastPads = Math.max(0, this.broadcastPads - 1);
+      this.notifyExtrasActivity();
     }, { once: true });
   }
 

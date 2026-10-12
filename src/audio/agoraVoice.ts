@@ -89,6 +89,7 @@ export class AgoraVoiceEngine {
   private onNetworkQualityCallbacks: ((tone: 'good' | 'ok' | 'poor' | 'unknown', uplink: number, downlink: number) => void)[] = [];
   private sdkPromise: Promise<AgoraSdk> | null = null;
   private nativeMuteSignalling = false;
+  private lastMuteSignal: { mic: boolean; extras: boolean } | null = null;
   private lastConnectionReason = '';
   private lastExceptionCode = '';
   private lastJoinResult: string | null = null;
@@ -691,23 +692,20 @@ export class AgoraVoiceEngine {
   }
 
   /**
-   * When a broadcast voice effect is applied, mute the mic SDK track so only the
-   * processed voice on the extras custom track is sent. User mute still wins.
+   * When a broadcast voice effect is applied, mute the dry mic so only the
+   * processed voice on the extras track is sent. User mute still wins on the mic track.
    */
   public async syncVoiceEffectPublish(): Promise<void> {
     if (!this.localAudioTrack || !this.isSpeaker) return;
-    const effectOn = audioEngine.getBroadcastEffect() !== 'none';
-    const userMuted = audioEngine.getIsMuted();
-    try {
-      if (effectOn) {
-        await this.localAudioTrack.setMuted(true);
-        console.log('[AgoraRTC] mic muted for voice effect (processed voice on extras)');
-      } else {
-        await this.localAudioTrack.setMuted(userMuted);
-      }
-    } catch (err) {
-      console.warn('[AgoraRTC] syncVoiceEffectPublish failed:', err);
+    await this.setMuted(audioEngine.getIsMuted());
+    if (audioEngine.getBroadcastEffect() !== 'none') {
+      console.log('[AgoraRTC] mic muted for voice effect (processed voice on extras)');
     }
+  }
+
+  /** Re-read mute after a soundboard pad, external input, or effect starts or stops. */
+  public syncMuteSignal(): Promise<void> {
+    return this.setMuted(audioEngine.getIsMuted());
   }
 
   private startExtrasStatsProbe(): void {
@@ -832,6 +830,7 @@ export class AgoraVoiceEngine {
     this.isSpeaker = false;
     this.currentChannel = null;
     this.nativeMuteSignalling = false;
+    this.lastMuteSignal = null;
     this.rejoinAttempt = 0;
     this.joinedAtMs = null;
     this.networkQuality = { uplink: 0, downlink: 0, tone: 'unknown' };
@@ -851,21 +850,38 @@ export class AgoraVoiceEngine {
   }
 
   public async setMuted(muted: boolean): Promise<void> {
-    if (!this.localAudioTrack) return;
-    try {
-      // Mic track only — soundboard/external on extras keep playing (Phase 24.1 mute semantics).
-      // Voice effect overrides: keep mic muted while effect is applied.
-      const effectOn = audioEngine.getBroadcastEffect() !== 'none';
-      await this.localAudioTrack.setMuted(muted || effectOn);
-      console.log(
-        `[AgoraRTC] local track muted=${muted || effectOn}`,
-        `userMuted=${muted}`,
-        `effectOn=${effectOn}`,
-        `nativeSignalling=${this.nativeMuteSignalling}`,
-        `enabled=${this.localAudioTrack.getMediaStreamTrack().enabled}`,
-      );
-    } catch (err) {
-      console.warn('[AgoraRTC] Track mute failed:', err);
+    const effectOn = audioEngine.getBroadcastEffect() !== 'none';
+    const micMuted = muted || effectOn;
+    const extrasMuted = muted && audioEngine.isExtrasMixIdle();
+    let touched = false;
+    if (this.localAudioTrack) {
+      touched = true;
+      try {
+        await this.localAudioTrack.setMuted(micMuted);
+        console.log(
+          `[AgoraRTC] local track muted=${micMuted}`,
+          `userMuted=${muted}`,
+          `effectOn=${effectOn}`,
+          `nativeSignalling=${this.nativeMuteSignalling}`,
+          `enabled=${this.localAudioTrack.getMediaStreamTrack().enabled}`,
+        );
+      } catch (err) {
+        console.warn('[AgoraRTC] Track mute failed:', err);
+      }
+    }
+    if (this.extrasAudioTrack) {
+      touched = true;
+      try {
+        await this.extrasAudioTrack.setMuted(extrasMuted);
+      } catch (err) {
+        console.warn('[AgoraRTC] extras mute failed:', err);
+      }
+    }
+    if (!touched) return;
+    const prev = this.lastMuteSignal;
+    if (!prev || prev.mic !== micMuted || prev.extras !== extrasMuted) {
+      this.lastMuteSignal = { mic: micMuted, extras: extrasMuted };
+      console.log(`[AgoraRTC] mute signal mic=${micMuted} extras=${extrasMuted}`);
     }
   }
 

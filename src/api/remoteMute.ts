@@ -27,3 +27,33 @@ export function applyRemoteMute(users: CHUser[], uid: number | string, muted: bo
   });
   return changed ? next : users;
 }
+
+/** Own mic button → stage badge. Agora does not emit user-info-updated for the local user. */
+export function applySelfMute(users: CHUser[], userId: number, muted: boolean): CHUser[] {
+  return applyRemoteMute(users, userId, muted);
+}
+
+/** Re-apply Agora and self mute flags after a room snapshot replaces users. */
+export function overlayMuteStates(users: CHUser[], states: ReadonlyMap<number, boolean>): CHUser[] {
+  let changed = false;
+  const next = users.map((user) => {
+    if (!states.has(user.user_id)) return user;
+    const muted = states.get(user.user_id) === true;
+    if (user.is_muted === muted) return user;
+    changed = true;
+    return { ...user, is_muted: muted };
+  });
+  return changed ? next : users;
+}
+
+/**
+ * Queue a mute apply that reads the latest desired state when it runs.
+ * A captured boolean from click time loses a faster second click.
+ */
+export function chainLatestMute(
+  previous: Promise<void>,
+  readMuted: () => boolean,
+  apply: (muted: boolean) => Promise<void>,
+): Promise<void> {
+  return previous.then(() => apply(readMuted()));
+}

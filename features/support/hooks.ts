@@ -39,6 +39,7 @@ Before(function (this: ClubboxWorld) {
   this.invitedToSpeak = false;
   this.chatPanelOpen = false;
   this.micMuted = false;
+  this.stageBadgeUsers = [];
   this.currentRoom = null;
   this.role = null;
   this.hallwayRoom = null;

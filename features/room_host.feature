@@ -141,3 +141,11 @@ Feature: Host and moderate a room
     And I can share the room
     And as a moderator I see "Mute all other speakers"
     And I do not see report actions, which only exist in the Clubhouse app
+
+  @observed
+  Scenario: My mute badge follows the mic button
+    Given I host the room "Morning show"
+    When I click "Mic"
+    Then my mute badge follows the mic button
+    When I click "Mic"
+    Then my mute badge follows the mic button

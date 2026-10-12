@@ -33,6 +33,7 @@ import {
   startPreview,
   type VoiceEffectState,
 } from '../../src/audio/voiceEffects.ts';
+import type { CHUser } from '../../src/api/types.ts';
 import { clipButtonVisible, validateClipDurationSeconds } from '../../src/audio/clipRules.ts';
 import { roomAudience } from '../../src/api/guards.ts';
 import { t } from '../../src/i18n/index.ts';
@@ -129,6 +130,7 @@ export class ClubboxWorld extends World {
   role: 'audience' | 'host' | null = null;
   chatPanelOpen = false;
   micMuted = false;
+  stageBadgeUsers: CHUser[] = [];
   invitedToSpeak = false;
   lastJoinToken: string | null = null;
   lastCreateToken: string | null = null;

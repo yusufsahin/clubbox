@@ -9,6 +9,7 @@ import {
   topicListEndpointDocumented,
   type CreateAudience,
 } from '../../src/api/createComposer.ts';
+import { applySelfMute } from '../../src/api/remoteMute.ts';
 import { AGORA_REJOIN_BACKOFF_MS, agoraConnectionPolicy } from '../../src/audio/agoraErrors.ts';
 import { t } from '../../src/i18n/index.ts';
 import { ensureNavUi, paintNavUi } from '../support/navUi.ts';
@@ -82,6 +83,12 @@ Given('my microphone is muted', function (this: ClubboxWorld) {
   this.session.micMuted = true;
   this.micMuted = true;
   this.agora.setBroadcastMix({ soundboard: false, mic: false });
+});
+
+Then('my mute badge follows the mic button', function (this: ClubboxWorld) {
+  const me = this.stageBadgeUsers.find((user) => user.user_id === this.myUserId);
+  assert.ok(me, 'expected my stage card');
+  assert.equal(me.is_muted, this.micMuted);
 });
 
 Given('{string} raised her hand', function (this: ClubboxWorld, name: string) {
@@ -199,6 +206,22 @@ When(/^I click "(?!Apply"|Preview")([^"]+)"$/, async function (this: ClubboxWorl
     } catch {
       // ignore
     }
+    return;
+  }
+  if (label === 'Mic') {
+    if (this.stageBadgeUsers.length === 0) {
+      this.stageBadgeUsers = [{
+        user_id: this.myUserId,
+        name: 'Me',
+        username: 'me',
+        photo_url: null,
+        is_speaker: true,
+        is_muted: this.micMuted,
+      }];
+    }
+    this.micMuted = !this.micMuted;
+    this.session.micMuted = this.micMuted;
+    this.stageBadgeUsers = applySelfMute(this.stageBadgeUsers, this.myUserId, this.micMuted);
     return;
   }
   this.uiMessages.push(`clicked:${label}`);
