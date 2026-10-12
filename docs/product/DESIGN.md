@@ -104,7 +104,7 @@ Legend — Evidence: O observed · B bundle call site · C community · ? to dis
 | change_handraise_settings | POST | channel, is_enabled, handraise_permission (1=everyone, 2=friends of speakers) | ack | C | ✅ experimental stage select (RH-7) | RoomCtl (mod) |
 | end_channel | POST | channel, channel_id (numeric) | ack | C | ✅ Details › End room only (Leave never ends). Body sends channel code + numeric channel_id; on failure host stays in room | RoomCtl |
 | make_channel_public / make_channel_social | POST | channel, channel_id | ack | C | ✅ stage visibility select (RH-10) | RoomCtl (mod) |
-| get_channel | POST | channel | channel detail | C (not in web bundle) | ❌ unused on web — PubNub is the room source (G-03 closed) | — |
+| get_channel | POST | channel | channel detail | mobile-spike | RoomStateSync (28.1) + PubNub deltas + Agora mute overlay; silent on 401 | RoomStateSync |
 | get_replay_channel | GET | path `{channel}` (no body) | replay meta (+ chunk_count) | B | ✅ replay player (rate/skip) | Replays |
 | get_replay_channel_chunk | GET | path `{channel}/{chunk}` (no body) | audio chunk | B | ✅ chunk 0 fetched on play | Replays |
 | web_listener_* , guest_* | POST | session_id, staff_token, recaptcha_token… | — | B | won't do (reCAPTCHA) | — |

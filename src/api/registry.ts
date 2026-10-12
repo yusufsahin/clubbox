@@ -90,6 +90,7 @@ const REQUEST_BUILDERS: Partial<Record<string, (params: RequestBody) => RequestB
     return body;
   },
   join_channel: (params) => ({ channel: requireString(params, 'channel') }),
+  get_channel: (params) => ({ channel: requireString(params, 'channel') }),
   leave_channel: (params) => ({ channel: requireString(params, 'channel') }),
   active_ping: (params) => ({ channel: requireString(params, 'channel') }),
   audience_reply: (params) => {

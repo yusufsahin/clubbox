@@ -232,6 +232,17 @@
       "staff_token"
     ]
   },
+  "get_channel": {
+    "path": "/api/get_channel",
+    "mobilePath": "/get_channel",
+    "method": "POST",
+    "evidence": "mobile-spike",
+    "transport": "mobile",
+    "mutation": false,
+    "bodyKeys": [
+      "channel"
+    ]
+  },
   "invite_speaker": {
     "path": "/api/invite_speaker",
     "mobilePath": "/invite_speaker",

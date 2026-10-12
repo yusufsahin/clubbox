@@ -60,6 +60,7 @@ const ALLOWED_MOBILE_ENDPOINTS = Object.freeze([
   'block_from_channel',
   'make_moderator',
   'change_handraise_settings',
+  'get_channel',
 ]);
 
 const ALLOWED_SET = new Set(ALLOWED_MOBILE_ENDPOINTS);

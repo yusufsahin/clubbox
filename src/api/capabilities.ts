@@ -111,6 +111,7 @@ export const MOBILE_HOST_ENDPOINTS = new Set([
   'block_from_channel',
   'end_channel',
   'change_handraise_settings',
+  'get_channel',
 ]);
 
 /**

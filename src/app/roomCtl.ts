@@ -15,6 +15,7 @@ import {
   stageAccessMode,
 } from '../api/roomControls.ts';
 import { mergeRoomDetailFields } from '../api/roomDetailMerge.ts';
+import { mergeRoomState } from '../api/roomStateMerge.ts';
 import { roomSync } from '../api/roomSync.ts';
 import { audioEngine } from '../audio/audioEngine.ts';
 import { agoraVoice } from '../audio/agoraVoice.ts';
@@ -119,6 +120,8 @@ export function startRoomPresence(this: ClubboxApp, channelId: string) : void {
     this.pubnubSource.setToken(pubnubToken);
     this.pubnubSource.setChatOpen(this.chatOpen);
     this.pubnubSource.start(channelId);
+    // Authoritative roster via mobile get_channel (graceful no-op on 401).
+    if (!this.pollsPaused) roomSync.start(channelId);
     // PubNub subscribe is async; surface missing crawl keys so the stage is not a silent empty room.
     window.setTimeout(() => {
       if (!this.currentChannel) return;
@@ -218,10 +221,13 @@ export function applyRoomUpdate(this: ClubboxApp, detail: CHChannelDetail) : voi
       detail.channel === this.currentChannel.channel;
     if (!sameRoom) return;
 
+    // Snapshot → PubNub-shaped detail → Agora mute overlay (Task 28.1).
+    const merged = mergeRoomState(this.currentChannel, detail);
     mergeRoomDetailFields(this.currentChannel, {
-      ...detail,
-      users: detail.users ? this.pubnubSource.overlayMutes(detail.users) : this.currentChannel.users,
+      ...merged,
+      users: this.pubnubSource.overlayMutes(merged.users),
     });
+    this.pubnubSource.setChannel(this.currentChannel);
     this.syncClipArm();
     this.syncSelectedProfileFromRoom();
     this.maybeShowSpeakerInvite();
@@ -320,6 +326,7 @@ export async function inviteToStage(this: ClubboxApp, userId: number) : Promise<
       const invited = this.currentChannel.users.find((user) => user.user_id === userId);
       if (invited) invited.is_invited_to_speak = true;
       this.showToast(t('invitedToSpeakToast'), '🎙️');
+      roomSync.scheduleAfterHostAction?.();
       await this.refreshCurrentRoom();
     } catch (err) {
       this.reportApiError(err);
@@ -367,6 +374,7 @@ export async function moderateSpeaker(this: ClubboxApp, userId: number, action: 
           target.is_moderator = false;
         }
       }
+      roomSync.scheduleAfterHostAction?.();
       await this.refreshCurrentRoom();
     } catch (err) {
       this.reportApiError(err);
@@ -493,6 +501,7 @@ export async function setHandRaisePermission(this: ClubboxApp, mode: string): Pr
         !isEnabled ? t('handRaiseOff') : handraisePermission === 2 ? t('handRaiseFriendsOfSpeakers') : t('handRaiseEveryone'),
         '✋',
       );
+      roomSync.scheduleAfterHostAction?.();
     } catch (err) {
       this.reportApiError(err);
     }
@@ -668,6 +677,7 @@ export async function muteEveryone(this: ClubboxApp) : Promise<void> {
         this.reportApiError(err);
       }
     }
+    roomSync.scheduleAfterHostAction?.();
     await this.refreshCurrentRoom();
   }
 

@@ -8,17 +8,19 @@ const {
   MOBILE_API_BASE,
 } = require('./mobileApi.cjs');
 
-test('mobile allow-list only accepts the seven moderation endpoints', () => {
+test('mobile allow-list accepts moderation + get_channel', () => {
   assert.deepEqual(ALLOWED_MOBILE_ENDPOINTS.slice().sort(), [
     'block_from_channel',
     'change_handraise_settings',
     'end_channel',
+    'get_channel',
     'invite_speaker',
     'make_moderator',
     'mute_speaker',
     'uninvite_speaker',
   ]);
   assert.equal(isAllowedMobileEndpoint('mute_speaker'), true);
+  assert.equal(isAllowedMobileEndpoint('get_channel'), true);
   assert.equal(isAllowedMobileEndpoint('get_profile'), false);
   assert.equal(isAllowedMobileEndpoint('me'), false);
   assert.equal(isAllowedMobileEndpoint('../mute_speaker'), false);

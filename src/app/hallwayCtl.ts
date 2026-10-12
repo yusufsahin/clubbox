@@ -137,11 +137,15 @@ export function liveUpdatesUnavailable(this: ClubboxApp) : boolean {
 
 export async function refreshCurrentRoom(this: ClubboxApp) : Promise<void> {
     if (!this.currentChannel) return;
-    // Web has no get_channel (G-03). PubNub is the room source; resubscribe pulls the latest stream.
+    // Mobile get_channel when linked; on failure keep PubNub (Task 28.1 — nothing scary).
     if (clubhouseClient.supports('get_channel')) {
-      const detail = await clubhouseClient.getChannel(this.channelApiId(this.currentChannel));
-      this.applyRoomUpdate(detail);
-      return;
+      try {
+        const detail = await clubhouseClient.getChannel(this.channelApiId(this.currentChannel));
+        this.applyRoomUpdate(detail);
+        return;
+      } catch {
+        // 401 / network — fall through to PubNub.
+      }
     }
     await this.pubnubSource.resubscribe();
     if (this.currentTab === 'stage') this.renderStage();

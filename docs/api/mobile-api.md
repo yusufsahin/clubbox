@@ -48,6 +48,7 @@ until a Token link is allowed or another observed auth path appears.
 
 | Endpoint | Body | Notes |
 | --- | --- | --- |
+| `get_channel` | `{ channel }` | RoomStateSync (28.1); **401 with web session** — failures silent |
 | `end_channel` | `{ channel, channel_id }` | `channel_id` numeric when known — **401 with web session** |
 | `invite_speaker` | `{ channel, user_id }` | **401 with web session** |
 | `uninvite_speaker` | `{ channel, user_id }` | **401 with web session** |
@@ -95,7 +96,8 @@ Web session cookies authenticate **some** mobile endpoints (`get_profile`) but *
 Phase 28 room/moderation-discovery set (`get_channel`, queues, history, link checks). Those
 endpoints behave like Token-only (classic `Authorization: Token …` + `CH-UserID` clients).
 
-**Do not start 28.1** until either:
+**28.1 code path:** RoomStateSync calls `get_channel` on join / after host actions / every 30 s;
+failures are silent and PubNub continues. Live roster authority still needs Token (owner Q) or:
 
 1. Owner confirms a working Token/link path (SMS skipped earlier — reopen only if policy allows), or
 2. A new capture shows these endpoints accepting the web session under different headers/bodies.

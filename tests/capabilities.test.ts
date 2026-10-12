@@ -121,11 +121,12 @@ test('room control flags expose mute/mod/invite/end when mobile link is on', () 
   assert.equal(flags.canHandraise, true);
 });
 
-test('mobile host allow-list matches Phase 27 moderation set', () => {
+test('mobile host allow-list matches Phase 27 moderation + get_channel', () => {
   assert.deepEqual([...MOBILE_HOST_ENDPOINTS].sort(), [
     'block_from_channel',
     'change_handraise_settings',
     'end_channel',
+    'get_channel',
     'invite_speaker',
     'make_moderator',
     'mute_speaker',

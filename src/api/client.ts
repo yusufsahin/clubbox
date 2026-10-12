@@ -1263,7 +1263,7 @@ export class ClubhouseApiClient {
   }
 
   public async getChannel(channelId: string): Promise<CHChannelDetail> {
-    return this.request('get_channel', { channel: channelId });
+    return this.call('get_channel', { channel: channelId });
   }
 
   public async joinChannel(channelId: string): Promise<CHChannelDetail> {
