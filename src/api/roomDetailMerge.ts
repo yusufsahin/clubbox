@@ -38,6 +38,25 @@ export function mergeRoomDetailFields(current: CHChannelDetail, detail: CHChanne
   }
   if (typeof detail.is_social_mode === 'boolean') current.is_social_mode = detail.is_social_mode;
   if (typeof detail.is_private === 'boolean') current.is_private = detail.is_private;
+  if (typeof detail.topic === 'string' && detail.topic) current.topic = detail.topic;
+  if (typeof detail.language === 'string') current.language = detail.language;
+  if (typeof detail.time_created === 'string') current.time_created = detail.time_created;
+  if (typeof detail.club_name === 'string') current.club_name = detail.club_name;
+  if (typeof detail.is_nsfw === 'boolean') current.is_nsfw = detail.is_nsfw;
+  if (typeof detail.privacy_label === 'string') current.privacy_label = detail.privacy_label;
+  if (Array.isArray(detail.topics)) current.topics = detail.topics;
+  if (Array.isArray(detail.emoji_reaction_options)) {
+    current.emoji_reaction_options = detail.emoji_reaction_options;
+  }
+  if (typeof detail.show_last_speaker_warning === 'boolean') {
+    current.show_last_speaker_warning = detail.show_last_speaker_warning;
+  }
+  if (typeof detail.hide_moderator_indicator === 'boolean') {
+    current.hide_moderator_indicator = detail.hide_moderator_indicator;
+  }
+  if (detail.welcome_for_user_profile !== undefined) {
+    current.welcome_for_user_profile = detail.welcome_for_user_profile;
+  }
   if (detail.user_capabilities && typeof detail.user_capabilities === 'object') {
     current.user_capabilities = {
       ...(current.user_capabilities ?? {}),

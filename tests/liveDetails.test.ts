@@ -33,8 +33,11 @@ test('buildLiveDetails hides rows for missing fields', () => {
   assert.equal(model!.liveRows.some((r) => r.key === 'shares'), false);
   assert.equal(model!.liveRows.some((r) => r.key === 'clips'), false);
   assert.equal(model!.roomRows.some((r) => r.key === 'language'), false);
+  assert.equal(model!.roomRows.find((r) => r.key === 'title')?.value, 'Test room');
   assert.equal(model!.stateRows.find((r) => r.key === 'replay')?.value, 'on');
   assert.equal(model!.stateRows.find((r) => r.key === 'chat')?.value, 'off');
+  assert.equal(model!.audioRows.length, 0);
+  assert.equal(model!.moderationNoteKey, 'hostToolsAppOnly');
 });
 
 test('buildLiveDetails prefers live cumulative over channel num_ever', () => {
@@ -58,6 +61,7 @@ test('buildLiveDetails lists only true can_* capabilities', () => {
     model!.capabilityRows.map((r) => r.value).sort(),
     ['end_room', 'mute_speakers'],
   );
+  assert.equal(model!.serverRows.find((r) => r.key === 'stage_removed')?.value, 'on');
 });
 
 test('buildLiveDetails uses handraise_queue_options label when present', () => {
@@ -69,4 +73,42 @@ test('buildLiveDetails uses handraise_queue_options label when present', () => {
     ],
   }));
   assert.equal(model!.stateRows.find((r) => r.key === 'handraise')?.value, 'Everyone');
+});
+
+test('buildLiveDetails me role and audio rows when provided', () => {
+  const model = buildLiveDetails(base({
+    users: [
+      { user_id: 9, name: 'Me', username: 'me', photo_url: null, is_speaker: true, is_moderator: true },
+    ],
+  }), {
+    myUserId: 9,
+    audio: {
+      qualityLevel: 'music',
+      sendBitrateKbps: 128,
+      stereo: true,
+      networkTone: 'good',
+    },
+  });
+  assert.ok(model);
+  assert.equal(model!.meRows.find((r) => r.key === 'role')?.value, 'moderator');
+  assert.equal(model!.audioRows.find((r) => r.key === 'quality')?.value, 'music');
+  assert.equal(model!.audioRows.find((r) => r.key === 'bitrate')?.value, '128 kbps');
+  assert.equal(model!.audioRows.find((r) => r.key === 'stereo')?.value, 'stereo');
+  assert.equal(model!.audioRows.find((r) => r.key === 'network')?.value, 'good');
+});
+
+test('buildLiveDetails server flag rows when present', () => {
+  const model = buildLiveDetails(base({
+    show_last_speaker_warning: true,
+    hide_moderator_indicator: false,
+    emoji_reaction_options: ['👍', '🎉'],
+    welcome_for_user_profile: { name: 'Ayse', user_id: 1 },
+    user_capabilities: { can_rejoin_stage_directly: true },
+  }));
+  assert.ok(model);
+  assert.equal(model!.serverRows.find((r) => r.key === 'last_speaker_warning')?.value, 'on');
+  assert.equal(model!.serverRows.find((r) => r.key === 'hide_crowns')?.value, 'off');
+  assert.equal(model!.serverRows.find((r) => r.key === 'emoji_options')?.value, '👍 🎉');
+  assert.equal(model!.serverRows.find((r) => r.key === 'welcome')?.value, 'Ayse');
+  assert.equal(model!.serverRows.find((r) => r.key === 'can_rejoin')?.value, 'on');
 });

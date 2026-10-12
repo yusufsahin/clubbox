@@ -51,6 +51,11 @@ import { selfProfilePage } from '../ui/components/profileDrawer';
 import { roomDetailsPanel } from '../ui/components/roomDetailsPanel';
 import { buildLiveDetails } from '../api/liveDetails.ts';
 import {
+  canOfferJoinStage,
+  roomReactionEmojis,
+  showModeratorCrowns,
+} from '../api/roomServerFlags.ts';
+import {
   WebModerationProvider,
   setModerationProvider,
   type ModerationAction,
@@ -81,6 +86,8 @@ export class ClubboxApp {
   viewStack: ViewSnapshot[] = [];
   roomDetailsOpen = false;
   liveDetailsOpen = false;
+  /** Room id for which we already showed welcome_for_user_profile (30.5). */
+  welcomeShownForChannel: string | null = null;
   reactionsOpen = false;
   soundsOpen = false;
   roomBarOverflowOpen = false;
@@ -889,7 +896,18 @@ export class ClubboxApp {
       existing?.remove();
       return;
     }
-    const model = buildLiveDetails(this.currentChannel);
+    const quality = audioEngine.getAudioQuality();
+    const model = buildLiveDetails(this.currentChannel, {
+      myUserId: this.me?.user_id ?? null,
+      numEver: this.currentChannel.num_ever,
+      audio: this.audioConnected
+        ? {
+          qualityLevel: quality,
+          networkTone: this.networkQualityTone || null,
+          // Bitrate / stereo filled in 30.6 when measured.
+        }
+        : null,
+    });
     if (!model) {
       existing?.remove();
       return;
@@ -1787,9 +1805,19 @@ export class ClubboxApp {
       moderator: this.isMeModerator(),
       ...controls,
       canFollow: clubhouseClient.supports('follow'),
-      canJoinStage: clubhouseClient.supports('become_speaker')
-        && !this.isMeSpeaker()
-        && access === 'open',
+      canJoinStage: canOfferJoinStage({
+        channel: this.currentChannel,
+        isSpeaker: this.isMeSpeaker(),
+        openStage: access === 'open',
+        becomeSpeakerSupported: clubhouseClient.supports('become_speaker'),
+      }),
+      joinStageMode: access === 'open'
+        ? 'join'
+        : (this.currentChannel.user_capabilities?.stage_removed === true
+          && this.currentChannel.user_capabilities?.can_rejoin_stage_directly === true
+          ? 'rejoin'
+          : 'join'),
+      showModeratorCrowns: showModeratorCrowns(this.currentChannel, this.isMeModerator()),
       audienceSearch: this.audienceSearchQuery,
       handraiseMode,
       visibilityMode,
@@ -1845,10 +1873,13 @@ export class ClubboxApp {
       canRaiseHand: clubhouseClient.supports('audience_reply')
         && !!this.currentChannel
         && stageAccessMode(this.currentChannel) === 'raise',
-      canJoinStage: clubhouseClient.supports('become_speaker')
-        && !!this.currentChannel
-        && !this.isMeSpeaker()
-        && stageAccessMode(this.currentChannel) === 'open',
+      canJoinStage: canOfferJoinStage({
+        channel: this.currentChannel,
+        isSpeaker: this.isMeSpeaker(),
+        openStage: !!this.currentChannel && stageAccessMode(this.currentChannel) === 'open',
+        becomeSpeakerSupported: clubhouseClient.supports('become_speaker'),
+      }),
+      reactionEmojis: roomReactionEmojis(this.currentChannel),
       showAudioRetry: !!this.currentChannel && this.audioConnected === false && !clubhouseClient.getConfig().useSandbox,
       isSpeaker: this.isMeSpeaker(),
       inRoom: !!this.currentChannel,

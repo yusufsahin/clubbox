@@ -37,6 +37,10 @@ export interface StageState {
   canFollow: boolean;
   /** Audience in an open-stage room — show Join stage CTA. */
   canJoinStage: boolean;
+  /** When false, hide crowns from this viewer (hide_moderator_indicator). */
+  showModeratorCrowns: boolean;
+  /** Open-stage join vs server-gated rejoin (30.5). */
+  joinStageMode?: 'join' | 'rejoin';
   audienceSearch: string;
   handraiseMode: 'off' | '1' | '2';
   visibilityMode: 'open' | 'social' | 'other';
@@ -117,13 +121,13 @@ export function stageColumn(state: StageState): SafeHtml {
               <p class="list-note" data-web-listening-off style="margin-bottom:12px;">${t('webListeningDisabled')}</p>
             ` : ''}
             ${showJoinStage ? html`
-              <div class="open-stage-banner" data-open-stage-banner>
+              <div class="open-stage-banner" data-open-stage-banner data-join-mode="${state.joinStageMode === 'rejoin' ? 'rejoin' : 'join'}">
                 <div class="open-stage-banner-copy">
-                  <strong>${t('joinStage')}</strong>
-                  <span>${t('joinStageHelp')}</span>
+                  <strong>${state.joinStageMode === 'rejoin' ? t('rejoinStage') : t('joinStage')}</strong>
+                  <span>${state.joinStageMode === 'rejoin' ? t('rejoinStageHelp') : t('joinStageHelp')}</span>
                 </div>
                 <button class="btn btn-primary" type="button" data-action="join-open-stage" id="join-open-stage-btn">
-                  ${t('joinStage')}
+                  ${state.joinStageMode === 'rejoin' ? t('rejoinStage') : t('joinStage')}
                 </button>
               </div>
             ` : ''}
@@ -150,7 +154,7 @@ export function stageColumn(state: StageState): SafeHtml {
                 <div class="speaker-card ${speaker.is_speaking ? 'speaking' : ''} ${isSelf ? 'me-speaker' : ''} ${notConnected ? 'not-connected' : ''}">
                   <div class="avatar-wrapper" data-action="open-profile" data-user-id="${speaker.user_id}">
                     ${avatarHtml(speaker, 82, 'avatar-img')}
-                    ${speaker.is_moderator ? html`<span class="badge-crown" title="${t('moderator')}">👑</span>` : ''}
+                    ${speaker.is_moderator && state.showModeratorCrowns ? html`<span class="badge-crown" title="${t('moderator')}">👑</span>` : ''}
                     ${speaker.is_muted ? html`<span class="badge-mute" title="${t('muted')}">🔇</span>` : ''}
                     ${musicProfile ? html`<span class="badge-music" title="${t('speakerMusicProfile')}">🎵</span>` : ''}
                     ${showFollow(speaker, state) ? html`

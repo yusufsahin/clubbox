@@ -29,6 +29,8 @@ export interface CockpitState {
   soundsOpen: boolean;
   canReact: boolean;
   canGifReact: boolean;
+  /** From join emoji_reaction_options when present (30.5). */
+  reactionEmojis?: string[];
   /** Phase 28.6 — Moderator actions (Requests + History). */
   canModeratorActions?: boolean;
   /** Phase 27.5 — Token link badge. */
@@ -192,7 +194,7 @@ export function cockpitBar(state: CockpitState): SafeHtml {
       ${state.reactionsOpen ? html`
         <div class="room-bar-popover" data-reactions-popover>
           <div class="reaction-pad" role="group" aria-label="${t('sendReaction')}">
-            ${['👏', '❤️', '🔥', '😂'].map((emoji) => html`
+            ${(state.reactionEmojis?.length ? state.reactionEmojis : ['👏', '❤️', '🔥', '😂']).map((emoji) => html`
               <button class="btn btn-secondary reaction-btn" type="button" data-action="send-reaction" data-emoji="${emoji}">${emoji}</button>
             `)}
           </div>

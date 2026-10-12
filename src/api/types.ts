@@ -124,6 +124,19 @@ export interface CHChannel {
   pubnub_heartbeat_value?: number;
   pubnub_heartbeat_interval?: number;
   pubnub_time_token?: string;
+  /** Join-supplied reaction pad (30.5); falls back to defaults when missing. */
+  emoji_reaction_options?: Array<string | { emoji?: string; value?: string }>;
+  /** Warn before leaving when I am the last speaker (30.5). */
+  show_last_speaker_warning?: boolean;
+  /** Hide moderator crowns from non-moderators (30.5). */
+  hide_moderator_indicator?: boolean;
+  /** Shown once on join when present (30.5). */
+  welcome_for_user_profile?: {
+    user_id?: number;
+    name?: string;
+    username?: string;
+    photo_url?: string | null;
+  } | null;
 }
 
 export type UserCapabilities = Record<string, boolean | undefined>;

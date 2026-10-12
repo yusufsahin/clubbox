@@ -1,3 +1,4 @@
+import { myRoomRole } from './roomServerFlags.ts';
 import type { CHChannelDetail, UserCapabilities } from './types.ts';
 
 export type LiveDetailsRow = {
@@ -6,17 +7,31 @@ export type LiveDetailsRow = {
   value: string;
 };
 
+export type LiveDetailsAudio = {
+  qualityLevel?: string | null;
+  sendBitrateKbps?: number | null;
+  stereo?: boolean | null;
+  networkTone?: string | null;
+};
+
 export type LiveDetailsModel = {
   title: string;
   roomRows: LiveDetailsRow[];
   liveRows: LiveDetailsRow[];
   stateRows: LiveDetailsRow[];
+  meRows: LiveDetailsRow[];
+  audioRows: LiveDetailsRow[];
+  serverRows: LiveDetailsRow[];
   capabilityRows: LiveDetailsRow[];
+  /** Always shown for honesty (30.1 / 30.5). */
+  moderationNoteKey: 'hostToolsAppOnly';
 };
 
-export type LiveDetailsLive = {
+export type LiveDetailsOpts = {
+  myUserId?: number | null;
   /** Latest cumulative listeners (PubNub num_ever). */
   numEver?: number | null;
+  audio?: LiveDetailsAudio | null;
 };
 
 function handraiseLabel(channel: CHChannelDetail): string | null {
@@ -60,18 +75,36 @@ function boolLabel(value: boolean | undefined): string | null {
   return null;
 }
 
+function reactionOptionsSummary(channel: CHChannelDetail): string | null {
+  const opts = channel.emoji_reaction_options;
+  if (!Array.isArray(opts) || opts.length === 0) return null;
+  const parts: string[] = [];
+  for (const entry of opts) {
+    if (typeof entry === 'string' && entry.trim()) parts.push(entry.trim());
+    else if (entry && typeof entry === 'object') {
+      const rec = entry as { emoji?: unknown; value?: unknown };
+      const raw = typeof rec.emoji === 'string' ? rec.emoji
+        : typeof rec.value === 'string' ? rec.value
+          : '';
+      if (raw.trim()) parts.push(raw.trim());
+    }
+  }
+  return parts.length ? parts.join(' ') : null;
+}
+
 /**
- * Pure view-model for the Live details sheet (Task 29.1).
+ * Pure view-model for the Live details sheet (29.1 / 30.5).
  * Missing / unknown fields omit their row.
  */
 export function buildLiveDetails(
   channel: CHChannelDetail | null | undefined,
-  live: LiveDetailsLive = {},
+  opts: LiveDetailsOpts = {},
 ): LiveDetailsModel | null {
   if (!channel || typeof channel.channel !== 'string' || !channel.channel) return null;
 
   const roomRows: LiveDetailsRow[] = [];
   const title = typeof channel.topic === 'string' && channel.topic ? channel.topic : channel.channel;
+  roomRows.push({ key: 'title', labelKey: 'liveDetailsTitle', value: title });
   const privacy = privacyLabel(channel);
   if (privacy) roomRows.push({ key: 'privacy', labelKey: 'liveDetailsPrivacy', value: privacy });
   if (typeof channel.language === 'string' && channel.language) {
@@ -95,8 +128,8 @@ export function buildLiveDetails(
   if (typeof channel.num_all === 'number') {
     liveRows.push({ key: 'listeners', labelKey: 'liveDetailsListeners', value: String(channel.num_all) });
   }
-  const cumulative = typeof live.numEver === 'number'
-    ? live.numEver
+  const cumulative = typeof opts.numEver === 'number'
+    ? opts.numEver
     : (typeof channel.num_ever === 'number' ? channel.num_ever : null);
   if (cumulative != null) {
     liveRows.push({ key: 'cumulative', labelKey: 'liveDetailsCumulative', value: String(cumulative) });
@@ -140,8 +173,65 @@ export function buildLiveDetails(
     });
   }
 
-  const capabilityRows: LiveDetailsRow[] = [];
+  const meRows: LiveDetailsRow[] = [];
+  const role = myRoomRole(channel.users, opts.myUserId);
+  if (role) meRows.push({ key: 'role', labelKey: 'liveDetailsMyRole', value: role });
+
+  const audioRows: LiveDetailsRow[] = [];
+  const audio = opts.audio;
+  if (audio) {
+    if (typeof audio.qualityLevel === 'string' && audio.qualityLevel) {
+      audioRows.push({ key: 'quality', labelKey: 'liveDetailsAudioQuality', value: audio.qualityLevel });
+    }
+    if (typeof audio.sendBitrateKbps === 'number' && Number.isFinite(audio.sendBitrateKbps)) {
+      audioRows.push({
+        key: 'bitrate',
+        labelKey: 'liveDetailsAudioBitrate',
+        value: `${Math.round(audio.sendBitrateKbps)} kbps`,
+      });
+    }
+    if (audio.stereo === true) {
+      audioRows.push({ key: 'stereo', labelKey: 'liveDetailsAudioStereo', value: 'stereo' });
+    } else if (audio.stereo === false) {
+      audioRows.push({ key: 'stereo', labelKey: 'liveDetailsAudioStereo', value: 'mono' });
+    }
+    if (typeof audio.networkTone === 'string' && audio.networkTone) {
+      audioRows.push({ key: 'network', labelKey: 'liveDetailsAudioNetwork', value: audio.networkTone });
+    }
+  }
+
+  const serverRows: LiveDetailsRow[] = [];
+  const lastSpeaker = boolLabel(channel.show_last_speaker_warning);
+  if (lastSpeaker) {
+    serverRows.push({ key: 'last_speaker_warning', labelKey: 'liveDetailsLastSpeakerWarning', value: lastSpeaker });
+  }
+  const hideCrowns = boolLabel(channel.hide_moderator_indicator);
+  if (hideCrowns) {
+    serverRows.push({ key: 'hide_crowns', labelKey: 'liveDetailsHideModeratorIndicator', value: hideCrowns });
+  }
   const caps: UserCapabilities | undefined = channel.user_capabilities;
+  if (caps?.stage_removed === true) {
+    serverRows.push({ key: 'stage_removed', labelKey: 'liveDetailsStageRemoved', value: 'on' });
+  }
+  if (caps?.can_rejoin_stage_directly === true) {
+    serverRows.push({ key: 'can_rejoin', labelKey: 'liveDetailsCanRejoinStage', value: 'on' });
+  }
+  const reactions = reactionOptionsSummary(channel);
+  if (reactions) {
+    serverRows.push({ key: 'emoji_options', labelKey: 'liveDetailsEmojiOptions', value: reactions });
+  }
+  if (channel.welcome_for_user_profile && typeof channel.welcome_for_user_profile === 'object') {
+    const name = typeof channel.welcome_for_user_profile.name === 'string'
+      ? channel.welcome_for_user_profile.name
+      : typeof channel.welcome_for_user_profile.username === 'string'
+        ? channel.welcome_for_user_profile.username
+        : null;
+    if (name) {
+      serverRows.push({ key: 'welcome', labelKey: 'liveDetailsWelcome', value: name });
+    }
+  }
+
+  const capabilityRows: LiveDetailsRow[] = [];
   if (caps) {
     for (const [key, value] of Object.entries(caps)) {
       if (!key.startsWith('can_') || value !== true) continue;
@@ -150,5 +240,15 @@ export function buildLiveDetails(
     capabilityRows.sort((a, b) => a.value.localeCompare(b.value));
   }
 
-  return { title, roomRows, liveRows, stateRows, capabilityRows };
+  return {
+    title,
+    roomRows,
+    liveRows,
+    stateRows,
+    meRows,
+    audioRows,
+    serverRows,
+    capabilityRows,
+    moderationNoteKey: 'hostToolsAppOnly',
+  };
 }

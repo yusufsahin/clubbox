@@ -30,6 +30,9 @@ export function liveDetailsPanel(model: LiveDetailsModel): SafeHtml {
       ${rowsBlock('liveDetailsRoom', model.roomRows)}
       ${rowsBlock('liveDetailsLive', model.liveRows)}
       ${rowsBlock('liveDetailsState', model.stateRows)}
+      ${rowsBlock('liveDetailsMe', model.meRows)}
+      ${rowsBlock('liveDetailsMyAudio', model.audioRows)}
+      ${rowsBlock('liveDetailsServer', model.serverRows)}
       ${model.capabilityRows.length ? html`
         <section class="room-details-card" data-live-details-section="capabilities">
           <h4>${t('liveDetailsYourPermissions')}</h4>
@@ -38,6 +41,7 @@ export function liveDetailsPanel(model: LiveDetailsModel): SafeHtml {
           </ul>
         </section>
       ` : ''}
+      <p class="list-note" data-live-details-moderation>${t(model.moderationNoteKey)}</p>
     </aside>
   `;
 }

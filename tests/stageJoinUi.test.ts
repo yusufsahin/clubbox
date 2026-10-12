@@ -47,6 +47,8 @@ function baseState(overrides: Partial<StageState> = {}): StageState {
     hostToolsCallable: false,
     canFollow: false,
     canJoinStage: true,
+    showModeratorCrowns: true,
+    joinStageMode: 'join',
     audienceSearch: '',
     handraiseMode: 'off',
     visibilityMode: 'open',
@@ -59,6 +61,22 @@ test('open-stage audience sees Join stage CTA on the stage column', () => {
   assert.match(html, /data-open-stage-banner/);
   assert.match(html, /data-action="join-open-stage"/);
   assert.match(html, /Join stage|Sahneye çık/);
+});
+
+test('hide_moderator_indicator hides crowns for non-moderators', () => {
+  const withCrown = markup(stageColumn(baseState({ showModeratorCrowns: true })));
+  assert.match(withCrown, /badge-crown/);
+  const hidden = markup(stageColumn(baseState({ showModeratorCrowns: false })));
+  assert.equal(hidden.includes('badge-crown'), false);
+});
+
+test('rejoin stage banner uses rejoin copy', () => {
+  const html = markup(stageColumn(baseState({
+    canJoinStage: true,
+    joinStageMode: 'rejoin',
+  })));
+  assert.match(html, /data-join-mode="rejoin"/);
+  assert.match(html, /Rejoin stage|Sahneye dön/);
 });
 
 test('speakers do not see Join stage CTA', () => {

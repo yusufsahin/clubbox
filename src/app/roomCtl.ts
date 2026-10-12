@@ -24,6 +24,7 @@ import {
 } from '../api/roomControls.ts';
 import { mergeRoomDetailFields } from '../api/roomDetailMerge.ts';
 import { applyRoomEvent } from '../api/realtimeEvents.ts';
+import { shouldWarnLastSpeaker, welcomeToastName } from '../api/roomServerFlags.ts';
 import { mergeRoomState } from '../api/roomStateMerge.ts';
 import { roomSync } from '../api/roomSync.ts';
 import {
@@ -974,6 +975,12 @@ export async function joinRoom(this: ClubboxApp, channelId: string, preset?: CHC
     if (this.currentChannel.is_chat_enabled !== false) this.chatOpen = true;
     this.render();
     this.showToast(t('joinedRoom', { topic: this.currentChannel.topic }), '🎙️');
+    const welcomeName = welcomeToastName(this.currentChannel.welcome_for_user_profile);
+    const welcomeKey = this.channelApiId(this.currentChannel);
+    if (welcomeName && welcomeKey && this.welcomeShownForChannel !== welcomeKey) {
+      this.welcomeShownForChannel = welcomeKey;
+      this.showToast(t('welcomeForUser', { name: welcomeName }), '👋');
+    }
     if (audioEngine.getIsMuted() && this.isMeSpeaker()) {
       this.showToast(t('joinMuted'), '🔇');
     }
@@ -1162,6 +1169,7 @@ export async function releaseRoomLocally(this: ClubboxApp, options: { skipServer
     this.privateLines = [];
     this.closeProfileDrawer();
     this.roomProfileCache.clear();
+    this.welcomeShownForChannel = null;
     this.closeModeratorActions();
     this.moderatorQueueUsers = [];
     this.moderatorHistoryItems = [];
@@ -1210,7 +1218,8 @@ export async function leaveRoom(this: ClubboxApp, options: { silent?: boolean } 
     if (!hadRoom && !this.joinInFlight && !agoraVoice.getIsJoined() && !audioEngine.getIsRecording()) return;
     // Leave never calls end_channel — use Details › End room to close for everyone.
     if (!options.silent && hadRoom) {
-      if (!window.confirm(t('leaveRoomConfirm'))) return;
+      const lastSpeaker = shouldWarnLastSpeaker(channel, this.me?.user_id);
+      if (!window.confirm(lastSpeaker ? t('lastSpeakerLeaveConfirm') : t('leaveRoomConfirm'))) return;
     }
 
     await this.releaseRoomLocally();
