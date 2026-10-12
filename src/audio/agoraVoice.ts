@@ -14,9 +14,12 @@ import { muteFromAgoraEvent } from '../api/remoteMute';
 import {
   AGORA_JOIN_MS,
   agoraConnectionPolicy,
+  agoraExceptionLogLevel,
+  extrasStatsChanged,
   formatVoiceFailureReason,
   networkQualityTone,
   shouldTryCloudProxy,
+  type ExtrasStatsSnapshot,
 } from './agoraErrors';
 import { buildAgoraJoinParams } from './agoraJoinParams';
 import {
@@ -97,6 +100,8 @@ export class AgoraVoiceEngine {
   private remoteUserCount = 0;
   /** Connection status: extras track sending audio (bitrate/volume > 0). */
   private extrasSending: boolean | null = null;
+  /** Last extras-stats line, so the 2s probe logs only when a value changes. */
+  private lastExtrasStatsLog: ExtrasStatsSnapshot | null = null;
   private extrasStatsTimer: ReturnType<typeof setInterval> | null = null;
   private rejoinAttempt = 0;
   private joinedAtMs: number | null = null;
@@ -354,9 +359,9 @@ export class AgoraVoiceEngine {
 
       this.client.on('exception', (e: { code?: number; msg?: string; uid?: string | number }) => {
         this.lastExceptionCode = String(e?.code ?? '');
-        console.warn(
-          `[AgoraRTC] exception code=${String(e?.code ?? '')} msg=${String(e?.msg ?? '')} uid=${String(e?.uid ?? '')}`,
-        );
+        const line = `[AgoraRTC] exception code=${String(e?.code ?? '')} msg=${String(e?.msg ?? '')} uid=${String(e?.uid ?? '')}`;
+        if (agoraExceptionLogLevel(e?.code, audioEngine.getIsMuted()) === 'debug') console.debug(line);
+        else console.warn(line);
         void this.logAgora(
           'agora_exception',
           false,
@@ -722,6 +727,7 @@ export class AgoraVoiceEngine {
       clearInterval(this.extrasStatsTimer);
       this.extrasStatsTimer = null;
     }
+    this.lastExtrasStatsLog = null;
   }
 
   private async probeExtrasSending(): Promise<void> {
@@ -749,13 +755,20 @@ export class AgoraVoiceEngine {
       }
       // Sending = extras track has level, or aggregate local send looks alive while published.
       this.extrasSending = vol > 0.01 || sendVol > 0 || bitrate > 0;
-      if (agoraDebugEnabled()) {
+      const snapshot: ExtrasStatsSnapshot = {
+        vol: vol.toFixed(3),
+        sendVol,
+        bitrate,
+        sending: this.extrasSending,
+      };
+      if (agoraDebugEnabled() && extrasStatsChanged(this.lastExtrasStatsLog, snapshot)) {
+        this.lastExtrasStatsLog = snapshot;
         console.log(
           '[AgoraRTC] extras stats',
-          `vol=${vol.toFixed(3)}`,
-          `sendVol=${sendVol}`,
-          `bitrate=${bitrate}`,
-          `sending=${this.extrasSending}`,
+          `vol=${snapshot.vol}`,
+          `sendVol=${snapshot.sendVol}`,
+          `bitrate=${snapshot.bitrate}`,
+          `sending=${snapshot.sending}`,
         );
       }
     } catch {

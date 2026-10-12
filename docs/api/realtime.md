@@ -66,3 +66,12 @@ Mute and "speaking" state come from Agora (remote audio mute / volume), not PubN
 The mobile app's action list also names `make_channel_public`, `make_channel_social`, `change_handraise_settings`, `uninvite_speaker`, `reject_speaker_invite`, `accept_speaker_invite`, `mute_speaker` and others; their payloads are unknown and are logged to API Health as unknown types until seen live.
 
 The production PubNub keys and Agora app id are the config block with a live Stripe key in the bundle; clubhouse-py's constants (`AGORA_KEY`, `PUBNUB_*_KEY`) match that block.
+
+## Troubleshooting
+
+Chromium's P2P socket manager prints these while Agora is choosing a gateway. They are not a failed join. The client still reaches `CONNECTED` through another candidate (Phase 23: red herring).
+
+- `Failed to resolve address for <host>.edge.agora.io., errorcode: -105` — note the trailing dot. The socket manager is resolving one Agora hostname candidate as an FQDN. That candidate has no AAAA record, so the IPv6 lookup returns -105.
+- `socket destroyed` — the same attempt closing the socket that failed that lookup.
+
+Do not add DNS workarounds, host-resolver rules, or a bare-IP gateway. Those were measured and made the join worse. The measurement is in `docs/history/agora-voice-dns-fix.md`.

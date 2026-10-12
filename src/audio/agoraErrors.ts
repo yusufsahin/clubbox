@@ -112,6 +112,37 @@ export function agoraConnectionPolicy(input: {
   return { type: 'schedule-rejoin', delayMs, attempt: input.rejoinAttempt + 1 };
 }
 
+/** SDK exception 2001: AUDIO_INPUT_LEVEL_TOO_LOW. Expected while the local mic is muted. */
+export const AGORA_AUDIO_INPUT_LEVEL_TOO_LOW = 2001;
+
+/** Warn in the console, except the expected low-input exception while self-muted. */
+export function agoraExceptionLogLevel(
+  code: number | string | undefined,
+  selfMuted: boolean,
+): 'debug' | 'warn' {
+  if (selfMuted && Number(code) === AGORA_AUDIO_INPUT_LEVEL_TOO_LOW) return 'debug';
+  return 'warn';
+}
+
+export type ExtrasStatsSnapshot = {
+  vol: string;
+  sendVol: number;
+  bitrate: number;
+  sending: boolean;
+};
+
+/** True when a debug extras-stats line would show a new value. */
+export function extrasStatsChanged(
+  previous: ExtrasStatsSnapshot | null,
+  next: ExtrasStatsSnapshot,
+): boolean {
+  if (!previous) return true;
+  return previous.vol !== next.vol
+    || previous.sendVol !== next.sendVol
+    || previous.bitrate !== next.bitrate
+    || previous.sending !== next.sending;
+}
+
 /** Uplink/downlink 0–6 → CSS token class for the room-bar quality dot. */
 export function networkQualityTone(uplink: number, downlink: number): 'good' | 'ok' | 'poor' | 'unknown' {
   const worst = Math.max(

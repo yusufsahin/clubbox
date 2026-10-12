@@ -3,7 +3,9 @@ import test from 'node:test';
 import {
   AGORA_REJOIN_BACKOFF_MS,
   agoraConnectionPolicy,
+  agoraExceptionLogLevel,
   classifyAgoraError,
+  extrasStatsChanged,
   formatVoiceFailureReason,
   networkQualityTone,
   shouldTryCloudProxy,
@@ -82,4 +84,19 @@ test('networkQualityTone maps uplink/downlink 0–6', () => {
   assert.equal(networkQualityTone(2, 4), 'ok');
   assert.equal(networkQualityTone(5, 3), 'poor');
   assert.equal(networkQualityTone(0, 0), 'unknown');
+});
+
+test('muted low-input exception is debug; other exceptions stay warnings', () => {
+  assert.equal(agoraExceptionLogLevel(2001, true), 'debug');
+  assert.equal(agoraExceptionLogLevel('2001', true), 'debug');
+  assert.equal(agoraExceptionLogLevel(2001, false), 'warn');
+  assert.equal(agoraExceptionLogLevel(1005, true), 'warn');
+});
+
+test('extras stats log only when a displayed value changes', () => {
+  const first = { vol: '0.000', sendVol: 0, bitrate: 7600, sending: true };
+  assert.equal(extrasStatsChanged(null, first), true);
+  assert.equal(extrasStatsChanged(first, { ...first }), false);
+  assert.equal(extrasStatsChanged(first, { ...first, bitrate: 0 }), true);
+  assert.equal(extrasStatsChanged(first, { ...first, sending: false }), true);
 });
