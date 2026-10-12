@@ -1,0 +1,7 @@
+{
+  "endpoint": "agora_exception",
+  "status": 0,
+  "bodyKeys": [],
+  "error": "code=2001;msg=AUDIO_INPUT_LEVEL_TOO_LOW;source=sdk",
+  "evidence": "unsupported"
+}

@@ -1,0 +1,10 @@
+{
+  "endpoint": "make_moderator",
+  "status": 404,
+  "bodyKeys": [
+    "channel",
+    "user_id"
+  ],
+  "error": "Not found",
+  "evidence": "community"
+}

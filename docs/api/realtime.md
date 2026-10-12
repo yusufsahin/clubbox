@@ -75,3 +75,12 @@ Chromium's P2P socket manager prints these while Agora is choosing a gateway. Th
 - `socket destroyed` — the same attempt closing the socket that failed that lookup.
 
 Do not add DNS workarounds, host-resolver rules, or a bare-IP gateway. Those were measured and made the join worse. The measurement is in `docs/history/agora-voice-dns-fix.md`.
+
+## Seen live, not handled
+
+- `cumulative_count_update` keys: action, channel, num_ever
+- `change_handraise_settings` keys: action, channel, from_name, from_user_id, handraise_permission, handraise_queue_setting, is_automatic_speaker_approval_available, is_enabled, is_handraise_available
+- `update_speaker_call_status` keys: action, audio_profile, channel, is_on_call, user_id
+- `new_channel_message` keys: action, channel, from_name, from_photo_url, from_user_id, from_username, message, message_id, message_type, num_messages, time_received
+- `new_channel_reaction` keys: action, action_user_profile, channel, message, message_id, message_type, num_messages, reaction, target_user_profile, time_received
+- `update_user_capabilities` keys: action, can_change_enable_web_listening, can_create_highlights, can_disable_replay, can_disable_room_chat, can_edit_background_music, can_edit_handraise_queue, can_edit_host_banner, can_edit_pinned_links, can_edit_room_title, can_end_room, can_gif_react, can_invite, can_manage_channel_user_poll, can_mute_speakers, can_post_to_chat, can_rejoin_stage_directly, can_remove_speakers, can_save, can_send_paid_react_thanks, can_send_paid_reacts, can_share, can_speak, can_update_highlights_settings, can_update_suggested_links, can_view_channel_user_poll_votes, can_view_moderator_actions_history, channel, stage_removed

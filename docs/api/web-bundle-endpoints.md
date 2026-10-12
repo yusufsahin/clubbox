@@ -22,7 +22,7 @@ If a list name is only `in-bundle, not observed`, leave it. Do not add a button 
 - `ask_question_about_conversation` — configured
 - `ask_question_about_me` — configured
 - `audience_reply` — configured
-- `become_speaker` — configured
+- `become_speaker` — observed
 - `complete_phone_number_web_auth` — configured
 - `create_channel` — observed
 - `create_conversation` — configured
@@ -44,7 +44,7 @@ If a list name is only `in-bundle, not observed`, leave it. Do not add a button 
 - `get_profile` — observed
 - `get_replay_channel` — configured
 - `get_replay_channel_chunk` — configured
-- `get_social_club` — configured
+- `get_social_club` — observed
 - `get_social_club_members` — configured
 - `get_social_club_message_thread` — configured
 - `get_social_club_messages` — configured

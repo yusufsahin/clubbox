@@ -80,7 +80,7 @@
   "become_speaker": {
     "path": "/web_api/become_speaker",
     "method": "POST",
-    "evidence": "bundle",
+    "evidence": "observed",
     "mutation": true,
     "bodyKeys": [
       "channel"
@@ -445,7 +445,7 @@
   "get_social_club": {
     "path": "/web_api/get_social_club",
     "method": "POST",
-    "evidence": "bundle",
+    "evidence": "observed",
     "mutation": false,
     "bodyKeys": [
       "social_club_slug",
