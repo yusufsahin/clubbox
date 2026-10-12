@@ -77,9 +77,12 @@ All four target the **mobile API** `https://www.clubhouseapi.com/api/`. None tar
    - The join_channel response carries `user_capabilities` (27 `can_*` keys, for example `can_mute_speakers`,
      `can_remove_speakers` and `can_end_room`).
    - Gating lives in `src/api/roomControls.ts` and `src/api/roomCardActions.ts` (`roomActionsFor`).
-   - Room state comes from the join snapshot plus PubNub (`src/api/realtimeEvents.ts`). Missing handlers:
-     `uninvite_speaker` and `set_channel_title`, both present in the official web client's EVENTS list.
-     `update_speaker_call_status` is ignored.
+   - Room state comes from the join snapshot plus PubNub (`src/api/realtimeEvents.ts`). The current reducer handles
+     `uninvite_speaker`, `set_channel_title`, `update_speaker_call_status`, `update_user_capabilities`, and
+     `change_handraise_settings`. Therefore stale local state is a residual risk when a realtime event is missed, but
+     the previously reported missing handlers are no longer a current code gap.
+   - A fresh mobile `get_channel` snapshot is still unavailable with the web session (401), so PubNub remains the
+     live roster authority in Clubbox.
 4. **Moderation methods.** `src/api/client.ts` has `inviteSpeaker`, `uninviteSpeaker`, `muteSpeaker`,
    `makeModerator`, `blockFromChannel`, `endChannel` and `changeHandraiseSettings`. In
    `electron/webApiRoutes.json` they are `transport: mobile`, evidence `mobile-spike`, path `/api/<name>`. **[V]**
@@ -93,6 +96,7 @@ All four target the **mobile API** `https://www.clubhouseapi.com/api/`. None tar
    | mobile moderation set, web session cookies | 401 | `detail` "Authentication credentials were not provided." | Cursor canary |
    | `get_channel`, `get_handraise_queue`, `get_moderator_action_history` and others, web session | 401 | — | Cursor 28.0 |
    | mobile `start_phone_number_auth` from Clubbox (Electron) | 400 | `{success, is_blocked, error_message: "login did not pass token validation!"}` | Cursor 27.5.0, commit 1d2509d |
+   | Clubbox `clubbox:mobile-call` IPC | 403 (local) | `Use the Clubhouse app to moderate`, `appOnly:true`; no upstream request | current `electron/main.cjs` |
 6. **Assumptions about device verification.**
    - **Verified:** Clubhouse's Knowledge Center, "Phone Number Verification", item 3 says: *Token Validation: "Login
      Did Not Pass Token Validation." Problem: Your device is unsupported or is running an unsupported operating
@@ -113,7 +117,7 @@ All four target the **mobile API** `https://www.clubhouseapi.com/api/`. None tar
 | Insufficient room permissions | **Not the cause, and not reached.** | A permission check returns 403 after authentication; we only ever got 401 (mobile) or 404 (web) **[V]** (status semantics). Per-room `can_*` values are redacted in the logs, so the owner's moderator capability was not re-checked **[H]**. |
 | Client-specific restriction | **Yes.** | Web: no moderation surface at all; the UI even says "Download the app now to stay synced with this room" **[V]**. Mobile auth is restricted to supported devices **[V]** (KB). |
 | App/device integrity requirement | **Yes, for obtaining mobile auth.** | Error text plus the official KB mapping to "unsupported device/OS" **[V]**. The mechanism is unknown **[H]**. |
-| Incorrect local room state | **Separate bug, not the moderation cause.** | Missing PubNub handlers (uninvite_speaker, set_channel_title) cause stale stages **[V]**. |
+| Incorrect local room state | **Separate state-sync risk, not the transport cause.** | The current reducer handles the previously missing PubNub events; a web-session `get_channel` refresh still returns 401, so missed events can leave a stale roster **[V]**. |
 
 **Conclusion:**
 - **[V]** Moderation is offered only through the mobile API.
@@ -159,8 +163,12 @@ interface ModerationProvider {
 }
 ```
 
-- **`AppOnlyModerationProvider`** (default today). `capabilities()` returns `available:false, reason:'app_only'`
-  for every action. `perform()` never sends a request and returns `app_only`.
+- **Current implementation.** `src/api/moderationProvider.ts` already contains the typed interface, result/error
+  types, `AppOnlyModerationProvider`, HTTP-status mapping, and `WebModerationProvider`; startup wires the Web
+  provider from `src/app/clubboxApp.ts`. The initial provider is AppOnly, and the wired Web provider currently has
+  the same effective result because every target route is still `mobile-spike` or unobserved.
+- **`AppOnlyModerationProvider`.** `capabilities()` returns `available:false, reason:'app_only'` for every action.
+  `perform()` never sends a request and returns `app_only`.
 - **`WebModerationProvider`.** An action becomes available only when **all** hold:
   - the bundle crawler finds `/web_api/<name>` in the current build (evidence `bundle`);
   - one live 2xx is recorded (evidence `observed`, per the project's "Verified by use" rule);
@@ -168,8 +176,11 @@ interface ModerationProvider {
 
   It maps HTTP status to `ModerationErrorKind`.
 - **No mobile provider.** The 27.5 Token code was removed (Phase 30 step 4) so it cannot be re-enabled by accident.
-- **Feature flags.** `moderation.web.autoEnable` (default on: auto-detect, but still requires the observed 2xx).
-  No flag exists for the mobile path.
+- **Feature flags/evidence.** The existing `experimentalActions`, `evidenceOverrides`, route watch-list, and
+  Verified-by-use promotion are the current controls. There is no flag that authorizes the mobile moderation path.
+- **Residual implementation gap.** `set_handraise` is modeled in the provider, but `executeWebModeration()` still
+  lacks the mode parameter and deliberately throws a local 400. If Clubhouse later exposes a verified web route, add
+  an explicit parameterized action request before enabling it; do not infer the old mobile body is still accepted.
 - **UI.**
   - Every host action renders from `capabilities()`.
   - Unavailable actions are disabled with the reason text ("Moderation is only available in the Clubhouse app").
@@ -180,14 +191,13 @@ interface ModerationProvider {
 
 ### Implementation steps (maps to docs/tasks/phase-30-web-first.md)
 
-1. Add the `ModerationProvider` types plus `AppOnlyModerationProvider`, and route `roomCtl` moderation handlers
-   through it (30.1).
-2. Add the crawler diff and watch-list, and `WebModerationProvider` activation on `bundle` + `observed` (30.2).
-3. Add the missing PubNub handlers (`uninvite_speaker`, `set_channel_title`), handle
-   `update_speaker_call_status`, and move to a pure room reducer (30.4). This fixes the stale stage that looked
-   like a moderation problem.
-4. Remove the dormant mobile Token code and update PRD/DESIGN/mobile-api.md to the conclusion of §3.
-5. Phone workflow helper: room link and QR, plus co-host guidance (30.3). **Done.**
+1. Keep the current provider boundary and app-only behavior as the production default; do not add speculative mobile
+   requests.
+2. Keep the crawler diff/watch-list, but promote a web moderation route only after bundle evidence plus an authorized
+   live 2xx on a room we control.
+3. Finish the parameterized web implementation for `set_handraise` only if a verified web endpoint appears.
+4. Continue treating PubNub reducer correctness and mobile room-state 401s as separate state-sync concerns.
+5. Preserve the current phone hand-off (room link/QR and co-host guidance) and all audio/soundboard/VB-Cable paths.
 
 ---
 
@@ -216,11 +226,11 @@ the device check, and any token transfer from another client.
 
 ## Sources
 
-- github.com/stypr/clubhouse-py (clubhouse/clubhouse.py)
-- github.com/seovchinnikov/clubhouse-web (backend-service ChannelsController, ClubHouseChannelApiService,
-  ClubHouseAuthApiService, DTOs)
-- github.com/zhuowei/ClubhouseAPI (doc/openapi.yaml header notes)
-- github.com/seia-soto/clubhouse-api (src/api/*.js)
+- [stypr/clubhouse-py](https://github.com/stypr/clubhouse-py/blob/master/clubhouse/clubhouse.py) (`clubhouse/clubhouse.py`)
+- [seovchinnikov/clubhouse-web](https://github.com/seovchinnikov/clubhouse-web/blob/master/backend-service/src/main/java/edu/clubhouseapi/service/ClubHouseChannelApiService.java)
+  (also `ChannelsController` and the request/response DTOs)
+- [zhuowei/ClubhouseAPI](https://github.com/zhuowei/ClubhouseAPI/blob/main/doc/openapi.yaml) (`doc/openapi.yaml` header/auth notes)
+- [seia-soto/clubhouse-api](https://github.com/seia-soto/clubhouse-api/tree/master/src/api) (`src/api/*.js`; adjacent invite-to-existing-channel only)
 - Clubhouse Knowledge Center: "Phone Number Verification" (Token Validation item), "Creating Live Rooms"
   (moderation tools); public help-center API, 116 articles
 - clubhouse.com web bundle, build yxtvL3q3kYoTq_mA4knuv (156 chunks)
