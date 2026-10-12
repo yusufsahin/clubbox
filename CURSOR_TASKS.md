@@ -4,11 +4,10 @@ Each task below is a self-contained prompt. Paste one task at a time into Cursor
 
 _Last reviewed: 2026-10-11. “Uygulandı” means the code is in the tree. “Canlı doğrulandı” means it was exercised against the official Clubhouse web session. This pass is implemented; the live room, hand, invite, and chat capture is still outstanding._
 
-### Last autonomous run (2026-10-12 — Idle / blocked)
+### Last autonomous run (2026-10-12 — Idle / blocked ×2)
 
-- “devam” with no unblocked Status work: 27.5.0 attestation STOP holds; 27.5.1+ not started.
-- Still need owner **(A2)** import Token from phone/Clubdeck vs **(B)** abandon host-tool Token.
-- Also open (owner-only): **26.7** live matrix, **28.5** live matrix, ACC-1 wording. ST-9 `@deferred`.
+- Second “devam”: still no unblocked Status work. Hard stop at 27.5.0 attestation.
+- Waiting on owner **(A2)** Token import vs **(B)** abandon. No 27.5.1 without that.
 
 ### Previous last autonomous run (2026-10-12 — Task 27.5.0 STOP / attestation)
 
