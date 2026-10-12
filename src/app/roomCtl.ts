@@ -803,21 +803,58 @@ export async function joinRoom(this: ClubboxApp, channelId: string, preset?: CHC
     }
   }
 
+/** Fetch a fresh RTC token from join_channel (only observed Agora token source). */
+export async function fetchFreshAgoraToken(this: ClubboxApp): Promise<string | null> {
+  if (!this.currentChannel || !this.me || !this.roomSession.inRoom) return null;
+  const channelId = this.channelApiId(this.currentChannel);
+  const joined = await clubhouseClient.joinChannel(channelId);
+  const token = joined.token ?? null;
+  if (token && this.currentChannel) {
+    this.currentChannel = { ...this.currentChannel, ...joined, token };
+  }
+  return token;
+}
+
+/** Phase 24.3: renewToken on will-expire; leave+join fallback on did-expire / renew failure. */
+export async function handleAgoraTokenEvent(this: ClubboxApp, kind: 'will-expire' | 'did-expire'): Promise<void> {
+  if (!this.currentChannel || clubhouseClient.getConfig().useSandbox) return;
+  if (kind === 'will-expire') {
+    try {
+      const token = await this.fetchFreshAgoraToken();
+      if (!token) {
+        console.warn('[Clubbox] token will-expire: no token from join_channel');
+        return;
+      }
+      const ok = await agoraVoice.renewToken(token);
+      if (!ok) {
+        console.warn('[Clubbox] renewToken failed — will rejoin on did-expire');
+      }
+    } catch (err) {
+      console.warn('[Clubbox] token will-expire refresh failed:', err);
+    }
+    return;
+  }
+  // did-expire: clean leave + join preserving role/mute (join_channel side effects accepted for recovery).
+  const wasMuted = audioEngine.getIsMuted();
+  await this.rejoinAgoraAudio();
+  if (wasMuted) {
+    audioEngine.setMuted(true);
+    void agoraVoice.setMuted(true);
+  }
+}
+
 /** Phase 24.2: fetch a fresh join_channel token and rejoin Agora without leaving the Clubhouse room. */
 export async function rejoinAgoraAudio(this: ClubboxApp): Promise<void> {
   if (!this.currentChannel || !this.me || clubhouseClient.getConfig().useSandbox) return;
   if (!this.roomSession.inRoom) return;
   const generation = this.roomSession.generation;
-  const channelId = this.channelApiId(this.currentChannel);
   try {
     console.warn('[Clubbox] Agora rejoin: fetching fresh join_channel token');
-    const joined = await clubhouseClient.joinChannel(channelId);
+    const token = await this.fetchFreshAgoraToken();
     if (this.roomSession.generation !== generation || !this.currentChannel) return;
-    this.currentChannel = {
-      ...this.currentChannel,
-      ...joined,
-      token: joined.token ?? this.currentChannel.token,
-    };
+    if (!token && !this.currentChannel.token) {
+      throw new Error('no_token');
+    }
     await agoraVoice.leave();
     if (this.roomSession.generation !== generation) return;
     await this.connectRoomAudio(generation);
@@ -1139,6 +1176,8 @@ export function wireRoomCtl(proto: ClubboxApp): void {
   proto.allowAction = allowAction;
   proto.joinRoom = joinRoom;
   proto.connectRoomAudio = connectRoomAudio;
+  proto.fetchFreshAgoraToken = fetchFreshAgoraToken;
+  proto.handleAgoraTokenEvent = handleAgoraTokenEvent;
   proto.rejoinAgoraAudio = rejoinAgoraAudio;
   proto.releaseRoomLocally = releaseRoomLocally;
   proto.leaveRoom = leaveRoom;

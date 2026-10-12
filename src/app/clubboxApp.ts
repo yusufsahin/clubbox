@@ -378,6 +378,9 @@ export class ClubboxApp {
         void this.rejoinAgoraAudio();
       }, delayMs);
     });
+    agoraVoice.onNeedToken((kind) => {
+      void this.handleAgoraTokenEvent(kind);
+    });
     agoraVoice.onNetworkQuality((tone, uplink, downlink) => {
       this.networkQualityTone = tone;
       this.networkQualityUp = uplink;

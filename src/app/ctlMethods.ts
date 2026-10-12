@@ -124,6 +124,8 @@ export type ClubboxAppCtlMethods = {
   allowAction: typeof roomCtl.allowAction;
   joinRoom: typeof roomCtl.joinRoom;
   connectRoomAudio: typeof roomCtl.connectRoomAudio;
+  fetchFreshAgoraToken: typeof roomCtl.fetchFreshAgoraToken;
+  handleAgoraTokenEvent: typeof roomCtl.handleAgoraTokenEvent;
   rejoinAgoraAudio: typeof roomCtl.rejoinAgoraAudio;
   releaseRoomLocally: typeof roomCtl.releaseRoomLocally;
   leaveRoom: typeof roomCtl.leaveRoom;

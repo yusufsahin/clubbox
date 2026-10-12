@@ -12,7 +12,7 @@ No PubNub HTTP calls captured yet.
 
 ## Agora URLs
 
-No Agora token-refresh endpoint was captured. The app does not invent one. When live audio fails to connect, it says so and asks you to leave and join again after that request is recorded.
+No dedicated Agora token-refresh endpoint was captured. Clubbox renews RTC tokens by calling the observed `join_channel` route again and passing the new token to Agora `client.renewToken` on `token-privilege-will-expire`. If renew fails or `token-privilege-did-expire` fires, it falls back to leave + rejoin Agora (still using `join_channel` for the token). Log shape: `[AgoraRTC] token-privilege-will-expire afterMin=N` / `token-privilege-did-expire afterMin=N` (minutes since join — first evidence of token lifetime). Do not invent a refresh-only API.
 
 No Agora URLs captured yet. The app id, channel, and uid keys are recorded on `join_channel` in `web-api.md` when that response includes them.
 

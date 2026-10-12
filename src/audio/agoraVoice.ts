@@ -64,6 +64,7 @@ export class AgoraVoiceEngine {
   private onReconnectUiCallbacks: ((reconnecting: boolean) => void)[] = [];
   private onBannedCallbacks: ((reason: string) => void)[] = [];
   private onNeedRejoinCallbacks: ((delayMs: number, attempt: number) => void)[] = [];
+  private onNeedTokenCallbacks: ((kind: 'will-expire' | 'did-expire') => void)[] = [];
   private onNetworkQualityCallbacks: ((tone: 'good' | 'ok' | 'poor' | 'unknown', uplink: number, downlink: number) => void)[] = [];
   private sdkPromise: Promise<AgoraSdk> | null = null;
   private nativeMuteSignalling = false;
@@ -76,6 +77,7 @@ export class AgoraVoiceEngine {
   private extrasSending: boolean | null = null;
   private extrasStatsTimer: ReturnType<typeof setInterval> | null = null;
   private rejoinAttempt = 0;
+  private joinedAtMs: number | null = null;
   private networkQuality: { uplink: number; downlink: number; tone: 'good' | 'ok' | 'poor' | 'unknown' } = {
     uplink: 0,
     downlink: 0,
@@ -241,6 +243,20 @@ export class AgoraVoiceEngine {
         this.onNetworkQualityCallbacks.forEach((cb) => cb(tone, uplink, downlink));
       });
 
+      // Phase 24.3: token lifetime evidence + renew via join_channel (no invent refresh route).
+      this.client.on('token-privilege-will-expire', () => {
+        const mins = this.minutesSinceJoin();
+        console.warn(`[AgoraRTC] token-privilege-will-expire afterMin=${mins ?? 'n/a'}`);
+        void this.logAgora('agora_token', true, 'will-expire', `afterMin=${mins ?? 'n/a'}`);
+        this.onNeedTokenCallbacks.forEach((cb) => cb('will-expire'));
+      });
+      this.client.on('token-privilege-did-expire', () => {
+        const mins = this.minutesSinceJoin();
+        console.warn(`[AgoraRTC] token-privilege-did-expire afterMin=${mins ?? 'n/a'}`);
+        void this.logAgora('agora_token', false, 'did-expire', `afterMin=${mins ?? 'n/a'}`);
+        this.onNeedTokenCallbacks.forEach((cb) => cb('did-expire'));
+      });
+
       this.client.on('exception', (e: { code?: number; msg?: string; uid?: string | number }) => {
         this.lastExceptionCode = String(e?.code ?? '');
         console.warn(
@@ -377,6 +393,7 @@ export class AgoraVoiceEngine {
       this.isJoined = true;
       this.currentChannel = params.channel;
       this.rejoinAttempt = 0;
+      this.joinedAtMs = Date.now();
       void audioEngine.ensureAudioContext();
       await this.syncRemoteUsers();
 
@@ -677,6 +694,7 @@ export class AgoraVoiceEngine {
     this.currentChannel = null;
     this.nativeMuteSignalling = false;
     this.rejoinAttempt = 0;
+    this.joinedAtMs = null;
     this.networkQuality = { uplink: 0, downlink: 0, tone: 'unknown' };
     this.rtcStatsSnapshot = null;
     this.onReconnectUiCallbacks.forEach((cb) => cb(false));
@@ -751,6 +769,33 @@ export class AgoraVoiceEngine {
     return () => {
       this.onNeedRejoinCallbacks = this.onNeedRejoinCallbacks.filter((c) => c !== cb);
     };
+  }
+
+  public onNeedToken(cb: (kind: 'will-expire' | 'did-expire') => void): () => void {
+    this.onNeedTokenCallbacks.push(cb);
+    return () => {
+      this.onNeedTokenCallbacks = this.onNeedTokenCallbacks.filter((c) => c !== cb);
+    };
+  }
+
+  /** Apply a fresh RTC token without leaving the channel (Phase 24.3). */
+  public async renewToken(token: string): Promise<boolean> {
+    if (!this.client || !this.isJoined || !token) return false;
+    try {
+      await this.client.renewToken(token);
+      console.log('[AgoraRTC] renewToken ok', `tokenLen=${token.length}`);
+      void this.logAgora('agora_token', true, 'renew', `tokenLen=${token.length}`);
+      return true;
+    } catch (err) {
+      console.warn('[AgoraRTC] renewToken failed:', this.formatAgoraError(err));
+      void this.logAgora('agora_token', false, 'renew', formatVoiceFailureReason(err));
+      return false;
+    }
+  }
+
+  private minutesSinceJoin(): number | null {
+    if (this.joinedAtMs == null) return null;
+    return Math.round((Date.now() - this.joinedAtMs) / 60_000);
   }
 
   public onNetworkQuality(cb: (tone: 'good' | 'ok' | 'poor' | 'unknown', uplink: number, downlink: number) => void): () => void {
