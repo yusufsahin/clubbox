@@ -1,62 +1,100 @@
-# Mobile API (host tools)
+# Mobile API (host tools + Phase 28 discovery)
 
-Phase 27. Clubhouse’s public web client has **no** `/web_api` routes for room moderation
-(`end_channel`, `mute_speaker`, `invite_speaker`, `uninvite_speaker`, `block_from_channel`,
-`make_moderator`, `change_handraise_settings` — all absent from the bundle; live POSTs → 404).
+Clubhouse’s public web client has **no** `/web_api` routes for room moderation and most
+room-management tools. Clubbox calls `https://www.clubhouseapi.com/api/<endpoint>` from the
+Electron main process with the **web session** (cookies + CSRF). Never log Cookie / CSRF /
+Authorization values.
 
-Clubdeck and community clients call the **mobile** host instead. Clubbox uses that host only
-for the allow-list below, from the Electron main process, when the owner uses the UI.
-
-## Base URL
-
-`https://www.clubhouseapi.com/api/<endpoint>`
-
-## Auth that works today (2026-10-12 spike)
-
-Unauthenticated POSTs return `401` with `{"detail":"Authentication credentials were not provided."}`
-(so the endpoints exist). A made-up path returns `404`.
-
-**Web session on the mobile host (chosen path):** after Clubhouse web sign-in, POST with:
+## Auth (proven 2026-10-12, Phase 27)
 
 | Header | Value |
 | --- | --- |
-| `Cookie` | clubhouse.com cookies from the Electron session |
-| `X-CSRFToken` | `csrftoken` cookie value |
-| `Origin` / `Referer` | `https://www.clubhouse.com` / `https://www.clubhouse.com/home` |
+| `Cookie` | clubhouse.com cookies (omit header if empty) |
+| `X-CSRFToken` | `csrftoken` cookie (omit if empty) |
+| `Origin` | `https://www.clubhouse.com` |
 | `Accept` / `Content-Type` | `application/json` / `application/json; charset=utf-8` |
 | `CH-Languages` / `CH-Locale` | `en-US` / `en_US` |
 | `User-Agent` | same browser UA as the web session |
 
-Probe (`CLUBBOX_PROBE_MOBILE=1`): read-only `get_profile` + `get_channels` with **cookie+csrf**
-returned **HTTP 200** and profile keys. Cookie-only was also tried for comparison.
+**Do not set `Referer`.** Chromium `session.fetch` treats `Referer` as a forbidden header and
+fails with `net::ERR_BLOCKED_BY_CLIENT` (found during Phase 28.0 probe tooling).
 
-**Not used:** SMS / `start_phone_number_auth` / stored mobile `Token` (unnecessary once the web
-session authenticated). No phone numbers or tokens are stored.
+Probe (`CLUBBOX_PROBE_MOBILE=1`): read-only `get_profile` + `get_channels` with cookie+csrf
+returned **HTTP 200** (Phase 27). SMS / stored mobile Token not used.
 
-Never log `Cookie`, `X-CSRFToken`, or `Authorization` values.
+## Production allow-list (`electron/mobileApi.cjs`)
 
-## Allow-list (IPC `clubbox:mobile-call`)
+| Endpoint | Body | Notes |
+| --- | --- | --- |
+| `end_channel` | `{ channel, channel_id }` | `channel_id` numeric when known |
+| `invite_speaker` | `{ channel, user_id }` | |
+| `uninvite_speaker` | `{ channel, user_id }` | Move to audience = mute then uninvite |
+| `mute_speaker` | `{ channel, user_id }` | Host cannot unmute others |
+| `block_from_channel` | `{ channel, user_id }` | Confirm in UI |
+| `make_moderator` | `{ channel, user_id }` | |
+| `change_handraise_settings` | `{ channel, is_enabled, handraise_permission }` | |
 
-| Endpoint | Body (community / stypr shapes) |
-| --- | --- |
-| `end_channel` | `{ channel, channel_id }` (`channel_id` numeric when known) |
-| `invite_speaker` | `{ channel, user_id }` |
-| `uninvite_speaker` | `{ channel, user_id }` |
-| `mute_speaker` | `{ channel, user_id }` |
-| `block_from_channel` | `{ channel, user_id }` |
-| `make_moderator` | `{ channel, user_id }` |
-| `change_handraise_settings` | `{ channel, is_enabled, handraise_permission }` |
+IPC: `clubbox:mobile-call`. Evidence: `mobile-spike` in `webApiRoutes.json`.
 
-Anything else is refused in `electron/mobileApi.cjs`.
+## Phase 28.0 — body discovery
 
-## App behaviour
+### Tooling
 
-- Evidence: `mobile-spike` in `electron/webApiRoutes.json` (`transport: "mobile"`).
-- Callable when the web session is present (`mobileAuthStatus.linked` / `webSession`).
-- **Move to audience** = `mute_speaker` then `uninvite_speaker`.
-- **End room** = `end_channel`; on success leave locally (`skipServer`).
-- **Remove from room** = `block_from_channel` with confirm.
+- Dev allow-list (not production): `electron/mobileProbe.cjs` → `PROBE_MOBILE_ENDPOINTS`
+- In-app (restart with env): `$env:CLUBBOX_PROBE_MOBILE=1` then join a room  
+  - Auto read-only on `clubbox:room-presence`  
+  - DevTools: `await electronAPI.mobileProbeReadOnly()`  
+  - Mutations: `await electronAPI.mobileProbeMutate({ endpoint, confirm: 'I_CONFIRM_THROWAY_ROOM', link?, userId? })`
+- CLI: `node scripts/mobile-probe-28.mjs --channel=<id>`  
+  Mutations: `--mutate=disable_replay --confirm=I_CONFIRM_THROWAY_ROOM` or `--mutate=all`
 
-## Live verification
+### Unauthenticated liveness (2026-10-12, empty body / documented body, no session)
 
-Owner matrix: Task 27.4 in `CURSOR_TASKS.md` (not automated).
+All of the following answered **401** `detail=Authentication credentials were not provided.`
+(endpoint exists). None returned 404.
+
+| Endpoint | Probe body | Status | Response keys |
+| --- | --- | --- | --- |
+| `get_channel` | `{ channel }` | 401 | `detail` |
+| `get_handraise_queue` | `{ channel }` | 401 | `detail` |
+| `get_suggested_speakers` | `{ channel }` | 401 | `detail` |
+| `check_channel_link` | `{ channel, link }` | 401 | `detail` |
+| `add_channel_link` | `{ channel, link }` | 401 | `detail` |
+| `remove_channel_link` | `{ channel }` | 401 | `detail` |
+| `disable_channel_messages` | `{ channel }` | 401 | `detail` |
+| `enable_channel_messages` | `{ channel }` | 401 | `detail` |
+| `update_nsfw_status` | `{ channel, is_nsfw }` | 401 | `detail` |
+| `disable_replay` | `{ channel }` | 401 | `detail` |
+| `uninvite_speaker` | `{ channel, user_id }` | 401 | `detail` |
+
+### Authenticated discovery (owner session)
+
+**Blocked in this 28.0 run:** Clubbox `userData` had `web-session-ok` but **zero** clubhouse.com
+session cookies (only intermittent `__cf_bm`). Authenticated `get_channel` / mutations could not
+be completed. Re-sign-in on clubhouse.com, then re-run the in-app or CLI probe.
+
+| Endpoint | Working body | Status | Response keys | Notes |
+| --- | --- | --- | --- | --- |
+| `get_channel` | `{ channel }` | *pending auth* | | Need `users[0]` keys |
+| `get_handraise_queue` | `{ channel }` | *pending auth* | | |
+| `get_suggested_speakers` | `{ channel }` | *pending auth* | | |
+| `check_channel_link` | `{ channel, link }` | *pending auth* | | `link` = https URL |
+| `add_channel_link` | *pending* | | | confirm `I_CONFIRM_THROWAY_ROOM` |
+| `remove_channel_link` | *pending* | | | |
+| `disable_channel_messages` | *pending* | | | |
+| `enable_channel_messages` | *pending* | | | |
+| `update_nsfw_status` | *pending* | | | try `is_nsfw` then `nsfw` |
+| `disable_replay` | *pending* | | | |
+| `uninvite_speaker` (self) | *pending* | | | verify leave-stage for 28.2 |
+
+### Probe findings (tooling)
+
+1. Empty `Cookie` / `X-CSRFToken` headers → `ERR_BLOCKED_BY_CLIENT` (omit when empty).
+2. Manual `Referer` header → `ERR_BLOCKED_BY_CLIENT` (omit always for `session.fetch`).
+3. Production allow-list unchanged; probe uses a separate allow-list + typed mutation confirm.
+
+## App behaviour (Phase 27)
+
+- **Move to audience** = `mute_speaker` then `uninvite_speaker`
+- **End room** = `end_channel`; on success leave locally (`skipServer`)
+- **Remove from room** = `block_from_channel` with confirm

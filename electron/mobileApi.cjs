@@ -30,17 +30,21 @@ function mobileAuthHeadersFromCookies(cookies, opts) {
   const list = Array.isArray(cookies) ? cookies : [];
   const csrf = list.find((cookie) => cookie.name === 'csrftoken')?.value || '';
   const cookieHeader = list.map((cookie) => `${cookie.name}=${cookie.value}`).join('; ');
-  return {
+  /** @type {Record<string, string>} */
+  const headers = {
     Accept: 'application/json',
     'Content-Type': 'application/json; charset=utf-8',
     'CH-Languages': 'en-US',
     'CH-Locale': 'en_US',
     'User-Agent': opts.userAgent || '',
-    Cookie: cookieHeader,
-    'X-CSRFToken': csrf,
+    // Origin is required for the cookie+csrf mobile path (Phase 27 probe).
+    // Do not set Referer — Chromium session.fetch treats it as forbidden (ERR_BLOCKED_BY_CLIENT).
     Origin: 'https://www.clubhouse.com',
-    Referer: 'https://www.clubhouse.com/home',
   };
+  // Empty Cookie / CSRF headers also trip ERR_BLOCKED_BY_CLIENT on session.fetch.
+  if (cookieHeader) headers.Cookie = cookieHeader;
+  if (csrf) headers['X-CSRFToken'] = csrf;
+  return headers;
 }
 
 /**
@@ -51,11 +55,16 @@ function mobileAuthHeadersFromCookies(cookies, opts) {
  *   cookies: Array<{ name: string, value: string }>,
  *   userAgent: string,
  *   timeoutMs?: number,
+ *   allowList?: Set<string> | ReadonlySet<string>,
  * }} args
+ * `allowList` — dev probe only; when set, replaces the production allow-list check.
  */
 async function callMobileApi(args) {
   const endpoint = String(args.endpoint || '').replace(/^\//, '');
-  if (!isAllowedMobileEndpoint(endpoint)) {
+  const allowed = args.allowList
+    ? args.allowList.has(endpoint)
+    : isAllowedMobileEndpoint(endpoint);
+  if (!allowed) {
     return {
       ok: false,
       status: 0,
@@ -65,12 +74,16 @@ async function callMobileApi(args) {
   const headers = mobileAuthHeadersFromCookies(args.cookies, { userAgent: args.userAgent });
   const timeoutMs = typeof args.timeoutMs === 'number' ? args.timeoutMs : 20_000;
   try {
-    const response = await args.fetchFn(`${MOBILE_API_BASE}/${endpoint}`, {
+    const init = {
       method: 'POST',
-      signal: AbortSignal.timeout(timeoutMs),
       headers,
       body: JSON.stringify(args.body && typeof args.body === 'object' ? args.body : {}),
-    });
+    };
+    // Only attach AbortSignal when the runtime supports it without breaking session.fetch.
+    if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
+      init.signal = AbortSignal.timeout(timeoutMs);
+    }
+    const response = await args.fetchFn(`${MOBILE_API_BASE}/${endpoint}`, init);
     const text = await response.text();
     return { ok: response.ok, status: response.status, body: text };
   } catch (err) {

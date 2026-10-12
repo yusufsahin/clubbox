@@ -26,6 +26,11 @@ const {
   callMobileApi,
   MOBILE_API_BASE,
 } = require('./mobileApi.cjs');
+const {
+  probeMobileReadOnly,
+  probeMobileMutation,
+  MUTATION_CONFIRM,
+} = require('./mobileProbe.cjs');
 
 const REQUEST_TIMEOUT_MS = 20000;
 const DEV_SERVER_ORIGIN = 'http://localhost:5173';
@@ -1217,14 +1222,16 @@ function expandRoutePath(route, body) {
 }
 
 /**
- * Phase 27.0 step 0b (dev only, CLUBBOX_PROBE_MOBILE=1): does the signed-in web session authenticate on the
- * mobile API (www.clubhouseapi.com/api)? Read-only calls; logs status + response keys, never cookie/csrf values.
- * Proven path: cookie+csrf (same headers as mobileApi.cjs) returned 200.
+ * Phase 27.0 step 0b + Phase 28.0 (dev only, CLUBBOX_PROBE_MOBILE=1):
+ * Auth check on me; room read-only body discovery when channel is known.
+ * Never log cookie/csrf values. Mutations: clubbox:mobile-probe-mutate + typed confirm.
  */
-let mobileProbeDone = false;
+let mobileAuthProbeDone = false;
+let mobileRoomProbeChannel = null;
+
 async function probeMobileApiWithWebSession(sess, meText) {
-  if (mobileProbeDone) return;
-  mobileProbeDone = true;
+  if (mobileAuthProbeDone) return;
+  mobileAuthProbeDone = true;
   let userId = null;
   try {
     const me = JSON.parse(meText);
@@ -1242,7 +1249,7 @@ async function probeMobileApiWithWebSession(sess, meText) {
       'CH-Languages': 'en-US',
       'CH-Locale': 'en_US',
       'User-Agent': PAGE_UA,
-      Cookie: cookieHeader,
+      ...(cookieHeader ? { Cookie: cookieHeader } : {}),
     },
     'cookie+csrf': fullHeaders,
   };
@@ -1274,6 +1281,21 @@ async function probeMobileApiWithWebSession(sess, meText) {
       }
     }
   }
+}
+
+async function probeMobileRoomReadOnly(sess, channel) {
+  if (process.env.CLUBBOX_PROBE_MOBILE !== '1') return;
+  if (!channel || mobileRoomProbeChannel === channel) return;
+  mobileRoomProbeChannel = channel;
+  const cookies = await listClubhouseCookies(sess);
+  console.log('[mobile-probe] room read-only channel', channel, 'cookieNames', cookies.map((c) => c.name).join(','));
+  await probeMobileReadOnly({
+    fetchFn: (url, init) => sess.fetch(url, init),
+    cookies,
+    userAgent: PAGE_UA,
+    timeoutMs: REQUEST_TIMEOUT_MS,
+    channel,
+  });
 }
 
 function webSessionUrl(pathName, method, body) {
@@ -1903,6 +1925,64 @@ ipcMain.handle('clubbox:mobile-call', async (event, payload) => {
   return result;
 });
 
+/** Phase 28.0 — DevTools: await electronAPI.mobileProbeReadOnly() while in a room. */
+ipcMain.handle('clubbox:mobile-probe-readonly', async (event, payload) => {
+  if (process.env.CLUBBOX_PROBE_MOBILE !== '1') {
+    return { ok: false, reason: 'Set CLUBBOX_PROBE_MOBILE=1' };
+  }
+  if (!isTrustedSender(event)) return { ok: false, reason: 'unauthorized' };
+  const channel = typeof payload?.channel === 'string' && payload.channel
+    ? payload.channel
+    : currentRoomChannel;
+  if (!channel || !ROOM_CHANNEL_ID.test(channel)) {
+    return { ok: false, reason: 'no room channel' };
+  }
+  const sess = authSession();
+  const cookies = await listClubhouseCookies(sess);
+  mobileRoomProbeChannel = null;
+  const results = await probeMobileReadOnly({
+    fetchFn: (url, init) => sess.fetch(url, init),
+    cookies,
+    userAgent: PAGE_UA,
+    timeoutMs: REQUEST_TIMEOUT_MS,
+    channel,
+  });
+  mobileRoomProbeChannel = channel;
+  return { ok: true, channel, results };
+});
+
+/**
+ * Phase 28.0 mutations — DevTools only, typed confirm required:
+ * await electronAPI.mobileProbeMutate({ endpoint, confirm: 'I_CONFIRM_THROWAY_ROOM', channel?, link?, userId? })
+ */
+ipcMain.handle('clubbox:mobile-probe-mutate', async (event, payload) => {
+  if (process.env.CLUBBOX_PROBE_MOBILE !== '1') {
+    return { ok: false, reason: 'Set CLUBBOX_PROBE_MOBILE=1' };
+  }
+  if (!isTrustedSender(event)) return { ok: false, reason: 'unauthorized' };
+  const channel = typeof payload?.channel === 'string' && payload.channel
+    ? payload.channel
+    : currentRoomChannel;
+  if (!channel || !ROOM_CHANNEL_ID.test(channel)) {
+    return { ok: false, reason: 'no room channel' };
+  }
+  const sess = authSession();
+  const cookies = await listClubhouseCookies(sess);
+  const out = await probeMobileMutation({
+    fetchFn: (url, init) => sess.fetch(url, init),
+    cookies,
+    userAgent: PAGE_UA,
+    timeoutMs: REQUEST_TIMEOUT_MS,
+    channel,
+    endpoint: String(payload?.endpoint || ''),
+    confirm: String(payload?.confirm || ''),
+    link: typeof payload?.link === 'string' ? payload.link : undefined,
+    userId: typeof payload?.userId === 'number' ? payload.userId : undefined,
+  });
+  if (out.refused) return { ok: false, reason: out.reason, confirmHint: MUTATION_CONFIRM };
+  return { ok: true, channel, endpoint: payload?.endpoint, results: out.results };
+});
+
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 if (!hasSingleInstanceLock) {
   console.error('[Electron] Clubbox is already running. Close that window, then start again.');
@@ -1979,6 +2059,9 @@ ipcMain.on('clubbox:room-presence', (event, payload) => {
     writeLastRoom(app.getPath('userData'), channel);
   } catch {
     console.warn('[Clubbox] last-room write failed');
+  }
+  if (process.env.CLUBBOX_PROBE_MOBILE === '1') {
+    void probeMobileRoomReadOnly(authSession(), channel);
   }
 });
 

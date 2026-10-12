@@ -33,11 +33,18 @@ test('mobile auth headers use cookie + csrf like the 200 probe variant', () => {
     { userAgent: 'TestUA' },
   );
   assert.equal(headers.Origin, 'https://www.clubhouse.com');
-  assert.equal(headers.Referer, 'https://www.clubhouse.com/home');
+  assert.equal(headers.Referer, undefined);
   assert.equal(headers['User-Agent'], 'TestUA');
   assert.equal(headers.Cookie, 'sessionid=secret-session; csrftoken=secret-csrf');
   assert.equal(headers['X-CSRFToken'], 'secret-csrf');
   assert.equal(headers['Content-Type'], 'application/json; charset=utf-8');
+});
+
+test('mobile auth headers omit empty Cookie and CSRF', () => {
+  const headers = mobileAuthHeadersFromCookies([], { userAgent: 'TestUA' });
+  assert.equal(headers.Cookie, undefined);
+  assert.equal(headers['X-CSRFToken'], undefined);
+  assert.equal(headers.Origin, 'https://www.clubhouse.com');
 });
 
 test('callMobileApi refuses non-allow-listed endpoints without fetch', async () => {

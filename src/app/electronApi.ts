@@ -21,6 +21,20 @@ export type ElectronAPI = {
     body?: Record<string, unknown>,
   ) => Promise<{ ok: boolean; status: number; body: string }>;
   mobileAuthStatus?: () => Promise<{ linked: boolean; mode?: string; userIdMatchesWeb?: boolean }>;
+  /** Phase 28.0 — only when main started with CLUBBOX_PROBE_MOBILE=1. */
+  mobileProbeReadOnly?: (channel?: string) => Promise<{
+    ok: boolean;
+    channel?: string;
+    results?: Array<{ endpoint: string; status: number; shape: string }>;
+    reason?: string;
+  }>;
+  mobileProbeMutate?: (payload: {
+    endpoint: string;
+    confirm: string;
+    channel?: string;
+    link?: string;
+    userId?: number;
+  }) => Promise<{ ok: boolean; results?: unknown; reason?: string; confirmHint?: string }>;
   onWebSessionMaybe?: (callback: () => void) => void;
   onSignInProgress?: (callback: (payload: { step?: string }) => void) => () => void;
   onAgoraAppId?: (callback: (appId: string) => void) => () => void;

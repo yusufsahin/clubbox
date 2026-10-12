@@ -17,11 +17,12 @@ Owner reported: triage noise, new-room participants invisible, moderation action
 
 Idle recheck after 24.7.
 
-### Last autonomous run (2026-10-12 — RH-6/RH-host BDD → mobile paths)
+### Last autonomous run (2026-10-12 — Phase 28.0 body discovery)
 
-- Acceptance aligned with Phase 27: `/api/*` host tools; Move = mute+uninvite; world uses `moveToAudience`.
-- RH-4/5/6/7/11 BDD green (11 scenarios). Triage: no new failures.
-- **Blocked / owner:** 27.4 + 26.7 live matrices; ST-9 `@deferred`; ACC-1 wording.
+- Probe tooling: `mobileProbe.cjs` (separate allow-list), in-app IPC + `scripts/mobile-probe-28.mjs`, docs updated.
+- Unauth: all 28.0 endpoints **401** (live). Auth discovery blocked — userData had no session cookies.
+- Fixed `session.fetch` traps: omit empty Cookie/CSRF; never set `Referer` (ERR_BLOCKED_BY_CLIENT).
+- **STOP before 28.1.** Owner: re-sign-in → `CLUBBOX_PROBE_MOBILE=1` → read-only + mutations with `I_CONFIRM_THROWAY_ROOM`.
 
 ### Previous last autonomous run (2026-10-12 — Phase 27.1 reduced mobile API)
 
@@ -65,6 +66,7 @@ Legend: **Uygulandı** = code is in the tree. **Canlı doğrulandı** = exercise
 | 0a | **Phase 23 Live room audio (Agora)** — DNS -105 is a red herring; real join error not yet visible; web vs native SDK decision gate at 23.3 | **Web path** — 23.1–23.5 done on `phase-23-24-agora`; native 23.6+ deferred |
 | 0b | **Phase 24 Agora feature completeness** — broadcast mix, reconnect + quality, token lifecycle, device hot-swap, speaking rings, lifecycle, AI noise suppression | **Closed** — 24.1–24.7 done (AI denoiser + CSP/WASM); e2e green |
 | 0c | **Phase 25 Room exit and mic state** — leave_channel on close/quit/Ctrl+C + crash recovery, mute badge/state sync, AI denoiser init bug, log hygiene | **Closed** — 25.1–25.4 done. 25.5 moved to Phase 26 |
+| 0f | **Phase 28 Room actions per role** — role × action matrix (Clubhouse parity), mobile body discovery, authoritative room state via get_channel, listener/speaker/moderator actions, UI gating, headphones banner fix, Moderator actions panel (Requests + History) | **Open** — 28.0 discovery first |
 | 0e | **Phase 27 Host tools via mobile API** — end room, invite to stage, mute, move to audience, remove from room; web API has none of these (404 / not in bundle) | **Code + docs done** — 27.1–27.2 + mobile-api.md (SMS skipped); **27.4 owner live matrix** open |
 | 0d | **Phase 26 Studio audio routing** — VB-Cable / Voicemeeter (Clubdeck parity): device classification, working quality levels, mixer-as-mic, loop guard, setup wizard, capture truth, live test matrix | **Code done** — 26.1–26.6 + mid-room `applyMicDevice` harden. **26.7 owner live matrix** still open |
 | 1 | **0.7 Review fixes (2026-10-11 #2)** — navigation guard, packaged recorder, clip worklet path, auto-armed clip buffer, 429/visibility, CORS proxy token leak | Uygulandı |
@@ -1066,4 +1068,200 @@ e. End room → room disappears for the phone and from the hallway; Clubbox retu
 f. The owner's own phone app is still signed in after linking host tools.
 Acceptance (Phase 27): a-f pass; npm test green; no token in any log or api-log file (grep check in the PR).
 Sources: owner api-log + bundle-cache (2026-10-12), Clubdeck 2.6.5 app.asar strings, github.com/stypr/clubhouse-py.
+```
+
+## Phase 28 — Room actions per role (Clubhouse parity via mobile API)
+
+```text
+Owner request 2026-10-12: Phase 27 host tools work. "Clubhouse özelinde internette bak, katılımcılar için hangi
+işlemler yapılabilir, cursor ready hale getir." Also reported: user status / info in the room is shown wrong
+(moderator crown, mute), and the "Use headphones — echo cancellation is off" banner renders as a full-height red block
+in the stage's left column.
+
+Evidence (Claude Code, 2026-10-12):
+A. Mobile API liveness: unauthenticated POST {} to https://www.clubhouseapi.com/api/<name>
+   (401 = endpoint exists, 404 = gone, 503 = exists but crashed on empty body):
+   401: get_channel, get_handraise_queue, get_suggested_speakers, reject_speaker_invite, invite_to_existing_channel,
+        add_channel_link, remove_channel_link, check_channel_link, disable_replay, disable_channel_messages,
+        enable_channel_messages, delete_channel_message, hide_channel, get_channel_replayers, update_nsfw_status,
+        set_channel_title, update_channel_flags, save_replay, delete_replay, audience_reply, follow, unfollow, block,
+        unblock, search_users
+   503: join_channel, leave_channel, active_ping, become_speaker, emoji_reaction, gif_reaction,
+        get_channel_messages, send_channel_message, get_feed_v3
+   404: accept_speaker_invite, unmute_speaker, remove_moderator, lose_moderator, remove_from_channel,
+        make_channel_public/private/social, enable_replay, enable/disable_channel_clips, update_channel_topics,
+        share_channel, get_channel_shares, report_incident, unblock_from_channel
+B. Clubdeck 2.6.5 (owner's %LOCALAPPDATA%/Programs/Clubdeck/resources/app.asar) calls '/add_channel_link',
+   '/remove_channel_link', '/check_channel_link', '/disable_replay', '/disable_channel_messages',
+   '/enable_channel_messages', '/delete_channel_message', '/get_handraise_queue', '/get_suggested_speakers',
+   '/get_channel', '/invite_to_existing_channel', '/hide_channel', '/save_replay' plus the Phase 27 set.
+C. clubhouse-py (github.com/stypr/clubhouse-py, clubhouse/clubhouse.py) bodies: user-targeted actions
+   { channel, user_id:int }; get_channel / get_suggested_speakers { channel }; end_channel { channel, channel_id }.
+D. Public guides (entrepreneur.com "The Art of Moderating a Room on Clubhouse", nerdschalk "How to become a moderator
+   on Clubhouse", onlypult "How to Use Clubhouse in 2024"): moderators promote listener→speaker and speaker→moderator,
+   mute speakers, toggle hand raise, accept/reject requests, move speakers to audience, remove people, end the room,
+   set pinned links, replay, chat. Nobody can unmute someone else (matches unmute_speaker 404).
+E. Clubbox today: electron/mobileApi.cjs ALLOWED_MOBILE_ENDPOINTS = the 7 Phase 27 endpoints only.
+   electron/webApiRoutes.json has no get_channel, get_handraise_queue, get_suggested_speakers, *_channel_link,
+   disable_replay, enable/disable_channel_messages, delete_channel_message, get_channel_replayers, update_nsfw_status,
+   update_channel_flags, save_replay. reject_speaker_invite / invite_to_existing_channel / hide_channel still point at
+   /web_api (community evidence; expect 404).
+
+Rules for this phase:
+- A new endpoint enters ALLOWED_MOBILE_ENDPOINTS + webApiRoutes.json (transport mobile) only after a 2xx in the
+  owner's own test room (evidence "mobile-probe"). Never guess a body silently; unknown body → probe first (28.0).
+- Same auth as Phase 27 (web session cookie + X-CSRFToken via mobileAuthHeadersFromCookies). Never log values.
+- Every failure shows the server's error_message, not a generic toast.
+```
+
+### Role × action matrix (target state)
+
+```text
+Role       Action                                   Endpoint (transport)                         Status
+---------  ---------------------------------------  -------------------------------------------  ----------------
+Listener   Raise / lower hand                       audience_reply (web)                          have
+Listener   React emoji / GIF                        emoji_reaction / gif_reaction (web)           have
+Listener   Room chat                                send/get_channel_messages (web)               have
+Listener   Accept speaker invite                    become_speaker (web; accept_* is 404)         have
+Listener   Decline speaker invite                   reject_speaker_invite (mobile)                28.2
+Listener   Ping a friend into the room              invite_to_existing_channel (mobile)           28.2
+Listener   Hide this room from hallway              hide_channel (mobile)                         28.2
+Listener   Save replay                              save_replay (mobile)                          28.2
+Listener   Follow user / share link                 follow (web) / copy link                      have
+Speaker    Mute / unmute self                       Agora track (Phase 25.2)                      have
+Speaker    Leave stage (back to audience)           uninvite_speaker self (mobile) — verify       28.2
+Moderator  Invite to stage / mute / move down /     invite_speaker, mute_speaker,                 done (27)
+           make moderator / remove / end room       uninvite_speaker, make_moderator,
+                                                    block_from_channel, end_channel
+Moderator  Hand-raise settings                      change_handraise_settings (mobile)            done (27)
+Moderator  Hand-raise queue panel                   get_handraise_queue (mobile)                  28.3
+Moderator  Suggested speakers                       get_suggested_speakers (mobile)               28.3
+Moderator  Pinned link add / remove / validate      add/remove/check_channel_link (mobile)        28.3
+Moderator  Room chat on / off                       enable/disable_channel_messages (mobile)      28.3
+Moderator  Delete a chat message                    delete_channel_message (mobile)               28.3
+Moderator  Disable replay (one-way)                 disable_replay (mobile; enable_replay 404)    28.3
+Moderator  Room title                               set_channel_title (web bundle)                have
+Moderator  NSFW flag                                update_nsfw_status (mobile)                   28.3
+All        Authoritative room state                 get_channel (mobile)                          28.1
+Not possible (404, do not build): unmute someone else, remove someone's moderator role, change room
+visibility after start, clips on/off, share_channel, report_incident.
+```
+
+### Task 28.0 — Body discovery (STOP and report before 28.1)
+
+```text
+1. Extend the dev probe (CLUBBOX_PROBE_MOBILE=1; reuse callMobileApi / mobileAuthHeadersFromCookies with a separate
+   dev-only allow-list so production ALLOWED_MOBILE_ENDPOINTS stays strict). Read-only first, in the owner's current
+   room: get_channel {channel}, get_handraise_queue {channel}, get_suggested_speakers {channel},
+   check_channel_link {channel, link} (a harmless https URL). Log status + response KEYS (one level deep for
+   get_channel.users[0]) only.
+2. Mutations only in a throwaway room the owner created, each behind a typed confirm in the dev console:
+   add_channel_link {channel, link}, remove_channel_link {channel}, disable_channel_messages {channel},
+   enable_channel_messages {channel}, update_nsfw_status {channel, is_nsfw}, disable_replay {channel}.
+   If a call returns 400, log error_message (it usually names the missing field) and try the next documented shape;
+   never more than 3 attempts per endpoint.
+3. Write docs/api/mobile-api.md: endpoint → working body → response keys → status. Stop and report.
+```
+
+### Task 28.1 — Authoritative room state from get_channel
+
+```text
+Symptom: crown / mute / speaker state of other users is wrong or stale in the room (owner screenshot 2026-10-12).
+1. RoomStateSync: call mobile get_channel {channel} on join, ~1 s after every host action, and every 30 s while the
+   window is visible (pause when hidden, Phase polling rules). Map users[] → CHUser (is_moderator, is_speaker,
+   is_muted, is_hand_raised, names, photo).
+2. Merge order: get_channel snapshot → PubNub deltas since the snapshot → Agora mute overlay (Phase 25.2). One pure
+   merge function with tests; applyRoomUpdate (src/app/roomCtl.ts ~176) renders only from the merged result.
+3. If get_channel fails, keep the PubNub path (no regressions) and show nothing scary.
+Acceptance: crowns, mute badges and stage/audience lists match the phone app within ~2 s after any change.
+```
+
+### Task 28.2 — Listener and speaker actions
+
+```text
+1. Move reject_speaker_invite and invite_to_existing_channel to the mobile transport (bodies from 28.0).
+   "Ping into room" panel (data-action open-ping-panel / send-pings) uses invite_to_existing_channel per user.
+2. Room menu: "Hide this room" (hide_channel), "Save replay" (save_replay, only when replay is enabled).
+3. Speaker self "Leave stage": verify in 28.0 that uninvite_speaker with own user_id moves self to audience; if it
+   does not, hide the action (do not fake it locally).
+Tests: each action → right endpoint/body; hidden when the room flag says unavailable.
+```
+
+### Task 28.3 — Moderator room settings
+
+```text
+1. Pinned link: Room details › "Pinned link" input; check_channel_link before add_channel_link; remove button.
+2. Chat on/off toggle (enable/disable_channel_messages) next to the existing chat toggle; moderators can delete a
+   message from its context menu (delete_channel_message).
+3. Replay: "Turn off replay" with a confirm that says it cannot be turned back on (enable_replay is 404).
+4. Hand-raise queue panel: list from get_handraise_queue with an Invite button per user (invite_speaker), refreshed
+   with 28.1. "Suggested speakers" section from get_suggested_speakers.
+5. NSFW toggle (update_nsfw_status) in Room details.
+Tests for each handler; buttons hidden for non-moderators.
+```
+
+### Task 28.4 — UI by role, and the banner
+
+```text
+1. Gate every action by role (me = listener / speaker / moderator) AND by join_channel flags already in the response,
+   primarily user_capabilities.can_* (full list in Task 28.6: can_end_room, can_mute_speakers, can_remove_speakers,
+   can_edit_pinned_links, can_disable_room_chat, can_disable_replay, can_edit_room_title, can_invite, ...), then
+   is_chat_enabled, chat_permission, handraise_permission, is_handraise_enabled, is_pinned_links_available.
+   Re-read capabilities on update_user_capabilities (seen as a PubNub message type in the owner's api-log). One pure function roomActionsFor(role, flags, target) → list;
+   unit-tested; stage.ts / room details render from it.
+2. Card menus: listener card (moderator view): Invite to speak, Remove from room, View profile. Speaker card:
+   Mute, Move to audience, Make moderator, Remove from room. Self card: Leave stage / Leave room.
+3. Error surface: show error_message from the server in the toast.
+4. Banner bug: "Use headphones — echo cancellation is off" must be a thin full-width strip above the stage (one line,
+   dismissable for the session), not a full-height block in the left column.
+```
+
+### Task 28.5 — Tests and owner live matrix
+
+```text
+Unit: allow-list (only 2xx-proven endpoints), body shaping (user_id int, end_channel channel_id), roomActionsFor,
+merge function (28.1). npm test green. grep the api-log in the PR: no Cookie / csrftoken values.
+Owner live (phone account in the owner's test room): every "28.x" row of the matrix above, plus the Phase 27 rows
+still pass. Record pass / fail / n/a with reason in the PR.
+```
+
+### Task 28.6 — "Moderator actions" panel: Requests and History (Clubhouse app parity)
+
+```text
+Owner report 2026-10-12: the Clubhouse app has "Moderator actions" with "Requests" and "History" underneath.
+No public doc describes it (web search: nothing); evidence comes from the API itself:
+- join_channel / create_channel responses (owner api-log, 43 + 7 records) carry
+  user_capabilities.can_view_moderator_actions_history and user_capabilities.can_edit_handraise_queue, plus
+  handraise_queue_setting (number), handraise_queue_options [{ value, label, short_label, sub_label }],
+  is_handraise_enabled, is_handraise_available, handraise_permission, is_automatic_speaker_approval_available.
+- Mobile API probe (unauthenticated POST {}, 2026-10-12): get_moderator_action_history → 401 (exists),
+  update_handraise_queue_setting → 401 (exists), get_handraise_queue → 401 (exists). Every other guessed name
+  (get_moderation_history, get_moderator_actions_history, approve/deny_speaker_request, lower_hand, ...) → 404.
+- Full user_capabilities key list seen: can_end_room, can_save, can_disable_replay, can_share, can_invite,
+  can_edit_pinned_links, can_disable_room_chat, can_change_enable_web_listening, can_remove_speakers,
+  can_mute_speakers, can_edit_handraise_queue, can_edit_background_music, can_edit_room_title,
+  can_update_suggested_links, can_post_to_chat, can_speak, can_gif_react, can_send_paid_reacts,
+  can_send_paid_react_thanks, can_view_moderator_actions_history, can_edit_host_banner, stage_removed,
+  can_rejoin_stage_directly, can_update_highlights_settings, can_create_highlights, can_manage_channel_user_poll,
+  can_view_channel_user_poll_votes.
+Do:
+1. 28.0 addition (discovery first, read-only): get_moderator_action_history {channel} and get_handraise_queue
+   {channel} in a room where the owner is moderator; log status + response keys (one level into the first item).
+   If 400, follow error_message (likely needs cursor/page_size). update_handraise_queue_setting
+   {channel, handraise_queue_setting: <one of handraise_queue_options[].value>} only in the throwaway room.
+2. Room UI (moderators only, gated by user_capabilities): a "Moderator actions" button in the room bar opening a
+   panel with two tabs:
+   - Requests: the hand-raise queue from get_handraise_queue (avatar, name, time raised), per row Invite
+     (invite_speaker) and, if the 28.0 response shows a dismiss/decline field, the matching action — otherwise no
+     fake "decline". Header: queue mode selector rendered from handraise_queue_options (label / sub_label), saving
+     via update_handraise_queue_setting; hidden unless can_edit_handraise_queue. Live: refresh on PubNub hand-raise
+     events and with the 28.1 timer while the panel is open.
+   - History: list from get_moderator_action_history (actor, action, target, time), newest first, paginated if the
+     response has a cursor; hidden unless can_view_moderator_actions_history. Refresh when opened and ~1 s after any
+     host action Clubbox performs.
+3. Unknown action kinds in History render as their raw action name (no crash); log the new kind once (shape only).
+4. Tests: panel visibility by capability; Requests Invite → invite_speaker body; History renders known + unknown
+   kinds; queue-mode select sends update_handraise_queue_setting with a value from the options list.
+Acceptance: as moderator in the owner's test room, Requests lists the phone account's raised hand and Invite works;
+History shows the mutes / moves / invites done from Clubbox and from the phone app.
 ```

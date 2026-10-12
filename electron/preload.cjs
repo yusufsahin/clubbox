@@ -9,6 +9,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   /** Phase 27 — allow-listed moderation on clubhouseapi.com (web session cookies + CSRF). */
   mobileCall: (endpoint, body) => ipcRenderer.invoke('clubbox:mobile-call', { endpoint, body }),
   mobileAuthStatus: () => ipcRenderer.invoke('clubbox:mobile-auth-status'),
+  /** Phase 28.0 — only when main started with CLUBBOX_PROBE_MOBILE=1. */
+  mobileProbeReadOnly: (channel) => ipcRenderer.invoke('clubbox:mobile-probe-readonly', { channel }),
+  mobileProbeMutate: (payload) => ipcRenderer.invoke('clubbox:mobile-probe-mutate', payload),
   getGlobalShortcuts: () => ipcRenderer.invoke('clubbox:shortcuts-get'),
 
   setGlobalShortcuts: (shortcuts) => ipcRenderer.invoke('clubbox:shortcuts-set', shortcuts),
