@@ -14,10 +14,22 @@ export class FakeAgora {
   broadcastHasMic = true;
   republishCount = 0;
   lastEncoder: 'speech_standard' | 'high_quality_stereo' | null = null;
+  /** When set, the next join throws with this Agora-style code (BDD voice failure). */
+  failJoinCode: string | null = null;
+  lastError: string | null = null;
   private muteListeners: ((report: RemoteMuteReport) => void)[] = [];
 
   join(role: 'audience' | 'host', token: string): void {
+    if (this.failJoinCode) {
+      const code = this.failJoinCode;
+      this.failJoinCode = null;
+      this.lastError = code;
+      const err = new Error(code) as Error & { code: string };
+      err.code = code;
+      throw err;
+    }
     this.left = false;
+    this.lastError = null;
     this.joins.push({ role, token, published: role === 'host' });
   }
 

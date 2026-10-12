@@ -31,6 +31,10 @@ Given('the hallway shows the room {string} with channel {string}', function (thi
   }
 });
 
+Given('Agora will fail join with code {string}', function (this: ClubboxWorld, code: string) {
+  this.agora.failJoinCode = code;
+});
+
 Given('I am in the room {string}', function (this: ClubboxWorld, channel: string) {
   this.session.attachAsListener(channel);
   this.session.recording = true;

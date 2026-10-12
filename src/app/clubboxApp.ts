@@ -206,6 +206,8 @@ export class ClubboxApp {
     realtimeKeys: boolean;
     pubnubConnected: boolean;
     agoraJoined: boolean;
+    agoraResult: string | null;
+    verboseVoiceLog: boolean;
   } | null = null;
   hallwayPrefs: HallwayPrefs = readHallwayPrefs();
   feedNextCursor: string | null = null;

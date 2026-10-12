@@ -257,6 +257,8 @@ export async function saveSettings(this: ClubboxApp) : Promise<void> {
     const experimentalActions = (document.getElementById('cfg-experimental-actions') as HTMLInputElement | null)?.checked === true;
     const requestLogging = (document.getElementById('cfg-request-logging') as HTMLInputElement | null)?.checked === true;
     const allowLocalRecording = (document.getElementById('cfg-allow-recording') as HTMLInputElement | null)?.checked === true;
+    const verboseVoiceLog = (document.getElementById('cfg-verbose-voice-log') as HTMLInputElement | null)?.checked === true;
+    agoraVoice.setVerboseLog(verboseVoiceLog);
     const languageValue = (document.getElementById('cfg-language') as HTMLSelectElement | null)?.value;
     const language = languageValue === 'tr' ? 'tr' : 'en';
     const themeValue = (document.getElementById('cfg-theme') as HTMLSelectElement | null)?.value;
@@ -452,12 +454,16 @@ export function renderSettingsView(this: ClubboxApp) {
 export async function refreshConnectionStatus(this: ClubboxApp): Promise<void> {
   const api = electronAPI();
   const agoraJoined = agoraVoice.getIsJoined();
+  const agoraResult = agoraVoice.getLastJoinResult();
+  const verboseVoiceLog = agoraVoice.getVerboseLog();
   if (!api?.connectionStatus) {
     this.connectionStatus = {
       webSession: !!clubhouseClient.getConfig().webSession,
       realtimeKeys: false,
       pubnubConnected: this.pubnubSource.isConnected(),
       agoraJoined,
+      agoraResult,
+      verboseVoiceLog,
     };
     return;
   }
@@ -468,6 +474,8 @@ export async function refreshConnectionStatus(this: ClubboxApp): Promise<void> {
       realtimeKeys: !!status.realtimeKeys,
       pubnubConnected: !!status.pubnubConnected || this.pubnubSource.isConnected(),
       agoraJoined,
+      agoraResult,
+      verboseVoiceLog,
     };
     const prev = this.connectionStatus;
     if (
@@ -476,6 +484,8 @@ export async function refreshConnectionStatus(this: ClubboxApp): Promise<void> {
       && prev.realtimeKeys === next.realtimeKeys
       && prev.pubnubConnected === next.pubnubConnected
       && prev.agoraJoined === next.agoraJoined
+      && prev.agoraResult === next.agoraResult
+      && prev.verboseVoiceLog === next.verboseVoiceLog
     ) {
       return;
     }
@@ -487,6 +497,8 @@ export async function refreshConnectionStatus(this: ClubboxApp): Promise<void> {
       realtimeKeys: false,
       pubnubConnected: this.pubnubSource.isConnected(),
       agoraJoined,
+      agoraResult,
+      verboseVoiceLog,
     };
   }
 }

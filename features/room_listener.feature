@@ -24,6 +24,12 @@ Feature: Be a listener in a live room
     And "join_channel" is marked "unsupported" in API Health
     And the "Join" buttons show "Available in the Clubhouse app"
 
+  @bundle @RL-1
+  Scenario: Voice failure shows its reason
+    Given Agora will fail join with code "INVALID_VENDOR_KEY"
+    When I click "Join" on "Tech Talk"
+    Then I see the message "Room audio failed: INVALID_VENDOR_KEY"
+
   @bundle @RL-3
   Scenario: Presence ping keeps me in the room
     Given I am in the room "abc123"

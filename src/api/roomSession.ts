@@ -1,6 +1,7 @@
 import type { ClubhouseApiClient } from './client.ts';
 import { ClubhouseApiError } from './client.ts';
 import { RoomEffectRunner, type RealtimeHub } from '../app/roomEffectRunner.ts';
+import { formatVoiceFailureReason } from '../audio/agoraErrors.ts';
 import {
   initialRoomSessionState,
   nextRoomSession,
@@ -161,7 +162,16 @@ export class RoomSessionController {
         this.uiMessages.push('Audio key not found');
         this.client.getApiHealth();
       }
-      await this.dispatch({ type: 'JOIN_OK', channelId, token, generation });
+      try {
+        await this.dispatch({ type: 'JOIN_OK', channelId, token, generation });
+      } catch (agoraErr) {
+        // Clubhouse join succeeded; Agora failed — show the SDK reason (not a spinner).
+        const reason = formatVoiceFailureReason(agoraErr);
+        const message = `Room audio failed: ${reason}`;
+        this.uiMessages.push(message);
+        this.lastJoinToken = token;
+        return { ok: false, message };
+      }
       this.lastJoinToken = token;
       return { ok: true };
     } catch (err) {

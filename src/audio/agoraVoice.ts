@@ -9,6 +9,11 @@ type AgoraSdk = typeof import('agora-rtc-sdk-ng').default;
 import { audioEngine } from './audioEngine';
 import { clubhouseClient } from '../api/client';
 import { muteFromAgoraEvent } from '../api/remoteMute';
+import {
+  AGORA_JOIN_MS,
+  formatVoiceFailureReason,
+  shouldTryCloudProxy,
+} from './agoraErrors';
 
 export interface AgoraJoinOptions {
   isSpeaker: boolean;
@@ -17,9 +22,26 @@ export interface AgoraJoinOptions {
 
 export type RemoteMuteReport = { uid: string | number; muted: boolean };
 
+const AGORA_DEBUG_KEY = 'clubbox.agoraDebug';
+
+function agoraDebugEnabled(): boolean {
+  try {
+    if (typeof localStorage !== 'undefined' && localStorage.getItem(AGORA_DEBUG_KEY) === '1') {
+      return true;
+    }
+  } catch {
+    // ignore
+  }
+  try {
+    return Boolean(import.meta.env?.DEV);
+  } catch {
+    return false;
+  }
+}
+
 /**
- * Agora join: prefer a plain client.join() path. Do not dial the gateway by bare
- * IP (CSP blocks wss://IP). See docs/history/agora-voice-dns-fix.md.
+ * Agora join: do not dial the gateway by bare IP (CSP blocks wss://IP).
+ * See docs/history/agora-voice-dns-fix.md.
  */
 export class AgoraVoiceEngine {
   private client: IAgoraRTCClient | null = null;
@@ -34,6 +56,11 @@ export class AgoraVoiceEngine {
   private onConnectionProblemCallbacks: ((reason: string) => void)[] = [];
   private sdkPromise: Promise<AgoraSdk> | null = null;
   private nativeMuteSignalling = false;
+  private lastConnectionReason = '';
+  private lastExceptionCode = '';
+  private lastJoinResult: string | null = null;
+  private joinMode: 'direct' | 'proxy' = 'direct';
+  private remoteUserCount = 0;
 
   // Same default as ClubhouseConfig.agoraAppId. See docs/api/realtime.md.
   public appId: string = '938de3e8055e42b281bb8c6f69c21f78';
@@ -41,12 +68,33 @@ export class AgoraVoiceEngine {
   private loadSdk(): Promise<AgoraSdk> {
     if (!this.sdkPromise) {
       this.sdkPromise = import('agora-rtc-sdk-ng').then((mod) => {
-        // INFO while diagnosing live join; revert to 3 when stable.
-        mod.default.setLogLevel(1);
+        mod.default.setLogLevel(agoraDebugEnabled() ? 1 : 3);
         return mod.default;
+      });
+    } else {
+      void this.sdkPromise.then((sdk) => {
+        sdk.setLogLevel(agoraDebugEnabled() ? 1 : 3);
       });
     }
     return this.sdkPromise;
+  }
+
+  /** Settings › Advanced "Verbose voice log". */
+  public setVerboseLog(enabled: boolean): void {
+    try {
+      localStorage.setItem(AGORA_DEBUG_KEY, enabled ? '1' : '0');
+    } catch {
+      // ignore
+    }
+    void this.loadSdk().then((sdk) => sdk.setLogLevel(enabled ? 1 : 3));
+  }
+
+  public getVerboseLog(): boolean {
+    return agoraDebugEnabled();
+  }
+
+  public getLastJoinResult(): string | null {
+    return this.lastJoinResult;
   }
 
   private routeRemoteAudio(user: IAgoraRTCRemoteUser): void {
@@ -80,11 +128,15 @@ export class AgoraVoiceEngine {
   private formatAgoraError(err: unknown): string {
     if (!err || typeof err !== 'object') return String(err || 'unknown');
     const e = err as { code?: unknown; message?: unknown; data?: unknown; name?: unknown };
+    let dataKeys = '';
+    if (e.data != null && typeof e.data === 'object') {
+      dataKeys = `dataKeys=${Object.keys(e.data as object).join(',')}`;
+    }
     const parts = [
       e.name != null ? String(e.name) : '',
       e.code != null ? `code=${String(e.code)}` : '',
-      e.message != null ? String(e.message) : '',
-      e.data != null ? `data=${JSON.stringify(e.data)}` : '',
+      e.message != null ? String(e.message).slice(0, 120) : '',
+      dataKeys,
     ].filter(Boolean);
     return parts.join(' ') || String(err);
   }
@@ -112,11 +164,19 @@ export class AgoraVoiceEngine {
         this.emitRemoteMute(uid, muteFromAgoraEvent('user-info-updated', msg));
       });
 
+      this.client.on('user-joined', () => {
+        this.remoteUserCount += 1;
+        console.log(`[AgoraRTC] user-joined count=${this.remoteUserCount}`);
+      });
+
       this.client.on('user-left', (user: IAgoraRTCRemoteUser) => {
+        this.remoteUserCount = Math.max(0, this.remoteUserCount - 1);
+        console.log(`[AgoraRTC] user-left count=${this.remoteUserCount}`);
         audioEngine.removeRemoteTrack(user.uid);
       });
 
       this.client.on('connection-state-change', (cur, prev, reason) => {
+        this.lastConnectionReason = String(reason || '');
         console.warn(`[AgoraRTC] connection ${prev} → ${cur}${reason ? ` (${reason})` : ''}`);
         const ok = cur === 'CONNECTED';
         void this.logAgora(
@@ -137,8 +197,15 @@ export class AgoraVoiceEngine {
       });
 
       this.client.on('exception', (e: { code?: number; msg?: string; uid?: string | number }) => {
+        this.lastExceptionCode = String(e?.code ?? '');
         console.warn(
           `[AgoraRTC] exception code=${String(e?.code ?? '')} msg=${String(e?.msg ?? '')} uid=${String(e?.uid ?? '')}`,
+        );
+        void this.logAgora(
+          'agora_exception',
+          false,
+          'sdk',
+          `code=${String(e?.code ?? '')};msg=${String(e?.msg ?? '').slice(0, 80)}`,
         );
       });
 
@@ -155,60 +222,132 @@ export class AgoraVoiceEngine {
     return this.client;
   }
 
+  private async joinWithTimeout(
+    client: IAgoraRTCClient,
+    appId: string,
+    channelName: string,
+    token: string,
+    uid: number,
+  ): Promise<void> {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => {
+        const err = new Error(
+          `JOIN_TIMEOUT lastConn=${this.lastConnectionReason || 'none'} lastEx=${this.lastExceptionCode || 'none'}`,
+        );
+        (err as { code?: string }).code = 'JOIN_TIMEOUT';
+        reject(err);
+      }, AGORA_JOIN_MS);
+    });
+    try {
+      await Promise.race([client.join(appId, channelName, token, uid), timeout]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
+
   public async join(
     channelName: string,
     token: string,
     uid: number,
     options: AgoraJoinOptions,
   ): Promise<boolean> {
-    try {
-      const AgoraRTC = await this.loadSdk();
-      const client = this.initClient(AgoraRTC);
+    const AgoraRTC = await this.loadSdk();
+    const client = this.initClient(AgoraRTC);
 
-      if (this.isJoined) {
-        await this.leave();
+    if (this.isJoined) {
+      await this.leave();
+    }
+
+    const configuredAppId = clubhouseClient.getConfig().agoraAppId;
+    const appIdSource: 'config' | 'fallback' = configuredAppId ? 'config' : 'fallback';
+    if (configuredAppId) {
+      this.appId = configuredAppId;
+    }
+
+    this.isSpeaker = options.isSpeaker;
+    this.joinMode = 'direct';
+    this.remoteUserCount = 0;
+    this.lastConnectionReason = '';
+    this.lastExceptionCode = '';
+    this.lastJoinResult = null;
+
+    const appPrefix = this.appId.slice(0, 4);
+    console.log(
+      `[AgoraRTC] joining channelLen=${channelName.length} uidType=${typeof uid}`
+        + ` tokenLen=${token?.length ?? 0} appId=${appPrefix}…/${this.appId.length}`
+        + ` source=${appIdSource} role=${options.isSpeaker ? 'host' : 'audience'}`,
+    );
+
+    const tryJoinOnce = async (useProxy: boolean): Promise<void> => {
+      if (useProxy) {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (client as any).startProxyServer?.(5);
+          this.joinMode = 'proxy';
+          console.warn('[AgoraRTC] cloud proxy mode=5 (once)');
+        } catch (proxyErr) {
+          console.warn('[AgoraRTC] startProxyServer failed:', this.formatAgoraError(proxyErr));
+        }
       }
-
-      const configuredAppId = clubhouseClient.getConfig().agoraAppId;
-      if (configuredAppId) {
-        this.appId = configuredAppId;
-      }
-
-      this.isSpeaker = options.isSpeaker;
-      console.log(
-        `[AgoraRTC] joining channel=${channelName} uid=${uid} tokenLen=${token?.length ?? 0}`
-          + ` appIdLen=${this.appId.length} role=${options.isSpeaker ? 'host' : 'audience'}`,
-      );
       await client.setClientRole(options.isSpeaker ? 'host' : 'audience');
-      await client.join(this.appId, channelName, token, uid);
+      await this.joinWithTimeout(client, this.appId, channelName, token, uid);
+    };
+
+    let proxyTried = false;
+    try {
+      try {
+        await tryJoinOnce(false);
+      } catch (firstErr) {
+        if (shouldTryCloudProxy(firstErr, proxyTried)) {
+          proxyTried = true;
+          console.warn(
+            '[AgoraRTC] network-block — retry once with cloud proxy;',
+            this.formatAgoraError(firstErr),
+          );
+          try {
+            await client.leave();
+          } catch {
+            // ignore
+          }
+          await tryJoinOnce(true);
+        } else {
+          throw firstErr;
+        }
+      }
+
       this.isJoined = true;
       this.currentChannel = channelName;
       void audioEngine.ensureAudioContext();
-
       await this.syncRemoteUsers();
 
       if (options.isSpeaker) {
         try {
           await this.publishBroadcast(options.isMusicMode);
         } catch (publishErr) {
-          // Stay joined so the host can still hear the room; mic can retry on unmute.
           console.warn('[AgoraRTC] Host join ok but publish failed:', this.formatAgoraError(publishErr));
-          void this.logAgora('agora_publish', false, configuredAppId ? 'config' : 'fallback', 'MICROPHONE_UNAVAILABLE');
+          void this.logAgora('agora_publish', false, appIdSource, 'MICROPHONE_UNAVAILABLE');
         }
       }
 
+      const role = options.isSpeaker ? 'host' : 'audience';
       console.log(
-        `[AgoraRTC] Joined ${channelName} as UID ${uid} (${options.isSpeaker ? 'host' : 'audience'})`,
+        `[AgoraRTC] Joined ${channelName} uid=${uid} role=${role} mode=${this.joinMode}`,
       );
-      void this.logAgora('agora_join', true, configuredAppId ? 'config' : 'fallback');
+      this.lastJoinResult = `ok:${this.joinMode}`;
+      void this.logAgora('agora_join', true, appIdSource, `mode=${this.joinMode}`);
       return true;
     } catch (err) {
-      // No Agora token-refresh request has been captured. Do not invent one.
-      console.warn('[AgoraRTC] Live Agora join failed:', this.formatAgoraError(err));
-      const code = err && typeof err === 'object' && 'code' in err
-        ? String((err as { code: unknown }).code)
-        : 'join_failed';
-      void this.logAgora('agora_join', false, clubhouseClient.getConfig().agoraAppId ? 'config' : 'fallback', code);
+      // Log connection/exception snapshot before leave hides the gateway state.
+      console.warn(
+        '[AgoraRTC] Live Agora join failed:',
+        this.formatAgoraError(err),
+        `lastConn=${this.lastConnectionReason || 'none'}`,
+        `lastEx=${this.lastExceptionCode || 'none'}`,
+      );
+      const code = formatVoiceFailureReason(err);
+      this.lastJoinResult = code;
+      void this.logAgora('agora_join', false, appIdSource, code);
       try {
         await this.leave();
       } catch {
@@ -242,7 +381,7 @@ export class AgoraVoiceEngine {
         status: ok ? 200 : 0,
         ok,
         error: ok ? `source=${source}` : `${error || 'join_failed'};source=${source}`,
-        kind: 'audio',
+        kind: 'agora',
       });
     } catch {
       // Logging must not break join.

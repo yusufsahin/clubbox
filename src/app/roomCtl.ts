@@ -840,7 +840,15 @@ export async function connectRoomAudio(this: ClubboxApp, generation: number) : P
       return;
     }
     this.audioConnected = ok;
-    if (!ok) this.showToast(t('audioTokenGap'), '🔇');
+    if (!ok) {
+      const reason = agoraVoice.getLastJoinResult();
+      this.showToast(
+        reason && reason !== 'join_failed'
+          ? t('voiceFailureReason', { reason })
+          : t('audioTokenGap'),
+        '🔇',
+      );
+    }
   }
 
 export async function releaseRoomLocally(this: ClubboxApp, options: { skipServer?: boolean } = {}) : Promise<void> {

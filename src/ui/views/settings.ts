@@ -60,6 +60,8 @@ export type ConnectionStatusReadout = {
   realtimeKeys: boolean;
   pubnubConnected: boolean;
   agoraJoined: boolean;
+  agoraResult: string | null;
+  verboseVoiceLog: boolean;
 };
 
 export function settingsView(
@@ -233,6 +235,10 @@ export function settingsView(
           <input type="checkbox" id="cfg-allow-recording" ${config.allowLocalRecording ? 'checked' : ''} />
           <span><strong>${t('allowLocalRecording')}</strong><br />${t('allowLocalRecordingHelp')}</span>
         </label>
+        <label style="display:flex; align-items:flex-start; gap:8px; margin-top:16px; cursor:pointer;">
+          <input type="checkbox" id="cfg-verbose-voice-log" ${connectionStatus?.verboseVoiceLog ? 'checked' : ''} />
+          <span><strong>${t('verboseVoiceLog')}</strong><br />${t('verboseVoiceLogHelp')}</span>
+        </label>
       </div>
 
       ${connectionStatus ? html`
@@ -243,6 +249,7 @@ export function settingsView(
           <div class="profile-setting-row"><span>${t('connectionStatusRealtime')}</span><span>${connectionStatus.realtimeKeys ? t('connectionStatusOk') : t('connectionStatusBad')}</span></div>
           <div class="profile-setting-row"><span>${t('connectionStatusPubNub')}</span><span>${connectionStatus.pubnubConnected ? t('connectionStatusOk') : t('connectionStatusBad')}</span></div>
           <div class="profile-setting-row"><span>${t('connectionStatusAgora')}</span><span>${connectionStatus.agoraJoined ? t('connectionStatusOk') : t('connectionStatusBad')}</span></div>
+          <div class="profile-setting-row"><span>${t('connectionStatusAgoraResult')}</span><span>${connectionStatus.agoraResult || '—'}</span></div>
         </div>
       </div>
       ` : ''}
