@@ -41,9 +41,10 @@ Incomplete bodies where noted — used only to classify auth (400 = session acce
 
 **Implication:** Phase 27 “web session is enough for host tools” is **false** for the moderation
 allow-list. Only `get_profile`-class endpoints accept Django session cookies. Mute / invite / end /
-etc. need `Authorization: Token …`. Owner approved SMS link (A); **27.5.0 spike STOP:** Electron
-`start_phone_number_auth` → 400 `login did not pass token validation!` (non-native OS). Host tools
-stay dead until **(A2)** import Token from phone/Clubdeck or **(B)** abandon.
+etc. need `Authorization: Token …`. Owner approved SMS link (A); phone sign-out accepted.
+**27.5.0 live blocked:** Electron `start_phone_number_auth` → 400 token validation (non-native OS).
+Code for 27.5.1–27.5.4 (safeStorage Token, transport, inline code sheet) is in place; live 2xx
+host tools wait on a successful Token link (SMS from Electron remains blocked).
 
 ## Production allow-list (`electron/mobileApi.cjs`)
 
@@ -56,7 +57,7 @@ stay dead until **(A2)** import Token from phone/Clubdeck or **(B)** abandon.
 | `mute_speaker` | `{ channel, user_id }` | **401 with web session** |
 | `block_from_channel` | `{ channel, user_id }` | **401 with web session** |
 | `make_moderator` | `{ channel, user_id }` | **401 with web session** |
-| `change_handraise_settings` | `{ channel, is_enabled, handraise_permission }` | **404** on mobile host (2026-10-12) |
+| ~~`change_handraise_settings`~~ | — | **Dropped from allow-list (27.5.2)** — 404 on mobile; use `update_handraise_queue_setting` |
 | `reject_speaker_invite` | `{ channel, user_id }` | 28.2; Token-class expected |
 | `invite_to_existing_channel` | `{ channel, user_id }` | 28.2 ping panel |
 | `hide_channel` | `{ channel, hide }` | 28.2 hallway + room details |
@@ -203,9 +204,9 @@ until a 2xx in the owner's throwaway room.
 - **End room** = `end_channel`; on success leave locally (`skipServer`)
 - **Remove from room** = `block_from_channel` with confirm
 
-## Phase 27.5.0 — SMS Token auth spike (dev only) — **STOPPED**
+## Phase 27.5.0 — SMS Token auth spike (dev only) — **BLOCKED**
 
-Owner decision **2026-10-12 (A):** one-time SMS Token link is allowed; phone app may be signed out.
+Owner decision **2026-10-12 (A):** one-time SMS Token link; phone app may be signed out (no warning).
 
 Dev poke (Clubbox must already be running):
 
@@ -227,8 +228,15 @@ node scripts/mobile-token-probe-27.mjs --channel=<throwaway>
 Headers on start (values not logged): `CH-AppVersion` 1.0.8, `CH-AppBuild` 304, iPhone UA,
 `CH-DeviceId` (install UUID), no `CH-UserID` / `Authorization` pre-auth. TR phone normalized to `+905…`.
 
-**STOP (27.5.0):** Clubhouse rejects Electron/desktop as a phone-auth client. Do not proceed to
-27.5.1 Token store until the owner decides an alternative (e.g. import Token from a real phone
-session / Clubdeck, or abandon host-tool Token link).
+**blocked (27.5.0):** Clubhouse rejects Electron/desktop as a phone-auth client. Do not retry SMS
+as if it works. 27.5.1–27.5.4 code ships (store / Token transport / UX / tests); live Phase 27.4
+matrix waits on a Token.
 
 Report file (local, gitignored): `reports/mobile-token-probe-27.json`.
+
+## Phase 27.5.1–27.5.4 — Token store, transport, UX
+
+- Store: `userData/mobile-auth.bin` via `safeStorage` (`electron/mobileAuthStore.cjs`). Never to renderer.
+- Transport: `callMobileApi` uses Token when linked; 401 → refresh once or `host-tools-link-needed`.
+- UX: inline code sheet on first host action; Settings › Account status + Unlink; room-bar badge.
+- Allow-list: dropped `change_handraise_settings` (404); keep `update_handraise_queue_setting`.
