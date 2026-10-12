@@ -103,7 +103,7 @@ test('room control flags expose mute/mod/invite/end with experimental off', () =
     (endpoint) => canCall(endpoint, 'web-session', { experimentalActions: false }),
   );
   assert.equal(flags.canMute, true);
-  assert.equal(flags.canMod, false);
+  assert.equal(flags.canMakeModerator, false);
   assert.equal(flags.canMoveToAudience, true);
   assert.equal(flags.canBlock, true);
   assert.equal(flags.canInvite, true);

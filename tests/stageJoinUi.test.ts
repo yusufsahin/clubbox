@@ -32,7 +32,7 @@ function baseState(overrides: Partial<StageState> = {}): StageState {
     audioDisconnected: false,
     moderator: false,
     canMute: false,
-    canMod: false,
+    canMakeModerator: false,
     canMoveToAudience: false,
     canInvite: false,
     canEnd: false,
@@ -73,7 +73,7 @@ test('moderator without host tools does not fake a presence status on speakers',
     me: { user_id: 2, name: 'Listener' },
     moderator: true,
     canMute: false,
-    canMod: false,
+    canMakeModerator: false,
     canMoveToAudience: false,
     canBlock: false,
     canInvite: false,
@@ -90,4 +90,52 @@ test('moderator without host tools does not fake a presence status on speakers',
   })));
   assert.doesNotMatch(html, /Temporarily unavailable|Geçici olarak kullanılamıyor/);
   assert.doesNotMatch(html, /data-action="speaker-menu"/);
+});
+
+test('host mute / move / block stay on speaker menu when make moderator is unavailable', () => {
+  const html = markup(stageColumn(baseState({
+    me: { user_id: 1, name: 'Host' },
+    moderator: true,
+    canMute: true,
+    canMakeModerator: false,
+    canMoveToAudience: true,
+    canBlock: true,
+    canJoinStage: false,
+    openSpeakerMenuId: 3,
+    channel: {
+      channel: 'open-mic',
+      channel_id: 'ch-open',
+      topic: 'Open mic',
+      users: [
+        { user_id: 1, name: 'Host', is_speaker: true, is_moderator: true },
+        { user_id: 3, name: 'Ayse', is_speaker: true, is_moderator: false, is_muted: false },
+        { user_id: 4, name: 'Listener', is_speaker: false },
+      ],
+    },
+  })));
+  assert.match(html, /data-mod-action="mute"/);
+  assert.match(html, /data-mod-action="audience"/);
+  assert.match(html, /data-mod-action="block"/);
+  assert.doesNotMatch(html, /data-mod-action="moderator"/);
+});
+
+test('moderator can remove an audience member from the room', () => {
+  const html = markup(stageColumn(baseState({
+    me: { user_id: 1, name: 'Host' },
+    moderator: true,
+    canBlock: true,
+    canInvite: true,
+    canJoinStage: false,
+    channel: {
+      channel: 'open-mic',
+      channel_id: 'ch-open',
+      topic: 'Open mic',
+      users: [
+        { user_id: 1, name: 'Host', is_speaker: true, is_moderator: true },
+        { user_id: 4, name: 'Listener', is_speaker: false },
+      ],
+    },
+  })));
+  assert.match(html, /data-mod-action="block"/);
+  assert.match(html, /data-user-id="4"/);
 });

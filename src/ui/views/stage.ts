@@ -3,6 +3,7 @@ import { relationshipFromStatus } from '../../api/relationship';
 import type { CHChannelDetail, CHChatMessage, CHUser } from '../../api/types';
 import { audienceMatchesQuery } from '../../studio/audienceSearch';
 import { avatarHtml } from '../avatar';
+import { linkifyChatMessage } from '../chatText';
 import { html, type SafeHtml } from '../html';
 
 export interface StageState {
@@ -12,7 +13,7 @@ export interface StageState {
   audioDisconnected: boolean;
   moderator: boolean;
   canMute: boolean;
-  canMod: boolean;
+  canMakeModerator: boolean;
   canMoveToAudience: boolean;
   canInvite: boolean;
   canEnd: boolean;
@@ -129,14 +130,14 @@ export function stageColumn(state: StageState): SafeHtml {
                   </div>
                   <div class="speaker-name" data-action="open-profile" data-user-id="${speaker.user_id}">${speaker.name}${state.channel.creator_user_profile_id === speaker.user_id ? html` <span class="host-tag">${t('host')}</span>` : ''}</div>
                   ${speaker.username ? html`<div class="speaker-handle" data-action="open-profile" data-user-id="${speaker.user_id}">@${speaker.username}</div>` : ''}
-                  ${state.moderator && !isSelf && (state.canMute || state.canMod || state.canMoveToAudience || state.canBlock) ? html`
+                  ${state.moderator && !isSelf && (state.canMute || state.canMakeModerator || state.canMoveToAudience || state.canBlock) ? html`
                     <button class="speaker-menu-btn" type="button" data-action="speaker-menu" data-user-id="${speaker.user_id}" title="${t('speakerActions')}">⋯</button>
                     ${menuOpen ? html`
                       <div class="speaker-menu">
                         ${state.canMute && !speaker.is_muted ? html`<button type="button" data-action="moderate" data-mod-action="mute" data-user-id="${speaker.user_id}">${t('mute')}</button>` : ''}
-                        ${state.canMod && !speaker.is_moderator ? html`<button type="button" data-action="moderate" data-mod-action="moderator" data-user-id="${speaker.user_id}">${t('makeModerator')}</button>` : ''}
                         ${state.canMoveToAudience ? html`<button type="button" data-action="moderate" data-mod-action="audience" data-user-id="${speaker.user_id}">${t('moveToAudience')}</button>` : ''}
                         ${state.canBlock ? html`<button type="button" data-action="moderate" data-mod-action="block" data-user-id="${speaker.user_id}">${t('blockFromRoom')}</button>` : ''}
+                        ${state.canMakeModerator && !speaker.is_moderator ? html`<button type="button" data-action="moderate" data-mod-action="moderator" data-user-id="${speaker.user_id}">${t('makeModerator')}</button>` : ''}
                       </div>
                     ` : ''}
                   ` : ''}
@@ -155,16 +156,20 @@ export function stageColumn(state: StageState): SafeHtml {
                 </div>
               </div>
               <div class="audience-grid">
-                ${raisedHands.map((listener) => html`
-                  <div class="audience-card" data-action="open-profile" data-user-id="${listener.user_id}">
-                    <div class="audience-avatar-wrapper">
+                ${raisedHands.map((listener) => {
+                  const isSelf = state.me != null && String(listener.user_id) === String(state.me.user_id);
+                  return html`
+                  <div class="audience-card">
+                    <div class="audience-avatar-wrapper" data-action="open-profile" data-user-id="${listener.user_id}">
                       ${avatarHtml(listener, 52, 'audience-avatar-img')}
                     </div>
-                    <div class="audience-name">${listener.name} ✋</div>
+                    <div class="audience-name" data-action="open-profile" data-user-id="${listener.user_id}">${listener.name} ✋</div>
                     ${listener.is_invited_to_speak ? html`<div class="invited-tag">${t('invited')}</div>` : ''}
-                    ${state.moderator && state.canInvite ? html`<button class="invite-stage-btn" data-action="invite-stage" data-user-id="${listener.user_id}">${t('inviteToStage')}</button>` : ''}
+                    ${state.moderator && state.canInvite && !isSelf ? html`<button class="invite-stage-btn" data-action="invite-stage" data-user-id="${listener.user_id}">${t('inviteToStage')}</button>` : ''}
+                    ${state.moderator && state.canBlock && !isSelf ? html`<button class="invite-stage-btn" type="button" data-action="moderate" data-mod-action="block" data-user-id="${listener.user_id}">${t('blockFromRoom')}</button>` : ''}
                   </div>
-                `)}
+                `;
+                })}
               </div>
             </div>
           ` : ''}
@@ -177,16 +182,20 @@ export function stageColumn(state: StageState): SafeHtml {
 function listenerCards(listeners: CHUser[], state: StageState): SafeHtml {
   return html`
     <div class="audience-grid">
-      ${listeners.map((listener) => html`
-        <div class="audience-card" data-action="open-profile" data-user-id="${listener.user_id}">
-          <div class="audience-avatar-wrapper">
+      ${listeners.map((listener) => {
+        const isSelf = state.me != null && String(listener.user_id) === String(state.me.user_id);
+        return html`
+        <div class="audience-card">
+          <div class="audience-avatar-wrapper" data-action="open-profile" data-user-id="${listener.user_id}">
             ${avatarHtml(listener, 52, 'audience-avatar-img')}
           </div>
-          <div class="audience-name">${listener.name}</div>
+          <div class="audience-name" data-action="open-profile" data-user-id="${listener.user_id}">${listener.name}</div>
           ${listener.is_invited_to_speak ? html`<div class="invited-tag">${t('invited')}</div>` : ''}
           ${state.moderator && state.canInvite ? html`<button class="invite-stage-btn" data-action="invite-stage" data-user-id="${listener.user_id}">${t('inviteToStage')}</button>` : ''}
+          ${state.moderator && state.canBlock && !isSelf ? html`<button class="invite-stage-btn" type="button" data-action="moderate" data-mod-action="block" data-user-id="${listener.user_id}">${t('blockFromRoom')}</button>` : ''}
         </div>
-      `)}
+      `;
+      })}
     </div>
   `;
 }
@@ -233,7 +242,7 @@ export function chatList(messages: CHChatMessage[]): SafeHtml {
       ${avatarHtml(msg, 28, 'chat-msg-avatar')}
       <div class="chat-msg-content">
         <div class="chat-msg-author">${msg.name}</div>
-        <div class="chat-msg-text">${msg.message}</div>
+        <div class="chat-msg-text">${linkifyChatMessage(msg.message)}</div>
       </div>
     </div>
   `)}`;

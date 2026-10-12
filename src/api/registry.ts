@@ -145,7 +145,13 @@ const REQUEST_BUILDERS: Partial<Record<string, (params: RequestBody) => RequestB
   }),
   end_channel: (params) => {
     const channel = requireString(params, 'channel');
-    return { channel, channel_id: channel };
+    // Community clients send numeric channel_id alongside the channel code.
+    const rawId = params.channel_id ?? channel;
+    const asNum = typeof rawId === 'number' ? rawId : Number(rawId);
+    const channel_id = Number.isFinite(asNum) && String(rawId).trim() === String(asNum)
+      ? asNum
+      : rawId;
+    return { channel, channel_id };
   },
   make_channel_public: (params) => {
     const channel = requireString(params, 'channel');
@@ -384,7 +390,7 @@ export const CONTRACT_SAMPLE_PARAMS: Record<ContractEndpointName, RequestBody> =
   block_from_channel: { channel: 'abc123', user_id: 7 },
   reject_speaker_invite: { channel: 'abc123', user_id: 7 },
   invite_to_existing_channel: { channel: 'abc123', user_id: 7 },
-  end_channel: { channel: 'abc123' },
+  end_channel: { channel: 'abc123', channel_id: 42 },
   make_channel_public: { channel: 'abc123' },
   make_channel_social: { channel: 'abc123' },
   change_handraise_settings: {

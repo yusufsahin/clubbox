@@ -98,10 +98,11 @@ Legend — Evidence: O observed · B bundle call site · C community · ? to dis
 | emoji_reaction | POST | channel, emoji | ack | B | ✅ stage reaction pad | Reactions |
 | gif_reaction | POST | `{channel, giphy_id}` | ack | B | ✅ paste Giphy URL/id on stage (no third-party key) | Stage |
 | set_channel_title | POST | channel, title | ack | B | ✅ rename on stage | RoomCtl |
-| invite_speaker / uninvite_speaker / mute_speaker / make_moderator / block_from_channel | POST | channel, user_id | ack | C | ✅ experimental mod menu + mute everyone | RoomCtl (mod) |
+| invite_speaker / uninvite_speaker / mute_speaker / block_from_channel | POST | channel, user_id | ack | C | ✅ host mod menu (no Experimental) + mute everyone | RoomCtl (mod) |
+| make_moderator | POST | channel, user_id | ack | unsupported | ❌ live `/web_api/make_moderator` → 404; mobile-only on clubhouseapi.com (forbidden). App-only; button hidden | RoomCtl (mod) |
 | invite_to_existing_channel | POST | channel, user_id | ack | C | ✅ Invite people panel (RH-9) | Ping |
 | change_handraise_settings | POST | channel, is_enabled, handraise_permission (1=everyone, 2=friends of speakers) | ack | C | ✅ experimental stage select (RH-7) | RoomCtl (mod) |
-| end_channel | POST | channel, channel_id | ack | C | ✅ experimental + capabilities (G-04 closed) | RoomCtl |
+| end_channel | POST | channel, channel_id (numeric) | ack | C | ✅ Details › End room only (Leave never ends). Body sends channel code + numeric channel_id; on failure host stays in room | RoomCtl |
 | make_channel_public / make_channel_social | POST | channel, channel_id | ack | C | ✅ stage visibility select (RH-10) | RoomCtl (mod) |
 | get_channel | POST | channel | channel detail | C (not in web bundle) | ❌ unused on web — PubNub is the room source (G-03 closed) | — |
 | get_replay_channel | GET | path `{channel}` (no body) | replay meta (+ chunk_count) | B | ✅ replay player (rate/skip) | Replays |

@@ -22,7 +22,7 @@ Each endpoint in `electron/webApiRoutes.json` has an evidence level. The level d
 | --- | --- | --- | --- |
 | `observed` | A redacted capture shows a 2xx response | Yes | Normal |
 | `bundle` | Path + method + body keys found at a call site in the web bundle | Yes | Normal; failures go to API Health |
-| `community` | Name + body from C, mapped to `/web_api/<name>` | **Host room tools** (mute, make moderator, invite, end room, visibility, handraise, hide) are always callable on a web session. Other community routes only when Settings → "Experimental actions" is on | Speculative community: first use asks for confirmation |
+| `community` | Name + body from C, mapped to `/web_api/<name>` | **Host room tools** (mute, invite, end room, visibility, handraise, hide) are always callable on a web session. **Make moderator** is unsupported on web (live 404; mobile-only — never call clubhouseapi.com). Other community routes only when Settings → "Experimental actions" is on | Speculative community: first use asks for confirmation |
 | `unsupported` | Tried and failed with 404/405, or proven absent | No | "Available in the Clubhouse app" |
 
 Rules:
@@ -47,7 +47,8 @@ Known body shapes (B unless marked C):
 | emoji_reaction | POST | channel, emoji | bundle |
 | set_channel_title | POST | channel, title | bundle |
 | web_listener_join / _active_ping / _leave | POST | session_id, staff_token, name, invite_code, recaptcha_token | bundle (needs reCAPTCHA → do not use; see §7) |
-| invite_speaker, uninvite_speaker, mute_speaker, make_moderator, block_from_channel, accept_speaker_invite, reject_speaker_invite, invite_to_existing_channel | POST | channel, user_id | community |
+| invite_speaker, uninvite_speaker, mute_speaker, block_from_channel, accept_speaker_invite, reject_speaker_invite, invite_to_existing_channel | POST | channel, user_id | community |
+| make_moderator | POST | channel, user_id | unsupported (web 404; app-only) |
 | end_channel, make_channel_public, make_channel_social | POST | channel, channel_id | community |
 | change_handraise_settings | POST | channel, is_enabled, handraise_permission | community |
 | hide_channel | POST | channel, hide | community |
@@ -123,12 +124,12 @@ Legend — Today: ✅ works live · ✅* wired (live verification pending) · �
 | RH-3 | Edit room title | ✓ | ✓ | 🧪 | B (set_channel_title) | P1 |
 | RH-4 | Hand queue list + invite to stage | ✓ | ✓ | ✅* | C (invite_speaker) | P1 |
 | RH-5 | Mute speaker / mute everyone | ✓ | ✓ | ✅* | C (mute_speaker ×N) | P1 |
-| RH-6 | Make moderator / move to audience / block from room | ✓ | ✓ | ✅* | C | P1 |
+| RH-6 | Make moderator / move to audience / block from room | ✓ | ✓ | ✅* move/block; ❌ make mod (web 404) | C / unsupported | P1 |
 | RH-7 | Hand-raise permission (off / everyone / friends of speakers) | ✓ | ✓ | ✅ | B create `handraise_permission`; mid-room C experimental | P1 |
 | RH-8 | Chat on/off, delete a message | ✓ | ✓ | 🧪 | N for delete | P2 |
 | RH-9 | Ping people into the room (multi-select, search by bio) | ✓ | ✓ | ✅ | C (invite_to_existing_channel) | P1 |
 | RH-10 | Room visibility change | | ✓ | ✅ | C (make_channel_public/social) | P2 |
-| RH-11 | End room (confirm) | ✓ | ✓ | ✅* | C (end_channel) | P0 |
+| RH-11 | End room (confirm) | ✓ | ✓ | ✅* Leave ≠ End; End sends channel+channel_id | C (end_channel) | P0 |
 | RH-12 | Pinned link | ✓ | ✓ | ✅ | B (create_channel.link) | P2 |
 | RH-13 | Room details panel (mobile "live details"): replay status + note, audio quality, audience search, mute all other speakers (mod), share | ✓ | ✓ | ✅ | B/C | P1 |
 | RH-14 | Simple composer like the mobile app: title → room type list (public, friends of friends, my friends, each of my houses with photo and access label) → go live; replays ON by default with "disable replay" under More options | ✓ | ✓ | ✅ | O | P1 |

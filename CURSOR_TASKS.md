@@ -17,13 +17,10 @@ Owner reported: triage noise, new-room participants invisible, moderation action
 
 Idle recheck after 24.7.
 
-### Last autonomous run (2026-10-12 — Phase 25–26 code)
+### Last autonomous run (2026-10-12 — host mute/move/block)
 
-- Phase 25 closed: 25.1 leave on close/quit, 25.2 mute badge/extras, 25.3 AI denoiser init, 25.4 log hygiene.
-- Phase 26 code done: 26.1–26.6 (device classify, quality/music, mixer-as-mic, loop guard, setup wizard, capture truth + Windows/ASIO hints). Commits on `phase-23-24-agora` through `fd757e5`.
-- Verified: `npm run test:unit` (266) + `npx tsc --noEmit` green after 26.6.
-- Blocked for the agent: **26.7 owner live test matrix** (Setup 1 VB-Cable / Setup 2 Voicemeeter). Do not automate Clubhouse.
-- Leftover elsewhere: ST-9 Restream `@deferred`; ACC-1 wording question; live verify host mod 2xx → observed.
+- Mute / move to audience / block stay host-community callable (no Experimental). Make moderator stays unsupported (web 404). Speaker ⋯ menu lists mute → move → block; audience cards get Block from room. Live log so far: `make_moderator` + `end_channel` 404 — mute/uninvite/block not yet exercised in that session.
+- Prior: Phase 25–26 code; 26.7 owner live matrix. ST-9 `@deferred`; ACC-1 wording.
 
 ### Previous last autonomous run (2026-10-12 #12 — host tools first-class)
 
@@ -31,6 +28,11 @@ Idle recheck after 24.7.
 - Prior `end_channel` 404 no longer buries host tools as unsupported (revived on config load).
 - Verified: `npm test` (225 unit + 201 BDD), lint, build green.
 - Leftover: ST-9 `@deferred`; ACC-1 wording; live verify host mod 2xx → observed.
+
+### Closed decisions
+
+- **Make moderator (2026-10-12):** Owner wants this in Clubbox. Live `POST /web_api/make_moderator` → 404; community clients only hit `clubhouseapi.com/api/make_moderator`. Hard rule forbids the mobile host. No alternate web path in the bundle or captures. **Decision:** stay `unsupported`, hide the control, toast points to the Clubhouse app. Do not re-enable until Clubhouse exposes a web route (or an observed capture proves otherwise).
+- **End room (2026-10-12):** Leave and End are separate. Leave only `leave_channel`. End room (Details) calls `end_channel` with `channel` + numeric `channel_id`; on failure the host stays in the room (no silent leave). Prior live 404 may have been wrong body (string channel_id) — re-verify after the body fix.
 
 ### Questions for the owner
 

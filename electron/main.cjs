@@ -126,9 +126,11 @@ function isSignInAllowedHttps(target) {
   return isClubhouseHttps(target) || isSignInAuxHttps(target);
 }
 
-/** Profile social links + Clubhouse pages — opened via shell.openExternal. */
+/**
+ * User-clicked https links (room chat, profile social, Clubhouse pages).
+ * Opened via shell.openExternal — https only, no credentials in the URL.
+ */
 function isAllowedExternalHttps(target) {
-  if (isClubhouseHttps(target)) return true;
   let url;
   try {
     url = new URL(target);
@@ -137,10 +139,7 @@ function isAllowedExternalHttps(target) {
   }
   if (url.protocol !== 'https:') return false;
   if (url.username || url.password) return false;
-  const host = url.hostname.toLowerCase();
-  return host === 'x.com' || host === 'www.x.com'
-    || host === 'twitter.com' || host === 'www.twitter.com'
-    || host === 'instagram.com' || host === 'www.instagram.com';
+  return Boolean(url.hostname);
 }
 
 function isTrustedSender(event) {

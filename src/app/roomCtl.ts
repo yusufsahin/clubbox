@@ -6,7 +6,6 @@ import {
   type CreateAudience,
 } from '../api/createComposer.ts';
 import { beginJoin, commitJoin, finishLeave, localClipAllowed, roleSyncDecision, roomAudience } from '../api/guards.ts';
-import { leaveClosesRoom, planLeaveServer, roomHasOthers } from '../api/roomActions.ts';
 import { visibilityChangeEndpoint } from '../api/moderationExtras.ts';
 import { mergePingCandidates, readSearchPingCandidates, readSuggestedInvites } from '../api/pingInvites.ts';
 import {
@@ -1118,41 +1117,15 @@ export async function releaseRoomLocally(this: ClubboxApp, options: { skipServer
     this.openSpeakerMenuId = null;
   }
 
-export async function leaveRoom(this: ClubboxApp, options: { silent?: boolean; end?: boolean } = {}) {
+export async function leaveRoom(this: ClubboxApp, options: { silent?: boolean } = {}) {
     const channel = this.currentChannel;
     const hadRoom = !!channel;
     if (!hadRoom && !this.joinInFlight && !agoraVoice.getIsJoined() && !audioEngine.getIsRecording()) return;
-    const myId = this.me?.user_id ?? clubhouseClient.getCurrentUserId();
-    const closes = !!channel && myId != null && leaveClosesRoom(channel.users, myId);
-    const sandbox = clubhouseClient.getConfig().useSandbox;
-    let wantEnd = options.end === true;
-    if (!options.silent && !options.end && closes) {
-      if (!window.confirm(t('leaveEndsRoomConfirm'))) return;
-      wantEnd = true;
-    } else if (!options.silent && !options.end && hadRoom) {
+    // Leave never calls end_channel — use Details › End room to close for everyone.
+    if (!options.silent && hadRoom) {
       if (!window.confirm(t('leaveRoomConfirm'))) return;
-    } else if (options.silent && !options.end && closes && sandbox) {
-      wantEnd = true;
     }
 
-    const endSupported = sandbox || clubhouseClient.supports('end_channel');
-    const plan = planLeaveServer({ wantEnd, endSupported });
-
-    if (plan.action === 'end_then_local' && channel) {
-      try {
-        await clubhouseClient.endChannel(this.channelApiId(channel));
-        await this.releaseRoomLocally({ skipServer: true });
-        this.afterRoomExit(hadRoom, options.silent === true, true);
-        return;
-      } catch (err) {
-        this.reportApiError(err);
-        // Fall through: leave_channel so we do not stay ghosted in the room.
-      }
-    } else if (wantEnd && !endSupported) {
-      this.showToast(t('availableInClubhouseApp'), '📱');
-    }
-
-    // Always best-effort leave_channel (never skipServer on Leave quietly).
     await this.releaseRoomLocally();
     this.afterRoomExit(hadRoom, options.silent === true, false);
   }
@@ -1177,8 +1150,20 @@ export async function endRoom(this: ClubboxApp) : Promise<void> {
     const myId = this.me?.user_id ?? clubhouseClient.getCurrentUserId();
     if (!channel || !this.isMeModerator() || myId == null) return;
     if (!this.allowAction('end_channel')) return;
-    if (roomHasOthers(channel.users, myId) && !window.confirm(t('endRoomConfirm'))) return;
-    await this.leaveRoom({ silent: true, end: true });
+    if (!window.confirm(t('endRoomConfirm'))) return;
+    const channelCode = this.channelApiId(channel);
+    try {
+      await clubhouseClient.endChannel(channelCode, channel.channel_id);
+      await this.releaseRoomLocally({ skipServer: true });
+      this.afterRoomExit(true, false, true);
+    } catch (err) {
+      // Explicit End must not degrade to Leave — stay in the room and surface the error.
+      if (err instanceof ClubhouseApiError && (err.status === 404 || err.status === 405)) {
+        this.showToast(t('endRoomUnavailable'), '📱');
+        return;
+      }
+      this.reportApiError(err);
+    }
   }
 
 export async function sendChatMessage(this: ClubboxApp) {

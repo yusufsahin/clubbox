@@ -4,7 +4,8 @@ export type UserCapabilities = Record<string, boolean | undefined>;
 
 export type RoomControlFlags = {
   canMute: boolean;
-  canMod: boolean;
+  /** Make moderator — web route 404; stays false until Clubhouse exposes it. */
+  canMakeModerator: boolean;
   canMoveToAudience: boolean;
   canInvite: boolean;
   canEnd: boolean;
@@ -31,7 +32,7 @@ export function roomControlFlags(
   const gate = (capKey: string, endpoint: string) => capAllows(caps, capKey) && supports(endpoint);
   return {
     canMute: gate('can_mute_speakers', 'mute_speaker'),
-    canMod: gate('can_remove_speakers', 'make_moderator'),
+    canMakeModerator: gate('can_remove_speakers', 'make_moderator'),
     canMoveToAudience: gate('can_remove_speakers', 'uninvite_speaker'),
     canInvite: gate('can_invite', 'invite_speaker'),
     canEnd: gate('can_end_room', 'end_channel'),

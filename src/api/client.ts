@@ -1266,8 +1266,10 @@ export class ClubhouseApiClient {
     return this.request('get_create_channel_targets', {});
   }
 
-  public async endChannel(channelId: string): Promise<ApiAck> {
-    return this.call('end_channel', { channel: channelId });
+  public async endChannel(channel: string, channelId?: number | string): Promise<ApiAck> {
+    const body: RequestBody = { channel };
+    if (channelId != null && channelId !== '') body.channel_id = channelId;
+    return this.call('end_channel', body);
   }
 
   public async setChannelTitle(channelId: string, title: string): Promise<ApiAck> {
