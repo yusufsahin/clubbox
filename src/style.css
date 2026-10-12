@@ -1325,7 +1325,7 @@ option.device-unavailable {
 .speaker-not-connected {
   font-size: 11px;
   font-weight: 600;
-  color: var(--text-secondary);
+  color: var(--text-muted);
   margin: -6px 0 8px;
   letter-spacing: -0.1px;
 }
@@ -2463,9 +2463,9 @@ option.device-unavailable {
 
 .send-quality-chip {
   flex-shrink: 0;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-subtle);
   background: var(--surface-2);
-  color: var(--text);
+  color: var(--text-main);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.01em;
@@ -3960,7 +3960,7 @@ button.mutual-line:hover {
   align-items: center;
   min-height: 168px;
   padding: 12px;
-  background: var(--bg);
+  background: var(--bg-inset);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md, 8px);
 }
@@ -3983,7 +3983,7 @@ button.mutual-line:hover {
   padding-left: 20px;
   font-size: 13px;
   line-height: 1.5;
-  color: var(--text);
+  color: var(--text-main);
 }
 
 .phone-mod-help-list li + li {

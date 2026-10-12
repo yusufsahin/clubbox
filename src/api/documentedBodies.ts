@@ -144,6 +144,13 @@ export function sampleParamsForDocumentedBody(endpoint: string): RequestBody {
       return { channel: 'replay-1', chunk: '0' };
     case 'get_highlight':
       return { id: 'hl-1' };
+    case 'add_channel_link':
+      return { channel: 'abc123', link: 'https://example.com' };
+    case 'disable_channel_messages':
+    case 'enable_channel_messages':
+      return { channel: 'abc123' };
+    case 'delete_channel_message':
+      return { channel: 'abc123', message_id: '1' };
     default:
       return {};
   }

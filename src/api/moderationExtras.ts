@@ -1,12 +1,25 @@
 import webApiRoutes from '../../electron/webApiRoutes.json' with { type: 'json' };
 import { documentedBodyKeys } from './documentedBodies.ts';
 
-type RouteTable = Record<string, { path?: string; evidence?: string }>;
+type RouteTable = Record<string, { path?: string; evidence?: string; transport?: string }>;
 
 const routes = webApiRoutes as RouteTable;
 
+/**
+ * True when a web-session route has a documented body.
+ * Mobile-spike / mobile-only host tools stay false until Verified-by-use (30.2) — app-only.
+ */
 function hasCallableEndpoint(endpoint: string): boolean {
-  return Boolean(routes[endpoint]?.path) && documentedBodyKeys(endpoint).length > 0;
+  const route = routes[endpoint];
+  if (!route?.path) return false;
+  if (route.transport === 'mobile' || route.evidence === 'mobile-spike') {
+    return route.evidence === 'observed';
+  }
+  try {
+    return documentedBodyKeys(endpoint).length > 0;
+  } catch {
+    return false;
+  }
 }
 
 export function moderationEndpoint(feature: 'room_chat_off' | 'delete_message' | 'pinned_link' | 'web_listening'): string | null {
