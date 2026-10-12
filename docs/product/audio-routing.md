@@ -1,5 +1,10 @@
 # Ses yönlendirme / Audio routing
 
+Public install + VB-Cable guide (distribution repo):
+
+- [USER_GUIDE.md](https://github.com/yusufsahin/clubbox-app/blob/main/USER_GUIDE.md)
+- [VB_CABLE.md](https://github.com/yusufsahin/clubbox-app/blob/main/VB_CABLE.md)
+
 ## Türkçe
 
 İki kurulum var. Ayarlar › Ses › **Müzik ve harici ses kurulumu** aynı pencereyi koridordan ve odadan da açar. **Uygula** demeden aygıtlar değişmez.
