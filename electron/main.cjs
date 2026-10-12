@@ -10,6 +10,7 @@ const {
   systemPreferences,
   powerMonitor,
   dialog,
+  safeStorage,
 } = require('electron');
 const path = require('path');
 const fs = require('fs');
@@ -25,6 +26,7 @@ const {
   isAllowedMobileEndpoint,
   mobileAuthHeadersFromCookies,
   callMobileApi,
+  refreshMobileToken,
   httpsPostJson,
   MOBILE_API_BASE,
 } = require('./mobileApi.cjs');
@@ -36,6 +38,7 @@ const {
 } = require('./mobileProbe.cjs');
 const {
   normalizeTrPhoneForAuth,
+  stripTrunkZeroFromAuthBody,
   ensureProbeDeviceId,
   responseHasKey,
   detectAttestation,
@@ -43,6 +46,19 @@ const {
   callTokenProbeApi,
   muteSpeakerWithHeaderVariants,
 } = require('./mobileTokenProbe.cjs');
+const {
+  saveMobileAuth,
+  loadMobileAuth,
+  clearMobileAuth,
+  mobileAuthStatus: readMobileAuthStatus,
+  rememberMobilePhone,
+  loadRememberedPhone,
+  clearRememberedPhone,
+  ensureDeviceId,
+} = require('./mobileAuthStore.cjs');
+
+/** @type {{ endpoint: string, body: Record<string, unknown> } | null} */
+let pendingHostToolsAction = null;
 
 const REQUEST_TIMEOUT_MS = 20000;
 const DEV_SERVER_ORIGIN = 'http://localhost:5173';
@@ -1041,28 +1057,7 @@ function parseAuthBody(text) {
   }
 }
 
-/**
- * Turkish users habitually type the national trunk "0" (0532…), which the
- * sign-in form turns into "+900532…": Clubhouse answers success but no SMS
- * is sent. Returns the rewritten JSON body, or null when nothing changes.
- */
-function stripTrunkZeroFromAuthBody(text) {
-  if (!text) return null;
-  let body;
-  try {
-    body = JSON.parse(text);
-  } catch {
-    return null;
-  }
-  if (!body || typeof body.phone_number !== 'string') return null;
-  const compact = body.phone_number.replace(/[\s()-]/g, '');
-  const match = /^\+900(\d{10})$/.exec(compact);
-  if (!match) return null;
-  body.phone_number = `+90${match[1]}`;
-  return JSON.stringify(body);
-}
-
-/** Read start/resend/complete phone bodies via CDP — passive, nothing runs in the page. */
+/** Read start/resend/complete phone bodies via CDP — rewrite TR +900… so SMS can arrive. */
 function attachSignInAuthDebugger(win) {
   const dbg = win?.webContents?.debugger;
   if (!dbg) return;
@@ -1109,26 +1104,58 @@ function attachSignInAuthDebugger(win) {
     if (method !== 'Fetch.requestPaused') return;
     const requestId = params?.requestId;
     const passThrough = () => dbg.sendCommand('Fetch.continueRequest', { requestId }).catch(() => {});
-    try {
-      const fixed = stripTrunkZeroFromAuthBody(params?.request?.postData);
-      if (!fixed) {
-        void passThrough();
-        return;
+    // Fetch.requestPaused often omits postData; pull it via Network when needed so
+    // TR trunk-zero (+900…) is not forwarded (HTTP 200 but SMS never arrives).
+    void (async () => {
+      try {
+        let post = params?.request?.postData;
+        if (!post && params?.networkId) {
+          try {
+            const r = await dbg.sendCommand('Network.getRequestPostData', { requestId: params.networkId });
+            post = r?.postData;
+          } catch {
+            /* body unavailable — pass through */
+          }
+        }
+        if (!post && params?.request?.hasPostData && params?.requestId) {
+          try {
+            const r = await dbg.sendCommand('Network.getRequestPostData', { requestId: params.networkId || params.requestId });
+            post = r?.postData;
+          } catch {
+            /* ignore */
+          }
+        }
+        const fixed = stripTrunkZeroFromAuthBody(post);
+        if (!fixed) {
+          passThrough();
+          return;
+        }
+        console.log('[web] phone_number: TR trunk-zero stripped (+900… → +905…; SMS never arrives for +900)');
+        try {
+          const parsed = JSON.parse(fixed);
+          if (typeof parsed.phone_number === 'string') {
+            rememberMobilePhone(safeStorage, app.getPath('userData'), parsed.phone_number);
+          }
+        } catch {
+          /* ignore */
+        }
+        await dbg.sendCommand('Fetch.continueRequest', {
+          requestId,
+          postData: Buffer.from(fixed, 'utf8').toString('base64'),
+        });
+      } catch {
+        passThrough();
       }
-      console.log('[web] phone_number: removed leading 0 after +90 (SMS never arrives for +900…)');
-      dbg.sendCommand('Fetch.continueRequest', {
-        requestId,
-        postData: Buffer.from(fixed, 'utf8').toString('base64'),
-      }).catch(() => passThrough());
-    } catch {
-      void passThrough();
-    }
+    })();
   });
   dbg.sendCommand('Network.enable').catch((err) => {
     console.warn('[web] auth debugger Network.enable failed', err instanceof Error ? err.message : err);
   });
   dbg.sendCommand('Fetch.enable', {
-    patterns: [{ urlPattern: '*://*clubhouse.com/web_api/*phone_number*', requestStage: 'Request' }],
+    patterns: [
+      { urlPattern: '*://*clubhouse.com/web_api/*phone_number*', requestStage: 'Request' },
+      { urlPattern: '*://www.clubhouse.com/web_api/*phone*', requestStage: 'Request' },
+    ],
   }).catch((err) => {
     console.warn('[web] auth debugger Fetch.enable failed', err instanceof Error ? err.message : err);
   });
@@ -1888,41 +1915,252 @@ ipcMain.handle('ch:request', async (event, payload) => {
   };
 });
 
+async function fetchWebMeUserId() {
+  try {
+    const sess = authSession();
+    const res = await sess.fetch('https://www.clubhouse.com/web_api/me', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: '{}',
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json?.user_profile?.user_id ?? json?.user_id ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function emitHostToolsLinkNeeded(reason) {
+  const win = mainWindow && !mainWindow.isDestroyed() ? mainWindow : null;
+  win?.webContents?.send('clubbox:host-tools-link-needed', { reason: reason || 'token' });
+}
+
 /**
- * Phase 27.1 reduced: web session cookies + X-CSRFToken on the mobile API host (no SMS token).
- * Allow-list only; never log Cookie / X-CSRFToken values.
+ * Phase 27.5 — Token link status (never includes token/phone values).
  */
 ipcMain.handle('clubbox:mobile-auth-status', async (event) => {
-  if (!isTrustedSender(event)) return { linked: false, mode: 'web-session' };
-  const linked = await hasClubhouseSessionCookie(authSession());
-  return { linked, mode: 'web-session', userIdMatchesWeb: linked };
+  if (!isTrustedSender(event)) return { linked: false, mode: 'none', hasPhone: false };
+  const webUserId = await fetchWebMeUserId();
+  const status = readMobileAuthStatus(safeStorage, app.getPath('userData'), webUserId);
+  const webSession = await hasClubhouseSessionCookie(authSession());
+  return { ...status, webSession };
 });
 
-ipcMain.handle('clubbox:mobile-call', async (event, payload) => {
-  if (!isTrustedSender(event)) {
-    return { ok: false, status: 0, body: 'Unauthorized frame' };
+ipcMain.handle('clubbox:mobile-auth-unlink', async (event) => {
+  if (!isTrustedSender(event)) return { ok: false };
+  clearMobileAuth(app.getPath('userData'));
+  clearRememberedPhone(app.getPath('userData'));
+  pendingHostToolsAction = null;
+  return { ok: true };
+});
+
+/**
+ * Start SMS for host-tools Token. Phone stays in main (remembered or payload once).
+ * Never logs phone. Code is submitted via clubbox:mobile-auth-complete.
+ */
+ipcMain.handle('clubbox:mobile-auth-start', async (event, payload) => {
+  if (!isTrustedSender(event)) return { ok: false, reason: 'unauthorized' };
+  const userData = app.getPath('userData');
+  let phone = loadRememberedPhone(safeStorage, userData);
+  if (!phone && typeof payload?.phone === 'string') {
+    const remembered = rememberMobilePhone(safeStorage, userData, payload.phone);
+    if (!remembered.ok) return { ok: false, reason: 'normalize_failed' };
+    phone = loadRememberedPhone(safeStorage, userData);
   }
-  const endpoint = String(payload?.endpoint || '').replace(/^\//, '');
-  if (!isAllowedMobileEndpoint(endpoint)) {
-    return { ok: false, status: 0, body: 'Endpoint is not allowed' };
+  if (!phone) return { ok: false, reason: 'phone_needed' };
+  const deviceId = ensureDeviceId(userData);
+  const startRes = await callTokenProbeApi({
+    endpoint: 'start_phone_number_auth',
+    body: { phone_number: phone },
+    headers: mobileTokenHeaders({ deviceId }),
+    timeoutMs: REQUEST_TIMEOUT_MS,
+  });
+  const attest = detectAttestation(startRes.body);
+  if (attest.required || startRes.status === 400) {
+    return {
+      ok: false,
+      reason: 'blocked',
+      status: startRes.status,
+      attestation: true,
+      shape: startRes.shape,
+    };
   }
-  if (!isPlainPayload(payload?.body, 0)) {
-    return { ok: false, status: 0, body: 'Invalid payload' };
+  return { ok: startRes.ok, status: startRes.status, shape: startRes.shape, needsCode: true };
+});
+
+ipcMain.handle('clubbox:mobile-auth-resend', async (event) => {
+  if (!isTrustedSender(event)) return { ok: false, reason: 'unauthorized' };
+  const userData = app.getPath('userData');
+  const phone = loadRememberedPhone(safeStorage, userData);
+  if (!phone) return { ok: false, reason: 'phone_needed' };
+  const deviceId = ensureDeviceId(userData);
+  const res = await callTokenProbeApi({
+    endpoint: 'resend_phone_number_auth',
+    body: { phone_number: phone },
+    headers: mobileTokenHeaders({ deviceId }),
+    timeoutMs: REQUEST_TIMEOUT_MS,
+  });
+  return { ok: res.ok, status: res.status, shape: res.shape };
+});
+
+ipcMain.handle('clubbox:mobile-auth-complete', async (event, payload) => {
+  if (!isTrustedSender(event)) return { ok: false, reason: 'unauthorized' };
+  const code = typeof payload?.code === 'string' ? payload.code.trim() : '';
+  if (!code || !/^\d{4,8}$/.test(code)) return { ok: false, reason: 'invalid_code' };
+  const userData = app.getPath('userData');
+  const phone = loadRememberedPhone(safeStorage, userData);
+  if (!phone) return { ok: false, reason: 'phone_needed' };
+  const webUserId = await fetchWebMeUserId();
+  if (webUserId == null) return { ok: false, reason: 'no_web_user' };
+  const deviceId = ensureDeviceId(userData);
+  const completeRes = await callTokenProbeApi({
+    endpoint: 'complete_phone_number_auth',
+    body: { phone_number: phone, verification_code: code },
+    headers: mobileTokenHeaders({ deviceId }),
+    timeoutMs: REQUEST_TIMEOUT_MS,
+  });
+  const attest = detectAttestation(completeRes.body);
+  if (attest.required) {
+    return { ok: false, reason: 'blocked', attestation: true, shape: completeRes.shape };
   }
+  let authToken = null;
+  let authUserId = null;
+  let refreshToken = null;
+  try {
+    const json = JSON.parse(completeRes.body);
+    if (typeof json.auth_token === 'string') authToken = json.auth_token;
+    authUserId = json?.user_profile?.user_id ?? json?.user_id ?? null;
+    if (typeof json.refresh_token === 'string') refreshToken = json.refresh_token;
+  } catch {
+    /* ignore */
+  }
+  if (!authToken || authUserId == null) {
+    return { ok: false, reason: 'no_token', status: completeRes.status, shape: completeRes.shape };
+  }
+  if (String(authUserId) !== String(webUserId)) {
+    return { ok: false, reason: 'user_id_mismatch' };
+  }
+  saveMobileAuth(safeStorage, userData, {
+    token: authToken,
+    userId: authUserId,
+    deviceId,
+    refreshToken: refreshToken || undefined,
+    phone,
+  });
+  authToken = null;
+  refreshToken = null;
+
+  let retryResult = null;
+  if (pendingHostToolsAction) {
+    const pending = pendingHostToolsAction;
+    pendingHostToolsAction = null;
+    retryResult = await invokeMobileCallWithAuth(pending.endpoint, pending.body);
+  }
+  const win = mainWindow && !mainWindow.isDestroyed() ? mainWindow : null;
+  win?.webContents?.send('clubbox:host-tools-linked', { ok: true });
+  return {
+    ok: true,
+    shape: completeRes.shape,
+    retried: !!retryResult,
+    retryStatus: retryResult?.status ?? null,
+    retryOk: retryResult?.ok ?? null,
+  };
+});
+
+/**
+ * @param {string} endpoint
+ * @param {Record<string, unknown>} requestBody
+ */
+async function invokeMobileCallWithAuth(endpoint, requestBody) {
   const sess = authSession();
   const cookies = await listClubhouseCookies(sess);
-  const requestBody = payload?.body && typeof payload.body === 'object' ? payload.body : {};
-  const result = await callMobileApi({
+  const userData = app.getPath('userData');
+  const webUserId = await fetchWebMeUserId();
+  let auth = loadMobileAuth(safeStorage, userData);
+  if (auth && webUserId != null && String(auth.userId) !== String(webUserId)) {
+    clearMobileAuth(userData);
+    auth = null;
+  }
+
+  if (!auth?.token) {
+    pendingHostToolsAction = { endpoint, body: requestBody };
+    emitHostToolsLinkNeeded('not_linked');
+    return {
+      ok: false,
+      status: 401,
+      body: JSON.stringify({ error_message: 'Host tools link needed' }),
+      linkNeeded: true,
+    };
+  }
+
+  const tokenAuth = {
+    token: auth.token,
+    userId: auth.userId,
+    deviceId: auth.deviceId || ensureDeviceId(userData),
+  };
+  let result = await callMobileApi({
     fetchFn: (url, init) => sess.fetch(url, init),
     endpoint,
     body: requestBody,
     cookies,
     userAgent: PAGE_UA,
     timeoutMs: REQUEST_TIMEOUT_MS,
+    tokenAuth,
   });
+
+  if (result.status === 401 && auth.refreshToken) {
+    const refreshed = await refreshMobileToken({
+      refreshToken: auth.refreshToken,
+      deviceId: tokenAuth.deviceId,
+      userId: auth.userId,
+      timeoutMs: REQUEST_TIMEOUT_MS,
+    });
+    if (refreshed.ok && refreshed.token) {
+      saveMobileAuth(safeStorage, userData, {
+        ...auth,
+        token: refreshed.token,
+        refreshToken: refreshed.refreshToken || auth.refreshToken,
+      });
+      result = await callMobileApi({
+        fetchFn: (url, init) => sess.fetch(url, init),
+        endpoint,
+        body: requestBody,
+        cookies,
+        userAgent: PAGE_UA,
+        timeoutMs: REQUEST_TIMEOUT_MS,
+        tokenAuth: {
+          token: refreshed.token,
+          userId: auth.userId,
+          deviceId: tokenAuth.deviceId,
+        },
+      });
+    } else {
+      clearMobileAuth(userData);
+      pendingHostToolsAction = { endpoint, body: requestBody };
+      emitHostToolsLinkNeeded('expired');
+      return {
+        ok: false,
+        status: 401,
+        body: JSON.stringify({ error_message: 'Host tools link expired' }),
+        linkNeeded: true,
+      };
+    }
+  } else if (result.status === 401) {
+    clearMobileAuth(userData);
+    pendingHostToolsAction = { endpoint, body: requestBody };
+    emitHostToolsLinkNeeded('expired');
+    return {
+      ok: false,
+      status: 401,
+      body: JSON.stringify({ error_message: 'Host tools link needed' }),
+      linkNeeded: true,
+    };
+  }
+
   console.log('[mobile]', endpoint, result.status);
   try {
-    appendApiLog(app.getPath('userData'), {
+    appendApiLog(userData, {
       endpoint,
       body: Object.fromEntries(Object.keys(requestBody).map((key) => [key, typeof requestBody[key]])),
       status: result.status,
@@ -1935,6 +2173,21 @@ ipcMain.handle('clubbox:mobile-call', async (event, payload) => {
     console.warn('[Clubbox] api-log write failed:', err);
   }
   return result;
+}
+
+ipcMain.handle('clubbox:mobile-call', async (event, payload) => {
+  if (!isTrustedSender(event)) {
+    return { ok: false, status: 0, body: 'Unauthorized frame' };
+  }
+  const endpoint = String(payload?.endpoint || '').replace(/^\//, '');
+  if (!isAllowedMobileEndpoint(endpoint)) {
+    return { ok: false, status: 0, body: 'Endpoint is not allowed' };
+  }
+  if (!isPlainPayload(payload?.body, 0)) {
+    return { ok: false, status: 0, body: 'Invalid payload' };
+  }
+  const requestBody = payload?.body && typeof payload.body === 'object' ? payload.body : {};
+  return invokeMobileCallWithAuth(endpoint, requestBody);
 });
 
 /** Phase 28.0 — DevTools: await electronAPI.mobileProbeReadOnly() while in a room. */
@@ -2288,7 +2541,7 @@ async function runTokenAuthSpikeFromArgv(argv) {
 
   const phoneRaw = await promptMainText(
     'Host tools Token spike',
-    'Phone number (TR → +905…). Warning: your phone app may be signed out.',
+    'Phone number (TR → +905…).',
   );
   if (!phoneRaw) {
     report.notes.push('cancelled_at_phone');

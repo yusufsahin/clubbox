@@ -6,9 +6,23 @@ contextBridge.exposeInMainWorld('electronAPI', {
   platform: process.platform,
   version: process.versions.electron,
   request: (endpoint, body, headers) => ipcRenderer.invoke('ch:request', { endpoint, body, headers }),
-  /** Phase 27 — allow-listed moderation on clubhouseapi.com (web session cookies + CSRF). */
+  /** Phase 27 — allow-listed moderation on clubhouseapi.com (Token when linked). */
   mobileCall: (endpoint, body) => ipcRenderer.invoke('clubbox:mobile-call', { endpoint, body }),
   mobileAuthStatus: () => ipcRenderer.invoke('clubbox:mobile-auth-status'),
+  mobileAuthStart: (payload) => ipcRenderer.invoke('clubbox:mobile-auth-start', payload || {}),
+  mobileAuthResend: () => ipcRenderer.invoke('clubbox:mobile-auth-resend'),
+  mobileAuthComplete: (payload) => ipcRenderer.invoke('clubbox:mobile-auth-complete', payload || {}),
+  mobileAuthUnlink: () => ipcRenderer.invoke('clubbox:mobile-auth-unlink'),
+  onHostToolsLinkNeeded: (callback) => {
+    const listener = (_event, payload) => callback(payload || {});
+    ipcRenderer.on('clubbox:host-tools-link-needed', listener);
+    return () => ipcRenderer.removeListener('clubbox:host-tools-link-needed', listener);
+  },
+  onHostToolsLinked: (callback) => {
+    const listener = (_event, payload) => callback(payload || {});
+    ipcRenderer.on('clubbox:host-tools-linked', listener);
+    return () => ipcRenderer.removeListener('clubbox:host-tools-linked', listener);
+  },
   /** Phase 28.0 — only when main started with CLUBBOX_PROBE_MOBILE=1. */
   mobileProbeReadOnly: (channel) => ipcRenderer.invoke('clubbox:mobile-probe-readonly', { channel }),
   mobileProbeMutate: (payload) => ipcRenderer.invoke('clubbox:mobile-probe-mutate', payload),

@@ -1,7 +1,7 @@
 /**
  * Phase 27 — moderation calls on the Clubhouse mobile API host.
- * Today: web session cookies + X-CSRFToken (enough for get_profile; moderation → 401 Token-class).
- * 27.5.0: Electron SMS auth rejected (token validation). Token store (27.5.1+) pending owner A2/B.
+ * Prefer Authorization: Token when linked (27.5); else web session cookies + X-CSRFToken
+ * (get_profile-class only; moderation → 401 without Token).
  * Never log Cookie / X-CSRFToken / Authorization values.
  */
 
@@ -9,6 +9,12 @@ const https = require('https');
 const { URL } = require('url');
 
 const MOBILE_API_BASE = 'https://www.clubhouseapi.com/api';
+const REFRESH_TOKEN_ENDPOINT = 'refresh_token';
+
+/** Lazy — mobileTokenProbe also requires this module for httpsPostJson. */
+function tokenHeaderHelpers() {
+  return require('./mobileTokenProbe.cjs');
+}
 
 /**
  * Node https POST that keeps Cookie / X-CSRFToken (undici fetch strips Cookie as forbidden).
@@ -60,7 +66,6 @@ const ALLOWED_MOBILE_ENDPOINTS = Object.freeze([
   'mute_speaker',
   'block_from_channel',
   'make_moderator',
-  'change_handraise_settings',
   'get_channel',
   'reject_speaker_invite',
   'invite_to_existing_channel',
@@ -120,8 +125,17 @@ function mobileAuthHeadersFromCookies(cookies, opts) {
  *   userAgent: string,
  *   timeoutMs?: number,
  *   allowList?: Set<string> | ReadonlySet<string>,
+ *   tokenAuth?: {
+ *     token: string,
+ *     userId: number | string,
+ *     deviceId: string,
+ *     appVersion?: string,
+ *     appBuild?: string,
+ *     userAgent?: string,
+ *   } | null,
  * }} args
  * `allowList` — dev probe only; when set, replaces the production allow-list check.
+ * Token path uses Node https (same as Cookie path).
  */
 async function callMobileApi(args) {
   const endpoint = String(args.endpoint || '').replace(/^\//, '');
@@ -135,10 +149,32 @@ async function callMobileApi(args) {
       body: JSON.stringify({ error_message: 'Endpoint is not allowed on mobile API' }),
     };
   }
-  const headers = mobileAuthHeadersFromCookies(args.cookies, { userAgent: args.userAgent });
   const timeoutMs = typeof args.timeoutMs === 'number' ? args.timeoutMs : 20_000;
   const url = `${MOBILE_API_BASE}/${endpoint}`;
   const body = JSON.stringify(args.body && typeof args.body === 'object' ? args.body : {});
+
+  if (args.tokenAuth?.token) {
+    const { mobileTokenHeaders, DEFAULT_MOBILE_APP } = tokenHeaderHelpers();
+    const headers = mobileTokenHeaders({
+      deviceId: args.tokenAuth.deviceId,
+      userId: args.tokenAuth.userId,
+      token: args.tokenAuth.token,
+      appVersion: args.tokenAuth.appVersion || DEFAULT_MOBILE_APP.appVersion,
+      appBuild: args.tokenAuth.appBuild || DEFAULT_MOBILE_APP.appBuild,
+      userAgent: args.tokenAuth.userAgent || args.userAgent || DEFAULT_MOBILE_APP.userAgent,
+    });
+    try {
+      return await httpsPostJson(url, headers, body, timeoutMs);
+    } catch (err) {
+      return {
+        ok: false,
+        status: 0,
+        body: err instanceof Error ? err.message : 'Network error',
+      };
+    }
+  }
+
+  const headers = mobileAuthHeadersFromCookies(args.cookies, { userAgent: args.userAgent });
   const hasSessionCookie = Array.isArray(args.cookies)
     && args.cookies.some((cookie) => cookie && cookie.name === 'sessionid' && cookie.value);
 
@@ -177,11 +213,62 @@ async function callMobileApi(args) {
   }
 }
 
+/**
+ * Silent Token refresh (auth-only; not on moderation allow-list).
+ * @param {{
+ *   refreshToken: string,
+ *   deviceId: string,
+ *   userId?: number | string | null,
+ *   timeoutMs?: number,
+ * }} args
+ * @returns {Promise<{ ok: boolean, status: number, body: string, token?: string, refreshToken?: string }>}
+ */
+async function refreshMobileToken(args) {
+  const { mobileTokenHeaders } = tokenHeaderHelpers();
+  const headers = mobileTokenHeaders({
+    deviceId: args.deviceId,
+    userId: args.userId,
+  });
+  const timeoutMs = typeof args.timeoutMs === 'number' ? args.timeoutMs : 20_000;
+  const url = `${MOBILE_API_BASE}/${REFRESH_TOKEN_ENDPOINT}`;
+  const body = JSON.stringify({ refresh: args.refreshToken, refresh_token: args.refreshToken });
+  try {
+    const result = await httpsPostJson(url, headers, body, timeoutMs);
+    let token;
+    let refreshToken;
+    try {
+      const json = JSON.parse(result.body);
+      if (typeof json.auth_token === 'string') token = json.auth_token;
+      else if (typeof json.access_token === 'string') token = json.access_token;
+      else if (typeof json.token === 'string') token = json.token;
+      if (typeof json.refresh_token === 'string') refreshToken = json.refresh_token;
+      else if (typeof json.refresh === 'string') refreshToken = json.refresh;
+    } catch {
+      /* keys only via caller */
+    }
+    return {
+      ok: result.ok,
+      status: result.status,
+      body: result.body,
+      token,
+      refreshToken,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      status: 0,
+      body: err instanceof Error ? err.message : 'Network error',
+    };
+  }
+}
+
 module.exports = {
   MOBILE_API_BASE,
   ALLOWED_MOBILE_ENDPOINTS,
+  REFRESH_TOKEN_ENDPOINT,
   isAllowedMobileEndpoint,
   mobileAuthHeadersFromCookies,
   callMobileApi,
+  refreshMobileToken,
   httpsPostJson,
 };

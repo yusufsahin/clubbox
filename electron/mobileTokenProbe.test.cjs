@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const {
   normalizeTrPhoneForAuth,
+  stripTrunkZeroFromAuthBody,
   summarizeResponseKeys,
   detectAttestation,
   responseHasKey,
@@ -17,6 +18,16 @@ test('normalizeTrPhoneForAuth maps TR trunk-zero and national forms', () => {
   assert.equal(normalizeTrPhoneForAuth('+905321234567'), '+905321234567');
   assert.equal(normalizeTrPhoneForAuth(''), null);
   assert.equal(normalizeTrPhoneForAuth('abc'), null);
+});
+
+test('stripTrunkZeroFromAuthBody rewrites +900 and spaced TR forms in JSON bodies', () => {
+  const fixed = stripTrunkZeroFromAuthBody(JSON.stringify({ phone_number: '+9005321234567' }));
+  assert.equal(JSON.parse(fixed).phone_number, '+905321234567');
+  const spaced = stripTrunkZeroFromAuthBody(JSON.stringify({ phone_number: '0532 123 45 67' }));
+  assert.equal(JSON.parse(spaced).phone_number, '+905321234567');
+  assert.equal(stripTrunkZeroFromAuthBody(JSON.stringify({ phone_number: '+905321234567' })), null);
+  assert.equal(stripTrunkZeroFromAuthBody(''), null);
+  assert.equal(stripTrunkZeroFromAuthBody('not-json'), null);
 });
 
 test('summarizeResponseKeys records key names but never token values', () => {

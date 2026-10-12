@@ -42,7 +42,7 @@ function isTokenAuthProbeEndpoint(name) {
 
 /**
  * TR trunk-zero + national formats → E.164 +905…
- * Mirrors stripTrunkZeroFromAuthBody (+900532… → +90532…) and also 0532… / 90532….
+ * (+900532… → +90532…, also 0532… / 90532… / 532…).
  * Returns null when input is empty / unusable (never invent a number).
  */
 function normalizeTrPhoneForAuth(raw) {
@@ -61,6 +61,25 @@ function normalizeTrPhoneForAuth(raw) {
   if (match) return `+905${match[1]}`;
   if (/^\+[1-9]\d{7,14}$/.test(compact)) return compact;
   return null;
+}
+
+/**
+ * Rewrites JSON auth bodies so TR phone_number is E.164 +905… (never +900…).
+ * Returns the new body string, or null when unchanged / not JSON auth.
+ */
+function stripTrunkZeroFromAuthBody(text) {
+  if (!text || typeof text !== 'string') return null;
+  let body;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    return null;
+  }
+  if (!body || typeof body.phone_number !== 'string') return null;
+  const normalized = normalizeTrPhoneForAuth(body.phone_number);
+  if (!normalized || normalized === body.phone_number) return null;
+  body.phone_number = normalized;
+  return JSON.stringify(body);
 }
 
 function ensureProbeDeviceId(userDataPath) {
@@ -297,6 +316,7 @@ module.exports = {
   DEFAULT_MOBILE_APP,
   isTokenAuthProbeEndpoint,
   normalizeTrPhoneForAuth,
+  stripTrunkZeroFromAuthBody,
   ensureProbeDeviceId,
   summarizeResponseKeys,
   responseHasKey,
