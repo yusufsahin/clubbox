@@ -258,9 +258,11 @@ export async function reactHouseChatMessage(
 }
 
 export async function loadEvents(this: ClubboxApp): Promise<void> {
+    // Events live under Activity (NAV-2 remaps the Events place → activity tab).
+    const onEventsSurface = this.currentTab === 'activity' || this.currentTab === 'events';
     if (!clubhouseClient.supports('get_events')) {
       this.eventsList = [];
-      if (this.currentTab === 'events') this.render();
+      if (onEventsSurface) this.render();
       return;
     }
     try {
@@ -270,7 +272,7 @@ export async function loadEvents(this: ClubboxApp): Promise<void> {
       this.eventsList = [];
       this.reportApiError(err);
     }
-    if (this.currentTab === 'events') this.render();
+    if (onEventsSurface) this.render();
   }
 
 export function downloadEventIcs(this: ClubboxApp, event: EventListItem): void {
