@@ -56,6 +56,10 @@ until a Token link is allowed or another observed auth path appears.
 | `block_from_channel` | `{ channel, user_id }` | **401 with web session** |
 | `make_moderator` | `{ channel, user_id }` | **401 with web session** |
 | `change_handraise_settings` | `{ channel, is_enabled, handraise_permission }` | **404** on mobile host (2026-10-12) |
+| `reject_speaker_invite` | `{ channel, user_id }` | 28.2; Token-class expected |
+| `invite_to_existing_channel` | `{ channel, user_id }` | 28.2 ping panel |
+| `hide_channel` | `{ channel, hide }` | 28.2 hallway + room details |
+| `save_replay` | `{ channel }` | 28.2; only when `is_replay_enabled` |
 
 IPC: `clubbox:mobile-call`. Evidence: `mobile-spike` in `webApiRoutes.json` (transport ready; **auth blocked**).
 

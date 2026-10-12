@@ -423,6 +423,31 @@ export async function hideHallwayRoom(this: ClubboxApp, channelId: string): Prom
         (channel) => channel.channel !== channelId && String(channel.channel_id) !== channelId,
       );
       if (this.currentTab === 'explore') this.render();
+      this.showToast(t('roomHidden'), '👁');
+    } catch (err) {
+      this.reportApiError(err);
+    }
+  }
+
+export async function hideCurrentRoom(this: ClubboxApp): Promise<void> {
+    if (!this.currentChannel) return;
+    const channelId = this.channelApiId(this.currentChannel);
+    await this.hideHallwayRoom(channelId);
+  }
+
+export async function saveCurrentReplay(this: ClubboxApp): Promise<void> {
+    if (!this.currentChannel) return;
+    if (!clubhouseClient.supports('save_replay')) {
+      this.showToast(t('unverifiedAction'), '🔒');
+      return;
+    }
+    if (this.currentChannel.is_replay_enabled !== true) {
+      this.showToast(t('replaysOffNote'), '📼');
+      return;
+    }
+    try {
+      await clubhouseClient.saveReplay(this.channelApiId(this.currentChannel));
+      this.showToast(t('replaySaved'), '📼');
     } catch (err) {
       this.reportApiError(err);
     }
@@ -460,4 +485,6 @@ export function wireHallwayCtl(proto: ClubboxApp): void {
   proto.setReplayRate = setReplayRate;
   proto.skipReplay = skipReplay;
   proto.hideHallwayRoom = hideHallwayRoom;
+  proto.hideCurrentRoom = hideCurrentRoom;
+  proto.saveCurrentReplay = saveCurrentReplay;
 }

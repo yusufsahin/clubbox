@@ -560,7 +560,7 @@ function pingPanelState(app: ClubboxApp) {
 }
 
 export async function openPingPanel(this: ClubboxApp): Promise<void> {
-    if (!this.currentChannel || !this.isMeModerator()) return;
+    if (!this.currentChannel) return;
     if (!this.allowAction('invite_to_existing_channel')) return;
     this.pingPanelOpen = true;
     this.pingQuery = '';

@@ -58,6 +58,8 @@ export type ClubboxAppCtlMethods = {
   setReplayRate: typeof hallwayCtl.setReplayRate;
   skipReplay: typeof hallwayCtl.skipReplay;
   hideHallwayRoom: typeof hallwayCtl.hideHallwayRoom;
+  hideCurrentRoom: typeof hallwayCtl.hideCurrentRoom;
+  saveCurrentReplay: typeof hallwayCtl.saveCurrentReplay;
   loadConversations: typeof messagesCtl.loadConversations;
   loadMoreConversations: typeof messagesCtl.loadMoreConversations;
   renameConversation: typeof messagesCtl.renameConversation;

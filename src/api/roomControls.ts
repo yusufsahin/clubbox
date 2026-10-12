@@ -43,8 +43,26 @@ export function roomControlFlags(
     canHandraise: gate('can_edit_handraise_queue', 'change_handraise_settings'),
     canReact: supports('emoji_reaction'),
     canGifReact: supports('gif_reaction'),
-    canPing: supports('invite_to_existing_channel'),
+    canPing: gate('can_invite', 'invite_to_existing_channel'),
     canChangeVisibility: supports('make_channel_public') || supports('make_channel_social'),
+  };
+}
+
+/** Hide room / save replay — available to any participant when supported + flags allow. */
+export function roomListenerActionFlags(
+  channel: {
+    is_replay_enabled?: boolean;
+    user_capabilities?: UserCapabilities;
+  } | null | undefined,
+  supports: (endpoint: string) => boolean,
+): { canHideRoom: boolean; canSaveReplay: boolean } {
+  const caps = channel?.user_capabilities;
+  const canSaveCap = !caps || !('can_save' in caps) || permissionOn(caps.can_save);
+  return {
+    canHideRoom: supports('hide_channel'),
+    canSaveReplay: supports('save_replay')
+      && channel?.is_replay_enabled === true
+      && canSaveCap,
   };
 }
 

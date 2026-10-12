@@ -1365,6 +1365,10 @@ export class ClubhouseApiClient {
     return this.call('hide_channel', { channel: channelId, hide });
   }
 
+  public async saveReplay(channelId: string): Promise<ApiAck> {
+    return this.call('save_replay', { channel: channelId });
+  }
+
   public async makeChannelPublic(channelId: string): Promise<ApiAck> {
     return this.call('make_channel_public', { channel: channelId });
   }

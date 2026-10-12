@@ -77,6 +77,7 @@ const SANDBOX_ENDPOINTS = new Set([
   'make_channel_public',
   'make_channel_social',
   'reject_speaker_invite',
+  'save_replay',
   'get_profile',
   'get_followers',
   'get_following',
@@ -112,6 +113,10 @@ export const MOBILE_HOST_ENDPOINTS = new Set([
   'end_channel',
   'change_handraise_settings',
   'get_channel',
+  'reject_speaker_invite',
+  'invite_to_existing_channel',
+  'hide_channel',
+  'save_replay',
 ]);
 
 /**
@@ -119,11 +124,8 @@ export const MOBILE_HOST_ENDPOINTS = new Set([
  * Speculative community reads (events, notifications, …) still need the toggle.
  */
 export const HOST_COMMUNITY_ENDPOINTS = new Set([
-  'reject_speaker_invite',
-  'invite_to_existing_channel',
   'make_channel_public',
   'make_channel_social',
-  'hide_channel',
 ]);
 
 export function isMobileHostEndpoint(endpoint: string): boolean {

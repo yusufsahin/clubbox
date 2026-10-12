@@ -175,6 +175,9 @@ const REQUEST_BUILDERS: Partial<Record<string, (params: RequestBody) => RequestB
     channel: requireString(params, 'channel'),
     hide: params.hide === true,
   }),
+  save_replay: (params) => ({
+    channel: requireString(params, 'channel'),
+  }),
   get_online_friends: () => ({}),
   get_notifications: (params) => ({
     page_size: typeof params.page_size === 'number' ? params.page_size : 20,

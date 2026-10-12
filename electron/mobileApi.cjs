@@ -61,6 +61,10 @@ const ALLOWED_MOBILE_ENDPOINTS = Object.freeze([
   'make_moderator',
   'change_handraise_settings',
   'get_channel',
+  'reject_speaker_invite',
+  'invite_to_existing_channel',
+  'hide_channel',
+  'save_replay',
 ]);
 
 const ALLOWED_SET = new Set(ALLOWED_MOBILE_ENDPOINTS);

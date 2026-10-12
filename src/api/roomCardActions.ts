@@ -1,7 +1,7 @@
 /**
  * Role × target card menus for the live stage (Phase 28.4).
  * Host tools stay gated by RoomControlFlags (capabilities + supports).
- * Leave stage stays off until 28.2 verifies uninvite_speaker on self.
+ * Leave stage stays off: 28.0 did not verify uninvite_speaker on self (not run).
  */
 
 export type RoomRole = 'listener' | 'speaker' | 'moderator';

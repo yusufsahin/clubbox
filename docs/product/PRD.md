@@ -51,9 +51,10 @@ Known body shapes (B unless marked C):
 | invite_speaker, uninvite_speaker, mute_speaker, block_from_channel, make_moderator | POST | channel, user_id | mobile-spike (`clubhouseapi.com/api`) |
 | end_channel | POST | channel, channel_id | mobile-spike |
 | change_handraise_settings | POST | channel, is_enabled, handraise_permission | mobile-spike |
-| reject_speaker_invite, invite_to_existing_channel | POST | channel, user_id | community |
+| reject_speaker_invite, invite_to_existing_channel | POST | channel, user_id | mobile-spike |
+| save_replay | POST | channel | mobile-spike |
 | make_channel_public, make_channel_social | POST | channel, channel_id | community |
-| hide_channel | POST | channel, hide | community |
+| hide_channel | POST | channel, hide | mobile-spike |
 | get_online_friends | POST | {} | community |
 | get_notifications | GET | page_size, page | community |
 | get_events | GET | is_filtered, page_size, page | community |

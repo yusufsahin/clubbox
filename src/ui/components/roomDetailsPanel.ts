@@ -14,6 +14,8 @@ export type RoomDetailsState = {
   micVolume: number;
   canMuteAll: boolean;
   canShare: boolean;
+  canHideRoom: boolean;
+  canSaveReplay: boolean;
   canModerate: boolean;
   canRename: boolean;
   canPing: boolean;
@@ -57,6 +59,12 @@ export function roomDetailsPanel(state: RoomDetailsState): SafeHtml {
         <p class="list-note"><a href="${state.helpUrl}" target="_blank" rel="noreferrer">${t('learnMore')}</a></p>
         ${state.canShare ? html`
           <button class="btn btn-secondary" type="button" data-action="share-room">${t('shareRoom')}</button>
+        ` : ''}
+        ${state.canHideRoom ? html`
+          <button class="btn btn-secondary" type="button" data-action="hide-current-room">${t('hideThisRoom')}</button>
+        ` : ''}
+        ${state.canSaveReplay ? html`
+          <button class="btn btn-secondary" type="button" data-action="save-replay">${t('saveReplay')}</button>
         ` : ''}
       </section>
 
@@ -185,9 +193,15 @@ export function roomDetailsPanel(state: RoomDetailsState): SafeHtml {
               <option value="2" ${state.handraiseMode === '2' ? 'selected' : ''}>${t('handRaiseFriendsOfSpeakers')}</option>
             </select>
           ` : ''}
-          ${state.canPing ? html`<button class="btn btn-secondary" type="button" data-action="open-ping-panel">${t('invitePeople')}</button>` : ''}
           ${state.canMuteAll ? html`<button class="btn btn-secondary" type="button" data-action="mute-everyone">${t('muteEveryone')}</button>` : ''}
           ${state.canEnd ? html`<button class="btn btn-danger" type="button" data-action="end-room">${t('endRoom')}</button>` : ''}
+        </section>
+      ` : ''}
+
+      ${state.canPing ? html`
+        <section class="room-details-card" data-details-section="invite">
+          <h4>${t('invitePeople')}</h4>
+          <button class="btn btn-secondary" type="button" data-action="open-ping-panel">${t('invitePeople')}</button>
         </section>
       ` : ''}
 

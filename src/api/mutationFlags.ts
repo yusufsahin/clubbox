@@ -17,6 +17,7 @@ const MUTATION_PREFIXES = [
   'end_',
   'change_',
   'hide_',
+  'save_',
   'accept_',
   'reject_',
   'become_',

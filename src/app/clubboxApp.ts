@@ -5,7 +5,12 @@ import { conversationKind } from '../api/roomActions';
 import { talkPartners, type PeopleListKind } from '../api/relationship';
 import type { ClubboxAppCtlMethods } from './ctlMethods.ts';
 import { electronAPI } from './electronApi.ts';
-import { roomHandraiseSelectMode, roomVisibilitySelectMode, stageAccessMode } from '../api/roomControls.ts';
+import {
+  roomHandraiseSelectMode,
+  roomListenerActionFlags,
+  roomVisibilitySelectMode,
+  stageAccessMode,
+} from '../api/roomControls.ts';
 import { stageControlFlags } from './roomCtl.ts';
 import { wireAppControllers } from './wireControllers.ts';
 
@@ -769,6 +774,7 @@ export class ClubboxApp {
       document.querySelector('.studio-main')?.appendChild(root);
     }
     const flags = stageControlFlags(this);
+    const listenerFlags = roomListenerActionFlags(this.currentChannel, (endpoint) => clubhouseClient.supports(endpoint));
     const mod = this.isMeModerator();
     const speaker = this.isMeSpeaker();
     root.innerHTML = markup(roomDetailsPanel({
@@ -788,9 +794,11 @@ export class ClubboxApp {
       micVolume: this.audioPrefs.micVolume,
       canMuteAll: mod && flags.canMuteEveryone,
       canShare: !!safeUrl(this.currentChannel.url),
+      canHideRoom: listenerFlags.canHideRoom,
+      canSaveReplay: listenerFlags.canSaveReplay,
       canModerate: mod,
       canRename: mod && flags.canRename,
-      canPing: mod && flags.canPing,
+      canPing: flags.canPing,
       canEnd: mod && flags.canEnd,
       canChangeVisibility: mod && flags.canChangeVisibility,
       canHandraise: mod && flags.canHandraise,
@@ -865,6 +873,7 @@ export class ClubboxApp {
     if (optionsChanged) {
       // Re-paint once with the enumerated list (guarded by optionsChanged).
       const flags = stageControlFlags(this);
+      const listenerFlags = roomListenerActionFlags(this.currentChannel, (endpoint) => clubhouseClient.supports(endpoint));
       const mod = this.isMeModerator();
       const root = document.getElementById('room-details-root');
       if (!root || !this.currentChannel) return;
@@ -885,9 +894,11 @@ export class ClubboxApp {
         micVolume: this.audioPrefs.micVolume,
         canMuteAll: mod && flags.canMuteEveryone,
         canShare: !!safeUrl(this.currentChannel.url),
+        canHideRoom: listenerFlags.canHideRoom,
+        canSaveReplay: listenerFlags.canSaveReplay,
         canModerate: mod,
         canRename: mod && flags.canRename,
-        canPing: mod && flags.canPing,
+        canPing: flags.canPing,
         canEnd: mod && flags.canEnd,
         canChangeVisibility: mod && flags.canChangeVisibility,
         canHandraise: mod && flags.canHandraise,
@@ -2144,6 +2155,12 @@ export class ClubboxApp {
         if (channelId) void this.hideHallwayRoom(channelId);
         break;
       }
+      case 'hide-current-room':
+        void this.hideCurrentRoom();
+        break;
+      case 'save-replay':
+        void this.saveCurrentReplay();
+        break;
       case 'close-conversation':
         this.openConversationId = null;
         this.openConversationThreadData = null;

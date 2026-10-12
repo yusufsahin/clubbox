@@ -285,15 +285,30 @@
   },
   "reject_speaker_invite": {
     "path": "/web_api/reject_speaker_invite",
+    "mobilePath": "/reject_speaker_invite",
     "method": "POST",
-    "evidence": "community",
+    "evidence": "mobile-spike",
+    "transport": "mobile",
     "mutation": true
   },
   "invite_to_existing_channel": {
     "path": "/web_api/invite_to_existing_channel",
+    "mobilePath": "/invite_to_existing_channel",
     "method": "POST",
-    "evidence": "community",
+    "evidence": "mobile-spike",
+    "transport": "mobile",
     "mutation": true
+  },
+  "save_replay": {
+    "path": "/api/save_replay",
+    "mobilePath": "/save_replay",
+    "method": "POST",
+    "evidence": "mobile-spike",
+    "transport": "mobile",
+    "mutation": true,
+    "bodyKeys": [
+      "channel"
+    ]
   },
   "end_channel": {
     "path": "/api/end_channel",
@@ -325,8 +340,10 @@
   },
   "hide_channel": {
     "path": "/web_api/hide_channel",
+    "mobilePath": "/hide_channel",
     "method": "POST",
-    "evidence": "community",
+    "evidence": "mobile-spike",
+    "transport": "mobile",
     "mutation": true
   },
   "get_online_friends": {

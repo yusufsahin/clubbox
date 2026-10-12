@@ -38,6 +38,8 @@ function details(quality: RoomDetailsState['audioQuality'], externalActive: bool
     micVolume: 1,
     canMuteAll: false,
     canShare: false,
+    canHideRoom: false,
+    canSaveReplay: false,
     canModerate: false,
     canRename: false,
     canPing: false,

@@ -622,6 +622,9 @@ export class SandboxBackend {
       case 'hide_channel':
         return { success: true } as T;
 
+      case 'save_replay':
+        return { success: true } as T;
+
       case 'change_handraise_settings': {
         const channel = this.mockChannels.find((entry) => entry.channel === input.channel);
         if (channel) {
