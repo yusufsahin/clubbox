@@ -523,6 +523,7 @@ export const en = {
   aiNoiseSuppressionHelp: 'Agora AI denoiser on your mic (off by default). Automatically off in music mode.',
   aiNoiseSuppressionOn: 'AI noise suppression on',
   aiNoiseSuppressionOff: 'AI noise suppression off',
+  aiNoiseSuppressionUnavailable: 'Noise suppression unavailable',
   shortcutChange: 'Change',
   shortcutPress: 'Press keys…',
   shortcutClear: 'Clear',

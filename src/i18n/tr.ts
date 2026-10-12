@@ -525,6 +525,7 @@ export const tr: Record<MessageKey, string> = {
   aiNoiseSuppressionHelp: 'Mikrofonda Agora AI denoiser (varsayılan kapalı). Müzik kipinde otomatik kapanır.',
   aiNoiseSuppressionOn: 'AI gürültü bastırma açık',
   aiNoiseSuppressionOff: 'AI gürültü bastırma kapalı',
+  aiNoiseSuppressionUnavailable: 'Gürültü bastırma kullanılamıyor',
   shortcutChange: 'Değiştir',
   shortcutPress: 'Tuşlara bas…',
   shortcutClear: 'Temizle',
