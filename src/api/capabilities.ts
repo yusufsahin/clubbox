@@ -1,7 +1,13 @@
 import webApiRoutes from '../../electron/webApiRoutes.json' with { type: 'json' };
 
-export type Evidence = 'observed' | 'bundle' | 'community' | 'unsupported' | 'in-bundle';
-export type Transport = 'web-session' | 'sandbox';
+export type Evidence =
+  | 'observed'
+  | 'bundle'
+  | 'community'
+  | 'unsupported'
+  | 'in-bundle'
+  | 'mobile-spike';
+export type Transport = 'web-session' | 'sandbox' | 'mobile';
 
 type RouteRecord = {
   path: string;
@@ -9,6 +15,8 @@ type RouteRecord = {
   evidence?: string;
   mutation?: boolean;
   pathParams?: string[];
+  transport?: string;
+  mobilePath?: string;
 };
 
 const ROUTES = webApiRoutes as Record<string, RouteRecord>;
@@ -87,30 +95,43 @@ export type CanCallOptions = {
   sessionDisabled?: Iterable<string>;
   /** Local promotions / test overrides (e.g. observed after a logged 2xx). */
   evidenceOverrides?: Record<string, Evidence>;
+  /**
+   * Phase 27: web session authenticates on clubhouseapi.com (mobileAuthStatus.linked).
+   * Required for transport:"mobile" / evidence mobile-spike host tools.
+   */
+  mobileLinked?: boolean;
 };
 
-/**
- * Room-host tools from community clients (PRD C). These are core Clubbox host
- * actions — callable on a web session without the Experimental actions toggle.
- * Speculative community reads (events, notifications, …) still need the toggle.
- */
-export const HOST_COMMUNITY_ENDPOINTS = new Set([
+/** Moderation endpoints that use the mobile API host (Phase 27). */
+export const MOBILE_HOST_ENDPOINTS = new Set([
   'invite_speaker',
   'uninvite_speaker',
   'mute_speaker',
-  // make_moderator: not in the web client; live POST /web_api/make_moderator → 404
+  'make_moderator',
   'block_from_channel',
+  'end_channel',
+  'change_handraise_settings',
+]);
+
+/**
+ * Remaining room-host tools that still go through the web session (PRD C).
+ * Speculative community reads (events, notifications, …) still need the toggle.
+ */
+export const HOST_COMMUNITY_ENDPOINTS = new Set([
   'reject_speaker_invite',
   'invite_to_existing_channel',
-  'end_channel',
   'make_channel_public',
   'make_channel_social',
-  'change_handraise_settings',
   'hide_channel',
 ]);
 
+export function isMobileHostEndpoint(endpoint: string): boolean {
+  const route = ROUTES[endpoint];
+  return route?.transport === 'mobile' || MOBILE_HOST_ENDPOINTS.has(endpoint);
+}
+
 export function isHostCommunityEndpoint(endpoint: string): boolean {
-  return HOST_COMMUNITY_ENDPOINTS.has(endpoint);
+  return HOST_COMMUNITY_ENDPOINTS.has(endpoint) || isMobileHostEndpoint(endpoint);
 }
 
 export function evidenceOf(endpoint: string, overrides?: Record<string, Evidence>): Evidence {
@@ -125,14 +146,16 @@ export function evidenceOf(endpoint: string, overrides?: Record<string, Evidence
     || value === 'community'
     || value === 'unsupported'
     || value === 'in-bundle'
+    || value === 'mobile-spike'
   ) {
     return value;
   }
   return 'unsupported';
 }
 
-export function transportsOf(endpoint: string): Array<'web-session'> {
+export function transportsOf(endpoint: string): Array<'web-session' | 'mobile'> {
   if (!ROUTES[endpoint]) return [];
+  if (ROUTES[endpoint].transport === 'mobile') return ['mobile'];
   return ['web-session'];
 }
 
@@ -142,6 +165,13 @@ export function routeMethod(endpoint: string): string {
 
 export function routePath(endpoint: string): string {
   return ROUTES[endpoint]?.path ?? `/web_api/${endpoint}`;
+}
+
+export function mobileRoutePath(endpoint: string): string {
+  const route = ROUTES[endpoint];
+  if (route?.mobilePath) return route.mobilePath.replace(/^\//, '');
+  if (route?.transport === 'mobile') return endpoint;
+  return endpoint;
 }
 
 export function canCall(
@@ -154,6 +184,7 @@ export function canCall(
   const disabled = options?.sessionDisabled ? new Set(options.sessionDisabled) : null;
   if (disabled?.has(endpoint)) return false;
 
+  const mobileHost = isMobileHostEndpoint(endpoint);
   const hostTool = isHostCommunityEndpoint(endpoint);
 
   const markedAt = options?.unsupportedRoutes?.[endpoint];
@@ -162,11 +193,17 @@ export function canCall(
 
   const evidence = evidenceOf(endpoint, options?.evidenceOverrides);
   if (evidence === 'in-bundle') return false;
+
+  if (mobileHost || evidence === 'mobile-spike') {
+    if (transport !== 'web-session' && transport !== 'mobile') return false;
+    return options?.mobileLinked === true;
+  }
+
   if (evidence === 'unsupported' && !hostTool) return false;
   if (transport !== 'web-session') return false;
   if (evidence === 'observed' || evidence === 'bundle') return true;
   if (evidence === 'community' || (evidence === 'unsupported' && hostTool)) {
-    if (hostTool) return true;
+    if (HOST_COMMUNITY_ENDPOINTS.has(endpoint)) return true;
     return options?.experimentalActions === true;
   }
   return false;

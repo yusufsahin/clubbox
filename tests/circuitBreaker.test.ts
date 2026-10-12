@@ -34,7 +34,7 @@ test('host tool 404 is logged but does not bury the control as unsupported', asy
   const now = { t: Date.parse('2026-10-11T12:00:00Z') };
   const client = clientWith(transport, now);
   await assert.rejects(() => client.endChannel('abc'));
-  assert.equal(client.effectiveEvidence('end_channel'), 'community');
+  assert.equal(client.effectiveEvidence('end_channel'), 'mobile-spike');
   assert.equal(client.supports('end_channel'), true);
   assert.ok(client.getApiHealth().some((entry) => entry.endpoint === 'end_channel' && entry.status === 404));
 });

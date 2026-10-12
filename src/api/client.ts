@@ -3,6 +3,8 @@ import {
   canCall,
   evidenceOf,
   isHostCommunityEndpoint,
+  isMobileHostEndpoint,
+  mobileRoutePath,
   routeMethod,
   routePath,
   routeRecord,
@@ -638,6 +640,12 @@ export class ClubhouseApiClient {
     }
   }
 
+  /** Phase 27: web session cookies authenticate on the mobile API (no SMS token). */
+  public isMobileLinked(): boolean {
+    if (this.config.useSandbox) return true;
+    return this.config.webSession === true;
+  }
+
   public supports(endpoint: string): boolean {
     return canCall(endpoint, this.transport(), {
       experimentalActions: this.config.experimentalActions === true,
@@ -645,6 +653,7 @@ export class ClubhouseApiClient {
       appVersion: this.config.appVersion,
       sessionDisabled: this.sessionDisabled,
       evidenceOverrides: this.config.evidenceOverrides,
+      mobileLinked: this.isMobileLinked(),
     });
   }
 
@@ -870,6 +879,9 @@ export class ClubhouseApiClient {
     if (this.activeTransport && !forceLive) {
       return this.requestViaTransport<T>(endpoint, body);
     }
+    if (!this.config.useSandbox && isMobileHostEndpoint(endpoint)) {
+      return this.requestViaMobile<T>(endpoint, body);
+    }
     this.assertCallable(endpoint);
     if (this.rateLimitRemaining(endpoint) > 0) {
       throw new ClubhouseApiError(429, endpoint, 'Too many requests', 'rate-limit');
@@ -911,6 +923,40 @@ export class ClubhouseApiClient {
       });
       const text = await response.text();
       return this.parseLiveResponse<T>(endpoint, response.status, text, response.ok, body);
+    } catch (err) {
+      if (err instanceof ClubhouseApiError) throw err;
+      if (err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')) {
+        throw new ClubhouseApiError(0, endpoint, 'Request timed out', 'timeout');
+      }
+      const message = err instanceof Error ? err.message : 'Network error';
+      throw new ClubhouseApiError(0, endpoint, message, 'network');
+    }
+  }
+
+  private async requestViaMobile<T>(endpoint: string, body?: RequestBody): Promise<T> {
+    this.assertCallable(endpoint);
+    if (this.rateLimitRemaining(endpoint) > 0) {
+      throw new ClubhouseApiError(429, endpoint, 'Too many requests', 'rate-limit');
+    }
+    const desktopMobile = typeof window !== 'undefined'
+      ? (window as Window & {
+        electronAPI?: {
+          mobileCall?: (
+            endpoint: string,
+            body?: Record<string, unknown>,
+          ) => Promise<{ ok: boolean; status: number; body: string }>;
+        };
+      }).electronAPI?.mobileCall
+      : undefined;
+    if (!desktopMobile) {
+      throw new ClubhouseApiError(0, endpoint, 'Host tools require the Clubbox desktop app', 'network');
+    }
+    try {
+      const result = await withTimeout(
+        desktopMobile(mobileRoutePath(endpoint), (body ?? {}) as Record<string, unknown>),
+        endpoint,
+      );
+      return this.parseLiveResponse<T>(endpoint, result.status, result.body, result.ok, body);
     } catch (err) {
       if (err instanceof ClubhouseApiError) throw err;
       if (err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')) {
@@ -1488,7 +1534,7 @@ export class ClubhouseApiClient {
     return this.call('invite_speaker', { channel: channelId, user_id: userId });
   }
 
-  // The public web client has no mute request. channel_speaker_mute is an analytics name only.
+  // Host mute goes through the mobile API (Phase 27). channel_speaker_mute is analytics-only on web.
   public async muteSpeaker(channelId: string, userId: number): Promise<ApiAck> {
     return this.call('mute_speaker', { channel: channelId, user_id: userId });
   }
@@ -1499,6 +1545,12 @@ export class ClubhouseApiClient {
 
   public async uninviteSpeaker(channelId: string, userId: number): Promise<ApiAck> {
     return this.call('uninvite_speaker', { channel: channelId, user_id: userId });
+  }
+
+  /** Clubdeck mute_and_move_to_audience: mute_speaker then uninvite_speaker. */
+  public async moveToAudience(channelId: string, userId: number): Promise<void> {
+    await this.muteSpeaker(channelId, userId);
+    await this.uninviteSpeaker(channelId, userId);
   }
 
   public async getPeopleList(kind: 'followers' | 'following', userId: number, cursor?: string | null): Promise<PeopleListPage> {

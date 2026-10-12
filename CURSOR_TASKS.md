@@ -17,11 +17,15 @@ Owner reported: triage noise, new-room participants invisible, moderation action
 
 Idle recheck after 24.7.
 
-### Last autonomous run (2026-10-12 — Phase 27.1 reduced mobile API)
+### Last autonomous run (2026-10-12 — Phase 27.2 route moderation)
+
+- Mobile host tools: mute / invite / uninvite / block / end / make_mod / handraise via `mobileCall`; move = mute+uninvite; end leaves locally; block confirm.
+- `npm run test:unit` + `tsc` green. **27.4 owner live matrix.** ST-9 `@deferred`; ACC-1 open.
+
+### Previous last autonomous run (2026-10-12 — Phase 27.1 reduced mobile API)
 
 - Probe 27.0b: web session + cookie/csrf → 200 on clubhouseapi.com; SMS linking skipped (27.1 token / 27.3 N/A).
 - `electron/mobileApi.cjs` allow-list + `clubbox:mobile-call` / `mobile-auth-status` (linked = web session).
-- Next: 27.2 route moderation. **Not doing 27.4.** ST-9 `@deferred`; ACC-1 open.
 
 ### Previous last autonomous run (2026-10-12 — demote stops adopted mic)
 
@@ -43,8 +47,8 @@ Idle recheck after 24.7.
 
 ### Closed decisions
 
-- **Make moderator (2026-10-12):** Owner wants this in Clubbox. Live `POST /web_api/make_moderator` → 404; community clients only hit `clubhouseapi.com/api/make_moderator`. Hard rule forbids the mobile host. No alternate web path in the bundle or captures. **Decision:** stay `unsupported`, hide the control, toast points to the Clubhouse app. Do not re-enable until Clubhouse exposes a web route (or an observed capture proves otherwise).
-- **End room (2026-10-12):** Leave and End are separate. Leave only `leave_channel`. End room (Details) calls `end_channel` with `channel` + numeric `channel_id`; on failure the host stays in the room (no silent leave). Prior live 404 may have been wrong body (string channel_id) — re-verify after the body fix.
+- **Make moderator / host tools (2026-10-12, Phase 27):** Web `/web_api/*` 404; mobile host works with the signed-in web session (cookie+csrf probe 200). SMS linking skipped. Endpoints: `end_channel`, `invite_speaker`, `uninvite_speaker`, `mute_speaker`, `block_from_channel`, `make_moderator`, `change_handraise_settings` via `clubbox:mobile-call`.
+- **End room (2026-10-12):** Leave and End are separate. Leave only `leave_channel`. End room (Details) calls mobile `end_channel` with `channel` + numeric `channel_id`; on success leave locally (`skipServer`); on failure the host stays in the room.
 
 ### Questions for the owner
 
@@ -60,7 +64,7 @@ Legend: **Uygulandı** = code is in the tree. **Canlı doğrulandı** = exercise
 | 0a | **Phase 23 Live room audio (Agora)** — DNS -105 is a red herring; real join error not yet visible; web vs native SDK decision gate at 23.3 | **Web path** — 23.1–23.5 done on `phase-23-24-agora`; native 23.6+ deferred |
 | 0b | **Phase 24 Agora feature completeness** — broadcast mix, reconnect + quality, token lifecycle, device hot-swap, speaking rings, lifecycle, AI noise suppression | **Closed** — 24.1–24.7 done (AI denoiser + CSP/WASM); e2e green |
 | 0c | **Phase 25 Room exit and mic state** — leave_channel on close/quit/Ctrl+C + crash recovery, mute badge/state sync, AI denoiser init bug, log hygiene | **Closed** — 25.1–25.4 done. 25.5 moved to Phase 26 |
-| 0e | **Phase 27 Host tools via mobile API** — end room, invite to stage, mute, move to audience, remove from room; web API has none of these (404 / not in bundle) | **In progress** — 27.0b probe 200 (web session + cookie/csrf); SMS skipped; 27.1 reduced allow-list IPC; 27.2 next |
+| 0e | **Phase 27 Host tools via mobile API** — end room, invite to stage, mute, move to audience, remove from room; web API has none of these (404 / not in bundle) | **Code done** — 27.1–27.2 (SMS skipped); **27.4 owner live matrix** open |
 | 0d | **Phase 26 Studio audio routing** — VB-Cable / Voicemeeter (Clubdeck parity): device classification, working quality levels, mixer-as-mic, loop guard, setup wizard, capture truth, live test matrix | **Code done** — 26.1–26.6 + mid-room `applyMicDevice` harden. **26.7 owner live matrix** still open |
 | 1 | **0.7 Review fixes (2026-10-11 #2)** — navigation guard, packaged recorder, clip worklet path, auto-armed clip buffer, 429/visibility, CORS proxy token leak | Uygulandı |
 | 1b | **0.8 Followers / following / friends lists** — bundle scan + labeled UI hunt; live UI uses only counts + mutual lists | Uygulandı for counts, mutual names, and chat people. The public web bundle does not contain get_followers, get_following, or get_online_friends. get_friend_zone_match and get_social_club_members are in-bundle and not called. The labeled click-through still needs a signed-in session. |

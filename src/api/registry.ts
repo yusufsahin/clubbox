@@ -9,6 +9,8 @@ type RouteJson = {
   method: string;
   evidence?: string;
   mutation?: boolean;
+  transport?: string;
+  mobilePath?: string;
 };
 
 const ROUTES = webApiRoutes as Record<string, RouteJson>;
@@ -30,6 +32,7 @@ function asEvidence(value: string | undefined): Evidence {
     || value === 'community'
     || value === 'unsupported'
     || value === 'in-bundle'
+    || value === 'mobile-spike'
   ) {
     return value;
   }

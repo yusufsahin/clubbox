@@ -4,7 +4,7 @@ export type UserCapabilities = Record<string, boolean | undefined>;
 
 export type RoomControlFlags = {
   canMute: boolean;
-  /** Make moderator — web route 404; stays false until Clubhouse exposes it. */
+  /** Make moderator — mobile API (Phase 27). */
   canMakeModerator: boolean;
   canMoveToAudience: boolean;
   canInvite: boolean;
@@ -33,7 +33,8 @@ export function roomControlFlags(
   return {
     canMute: gate('can_mute_speakers', 'mute_speaker'),
     canMakeModerator: gate('can_remove_speakers', 'make_moderator'),
-    canMoveToAudience: gate('can_remove_speakers', 'uninvite_speaker'),
+    canMoveToAudience: gate('can_remove_speakers', 'uninvite_speaker')
+      && supports('mute_speaker'),
     canInvite: gate('can_invite', 'invite_speaker'),
     canEnd: gate('can_end_room', 'end_channel'),
     canMuteEveryone: gate('can_mute_speakers', 'mute_speaker'),

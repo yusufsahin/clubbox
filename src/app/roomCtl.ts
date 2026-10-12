@@ -333,17 +333,21 @@ export async function moderateSpeaker(this: ClubboxApp, userId: number, action: 
       return;
     }
     const channelId = this.channelApiId(this.currentChannel);
-    const endpoint = action === 'mute' ? 'mute_speaker'
-      : action === 'moderator' ? 'make_moderator'
-        : action === 'block' ? 'block_from_channel'
-          : 'uninvite_speaker';
-    if (!this.allowAction(endpoint)) return;
+    if (action === 'audience') {
+      if (!this.allowAction('mute_speaker')) return;
+      if (!this.allowAction('uninvite_speaker')) return;
+    } else {
+      const endpoint = action === 'mute' ? 'mute_speaker'
+        : action === 'moderator' ? 'make_moderator'
+          : 'block_from_channel';
+      if (!this.allowAction(endpoint)) return;
+    }
     if (action === 'block' && !window.confirm(t('blockFromRoomConfirm'))) return;
     try {
       if (action === 'mute') await clubhouseClient.muteSpeaker(channelId, userId);
       else if (action === 'moderator') await clubhouseClient.makeModerator(channelId, userId);
       else if (action === 'block') await clubhouseClient.blockFromChannel(channelId, userId);
-      else await clubhouseClient.uninviteSpeaker(channelId, userId);
+      else await clubhouseClient.moveToAudience(channelId, userId);
       this.openSpeakerMenuId = null;
       const target = this.currentChannel.users.find((user) => user.user_id === userId);
       if (action === 'block') {
@@ -776,8 +780,8 @@ export async function saveClip(this: ClubboxApp) : Promise<void> {
 export function allowAction(this: ClubboxApp, endpoint: string) : boolean {
     if (!clubhouseClient.supports(endpoint)) {
       const evidence = clubhouseClient.evidence(endpoint);
-      const key = endpoint === 'make_moderator'
-        ? 'makeModeratorUnavailable'
+      const key = evidence === 'mobile-spike'
+        ? 'hostToolsNeedSession'
         : evidence === 'unsupported'
           ? 'unsupportedAction'
           : evidence === 'community'
