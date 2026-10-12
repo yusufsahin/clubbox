@@ -1,6 +1,7 @@
 /**
- * Phase 27 — moderation calls on the Clubhouse mobile API host, authenticated
- * with the existing web session (cookies + X-CSRFToken). No phone-token storage.
+ * Phase 27 — moderation calls on the Clubhouse mobile API host.
+ * Today: web session cookies + X-CSRFToken (enough for get_profile; moderation → 401 Token-class).
+ * 27.5.0: Electron SMS auth rejected (token validation). Token store (27.5.1+) pending owner A2/B.
  * Never log Cookie / X-CSRFToken / Authorization values.
  */
 

@@ -4,10 +4,12 @@ Each task below is a self-contained prompt. Paste one task at a time into Cursor
 
 _Last reviewed: 2026-10-11. “Uygulandı” means the code is in the tree. “Canlı doğrulandı” means it was exercised against the official Clubhouse web session. This pass is implemented; the live room, hand, invite, and chat capture is still outstanding._
 
-### Last autonomous run (2026-10-12 — Idle / blocked ×2)
+### Last autonomous run (2026-10-12 — doc sync after 27.5.0 STOP)
 
-- Second “devam”: still no unblocked Status work. Hard stop at 27.5.0 attestation.
-- Waiting on owner **(A2)** Token import vs **(B)** abandon. No 27.5.1 without that.
+- Synced stale “web session enough / SMS works” claims → Token blocked + 27.5.0 attestation STOP:
+  PRD §2 `mobile-spike` + RH-4/5/6/11, DESIGN G-04 reopened auth, `mobile-api.md`,
+  `.cursor/rules/clubbox.mdc`, `mobileApi.cjs` / client / capabilities comments, CURSOR_TASKS 27.5.
+- Still waiting on owner **(A2)** Token import vs **(B)** abandon before 27.5.1+.
 
 ### Previous last autonomous run (2026-10-12 — Task 27.5.0 STOP / attestation)
 
@@ -126,7 +128,7 @@ Owner reported: triage noise, new-room participants invisible, moderation action
 ### Closed decisions
 
 - **Make moderator / host tools (2026-10-12, Phase 27):** Web `/web_api/*` 404. **Revised 2026-10-12:** cookie+csrf → `get_profile` 200 only; moderation allow-list → **401** (Token-class). Transport: `clubbox:mobile-call` + Node https Cookie.
-- **Mobile Token SMS link (2026-10-12, owner):** **(A)** — one-time SMS Token link for host tools is allowed. Owner accepts the phone app may be signed out (Clubhouse one-device rule; Clubbox becomes the main device). Implement as Task **27.5**. Never log / IPC phone, SMS code, or token.
+- **Mobile Token SMS link (2026-10-12, owner):** **(A)** approved; **27.5.0 STOP** — Electron SMS → 400 token validation. Open follow-up **(A2)** import Token vs **(B)** abandon. Never log / IPC phone, SMS code, or token.
 - **End room (2026-10-12):** Leave and End are separate. Leave only `leave_channel`. End room (Details) calls mobile `end_channel` with `channel` + numeric `channel_id`; on success leave locally (`skipServer`); on failure the host stays in the room.
 
 ### Questions for the owner
@@ -1153,6 +1155,9 @@ Sources: owner api-log + bundle-cache (2026-10-12), Clubdeck 2.6.5 app.asar stri
 
 ```text
 Owner accepts phone app may be signed out (Clubhouse one device; Clubbox becomes main).
+**27.5.0 DONE / STOPPED (2026-10-12):** start_phone_number_auth → 400 token validation (desktop
+rejected). Do not re-run SMS as if it works. Next needs owner A2 (import Token) or B (abandon)
+before 27.5.1+.
 
 27.5.0 Spike (dev only; STOP and report):
   Inside the running app (dev mode, like mobile-probe-28):

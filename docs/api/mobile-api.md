@@ -41,8 +41,9 @@ Incomplete bodies where noted — used only to classify auth (400 = session acce
 
 **Implication:** Phase 27 “web session is enough for host tools” is **false** for the moderation
 allow-list. Only `get_profile`-class endpoints accept Django session cookies. Mute / invite / end /
-etc. need `Authorization: Token …` (SMS path was skipped). Clubbox host tools will keep failing
-until a Token link is allowed or another observed auth path appears.
+etc. need `Authorization: Token …`. Owner approved SMS link (A); **27.5.0 spike STOP:** Electron
+`start_phone_number_auth` → 400 `login did not pass token validation!` (non-native OS). Host tools
+stay dead until **(A2)** import Token from phone/Clubdeck or **(B)** abandon.
 
 ## Production allow-list (`electron/mobileApi.cjs`)
 
@@ -112,8 +113,8 @@ endpoints behave like Token-only (classic `Authorization: Token …` + `CH-UserI
 **28.1 code path:** RoomStateSync calls `get_channel` on join / after host actions / every 30 s;
 failures are silent and PubNub continues. Live roster authority still needs Token (owner Q) or:
 
-1. Owner confirms a working Token/link path (SMS skipped earlier — reopen only if policy allows), or
-2. A new capture shows these endpoints accepting the web session under different headers/bodies.
+1. Owner picks **(A2)** import Token from phone/Clubdeck (safeStorage) — Electron SMS failed 27.5.0 — or
+2. A new capture shows these endpoints accepting the web session under different headers/bodies (unlikely).
 
 Production host-tool allow-list stays unchanged; transport now uses Node https so Cookie is actually sent.
 

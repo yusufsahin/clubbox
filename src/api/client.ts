@@ -640,7 +640,7 @@ export class ClubhouseApiClient {
     }
   }
 
-  /** Phase 27: web session cookies authenticate on the mobile API (no SMS token). */
+  /** Phase 27: web session marks mobile transport "linked"; live moderation still needs Token (27.5). */
   public isMobileLinked(): boolean {
     if (this.config.useSandbox) return true;
     return this.config.webSession === true;

@@ -109,8 +109,8 @@ export type CanCallOptions = {
   /** Local promotions / test overrides (e.g. observed after a logged 2xx). */
   evidenceOverrides?: Record<string, Evidence>;
   /**
-   * Phase 27: web session authenticates on clubhouseapi.com (mobileAuthStatus.linked).
-   * Required for transport:"mobile" / evidence mobile-spike host tools.
+   * Phase 27: web session sets mobileAuthStatus.linked (transport gate).
+   * Live moderation still needs Token — cookie alone → 401 (see docs/api/mobile-api.md).
    */
   mobileLinked?: boolean;
 };
