@@ -12,8 +12,9 @@ Owner added Phase 23 (live room audio / Agora). Run it in order and respect the 
 - [x] 23.3 A/B reference tooling shipped — **web path chosen** (live audio worked; see `docs/history/agora-voice-dns-fix.md` A/B)
 - [x] 23.4–23.5 (web path)
 - [x] then Phase 24 (Agora feature completeness) 24.1 → 24.7; **24.1–24.6 done; 24.7 STOP (eval)**
-- [ ] 23.6–23.8 native SDK path deferred unless web regresses
+- [x] 23.6–23.8 native SDK path deferred unless web regresses
 - [x] 24.7 evaluated — do not add package until owner accepts CSP + Agora SDK license + ~5 MB WASM
+- [x] autonomous stop: Status table idle; only owner questions remain (24.7, ACC-1)
 
 ### Previous run (owner instruction, 2026-10-12 #7)
 
@@ -22,14 +23,13 @@ Owner added Phase 22 (HAL-9 room type chips). Continue from there:
 - [x] Phase 22 — hallway room types (HAL-9): chips, sparse load-more, badges, empty state
 - [x] npm test + e2e + light/dark hallway screenshots; PRD HAL-9 Today; commit; stop
 
-### Last autonomous run (2026-10-12 #phase-24.7-eval)
+### Last autonomous run (2026-10-12 #phase-24-stop)
 
-- Done on `phase-23-24-agora`: **24.1–24.6** shipped; **24.7 STOP** after evaluating `agora-extension-ai-denoiser@2.0.2` (not installed).
-- 24.7 eval: unpacked ~6.0 MB (two WASM files ~3 MB each); CSP today has no `script-src 'wasm-unsafe-eval'` (required to load WASM); license is Agora SDK licence agreement (`SEE LICENSE IN LICENSE.md` → agora.io SDK licence), not OSI-permissive — same family as `agora-rtc-sdk-ng` already in the app, but owner must accept the WASM + CSP surface for an optional toggle.
-- Tests: unit 209 + BDD 200; tsc/lint green.
-- Phase 24 Status table: complete except 24.7 deferred to owner decision.
-- Blocked / deferred: **24.7** until owner says add it; ST-9 Restream; native 23.6+.
-- Questions for the owner: Approve adding AI denoiser (CSP `wasm-unsafe-eval` + ~5 MB package + Agora SDK licence), or leave ANS to the browser/`createMicrophoneAudioTrack` flags only?
+- Status table idle: Phases 12–22 done; Phase 23 web path done; Phase **24.1–24.6** done; **24.7 STOP** (owner decision).
+- Re-ran `npm test` (unit 209 + BDD 200) and `npm run api:triage` (created 1, promoted 0).
+- Nothing left to implement without breaking a Hard rule or owner gate.
+- Blocked: **24.7** AI denoiser; **23.6+** native SDK (unless web regresses); **ST-9** Restream `@deferred`.
+- Questions for the owner: (1) 24.7 yes/no — (2) ACC-1 wording.
 
 ### Questions for the owner
 

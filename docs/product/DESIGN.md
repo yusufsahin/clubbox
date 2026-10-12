@@ -172,7 +172,8 @@ Rules:
 - App id: production config block in the bundle (same live-Stripe block as PubNub keys; clubhouse-py `AGORA_KEY` matches). Loaded into `userData/realtime-config.json` via the bundle crawler + IPC `clubbox:agora-app-id` (G-06 closed in bbd3369). A saved dev/staging id is migrated to production.
 - Token: from create/join response (`token`); `rtm_token` reserved for Agora RTM if the room chunks show RTM usage.
 - `agora_native_mute` from the response decides whether mute is signalled through Agora (`setMuted` on the track) instead of only the local gain — G-09.
-- Remote mute / speaking: Agora `user-info-updated` (`mute-audio` / `unmute-audio`), audio publish/unpublish, and `volume-indicator` — not PubNub (Phase 14.1).
+- Remote mute / speaking: Agora `user-info-updated` (`mute-audio` / `unmute-audio`), audio publish/unpublish — not PubNub (Phase 14.1). Speaking rings: 150 ms `getVolumeLevel` sample + 300 ms hold (Phase 24.5); `volume-indicator` is fallback only.
+- Broadcast: mic via `createMicrophoneAudioTrack`; soundboard/external/effected voice via second `createCustomAudioTrack` from `getBroadcastExtrasTrack()` (Phase 24.1). Mute mutes mic only.
 - SDK lazy-loaded on first room entry.
 
 ---
