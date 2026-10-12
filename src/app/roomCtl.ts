@@ -277,13 +277,9 @@ export async function runAgoraRoleSync(this: ClubboxApp) : Promise<void> {
             await agoraVoice.demoteToAudience();
             audioEngine.releaseExternal();
             audioEngine.setMuted(true);
+            // syncSelfMuteFromEngine → renderCockpit keeps the SVG mic button intact.
             this.syncSelfMuteFromEngine();
             void this.queueMuteSync();
-            const micBtn = document.getElementById('mic-toggle-btn');
-            if (micBtn) {
-              micBtn.classList.remove('unmuted');
-              micBtn.textContent = '🔇';
-            }
             this.showToast(t('movedToAudience'), '🎙️');
           }
         }

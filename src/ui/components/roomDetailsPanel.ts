@@ -81,6 +81,11 @@ export function roomDetailsPanel(state: RoomDetailsState): SafeHtml {
             <option value="${opt.id}" ${state.voiceEffect === opt.id ? 'selected' : ''}>${opt.label}</option>
           `)}
         </select>
+        <div class="room-voice-effect-actions">
+          <button class="btn btn-secondary" type="button" data-action="preview-voice-effect">${t('voiceEffectPreview')}</button>
+          <button class="btn btn-primary" type="button" data-action="apply-voice-effect">${t('voiceEffectApply')}</button>
+        </div>
+        <p class="list-note">${t('voiceEffectsHelp')}</p>
         <label class="form-label">
           <input type="checkbox" id="room-spatial-audio" data-action="toggle-spatial-audio" ${state.spatialAudio ? 'checked' : ''} />
           ${t('spatialAudio')}

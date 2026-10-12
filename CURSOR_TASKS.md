@@ -17,10 +17,11 @@ Owner reported: triage noise, new-room participants invisible, moderation action
 
 Idle recheck after 24.7.
 
-### Last autonomous run (2026-10-12 — room update merge + details UX)
+### Last autonomous run (2026-10-12 — demote mic + voice effect UI)
 
-- PubNub `channel_patch` now lands in app state (`mergeRoomDetailFields`: handraise, capabilities, counts); Details re-renders; handraise/visibility selects share stage helpers; Details audience search syncs with stage.
-- Triage skips already-handled PubNub actions; cleared stale “not handled” list in `realtime.md`.
+- Demote-to-audience no longer wipes the SVG mic button with emoji `textContent`.
+- Room details voice effects: Preview + Apply buttons + help (ST-7); select shows picked effect.
+- Prior: channel_patch merge, Details handraise/visibility/audience search, triage HANDLED_PUBNUB.
 - **Blocked / owner:** Phase 26.7 live matrix. ST-9 `@deferred`. ACC-1 wording open.
 
 ### Previous last autonomous run (2026-10-12 — host mute/move/block)

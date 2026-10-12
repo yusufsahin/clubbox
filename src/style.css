@@ -668,6 +668,13 @@ body {
   border: 1px solid var(--border-subtle);
 }
 
+.room-voice-effect-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0 4px;
+}
+
 .external-audio-block {
   margin-top: 14px;
   padding-top: 12px;

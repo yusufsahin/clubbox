@@ -774,7 +774,7 @@ export class ClubboxApp {
       replaysOn: this.currentChannel.is_replay_enabled !== false,
       audioQuality: this.audioPrefs.audioQuality,
       monitorEnabled: audioEngine.getMonitorEnabled(),
-      voiceEffect: audioEngine.getBroadcastEffect(),
+      voiceEffect: audioEngine.getVoiceEffectState().selected,
       voiceEffectOptions: [
         { id: 'none', label: t('voiceEffectNone') },
         { id: 'radio', label: t('voiceEffectRadio') },
@@ -871,7 +871,7 @@ export class ClubboxApp {
         replaysOn: this.currentChannel.is_replay_enabled !== false,
         audioQuality: this.audioPrefs.audioQuality,
         monitorEnabled: audioEngine.getMonitorEnabled(),
-        voiceEffect: audioEngine.getBroadcastEffect(),
+        voiceEffect: audioEngine.getVoiceEffectState().selected,
         voiceEffectOptions: [
           { id: 'none', label: t('voiceEffectNone') },
           { id: 'radio', label: t('voiceEffectRadio') },
