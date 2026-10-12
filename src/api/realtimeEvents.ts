@@ -30,14 +30,128 @@ export type RealtimeUnknownEvent = {
   keys: string[];
 };
 
+export type RealtimeSpeakerCallStatusEvent = {
+  kind: 'speaker_call_status';
+  userId: number;
+  isOnCall: boolean;
+  audioProfile?: string | number;
+};
+
 export type ParsedRealtimeEvent =
   | { kind: 'stage'; type: RealtimeStageEvent; userName: string; userId?: number | null; profile?: Partial<CHUser> | null }
   | { kind: 'ignored'; reason: 'other_channel' | 'noop' }
   | { kind: 'channel_patch'; patch: Partial<CHChannelDetail> }
   | RealtimeChatEvent
   | RealtimeReactionEvent
+  | RealtimeSpeakerCallStatusEvent
   | RealtimeUnknownEvent
   | { kind: 'room_ended' };
+
+/** Logged once per distinct profile value (shape only — never tokens). */
+const seenAudioProfiles = new Set<string>();
+
+/** True when PubNub audio_profile indicates music mode. */
+export function isMusicAudioProfile(profile: string | number | undefined | null): boolean {
+  if (profile == null) return false;
+  return String(profile).toLowerCase().includes('music');
+}
+
+/** Log unknown audio_profile values once (type + length only). */
+export function noteAudioProfileSeen(profile: string | number | undefined): void {
+  if (profile === undefined) return;
+  if (isMusicAudioProfile(profile)) return;
+  const key = `${typeof profile}:${String(profile)}`;
+  if (seenAudioProfiles.has(key)) return;
+  seenAudioProfiles.add(key);
+  // Known non-music shapes (speech / default / small ints) stay quiet after first note.
+  console.info('[clubbox] audio_profile', {
+    typeof: typeof profile,
+    len: String(profile).length,
+  });
+}
+
+export type ApplyRoomEventOpts = {
+  myUserId?: number | null;
+  /** Agora mute overlay applied after stage/user mutations. */
+  overlayUsers?: (users: CHUser[]) => CHUser[];
+};
+
+export type ApplyRoomEventResult = {
+  channel: CHChannelDetail;
+  effects: {
+    ended?: boolean;
+    invite?: boolean;
+    chat?: CHChatMessage;
+    reaction?: RealtimeReactionEvent;
+    unknown?: { type: string; keys: string[] };
+    ignored?: boolean;
+  };
+};
+
+/**
+ * Pure room reducer: join snapshot + PubNub deltas (+ optional mute overlay).
+ * Side effects (toasts, leave) stay in the coordinator; this only returns next state.
+ */
+export function applyRoomEvent(
+  channel: CHChannelDetail,
+  event: ParsedRealtimeEvent,
+  opts: ApplyRoomEventOpts = {},
+): ApplyRoomEventResult {
+  const overlay = opts.overlayUsers ?? ((users: CHUser[]) => users);
+
+  switch (event.kind) {
+    case 'ignored':
+      return { channel, effects: { ignored: true } };
+    case 'unknown':
+      return { channel, effects: { unknown: { type: event.type, keys: event.keys } } };
+    case 'room_ended':
+      return { channel, effects: { ended: true } };
+    case 'channel_message':
+      return { channel, effects: { chat: event.message } };
+    case 'channel_reaction':
+      return { channel, effects: { reaction: event } };
+    case 'channel_patch': {
+      const nextCaps = event.patch.user_capabilities
+        ? { ...(channel.user_capabilities ?? {}), ...event.patch.user_capabilities }
+        : channel.user_capabilities;
+      return {
+        channel: {
+          ...channel,
+          ...event.patch,
+          user_capabilities: nextCaps,
+          users: channel.users,
+        },
+        effects: {},
+      };
+    }
+    case 'speaker_call_status': {
+      noteAudioProfileSeen(event.audioProfile);
+      const users = channel.users.map((user) => {
+        if (user.user_id !== event.userId) return user;
+        const next: CHUser = { ...user, is_on_call: event.isOnCall };
+        if (event.audioProfile !== undefined) next.audio_profile = event.audioProfile;
+        return next;
+      });
+      return { channel: { ...channel, users: overlay(users) }, effects: {} };
+    }
+    case 'stage': {
+      const stageEvent: Extract<ParsedRealtimeEvent, { kind: 'stage' }> =
+        event.type === 'invite_to_speak' && opts.myUserId != null
+          ? { ...event, userId: opts.myUserId, profile: null }
+          : event;
+      const users = applyStageEvent(channel.users, stageEvent);
+      return {
+        channel: mergeChannelUsers(channel, overlay(users)),
+        effects: event.type === 'invite_to_speak' ? { invite: true } : {},
+      };
+    }
+    default: {
+      const _exhaustive: never = event;
+      void _exhaustive;
+      return { channel, effects: {} };
+    }
+  }
+}
 
 function readName(raw: Record<string, unknown>, fallback = 'Guest'): string {
   if (typeof raw.name === 'string' && raw.name) return raw.name;
@@ -68,6 +182,8 @@ const CLUBHOUSE_ACTIONS: Record<string, RealtimeStageEvent | 'room_ended'> = {
   unraise_hands: 'hand_lowered',
   add_speaker: 'speaker_added',
   remove_speaker: 'speaker_removed',
+  /** Official web EVENTS name — same stage effect as remove_speaker. */
+  uninvite_speaker: 'speaker_removed',
   make_moderator: 'moderator_added',
   invite_speaker: 'invite_to_speak',
   end_channel: 'room_ended',
@@ -102,9 +218,15 @@ function readChatMessage(raw: Record<string, unknown>): CHChatMessage {
 function readReaction(raw: Record<string, unknown>): RealtimeReactionEvent {
   const target = raw.target_user_profile;
   const actor = raw.action_user_profile;
+  const emoji =
+    typeof raw.reaction === 'string' ? raw.reaction
+      : typeof raw.emoji === 'string' ? raw.emoji
+        : typeof raw.gif_url === 'string' ? '🎞️'
+          : typeof raw.message === 'string' ? raw.message
+            : '👏';
   return {
     kind: 'channel_reaction',
-    emoji: typeof raw.reaction === 'string' ? raw.reaction : typeof raw.message === 'string' ? raw.message : '👏',
+    emoji,
     fromName: actor && typeof actor === 'object' ? readName(actor as Record<string, unknown>) : readName(raw, 'Someone'),
     targetName: target && typeof target === 'object' ? readName(target as Record<string, unknown>) : readName(raw, 'Speaker'),
   };
@@ -149,8 +271,23 @@ export function parseRealtimeMessage(raw: Record<string, unknown>, currentChanne
     return { kind: 'channel_message', message: readChatMessage(raw) };
   }
 
-  if (type === 'channel_reaction' || type === 'new_channel_reaction') {
+  // Web EVENTS names emoji_reaction / gif_reaction; live PubNub often uses new_channel_reaction.
+  if (
+    type === 'channel_reaction'
+    || type === 'new_channel_reaction'
+    || type === 'emoji_reaction'
+    || type === 'gif_reaction'
+  ) {
     return readReaction(raw);
+  }
+
+  if (type === 'set_channel_title') {
+    const title =
+      typeof raw.title === 'string' ? raw.title
+        : typeof raw.topic === 'string' ? raw.topic
+          : undefined;
+    if (!title) return { kind: 'ignored', reason: 'noop' };
+    return { kind: 'channel_patch', patch: { topic: title } };
   }
 
   if (type === 'change_handraise_settings') {
@@ -175,9 +312,14 @@ export function parseRealtimeMessage(raw: Record<string, unknown>, currentChanne
     return { kind: 'channel_patch', patch: { num_ever: numEver } };
   }
 
-  // No on-call UI yet — acknowledge so API Health is not flooded.
   if (type === 'update_speaker_call_status') {
-    return { kind: 'ignored', reason: 'noop' };
+    const userId = readUserId(raw);
+    const isOnCall = readBooleanFlag(raw.is_on_call);
+    if (userId == null || isOnCall === undefined) return { kind: 'ignored', reason: 'noop' };
+    const profile = raw.audio_profile;
+    const audioProfile =
+      typeof profile === 'string' || typeof profile === 'number' ? profile : undefined;
+    return { kind: 'speaker_call_status', userId, isOnCall, audioProfile };
   }
 
   if (type === 'room_ended' || type === 'room ended') {

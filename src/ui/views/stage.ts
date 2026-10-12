@@ -6,6 +6,7 @@ import {
   type RoomRole,
 } from '../../api/roomCardActions';
 import { relationshipFromStatus } from '../../api/relationship';
+import { isMusicAudioProfile } from '../../api/realtimeEvents';
 import type { CHChannelDetail, CHChatMessage, CHUser } from '../../api/types';
 import { audienceMatchesQuery } from '../../studio/audienceSearch';
 import { avatarHtml } from '../avatar';
@@ -143,16 +144,20 @@ export function stageColumn(state: StageState): SafeHtml {
                 const menuOpen = showMenu
                   && state.openSpeakerMenuId != null
                   && Number(state.openSpeakerMenuId) === speakerId;
+                const notConnected = speaker.is_on_call === false;
+                const musicProfile = isMusicAudioProfile(speaker.audio_profile);
                 return html`
-                <div class="speaker-card ${speaker.is_speaking ? 'speaking' : ''} ${isSelf ? 'me-speaker' : ''}">
+                <div class="speaker-card ${speaker.is_speaking ? 'speaking' : ''} ${isSelf ? 'me-speaker' : ''} ${notConnected ? 'not-connected' : ''}">
                   <div class="avatar-wrapper" data-action="open-profile" data-user-id="${speaker.user_id}">
                     ${avatarHtml(speaker, 82, 'avatar-img')}
                     ${speaker.is_moderator ? html`<span class="badge-crown" title="${t('moderator')}">👑</span>` : ''}
                     ${speaker.is_muted ? html`<span class="badge-mute" title="${t('muted')}">🔇</span>` : ''}
+                    ${musicProfile ? html`<span class="badge-music" title="${t('speakerMusicProfile')}">🎵</span>` : ''}
                     ${showFollow(speaker, state) ? html`
                       <button class="speaker-follow-btn" type="button" data-action="follow-user" data-user-id="${speaker.user_id}" title="${t('relationshipNone')}">+</button>
                     ` : ''}
                   </div>
+                  ${notConnected ? html`<div class="speaker-not-connected" title="${t('audioNotConnected')}">${t('audioNotConnected')}</div>` : ''}
                   <div class="speaker-name" data-action="open-profile" data-user-id="${speaker.user_id}">${speaker.name}${state.channel.creator_user_profile_id === speaker.user_id ? html` <span class="host-tag">${t('host')}</span>` : ''}</div>
                   ${speaker.username ? html`<div class="speaker-handle" data-action="open-profile" data-user-id="${speaker.user_id}">@${speaker.username}</div>` : ''}
                   ${showMenu ? html`

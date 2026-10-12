@@ -65,11 +65,14 @@ Payloads carry `action` and `channel` (ignore messages whose `channel` is anothe
 | `new_channel_reaction` | same as ticker `channel_reaction` | reaction toast |
 | `change_handraise_settings` | `is_enabled`, `handraise_queue_setting`, `handraise_permission` | update stage access |
 | `update_user_capabilities` | `can_*` booleans | merge into `user_capabilities` |
-| `cumulative_count_update` | `num_ever` | set `num_all` |
-| `update_speaker_call_status` | `user_id`, `is_on_call`, `audio_profile` | ignored (no on-call UI) |
+| `cumulative_count_update` | `num_ever` | set `num_ever` (separate from live `num_all`) |
+| `update_speaker_call_status` | `user_id`, `is_on_call`, `audio_profile` | per-user on-call + music badge |
+| `uninvite_speaker` | `user_id` | same as `remove_speaker` (to audience) |
+| `set_channel_title` | `title` or `topic` | patch channel `topic` |
+| `emoji_reaction` / `gif_reaction` | same family as `new_channel_reaction` | reaction toast |
 
 Mute and "speaking" state come from Agora (remote audio mute / volume), not PubNub.
-Other mobile actions (`make_channel_public`, `uninvite_speaker`, …) stay unknown until seen live.
+Room mutations go through `applyRoomEvent` (pure reducer).
 
 The production PubNub keys and Agora app id are the config block with a live Stripe key in the bundle; clubhouse-py's constants (`AGORA_KEY`, `PUBNUB_*_KEY`) match that block.
 

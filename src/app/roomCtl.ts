@@ -23,6 +23,7 @@ import {
   stageAccessMode,
 } from '../api/roomControls.ts';
 import { mergeRoomDetailFields } from '../api/roomDetailMerge.ts';
+import { applyRoomEvent } from '../api/realtimeEvents.ts';
 import { mergeRoomState } from '../api/roomStateMerge.ts';
 import { roomSync } from '../api/roomSync.ts';
 import {
@@ -380,8 +381,15 @@ export async function performModeration(
 export async function inviteToStage(this: ClubboxApp, userId: number) : Promise<void> {
     if (!this.currentChannel || !this.isMeModerator()) return;
     if (!(await this.performModeration('invite_speaker', userId))) return;
-    const invited = this.currentChannel.users.find((user) => user.user_id === userId);
-    if (invited) invited.is_invited_to_speak = true;
+    const target = this.currentChannel.users.find((user) => user.user_id === userId);
+    const { channel } = applyRoomEvent(this.currentChannel, {
+      kind: 'stage',
+      type: 'invite_to_speak',
+      userId,
+      userName: target?.name ?? 'Guest',
+      profile: null,
+    });
+    this.currentChannel = channel;
     this.showToast(t('invitedToSpeakToast'), '🎙️');
     roomSync.scheduleAfterHostAction?.();
     await this.refreshCurrentRoom();
@@ -405,22 +413,38 @@ export async function moderateSpeaker(this: ClubboxApp, userId: number, action: 
     }
     this.openSpeakerMenuId = null;
     const target = this.currentChannel.users.find((user) => user.user_id === userId);
+    const name = target?.name ?? 'Guest';
     if (action === 'block') {
-      this.currentChannel.users = this.currentChannel.users.filter((user) => user.user_id !== userId);
-    } else if (target) {
-      if (action === 'mute') {
-        target.is_muted = true;
-        if (this.me && userId === this.me.user_id) {
-          audioEngine.setMuted(true);
-          this.syncSelfMuteFromEngine();
-          void this.queueMuteSync();
-        }
-      } else if (action === 'moderator') {
-        target.is_moderator = true;
-      } else if (action === 'audience') {
-        target.is_speaker = false;
-        target.is_moderator = false;
+      const { channel } = applyRoomEvent(this.currentChannel, {
+        kind: 'stage',
+        type: 'user_removed',
+        userId,
+        userName: name,
+      });
+      this.currentChannel = channel;
+    } else if (action === 'mute') {
+      this.pubnubSource.applyAgoraMute(userId, true);
+      if (this.me && userId === this.me.user_id) {
+        audioEngine.setMuted(true);
+        this.syncSelfMuteFromEngine();
+        void this.queueMuteSync();
       }
+    } else if (action === 'moderator') {
+      const { channel } = applyRoomEvent(this.currentChannel, {
+        kind: 'stage',
+        type: 'moderator_added',
+        userId,
+        userName: name,
+      });
+      this.currentChannel = channel;
+    } else if (action === 'audience') {
+      const { channel } = applyRoomEvent(this.currentChannel, {
+        kind: 'stage',
+        type: 'speaker_removed',
+        userId,
+        userName: name,
+      });
+      this.currentChannel = channel;
     }
     roomSync.scheduleAfterHostAction?.();
     await this.refreshCurrentRoom();

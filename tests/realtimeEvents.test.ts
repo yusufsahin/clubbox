@@ -72,7 +72,7 @@ test('live change_handraise_settings and update_user_capabilities patch the chan
   }
 });
 
-test('live cumulative_count_update sets num_ever; call status is a quiet noop', () => {
+test('live cumulative_count_update sets num_ever; call status carries on-call fields', () => {
   const count = parseRealtimeMessage({
     action: 'cumulative_count_update',
     channel: 'PG2LoOww',
@@ -88,7 +88,12 @@ test('live cumulative_count_update sets num_ever; call status is a quiet noop', 
     is_on_call: true,
     audio_profile: 1,
   }, 'PG2LoOww');
-  assert.deepEqual(call, { kind: 'ignored', reason: 'noop' });
+  assert.equal(call.kind, 'speaker_call_status');
+  if (call.kind === 'speaker_call_status') {
+    assert.equal(call.userId, 1);
+    assert.equal(call.isOnCall, true);
+    assert.equal(call.audioProfile, 1);
+  }
 });
 
 // Real Clubhouse PubNub payloads (sources: grishka/Houseclub VoiceService.java and

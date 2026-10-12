@@ -38,6 +38,10 @@ export interface CHUser {
   is_speaking?: boolean;
   is_hand_raised?: boolean;
   is_invited_to_speak?: boolean;
+  /** PubNub update_speaker_call_status — false means not connected to Agora. */
+  is_on_call?: boolean;
+  /** Agora audio profile from update_speaker_call_status (string or numeric enum). */
+  audio_profile?: string | number;
   time_joined?: string;
   invited_by_user_profile?: {
     user_id: number;

@@ -374,6 +374,7 @@ export const tr: Record<MessageKey, string> = {
   signInToHear: 'Bu odayı duymak için giriş yap',
   noAudioToken: 'Bu odada ses jetonu yok',
   audioNotConnected: 'Ses bağlanamadı',
+  speakerMusicProfile: 'Müzik',
   leftRoom: 'Odadan ayrıldın',
   signInToChat: 'Mesaj göndermek için giriş yap',
   nowFollowing: '@{username} takip ediliyor',

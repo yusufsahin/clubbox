@@ -1,6 +1,6 @@
 import type { ClubhouseApiClient } from './client.ts';
 import {
-  applyStageEvent,
+  applyRoomEvent,
   mergeChannelUsers,
   parseRealtimeMessage,
   roomPubNubChannels,
@@ -195,63 +195,41 @@ export class RealtimeRoomCoordinator {
   private applyParsed(parsed: ParsedRealtimeEvent): void {
     if (!this.channel) return;
 
-    if (parsed.kind === 'ignored') return;
+    const { channel, effects } = applyRoomEvent(this.channel, parsed, {
+      myUserId: this.myUserId,
+      overlayUsers: (users) => this.overlayUsers(users),
+    });
 
-    if (parsed.kind === 'unknown') {
-      this.callbacks.onUnknown?.(parsed.type, parsed.keys);
+    if (effects.ignored) return;
+
+    if (effects.unknown) {
+      this.callbacks.onUnknown?.(effects.unknown.type, effects.unknown.keys);
       return;
     }
 
-    if (parsed.kind === 'room_ended') {
+    if (effects.ended) {
       this.callbacks.onUiMessage?.('The room has ended');
       this.stop();
       this.callbacks.onRoomEnded?.();
       return;
     }
 
-    if (parsed.kind === 'channel_patch') {
-      const nextCaps = parsed.patch.user_capabilities
-        ? { ...(this.channel.user_capabilities ?? {}), ...parsed.patch.user_capabilities }
-        : this.channel.user_capabilities;
-      this.channel = {
-        ...this.channel,
-        ...parsed.patch,
-        user_capabilities: nextCaps,
-        users: this.channel.users,
-      };
-      this.callbacks.onChannelUpdate?.(this.channel);
+    if (effects.chat) {
+      this.chatMessages.push(effects.chat);
+      this.callbacks.onChatMessage?.(effects.chat);
       return;
     }
 
-    if (parsed.kind === 'channel_message') {
-      this.chatMessages.push(parsed.message);
-      this.callbacks.onChatMessage?.(parsed.message);
+    if (effects.reaction) {
+      this.callbacks.onReaction?.(effects.reaction.emoji, effects.reaction.targetName);
+      this.callbacks.onUiMessage?.(`reaction:${effects.reaction.emoji}:${effects.reaction.targetName}`);
       return;
     }
 
-    if (parsed.kind === 'channel_reaction') {
-      this.callbacks.onReaction?.(parsed.emoji, parsed.targetName);
-      this.callbacks.onUiMessage?.(`reaction:${parsed.emoji}:${parsed.targetName}`);
-      return;
-    }
-
-    if (parsed.kind === 'stage') {
-      if (parsed.type === 'invite_to_speak') {
-        // The invite arrives on my channel_user.* channel; from_name is the inviter, the target is me.
-        const users = applyStageEvent(this.channel.users, { ...parsed, userId: this.myUserId, profile: null });
-        this.channel = mergeChannelUsers(this.channel, this.overlayUsers(users));
-        this.callbacks.onInvite?.();
-        this.callbacks.onChannelUpdate?.(this.channel);
-        return;
-      }
-      const users = applyStageEvent(this.channel.users, parsed);
-      this.channel = mergeChannelUsers(this.channel, this.overlayUsers(users));
-      this.callbacks.onChannelUpdate?.(this.channel);
-      return;
-    }
-
-    const _exhaustive: never = parsed;
-    void _exhaustive;
+    const channelChanged = channel !== this.channel;
+    this.channel = channel;
+    if (effects.invite) this.callbacks.onInvite?.();
+    if (channelChanged || effects.invite) this.callbacks.onChannelUpdate?.(this.channel);
   }
 
   private startPresence(channelId: string): void {

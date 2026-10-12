@@ -372,6 +372,7 @@ export const en = {
   signInToHear: 'Sign in to hear this room',
   noAudioToken: 'This room did not include an audio token',
   audioNotConnected: 'Audio not connected',
+  speakerMusicProfile: 'Music',
   leftRoom: 'Left room',
   signInToChat: 'Sign in to send a message',
   nowFollowing: 'Following @{username}',
