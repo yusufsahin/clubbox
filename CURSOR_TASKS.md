@@ -4,7 +4,14 @@ Each task below is a self-contained prompt. Paste one task at a time into Cursor
 
 _Last reviewed: 2026-10-11. “Uygulandı” means the code is in the tree. “Canlı doğrulandı” means it was exercised against the official Clubhouse web session. This pass is implemented; the live room, hand, invite, and chat capture is still outstanding._
 
-### Last autonomous run (2026-10-12 — Phase 30.9 bookkeeping / blocked)
+### Last autonomous run (2026-10-12 — idle / owner-blocked)
+
+- Re-checked Status + Autonomous plan: no unfinished agent tasks that are not blocked.
+- Still blocked on owner: live checks 30.4/30.6/30.7, 30.8 feedback, `api_health` invite_speaker row
+  (feature not edited per Hard rule), ACC-1 wording.
+- No code change this turn.
+
+### Previous last autonomous run (2026-10-12 — Phase 30.9 bookkeeping / blocked)
 
 - Theme tokens fixed (`--border`/`--text`/`--bg`/`--text-secondary` → design tokens).
 - Status: 27/28/29 mobile marked **app-only (closed)**; 26.7 superseded by 30.7.
