@@ -201,3 +201,18 @@ until a 2xx in the owner's throwaway room.
 - **Move to audience** = `mute_speaker` then `uninvite_speaker`
 - **End room** = `end_channel`; on success leave locally (`skipServer`)
 - **Remove from room** = `block_from_channel` with confirm
+
+## Phase 27.5.0 — SMS Token auth spike (dev only)
+
+Owner decision **2026-10-12 (A):** one-time SMS Token link is allowed; phone app may be signed out.
+
+Dev poke (Clubbox must already be running):
+
+```text
+node scripts/mobile-token-probe-27.mjs --channel=<throwaway>
+```
+
+App prompts collect phone + SMS code (never CLI, never logged). TR numbers normalize to `+905…`
+(`normalizeTrPhoneForAuth` / trunk-zero). Report: `reports/mobile-token-probe-27.json` — status +
+response **keys** only. If attestation/captcha appears → STOP. Production Token store is **27.5.1+**
+(not this spike).

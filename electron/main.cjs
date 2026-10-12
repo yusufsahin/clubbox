@@ -9,6 +9,7 @@ const {
   nativeTheme,
   systemPreferences,
   powerMonitor,
+  dialog,
 } = require('electron');
 const path = require('path');
 const fs = require('fs');
@@ -33,6 +34,15 @@ const {
   MUTATION_CONFIRM,
   MUTATION_PROBE_ORDER,
 } = require('./mobileProbe.cjs');
+const {
+  normalizeTrPhoneForAuth,
+  ensureProbeDeviceId,
+  responseHasKey,
+  detectAttestation,
+  mobileTokenHeaders,
+  callTokenProbeApi,
+  muteSpeakerWithHeaderVariants,
+} = require('./mobileTokenProbe.cjs');
 
 const REQUEST_TIMEOUT_MS = 20000;
 const DEV_SERVER_ORIGIN = 'http://localhost:5173';
@@ -2187,6 +2197,255 @@ async function runCliMobileProbeFromArgv(argv) {
   return true;
 }
 
+/**
+ * Dev-only text prompt (Phase 27.5.0). Value stays in main; never logged.
+ * @param {string} title
+ * @param {string} label
+ * @param {{ password?: boolean }} [opts]
+ * @returns {Promise<string | null>}
+ */
+function promptMainText(title, label, opts = {}) {
+  return new Promise((resolve) => {
+    const win = new BrowserWindow({
+      width: 420,
+      height: 220,
+      parent: mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined,
+      modal: true,
+      show: true,
+      autoHideMenuBar: true,
+      webPreferences: {
+        nodeIntegration: true,
+        contextIsolation: false,
+      },
+    });
+    const inputType = opts.password ? 'password' : 'text';
+    const html = `<!doctype html><html><body style="font-family:system-ui;padding:16px;background:#1a1a1a;color:#eee">
+      <form id="f">
+        <label style="display:block;margin-bottom:8px">${label.replace(/[<>&]/g, '')}</label>
+        <input id="v" type="${inputType}" autocomplete="off" style="width:100%;padding:8px;margin-bottom:12px" />
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button type="button" id="c">Cancel</button>
+          <button type="submit">OK</button>
+        </div>
+      </form>
+      <script>
+        const { ipcRenderer } = require('electron');
+        document.getElementById('f').onsubmit = (e) => {
+          e.preventDefault();
+          ipcRenderer.send('clubbox:token-probe-prompt', document.getElementById('v').value || '');
+        };
+        document.getElementById('c').onclick = () => ipcRenderer.send('clubbox:token-probe-prompt', null);
+        document.getElementById('v').focus();
+      </script>
+    </body></html>`;
+    const onResult = (_event, value) => {
+      ipcMain.removeListener('clubbox:token-probe-prompt', onResult);
+      if (!win.isDestroyed()) win.close();
+      resolve(typeof value === 'string' ? value : null);
+    };
+    ipcMain.on('clubbox:token-probe-prompt', onResult);
+    win.on('closed', () => {
+      ipcMain.removeListener('clubbox:token-probe-prompt', onResult);
+      resolve(null);
+    });
+    void win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+  });
+}
+
+/**
+ * Phase 27.5.0 SMS Token spike — interactive prompts inside the running app.
+ * Never logs phone / code / token. Writes reports/mobile-token-probe-27.json (keys only).
+ */
+async function runTokenAuthSpikeFromArgv(argv) {
+  const channelFlag = argv.find((a) => String(a).startsWith('--channel='));
+  let channel = channelFlag ? channelFlag.slice('--channel='.length) : (currentRoomChannel || null);
+  if (!channel) {
+    try {
+      const last = JSON.parse(fs.readFileSync(path.join(app.getPath('userData'), 'last-room.json'), 'utf8'));
+      if (typeof last.channel === 'string') channel = last.channel;
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const report = {
+    phase: '27.5.0',
+    startedAt: new Date().toISOString(),
+    channel: channel || null,
+    phoneNormalized: false,
+    start: null,
+    complete: null,
+    hasRefreshToken: false,
+    attestation: { required: false, hints: [] },
+    mute: null,
+    stoppedForAttestation: false,
+    notes: [],
+    // Owner must confirm phone-app sign-out after the spike (we cannot observe the phone).
+    phoneAppSignedOut: 'ask_owner',
+  };
+
+  console.log('[token-probe] 27.5.0 start (phone/code never logged)');
+
+  const phoneRaw = await promptMainText(
+    'Host tools Token spike',
+    'Phone number (TR → +905…). Warning: your phone app may be signed out.',
+  );
+  if (!phoneRaw) {
+    report.notes.push('cancelled_at_phone');
+    writeTokenProbeReport(report);
+    return false;
+  }
+  const phone = normalizeTrPhoneForAuth(phoneRaw);
+  if (!phone) {
+    report.notes.push('phone_normalize_failed');
+    writeTokenProbeReport(report);
+    console.log('[token-probe] phone normalize failed (shape only)');
+    return false;
+  }
+  report.phoneNormalized = true;
+  // Drop raw immediately — do not retain on the report object.
+  const deviceId = ensureProbeDeviceId(app.getPath('userData'));
+  // Pre-auth: no CH-UserID / Authorization (clubhouse-py pattern).
+  const startHeaders = mobileTokenHeaders({ deviceId });
+  const startRes = await callTokenProbeApi({
+    endpoint: 'start_phone_number_auth',
+    body: { phone_number: phone },
+    headers: startHeaders,
+  });
+  report.start = { status: startRes.status, shape: startRes.shape };
+  console.log('[token-probe] start_phone_number_auth', startRes.status, startRes.shape);
+
+  const attestStart = detectAttestation(startRes.body);
+  if (attestStart.required) {
+    report.attestation = attestStart;
+    report.stoppedForAttestation = true;
+    report.notes.push('attestation_on_start');
+    writeTokenProbeReport(report);
+    console.log('[token-probe] STOP — attestation/captcha on start', attestStart.hints.join(','));
+    await dialog.showMessageBox(mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined, {
+      type: 'warning',
+      title: 'Token spike stopped',
+      message: 'Attestation/captcha required on start_phone_number_auth. Spike stopped (27.5.0).',
+    });
+    return false;
+  }
+
+  const codeRaw = await promptMainText(
+    'SMS code',
+    'Enter the SMS verification code (never stored or logged).',
+    { password: true },
+  );
+  if (!codeRaw || !codeRaw.trim()) {
+    report.notes.push('cancelled_at_code');
+    writeTokenProbeReport(report);
+    return false;
+  }
+  const code = codeRaw.trim();
+
+  const completeRes = await callTokenProbeApi({
+    endpoint: 'complete_phone_number_auth',
+    body: { phone_number: phone, verification_code: code },
+    headers: startHeaders,
+  });
+  report.complete = { status: completeRes.status, shape: completeRes.shape };
+  report.hasRefreshToken = responseHasKey(completeRes.body, 'refresh_token');
+  console.log('[token-probe] complete_phone_number_auth', completeRes.status, completeRes.shape, 'refresh_token=', report.hasRefreshToken);
+
+  const attestComplete = detectAttestation(completeRes.body);
+  if (attestComplete.required) {
+    report.attestation = attestComplete;
+    report.stoppedForAttestation = true;
+    report.notes.push('attestation_on_complete');
+    writeTokenProbeReport(report);
+    console.log('[token-probe] STOP — attestation/captcha on complete', attestComplete.hints.join(','));
+    await dialog.showMessageBox(mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined, {
+      type: 'warning',
+      title: 'Token spike stopped',
+      message: 'Attestation/captcha required on complete_phone_number_auth. Spike stopped (27.5.0).',
+    });
+    return false;
+  }
+
+  let authToken = null;
+  let authUserId = null;
+  try {
+    const json = JSON.parse(completeRes.body);
+    if (typeof json.auth_token === 'string') authToken = json.auth_token;
+    authUserId = json?.user_profile?.user_id ?? json?.user_id ?? null;
+  } catch {
+    /* ignore */
+  }
+  if (!authToken || authUserId == null) {
+    report.notes.push('no_auth_token_in_complete');
+    writeTokenProbeReport(report);
+    console.log('[token-probe] STOP — no auth_token / user_id in complete response (keys only logged)');
+    return false;
+  }
+
+  if (!channel) {
+    const channelPrompt = await promptMainText(
+      'Throwaway room',
+      'Channel id for one mute_speaker (throwaway room where you are mod).',
+    );
+    channel = channelPrompt && channelPrompt.trim() ? channelPrompt.trim() : null;
+    report.channel = channel;
+  }
+  if (!channel) {
+    report.notes.push('no_channel');
+    writeTokenProbeReport(report);
+    console.log('[token-probe] STOP — no channel for mute_speaker');
+    return false;
+  }
+
+  const muteUserRaw = await promptMainText(
+    'Mute target',
+    'Numeric user_id to mute once (second account in the throwaway room).',
+  );
+  const muteUserId = muteUserRaw && /^\d+$/.test(muteUserRaw.trim()) ? Number(muteUserRaw.trim()) : null;
+  if (muteUserId == null) {
+    report.notes.push('no_mute_user_id');
+    writeTokenProbeReport(report);
+    console.log('[token-probe] STOP — mute user_id missing');
+    return false;
+  }
+
+  const mute = await muteSpeakerWithHeaderVariants({
+    channel,
+    userId: muteUserId,
+    token: authToken,
+    deviceId,
+    authUserId,
+    timeoutMs: REQUEST_TIMEOUT_MS,
+  });
+  report.mute = {
+    status: mute.status,
+    shape: mute.shape,
+    variant: mute.variant,
+    attempts: mute.attempts,
+  };
+  console.log('[token-probe] mute_speaker', mute.status, mute.variant, mute.shape);
+
+  // Drop secrets from memory ASAP (report never held them).
+  authToken = null;
+
+  writeTokenProbeReport(report);
+  await dialog.showMessageBox(mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined, {
+    type: 'info',
+    title: 'Token spike done',
+    message: `27.5.0 finished. mute_speaker status=${mute.status} variant=${mute.variant}. Check reports/mobile-token-probe-27.json. Confirm whether the phone app was signed out.`,
+  });
+  return true;
+}
+
+function writeTokenProbeReport(report) {
+  const outDir = path.join(__dirname, '..', 'reports');
+  fs.mkdirSync(outDir, { recursive: true });
+  const outPath = path.join(outDir, 'mobile-token-probe-27.json');
+  fs.writeFileSync(outPath, `${JSON.stringify(report, null, 2)}\n`);
+  fs.writeFileSync(path.join(outDir, 'mobile-token-probe-27.done'), `${Date.now()}\n`);
+  console.log('[token-probe] wrote', outPath);
+}
+
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 if (!hasSingleInstanceLock) {
   console.error('[Electron] Clubbox is already running. Close that window, then start again.');
@@ -2195,6 +2454,10 @@ if (!hasSingleInstanceLock) {
   app.on('second-instance', (_event, argv) => {
     if (argv.some((a) => a === '--clubbox-mobile-probe' || String(a).startsWith('--clubbox-mobile-probe='))) {
       void runCliMobileProbeFromArgv(argv);
+      return;
+    }
+    if (argv.some((a) => a === '--clubbox-token-probe' || String(a).startsWith('--clubbox-token-probe='))) {
+      void runTokenAuthSpikeFromArgv(argv);
       return;
     }
     if (argv.includes('--api-recorder')) {

@@ -4,7 +4,18 @@ Each task below is a self-contained prompt. Paste one task at a time into Cursor
 
 _Last reviewed: 2026-10-11. “Uygulandı” means the code is in the tree. “Canlı doğrulandı” means it was exercised against the official Clubhouse web session. This pass is implemented; the live room, hand, invite, and chat capture is still outstanding._
 
-### Last autonomous run (2026-10-12 — Task 28.6)
+### Last autonomous run (2026-10-12 — Task 27.5.0 STOP)
+
+- Owner decision **(A)** recorded: SMS Token link allowed; phone app may sign out.
+- Status 0e → **Blocked on auth → 27.5**. Task 27.5 written (27.5.0–27.5.4).
+- Spike tooling: `electron/mobileTokenProbe.cjs`, `scripts/mobile-token-probe-27.mjs`,
+  second-instance `--clubbox-token-probe` with **app prompts** for phone/SMS/mute target
+  (never CLI/logged). TR normalize `+905…`. Report keys only → `reports/mobile-token-probe-27.json`.
+- **STOP** — live spike needs Clubbox **restart** (new main), throwaway room, owner prompts;
+  then confirm phone signed-out / attestation / refresh_token from the report.
+- Do **not** start 27.5.1 until 27.5.0 report is filled.
+
+### Previous last autonomous run (2026-10-12 — Task 28.6)
 
 - Moderator actions panel (room bar): Requests (queue + Invite + queue-mode select) and History
   (paginated `get_moderator_action_history`); unknown action kinds render raw + log once.
@@ -109,16 +120,13 @@ Owner reported: triage noise, new-room participants invisible, moderation action
 
 ### Closed decisions
 
-- **Make moderator / host tools (2026-10-12, Phase 27):** Web `/web_api/*` 404. **Revised 2026-10-12:** cookie+csrf → `get_profile` 200 only; moderation allow-list → **401** (Token-class). SMS linking still skipped pending owner Q. Transport: `clubbox:mobile-call` + Node https Cookie.
+- **Make moderator / host tools (2026-10-12, Phase 27):** Web `/web_api/*` 404. **Revised 2026-10-12:** cookie+csrf → `get_profile` 200 only; moderation allow-list → **401** (Token-class). Transport: `clubbox:mobile-call` + Node https Cookie.
+- **Mobile Token SMS link (2026-10-12, owner):** **(A)** — one-time SMS Token link for host tools is allowed. Owner accepts the phone app may be signed out (Clubhouse one-device rule; Clubbox becomes the main device). Implement as Task **27.5**. Never log / IPC phone, SMS code, or token.
 - **End room (2026-10-12):** Leave and End are separate. Leave only `leave_channel`. End room (Details) calls mobile `end_channel` with `channel` + numeric `channel_id`; on success leave locally (`skipServer`); on failure the host stays in the room.
 
 ### Questions for the owner
 
-- **Mobile Token for host tools (blocks Phase 27 live + 28.1 + 29):** Live canary 2026-10-12: web
-  `sessionid`+`csrftoken` → `get_profile` 200, but every Phase 27 moderation endpoint → 401
-  (Token-class). Hard rule currently forbids phone-auth / storing a mobile Token. Options:
-  (A) allow a one-time SMS Token link (safeStorage, never logged) so mute/invite/end work, or
-  (B) leave host tools non-functional on the mobile host. Which?
+- **Mobile Token for host tools — ANSWERED 2026-10-12:** **(A)** one-time SMS Token link (safeStorage, never logged). Owner accepts phone app may be signed out. Next: Task **27.5.0** spike → 27.5.1–27.5.4 → then 27.4 live matrix → 28.x / 29.x Token path.
 - **ACC-1 wording:** Sign-in is now a visible Clubhouse `/signin` surface embedded in the main window (BrowserView), not a separate BrowserWindow. Should `features/account.feature` ACC-1 say “visible Clubhouse sign-in surface” instead of “visible window”? (Feature file not edited by the agent.)
 
 
@@ -133,7 +141,7 @@ Legend: **Uygulandı** = code is in the tree. **Canlı doğrulandı** = exercise
 | 0c | **Phase 25 Room exit and mic state** — leave_channel on close/quit/Ctrl+C + crash recovery, mute badge/state sync, AI denoiser init bug, log hygiene | **Closed** — 25.1–25.4 done. 25.5 moved to Phase 26 |
 | 0g | **Phase 29 Live details + full moderator toolset** — Live details panel, room settings (mute all, chat, queue, replay, web listening), host banner, polls, highlights, full audience list, server-driven flags | **29.0 discovery done** — unauth 401 exists; session Token-blocked; next **29.1** after Token |
 | 0f | **Phase 28 Room actions per role** — role × action matrix (Clubhouse parity), mobile body discovery, authoritative room state via get_channel, listener/speaker/moderator actions, UI gating, headphones banner fix, Moderator actions panel (Requests + History) | **28.6 code done**; 28.1–28.4 done; Leave stage still off; live Token open (28.5 owner) |
-| 0e | **Phase 27 Host tools via mobile API** — end room, invite to stage, mute, move to audience, remove from room; web API has none of these (404 / not in bundle) | **Auth blocked** — transport+https Cookie ok; moderation endpoints **401** with web session (Token needed); SMS was skipped |
+| 0e | **Phase 27 Host tools via mobile API** — end room, invite to stage, mute, move to audience, remove from room; web API has none of these (404 / not in bundle) | **Blocked on auth → 27.5** — owner chose SMS Token link (A); next **27.5.0** spike |
 | 0d | **Phase 26 Studio audio routing** — VB-Cable / Voicemeeter (Clubdeck parity): device classification, working quality levels, mixer-as-mic, loop guard, setup wizard, capture truth, live test matrix | **Code done** — 26.1–26.6 + mid-room `applyMicDevice` harden. **26.7 owner live matrix** still open |
 | 1 | **0.7 Review fixes (2026-10-11 #2)** — navigation guard, packaged recorder, clip worklet path, auto-armed clip buffer, 429/visibility, CORS proxy token leak | Uygulandı |
 | 1b | **0.8 Followers / following / friends lists** — bundle scan + labeled UI hunt; live UI uses only counts + mutual lists | Uygulandı for counts, mutual names, and chat people. The public web bundle does not contain get_followers, get_following, or get_online_friends. get_friend_zone_match and get_social_club_members are in-bundle and not called. The labeled click-through still needs a signed-in session. |
@@ -1131,9 +1139,45 @@ b. Mute the phone speaker from Clubbox → phone shows muted (cannot be unmuted 
 c. Move to audience → phone leaves the stage, stays in the room.
 d. Remove from room → phone is kicked and cannot rejoin.
 e. End room → room disappears for the phone and from the hallway; Clubbox returns to the hallway.
-f. The owner's own phone app is still signed in after linking host tools.
-Acceptance (Phase 27): a-f pass; npm test green; no token in any log or api-log file (grep check in the PR).
+f. Note: owner accepted (2026-10-12) that the phone app may be signed out after Token link (one-device rule).
+Acceptance (Phase 27): a-e pass after 27.5 link; npm test green; no token in any log or api-log file (grep check in the PR).
 Sources: owner api-log + bundle-cache (2026-10-12), Clubdeck 2.6.5 app.asar strings, github.com/stypr/clubhouse-py.
+```
+
+### Task 27.5 — SMS Token link for host tools (owner decision A, 2026-10-12)
+
+```text
+Owner accepts phone app may be signed out (Clubhouse one device; Clubbox becomes main).
+
+27.5.0 Spike (dev only; STOP and report):
+  Inside the running app (dev mode, like mobile-probe-28):
+  - start_phone_number_auth {phone_number}: TR numbers become +905… (reuse stripTrunkZeroFromAuthBody logic).
+  - complete_phone_number_auth {phone_number, verification_code}: code typed into an app prompt,
+    never on the CLI, never logged.
+  - Record only the response KEYS.
+  - Run one mute_speaker in the throwaway room with Authorization: Token, CH-UserID, CH-DeviceId
+    (random UUID per install), CH-AppVersion/AppBuild, CH-Languages/Locale and User-Agent.
+  - If 401/403/426, find which headers are required.
+  - Record whether the phone was signed out, whether captcha/attestation was asked for, and whether a
+    refresh_token exists.
+  - If attestation is required, STOP.
+
+27.5.1 Token store, main process only:
+  - safeStorage → userData/mobile-auth.bin. Never sent to the renderer, never logged.
+  - Redact Authorization / auth_token / refresh_token in the api-log.
+  - Unlink deletes the file.
+  - If the token's user_id differs from the web `me` user_id, refuse and delete.
+
+27.5.2 Transport:
+  - callMobileApi uses the Token when one exists, otherwise the cookie path.
+  - On 401, refresh via refresh_token if one exists; otherwise emit "host tools sign-in expired".
+
+27.5.3 UI: Settings › Account › "Host tools (Clubhouse phone sign-in)":
+  - phone input, code input, resend, Unlink;
+  - the warning "your phone app may be signed out".
+
+27.5.4 Tests: no token in logs or IPC; mismatch is refused; 401 → expired state; TR normalization.
+Acceptance: after linking, the 27.4 live matrix passes; then continue with 28.1 / 29.0.
 ```
 
 ## Phase 28 — Room actions per role (Clubhouse parity via mobile API)

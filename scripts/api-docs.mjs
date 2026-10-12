@@ -246,7 +246,8 @@ function expectedMutation(endpoint) {
   if (name.startsWith('follow') || name.startsWith('unfollow')) return true;
   const prefixes = [
     'send_', 'create_', 'delete_', 'update_', 'set_', 'mark_', 'mute_', 'invite_', 'uninvite_',
-    'make_', 'block_', 'end_', 'change_', 'hide_', 'accept_', 'reject_', 'become_', 'add_',
+    'make_', 'block_', 'end_', 'change_', 'hide_', 'save_', 'disable_', 'enable_', 'remove_',
+    'accept_', 'reject_', 'become_', 'add_', 'record_',
   ];
   return prefixes.some((prefix) => name.startsWith(prefix));
 }

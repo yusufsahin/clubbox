@@ -305,7 +305,7 @@
     "method": "POST",
     "evidence": "mobile-spike",
     "transport": "mobile",
-    "mutation": false,
+    "mutation": true,
     "bodyKeys": [
       "channel"
     ]
@@ -376,7 +376,7 @@
     "method": "POST",
     "evidence": "mobile-spike",
     "transport": "mobile",
-    "mutation": false,
+    "mutation": true,
     "bodyKeys": [
       "channel"
     ]
@@ -387,7 +387,7 @@
     "method": "POST",
     "evidence": "mobile-spike",
     "transport": "mobile",
-    "mutation": false,
+    "mutation": true,
     "bodyKeys": [
       "channel"
     ]
@@ -398,7 +398,7 @@
     "method": "POST",
     "evidence": "mobile-spike",
     "transport": "mobile",
-    "mutation": false,
+    "mutation": true,
     "bodyKeys": [
       "channel"
     ]
@@ -421,7 +421,7 @@
     "method": "POST",
     "evidence": "mobile-spike",
     "transport": "mobile",
-    "mutation": false,
+    "mutation": true,
     "bodyKeys": [
       "channel"
     ]
