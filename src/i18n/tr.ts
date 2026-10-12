@@ -566,6 +566,7 @@ export const tr: Record<MessageKey, string> = {
   webListeningOffHint: 'Bu odada web dinleme kapalı — mobilden duyulmak için Clubhouse uygulamasında oda ayarlarından web dinlemeyi aç',
   agoraDnsFailed: 'Oda sesi koptu (Agora). Odadan çıkıp tekrar gir. Sürerse Clubbox’u yeniden başlat.',
   agoraBannedFromRoom: 'Oda sesinden çıkarıldınız ({reason}).',
+  microphoneChangedTo: 'Mikrofon şuna değişti: {label}',
   networkQualityTitle: 'Bağlantı kalitesi: uplink {up} · downlink {down}',
   connectionStatusRtcRtt: 'RTC RTT',
   connectionStatusRtcBitrate: 'RTC gönder / al',

@@ -381,6 +381,12 @@ export class ClubboxApp {
     agoraVoice.onNeedToken((kind) => {
       void this.handleAgoraTokenEvent(kind);
     });
+    agoraVoice.onMicrophoneChanged((label) => {
+      this.audioPrefs.inputDeviceId = audioEngine.getInputDeviceId();
+      this.saveAudioPrefs();
+      this.showToast(t('microphoneChangedTo', { label }), '🎙️');
+      if (this.currentTab === 'settings') void this.fillAudioDevices();
+    });
     agoraVoice.onNetworkQuality((tone, uplink, downlink) => {
       this.networkQualityTone = tone;
       this.networkQualityUp = uplink;
@@ -1475,6 +1481,12 @@ export class ClubboxApp {
         this.audioPrefs.inputDeviceId = target.value;
         this.saveAudioPrefs();
         audioEngine.setInputDeviceId(target.value);
+        // In a room: switch the live Agora mic track (Phase 24.4) — no republish.
+        if (agoraVoice.getIsJoined() && agoraVoice.getIsSpeaker()) {
+          void agoraVoice.setMicrophoneDevice(target.value);
+        } else {
+          void audioEngine.restartMicrophone();
+        }
       } else if (target.id === 'cfg-output-device') {
         this.audioPrefs.outputDeviceId = target.value;
         this.saveAudioPrefs();

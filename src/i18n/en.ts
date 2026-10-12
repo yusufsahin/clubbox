@@ -564,6 +564,7 @@ export const en = {
   webListeningOffHint: 'Web listening is off for this room — enable it in the Clubhouse app room settings so mobile can hear this desktop',
   agoraDnsFailed: 'Room audio dropped (Agora). Leave and rejoin. If it keeps failing, restart Clubbox.',
   agoraBannedFromRoom: 'You were removed from room audio ({reason}).',
+  microphoneChangedTo: 'Microphone changed to {label}',
   networkQualityTitle: 'Connection quality: uplink {up} · downlink {down}',
   connectionStatusRtcRtt: 'RTC RTT',
   connectionStatusRtcBitrate: 'RTC send / recv',

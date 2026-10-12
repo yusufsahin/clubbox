@@ -1,8 +1,10 @@
 import type {
   IAgoraRTCClient,
   ILocalAudioTrack,
+  IMicrophoneAudioTrack,
   IRemoteAudioTrack,
   IAgoraRTCRemoteUser,
+  DeviceInfo,
 } from 'agora-rtc-sdk-ng';
 
 type AgoraSdk = typeof import('agora-rtc-sdk-ng').default;
@@ -48,7 +50,9 @@ function agoraDebugEnabled(): boolean {
  */
 export class AgoraVoiceEngine {
   private client: IAgoraRTCClient | null = null;
-  private localAudioTrack: ILocalAudioTrack | null = null;
+  private localAudioTrack: IMicrophoneAudioTrack | null = null;
+  private deviceListenersBound = false;
+  private onMicChangedCallbacks: ((label: string) => void)[] = [];
   /** Soundboard / external / effected-voice custom track (Phase 24.1). */
   private extrasAudioTrack: ILocalAudioTrack | null = null;
   /** MediaStreamTrack clone owned by extrasAudioTrack. */
@@ -98,14 +102,87 @@ export class AgoraVoiceEngine {
     if (!this.sdkPromise) {
       this.sdkPromise = import('agora-rtc-sdk-ng').then((mod) => {
         mod.default.setLogLevel(agoraDebugEnabled() ? 1 : 3);
+        this.bindDeviceListeners(mod.default);
         return mod.default;
       });
     } else {
       void this.sdkPromise.then((sdk) => {
         sdk.setLogLevel(agoraDebugEnabled() ? 1 : 3);
+        this.bindDeviceListeners(sdk);
       });
     }
     return this.sdkPromise;
+  }
+
+  /** Phase 24.4: hot-swap mic/output without republish. */
+  private bindDeviceListeners(sdk: AgoraSdk): void {
+    if (this.deviceListenersBound) return;
+    this.deviceListenersBound = true;
+    sdk.onMicrophoneChanged = (info: DeviceInfo) => {
+      void this.onMicrophoneDeviceChanged(sdk, info);
+    };
+    sdk.onPlaybackDeviceChanged = (info: DeviceInfo) => {
+      void this.onPlaybackDeviceChanged(info);
+    };
+  }
+
+  private async onMicrophoneDeviceChanged(sdk: AgoraSdk, info: DeviceInfo): Promise<void> {
+    if (!this.isJoined || !this.isSpeaker || !this.localAudioTrack) return;
+    // Newly plugged (ACTIVE) devices do not auto-switch.
+    if (String(info.state).toUpperCase() !== 'INACTIVE') return;
+    const goneId = info.device?.deviceId || '';
+    const currentId = audioEngine.getInputDeviceId();
+    if (currentId && goneId && currentId !== goneId) return;
+    try {
+      const mics = await sdk.getMicrophones();
+      const next = mics.find((d) => d.deviceId && d.deviceId !== goneId) || mics[0];
+      if (!next?.deviceId) return;
+      await this.localAudioTrack.setDevice(next.deviceId);
+      audioEngine.setInputDeviceId(next.deviceId);
+      const label = next.label || next.deviceId;
+      console.log('[AgoraRTC] mic hot-swap', `label=${label.slice(0, 48)}`);
+      this.onMicChangedCallbacks.forEach((cb) => cb(label));
+    } catch (err) {
+      console.warn('[AgoraRTC] mic hot-swap failed:', err);
+    }
+  }
+
+  private async onPlaybackDeviceChanged(info: DeviceInfo): Promise<void> {
+    if (String(info.state).toUpperCase() !== 'INACTIVE') return;
+    const goneId = info.device?.deviceId || '';
+    const currentId = audioEngine.getOutputDeviceId();
+    if (currentId && goneId && currentId !== goneId) return;
+    // Fall back to default output (empty id → browser default via setSinkId).
+    audioEngine.setOutputDevice('');
+    console.log('[AgoraRTC] playback device removed — fell back to default sink');
+  }
+
+  /** Settings › Audio input while in a room: setDevice on live mic track (no republish). */
+  public async setMicrophoneDevice(deviceId: string): Promise<boolean> {
+    audioEngine.setInputDeviceId(deviceId);
+    if (!this.localAudioTrack || !this.isJoined) return false;
+    try {
+      let id = deviceId;
+      if (!id) {
+        const sdk = await this.loadSdk();
+        const mics = await sdk.getMicrophones();
+        id = mics[0]?.deviceId || '';
+      }
+      if (!id) return false;
+      await this.localAudioTrack.setDevice(id);
+      console.log('[AgoraRTC] setMicrophoneDevice', `idLen=${id.length}`);
+      return true;
+    } catch (err) {
+      console.warn('[AgoraRTC] setMicrophoneDevice failed:', err);
+      return false;
+    }
+  }
+
+  public onMicrophoneChanged(cb: (label: string) => void): () => void {
+    this.onMicChangedCallbacks.push(cb);
+    return () => {
+      this.onMicChangedCallbacks = this.onMicChangedCallbacks.filter((c) => c !== cb);
+    };
   }
 
   /** Settings › Advanced "Verbose voice log". */
