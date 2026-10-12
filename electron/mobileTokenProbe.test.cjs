@@ -33,10 +33,17 @@ test('summarizeResponseKeys records key names but never token values', () => {
   assert.match(shape, /user_profile\.keys=/);
 });
 
-test('detectAttestation flags captcha-like keys', () => {
+test('detectAttestation flags captcha-like keys and token validation', () => {
   assert.equal(detectAttestation(JSON.stringify({ success: true })).required, false);
   assert.equal(detectAttestation(JSON.stringify({ captcha_token: 'x' })).required, true);
   assert.equal(detectAttestation(JSON.stringify({ detail: 'attestation required' })).required, true);
+  const blocked = detectAttestation(JSON.stringify({
+    success: false,
+    is_blocked: false,
+    error_message: 'login did not pass token validation!',
+  }));
+  assert.equal(blocked.required, true);
+  assert.ok(blocked.hints.includes('token_validation'));
 });
 
 test('responseHasKey and probe allow-list', () => {

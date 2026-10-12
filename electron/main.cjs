@@ -2316,16 +2316,22 @@ async function runTokenAuthSpikeFromArgv(argv) {
   console.log('[token-probe] start_phone_number_auth', startRes.status, startRes.shape);
 
   const attestStart = detectAttestation(startRes.body);
-  if (attestStart.required) {
-    report.attestation = attestStart;
+  if (attestStart.required || startRes.status === 400) {
+    report.attestation = attestStart.required
+      ? attestStart
+      : { required: true, hints: ['start_400'], is_blocked: false };
     report.stoppedForAttestation = true;
-    report.notes.push('attestation_on_start');
+    report.notes.push(
+      attestStart.hints.includes('token_validation')
+        ? 'token_validation_on_start'
+        : 'attestation_or_block_on_start',
+    );
     writeTokenProbeReport(report);
-    console.log('[token-probe] STOP — attestation/captcha on start', attestStart.hints.join(','));
+    console.log('[token-probe] STOP — start blocked', report.attestation.hints.join(','));
     await dialog.showMessageBox(mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined, {
       type: 'warning',
       title: 'Token spike stopped',
-      message: 'Attestation/captcha required on start_phone_number_auth. Spike stopped (27.5.0).',
+      message: 'start_phone_number_auth failed (token validation / device integrity). Spike stopped (27.5.0). SMS code was not requested.',
     });
     return false;
   }

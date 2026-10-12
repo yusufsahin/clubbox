@@ -202,7 +202,7 @@ until a 2xx in the owner's throwaway room.
 - **End room** = `end_channel`; on success leave locally (`skipServer`)
 - **Remove from room** = `block_from_channel` with confirm
 
-## Phase 27.5.0 — SMS Token auth spike (dev only)
+## Phase 27.5.0 — SMS Token auth spike (dev only) — **STOPPED**
 
 Owner decision **2026-10-12 (A):** one-time SMS Token link is allowed; phone app may be signed out.
 
@@ -212,7 +212,22 @@ Dev poke (Clubbox must already be running):
 node scripts/mobile-token-probe-27.mjs --channel=<throwaway>
 ```
 
-App prompts collect phone + SMS code (never CLI, never logged). TR numbers normalize to `+905…`
-(`normalizeTrPhoneForAuth` / trunk-zero). Report: `reports/mobile-token-probe-27.json` — status +
-response **keys** only. If attestation/captcha appears → STOP. Production Token store is **27.5.1+**
-(not this spike).
+### Live result (2026-10-12)
+
+| Step | Status | Keys / note |
+| --- | --- | --- |
+| `start_phone_number_auth` | **400** | `success,is_blocked,error_message` — `login did not pass token validation!` |
+| `complete_phone_number_auth` | not run | STOP before SMS |
+| `mute_speaker` + Token | not run | — |
+| `refresh_token` | n/a | auth never completed |
+| Phone app signed out | n/a | auth never completed |
+| Attestation / device integrity | **yes** | Clubhouse support: “Token Validation” = unsupported / non-native OS |
+
+Headers on start (values not logged): `CH-AppVersion` 1.0.8, `CH-AppBuild` 304, iPhone UA,
+`CH-DeviceId` (install UUID), no `CH-UserID` / `Authorization` pre-auth. TR phone normalized to `+905…`.
+
+**STOP (27.5.0):** Clubhouse rejects Electron/desktop as a phone-auth client. Do not proceed to
+27.5.1 Token store until the owner decides an alternative (e.g. import Token from a real phone
+session / Clubdeck, or abandon host-tool Token link).
+
+Report file (local, gitignored): `reports/mobile-token-probe-27.json`.

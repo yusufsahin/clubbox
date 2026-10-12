@@ -129,7 +129,16 @@ function detectAttestation(text) {
     const err = typeof json.error_message === 'string' ? json.error_message.toLowerCase() : '';
     const blob = `${detail} ${err}`;
     const textHit = ATTESTATION_KEY_HINTS.some((hint) => blob.includes(hint.replace(/_/g, ' ')) || blob.includes(hint));
-    return { required: hints.length > 0 || textHit, hints };
+    // Clubhouse support: "Login Did Not Pass Token Validation" = unsupported / non-native device OS.
+    const tokenValidation = blob.includes('token validation') || blob.includes('did not pass token');
+    if (tokenValidation && !hints.includes('token_validation')) hints.push('token_validation');
+    const blocked = json.is_blocked === true;
+    if (blocked && !hints.includes('is_blocked')) hints.push('is_blocked');
+    return {
+      required: hints.length > 0 || textHit || tokenValidation,
+      hints,
+      is_blocked: blocked,
+    };
   } catch {
     return { required: false, hints: [] };
   }
