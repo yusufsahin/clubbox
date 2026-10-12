@@ -558,6 +558,7 @@ export const en = {
   clearToken: 'Clear stored token',
   audioTokenGap: 'Room audio did not connect. No token refresh was captured, so leave and join again after that request is recorded.',
   webListeningDisabled: 'This room cannot be listened to on the web',
+  webListeningOffBadge: 'Web listening off',
   waitForAudioConnect: 'Wait until room audio connects before muting',
   webListeningOffHint: 'Web listening is off for this room — enable it in the Clubhouse app room settings so mobile can hear this desktop',
   agoraDnsFailed: 'Room audio dropped (Agora). Leave and rejoin. If it keeps failing, restart Clubbox.',

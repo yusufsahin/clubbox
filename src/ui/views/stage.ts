@@ -82,6 +82,9 @@ export function stageColumn(state: StageState): SafeHtml {
   return html`
         <div class="stage-section">
           <div>
+            ${state.channel.is_web_listening_enabled === false ? html`
+              <p class="list-note" data-web-listening-off style="margin-bottom:12px;">${t('webListeningDisabled')}</p>
+            ` : ''}
             <div class="stage-header" style="margin-bottom:16px;">
               <div class="section-title">
                 <span>${t('stageSpeakers')}</span>

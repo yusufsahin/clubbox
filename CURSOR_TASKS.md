@@ -9,9 +9,10 @@ _Last reviewed: 2026-10-11. “Uygulandı” means the code is in the tree. “C
 Owner added Phase 23 (live room audio / Agora). Run it in order and respect the decision gate:
 - [x] 23.1 Remove the DNS workarounds (wrong diagnosis)
 - [x] 23.2 Make the real Agora join result visible
-- [x] 23.3 A/B reference tooling shipped — **STOP: owner must run A/B and pick web vs native** (table stub in `docs/history/agora-voice-dns-fix.md`)
-- [ ] then 23.4–23.5 (web path) **or** 23.6–23.8 (native SDK path), as the owner decides from the 23.3 result
-- [ ] then Phase 24 (Agora feature completeness) 24.1 → 24.7, on whichever voice path was chosen; 24.1 (broadcast mix) first
+- [x] 23.3 A/B reference tooling shipped — **web path chosen** (live audio worked; see `docs/history/agora-voice-dns-fix.md` A/B)
+- [x] 23.4–23.5 (web path)
+- [ ] then Phase 24 (Agora feature completeness) 24.1 → 24.7; 24.1 (broadcast mix) first
+- [ ] 23.6–23.8 native SDK path deferred unless web regresses
 
 ### Previous run (owner instruction, 2026-10-12 #7)
 
@@ -20,12 +21,12 @@ Owner added Phase 22 (HAL-9 room type chips). Continue from there:
 - [x] Phase 22 — hallway room types (HAL-9): chips, sparse load-more, badges, empty state
 - [x] npm test + e2e + light/dark hallway screenshots; PRD HAL-9 Today; commit; stop
 
-### Last autonomous run (2026-10-12 #phase-23)
+### Last autonomous run (2026-10-12 #phase-23-web)
 
-- Done on `phase-23-24-agora`: **23.1** (DNS cleanup + README -105 note), **23.2** (agoraErrors, join watchdog/proxy-once, verbose log, last join code, BDD voice failure), **23.3 tooling** (Settings → open clubhouse.com room + `[agora-ab]` CDP logs).
-- Stopped at decision gate: owner must run A/B once and fill the table in `docs/history/agora-voice-dns-fix.md`, then pick web (23.4–23.5) or native (23.6–23.8). Do not start 23.4+ until then.
-- Blocked / deferred: ST-9 Restream (`@pending @deferred`).
-- Questions for the owner: A/B result — does clubhouse.com play audio in the Electron A/B window? Web or native path?
+- Done on `phase-23-24-agora`: **23.1–23.5** (web path). Decision: web (live audio worked). 23.4 join-params builder + audience→host; 23.5 soft web-listening UX (no hard-gate). Native 23.6+ deferred.
+- Next: Phase **24.1** broadcast mix (second Agora track for soundboard/music/external).
+- Blocked / deferred: ST-9 Restream; native Agora spike until web regresses.
+- Questions for the owner: optional clubhouse.com A/B window still available under Verbose voice log.
 
 ### Questions for the owner
 
@@ -38,7 +39,7 @@ Legend: **Uygulandı** = code is in the tree. **Canlı doğrulandı** = exercise
 
 | Order | Task | Status |
 | --- | --- | --- |
-| 0a | **Phase 23 Live room audio (Agora)** — DNS -105 is a red herring; real join error not yet visible; web vs native SDK decision gate at 23.3 | **Stopped at 23.3 gate** — tooling ready; owner A/B + path choice needed before 23.4+ |
+| 0a | **Phase 23 Live room audio (Agora)** — DNS -105 is a red herring; real join error not yet visible; web vs native SDK decision gate at 23.3 | **Web path** — 23.1–23.5 done on `phase-23-24-agora`; native 23.6+ deferred; next Phase 24.1 |
 | 0b | **Phase 24 Agora feature completeness** — broadcast mix (soundboard/music/effects not sent today), reconnect + quality, token lifecycle, device hot-swap, speaking rings, lifecycle, AI noise suppression | Open — after Phase 23 |
 | 1 | **0.7 Review fixes (2026-10-11 #2)** — navigation guard, packaged recorder, clip worklet path, auto-armed clip buffer, 429/visibility, CORS proxy token leak | Uygulandı |
 | 1b | **0.8 Followers / following / friends lists** — bundle scan + labeled UI hunt; live UI uses only counts + mutual lists | Uygulandı for counts, mutual names, and chat people. The public web bundle does not contain get_followers, get_following, or get_online_friends. get_friend_zone_match and get_social_club_members are in-bundle and not called. The labeled click-through still needs a signed-in session. |

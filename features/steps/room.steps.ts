@@ -35,6 +35,10 @@ Given('Agora will fail join with code {string}', function (this: ClubboxWorld, c
   this.agora.failJoinCode = code;
 });
 
+Given('the room {string} has web listening disabled', function (this: ClubboxWorld, _channel: string) {
+  this.roomWebListeningDisabled = true;
+});
+
 Given('I am in the room {string}', function (this: ClubboxWorld, channel: string) {
   this.session.attachAsListener(channel);
   this.session.recording = true;
@@ -109,6 +113,10 @@ When('I click {string} on {string}', async function (this: ClubboxWorld, action:
     const result = await this.session.joinFromHallway(room.channel);
     this.syncFromSession();
     if (!result.ok) this.lastError = new Error(result.message ?? 'Join failed');
+    // Soft UX (23.5): notice when the room flag is off — Agora may still join.
+    if (result.ok && this.roomWebListeningDisabled) {
+      this.uiMessages.push(t('webListeningDisabled'));
+    }
     return;
   }
   if (action === 'Copy link') {

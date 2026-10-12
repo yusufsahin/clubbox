@@ -211,6 +211,8 @@ export class ClubboxWorld extends World {
   hostClipsEnabled = true;
   roomAudienceType: ReturnType<typeof roomAudience> = 'public';
   handRaised = false;
+  /** BDD: join should surface web-listening-off notice (Phase 23.5 soft UX). */
+  roomWebListeningDisabled = false;
   desktopNotificationsOn = false;
   windowMinimized = false;
   pendingPingRoomTitle: string | null = null;

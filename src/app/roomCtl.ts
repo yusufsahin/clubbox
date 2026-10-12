@@ -815,8 +815,9 @@ export async function connectRoomAudio(this: ClubboxApp, generation: number) : P
         + ` tokenLen=${this.currentChannel.token?.length ?? 0}`
         + ` channel=${this.currentChannel.channel}`,
     );
-    if (this.currentChannel.is_web_listening_enabled === false && this.isMeSpeaker()) {
-      this.showToast(t('webListeningOffHint'), '🌐');
+    if (this.currentChannel.is_web_listening_enabled === false) {
+      // Soft notice only — live rooms with false still join Agora successfully.
+      this.showToast(t('webListeningDisabled'), '🌐');
     }
     if (!clubhouseClient.getConfig().agoraAppId) {
       this.audioConnected = false;
@@ -829,10 +830,14 @@ export async function connectRoomAudio(this: ClubboxApp, generation: number) : P
       this.showToast(t('noAudioToken'), '🔇');
       return;
     }
+    // Agora UID: join_channel.user_profile_id when present (numeric token binding).
+    const agoraUid = Number(this.currentChannel.user_profile_id) > 0
+      ? Number(this.currentChannel.user_profile_id)
+      : this.me.user_id;
     const ok = await agoraVoice.join(
       this.currentChannel.channel,
       this.currentChannel.token,
-      this.me.user_id,
+      agoraUid,
       { isSpeaker: this.isMeSpeaker(), isMusicMode: audioEngine.getIsMusicMode() }
     );
     if (this.roomSession.generation !== generation) {

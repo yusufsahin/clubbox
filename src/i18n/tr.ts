@@ -560,6 +560,7 @@ export const tr: Record<MessageKey, string> = {
   clearToken: 'Kayıtlı tokeni sil',
   audioTokenGap: 'Oda sesi bağlanamadı. Token yenileme isteği kayda geçmediği için odadan çıkıp, o istek kaydedildikten sonra yeniden girin.',
   webListeningDisabled: 'Bu oda web üzerinden dinlenemiyor',
+  webListeningOffBadge: 'Web dinleme kapalı',
   waitForAudioConnect: 'Sessize almadan önce oda sesinin bağlanmasını bekle',
   webListeningOffHint: 'Bu odada web dinleme kapalı — mobilden duyulmak için Clubhouse uygulamasında oda ayarlarından web dinlemeyi aç',
   agoraDnsFailed: 'Oda sesi koptu (Agora). Odadan çıkıp tekrar gir. Sürerse Clubbox’u yeniden başlat.',

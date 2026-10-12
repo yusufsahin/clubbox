@@ -189,6 +189,7 @@ export function exploreView(
               ${privacyLine(ch)}
               <div class="replay-note">${ch.is_replay_enabled ? t('replaysOn') : t('replaysOff')}</div>
               <div class="replay-note">${ch.is_clips_enabled ? t('clipsOn') : t('clipsOff')}</div>
+              ${ch.is_web_listening_enabled === false ? html`<div class="replay-note" data-web-listening-off>${t('webListeningOffBadge')}</div>` : ''}
               ${runningFor ? html`<div class="replay-note">${runningFor}</div>` : ''}
               ${ch.is_active_trending_topic_channel ? html`<div class="replay-note">${t('trending')}</div>` : ''}
               ${ch.is_social_mode ? html`<div class="replay-note">${t('socialRoom')}</div>` : ''}

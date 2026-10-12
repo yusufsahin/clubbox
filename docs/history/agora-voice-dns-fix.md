@@ -126,19 +126,21 @@ Adım 1 uygulandı (DNS/edge-map/`CONNECT_GATEWAY_WITHOUT_DOMAIN` kaldırıldı)
 
 ## A/B — clubhouse.com vs Clubbox (Phase 23.3)
 
-**Status: awaiting owner run.** Settings › Advanced › enable “Verbose voice log” › join a room › “Open current room on clubhouse.com”. Desktop console logs `[agora-ab] ws …` shapes only. Fill the table below from that run (never paste tokens or full app ids).
+**Decision (2026-10-12, owner “devam” after live success):** **web path** (23.4–23.5). Clubbox already joined Agora (`Joined …`), published mic, and the owner confirmed outbound audio. Formal clubhouse.com A/B window remains optional for shape compare; native spike (23.6+) deferred unless a later regression proves WebRTC blocked.
 
-| Field | clubhouse.com (A/B window) | Clubbox |
+Optional: Settings › Advanced › “Verbose voice log” › “Open current room on clubhouse.com” → `[agora-ab]` CDP shapes.
+
+| Field | clubhouse.com (A/B window) | Clubbox (live, 2026-10-12) |
 | --- | --- | --- |
-| appId prefix / len | _pending_ | `938d…` / 32 (config or fallback) |
-| token len | _pending_ | from `join_channel.token` (see live log `tokenLen=`) |
-| uid type / digits | _pending_ | `number` / profile id |
-| cname len | _pending_ | `channel` string length |
-| role / mode | _pending_ | host or audience / direct\|proxy |
-| result | _pending_ (audio audible? Y/N) | `Joined …` or error code |
-| `is_web_listening_enabled` | from Clubbox `join_channel` for that room | same |
+| appId prefix / len | _optional_ | `938d…` / 32 (config/fallback) |
+| token len | _optional_ | ~171–175 (`join_channel.token`) |
+| uid type / digits | _optional_ | `number` / 9 digits |
+| cname len | _optional_ | 8 (`P9Y3d9pY`-class) |
+| role / mode | _optional_ | host after audience→host promote / direct |
+| result | _optional_ | `Joined …` + audible |
+| `is_web_listening_enabled` | — | often `false` but join still succeeded |
 
-**Decision (owner):** web path (23.4–23.5) if clubhouse.com plays; native path (23.6–23.8) if it fails or Agora returns a vendor/permission error for web.
+**23.5 note:** hard-gating Agora on `is_web_listening_enabled===false` was reverted — live rooms with the flag false still connected. Soft UX (toast + hallway/stage badge) only.
 
 ## 6. Kaynaklar
 

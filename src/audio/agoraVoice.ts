@@ -14,6 +14,7 @@ import {
   formatVoiceFailureReason,
   shouldTryCloudProxy,
 } from './agoraErrors';
+import { buildAgoraJoinParams } from './agoraJoinParams';
 
 export interface AgoraJoinOptions {
   isSpeaker: boolean;
@@ -259,11 +260,21 @@ export class AgoraVoiceEngine {
       await this.leave();
     }
 
-    const configuredAppId = clubhouseClient.getConfig().agoraAppId;
-    const appIdSource: 'config' | 'fallback' = configuredAppId ? 'config' : 'fallback';
-    if (configuredAppId) {
-      this.appId = configuredAppId;
+    const params = buildAgoraJoinParams({
+      configuredAppId: clubhouseClient.getConfig().agoraAppId,
+      fallbackAppId: this.appId,
+      rtcToken: token,
+      channel: channelName,
+      userProfileId: uid,
+      isSpeaker: options.isSpeaker,
+    });
+    if (!params.ok) {
+      this.lastJoinResult = params.error || 'join_params';
+      console.warn('[AgoraRTC] join params invalid:', params.error);
+      void this.logAgora('agora_join', false, params.appIdSource, params.error || 'join_params');
+      return false;
     }
+    this.appId = params.appId;
 
     this.isSpeaker = options.isSpeaker;
     this.joinMode = 'direct';
@@ -272,26 +283,29 @@ export class AgoraVoiceEngine {
     this.lastExceptionCode = '';
     this.lastJoinResult = null;
 
-    const appPrefix = this.appId.slice(0, 4);
     console.log(
-      `[AgoraRTC] joining channelLen=${channelName.length} uidType=${typeof uid}`
-        + ` tokenLen=${token?.length ?? 0} appId=${appPrefix}…/${this.appId.length}`
-        + ` source=${appIdSource} role=${options.isSpeaker ? 'host' : 'audience'}`,
+      `[AgoraRTC] joining channelLen=${params.channelLen} uidType=${params.uidType}`
+        + ` tokenLen=${params.tokenLen} appId=${params.appIdPrefix}…/${params.appIdLen}`
+        + ` source=${params.appIdSource} promoteHost=${params.promoteToHostAfterJoin}`,
     );
 
     const tryJoinOnce = async (useProxy: boolean): Promise<void> => {
       if (useProxy) {
         try {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await (client as any).startProxyServer?.(5);
+          const maybeProxy = client as IAgoraRTCClient & { startProxyServer?: (mode: number) => Promise<void> };
+          await maybeProxy.startProxyServer?.(5);
           this.joinMode = 'proxy';
           console.warn('[AgoraRTC] cloud proxy mode=5 (once)');
         } catch (proxyErr) {
           console.warn('[AgoraRTC] startProxyServer failed:', this.formatAgoraError(proxyErr));
         }
       }
-      await client.setClientRole(options.isSpeaker ? 'host' : 'audience');
-      await this.joinWithTimeout(client, this.appId, channelName, token, uid);
+      // Match clubhouse.com order: join as audience, then promote to host.
+      await client.setClientRole('audience');
+      await this.joinWithTimeout(client, params.appId, params.channel, params.token, params.uid);
+      if (params.promoteToHostAfterJoin) {
+        await client.setClientRole('host');
+      }
     };
 
     let proxyTried = false;
@@ -317,7 +331,7 @@ export class AgoraVoiceEngine {
       }
 
       this.isJoined = true;
-      this.currentChannel = channelName;
+      this.currentChannel = params.channel;
       void audioEngine.ensureAudioContext();
       await this.syncRemoteUsers();
 
@@ -326,16 +340,16 @@ export class AgoraVoiceEngine {
           await this.publishBroadcast(options.isMusicMode);
         } catch (publishErr) {
           console.warn('[AgoraRTC] Host join ok but publish failed:', this.formatAgoraError(publishErr));
-          void this.logAgora('agora_publish', false, appIdSource, 'MICROPHONE_UNAVAILABLE');
+          void this.logAgora('agora_publish', false, params.appIdSource, 'MICROPHONE_UNAVAILABLE');
         }
       }
 
       const role = options.isSpeaker ? 'host' : 'audience';
       console.log(
-        `[AgoraRTC] Joined ${channelName} uid=${uid} role=${role} mode=${this.joinMode}`,
+        `[AgoraRTC] Joined ${params.channel} uid=${params.uid} role=${role} mode=${this.joinMode}`,
       );
       this.lastJoinResult = `ok:${this.joinMode}`;
-      void this.logAgora('agora_join', true, appIdSource, `mode=${this.joinMode}`);
+      void this.logAgora('agora_join', true, params.appIdSource, `mode=${this.joinMode}`);
       return true;
     } catch (err) {
       // Log connection/exception snapshot before leave hides the gateway state.
@@ -347,7 +361,7 @@ export class AgoraVoiceEngine {
       );
       const code = formatVoiceFailureReason(err);
       this.lastJoinResult = code;
-      void this.logAgora('agora_join', false, appIdSource, code);
+      void this.logAgora('agora_join', false, params.appIdSource, code);
       try {
         await this.leave();
       } catch {

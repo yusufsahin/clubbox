@@ -79,11 +79,18 @@ export interface CHChannel {
   is_active_trending_topic_channel?: boolean;
   /** From feed logging_context when present — used for topic-chip filtering. */
   topic_key?: string;
+  /**
+   * Clubhouse “web listening” flag (feed and/or join). Live evidence (2026-10-12):
+   * false does not always block Agora Web SDK — soft UX only, no hard-gate.
+   */
+  is_web_listening_enabled?: boolean;
   num_speakers: number;
   num_all: number;
   has_raised_hands?: boolean;
   users: CHUser[];
   token?: string; // Agora RTC token
+  /** Agora UID from join_channel — prefer over me.user_id when present. */
+  user_profile_id?: number;
   pubnub_token?: string;
   pubnub_origin?: string;
   pubnub_heartbeat_value?: number;
@@ -96,8 +103,6 @@ export type UserCapabilities = Record<string, boolean | undefined>;
 export interface CHChannelDetail extends CHChannel {
   description?: string;
   agora_native_mute?: boolean;
-  /** When false, Clubhouse blocks web/WebRTC listeners — do not join Agora. */
-  is_web_listening_enabled?: boolean;
   user_capabilities?: UserCapabilities;
 }
 

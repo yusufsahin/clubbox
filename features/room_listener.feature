@@ -30,6 +30,14 @@ Feature: Be a listener in a live room
     When I click "Join" on "Tech Talk"
     Then I see the message "Room audio failed: INVALID_VENDOR_KEY"
 
+  @bundle @RL-1
+  Scenario: Web-listening-off room still shows a notice
+    Given the hallway shows the room "Tech Talk" with channel "abc123"
+    And the room "abc123" has web listening disabled
+    When I click "Join" on "Tech Talk"
+    Then I see the stage with speakers and the audience
+    And I see the message "This room cannot be listened to on the web"
+
   @bundle @RL-3
   Scenario: Presence ping keeps me in the room
     Given I am in the room "abc123"
