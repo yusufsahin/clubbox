@@ -1001,7 +1001,7 @@ export class ClubboxApp {
     if (guard.blockStage && agoraVoice.getIsJoined() && agoraVoice.getIsSpeaker() && !this.loopDemoteStarted) {
       this.loopDemoteStarted = true;
       this.showToast(t('loopBlockStage'), '🔊');
-      void agoraVoice.demoteToAudience().finally(() => {
+      void this.demoteLocalSpeaker({ toastMoved: false }).finally(() => {
         this.loopDemoteStarted = false;
       });
     }
@@ -2337,12 +2337,17 @@ export class ClubboxApp {
       case 'toggle-mic':
         this.toggleMute();
         break;
-      case 'toggle-monitor':
-        this.audioPrefs.monitorEnabled = !audioEngine.getMonitorEnabled();
-        audioEngine.setMonitorEnabled(this.audioPrefs.monitorEnabled);
+      case 'toggle-monitor': {
+        const enabled = el instanceof HTMLInputElement
+          ? el.checked === true
+          : !audioEngine.getMonitorEnabled();
+        this.audioPrefs.monitorEnabled = enabled;
+        audioEngine.setMonitorEnabled(enabled);
         this.saveAudioPrefs();
         this.renderCockpit();
+        if (this.roomDetailsOpen) this.renderRoomDetails();
         break;
+      }
       case 'pick-voice-effect': {
         const select = el as HTMLSelectElement;
         const value = select.value;
@@ -2361,6 +2366,7 @@ export class ClubboxApp {
           }
           this.showToast(t('voiceEffectPreview'), '🎙️');
           this.renderCockpit();
+          if (this.roomDetailsOpen) this.renderRoomDetails();
         });
         break;
       case 'apply-voice-effect': {
@@ -2372,6 +2378,7 @@ export class ClubboxApp {
           this.syncSelfMuteFromEngine();
         });
         this.showToast(t('voiceEffectApply'), '🎙️');
+        if (this.roomDetailsOpen) this.renderRoomDetails();
         break;
       }
       case 'retry-audio':

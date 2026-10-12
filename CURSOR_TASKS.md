@@ -17,11 +17,10 @@ Owner reported: triage noise, new-room participants invisible, moderation action
 
 Idle recheck after 24.7.
 
-### Last autonomous run (2026-10-12 — demote mic + voice effect UI)
+### Last autonomous run (2026-10-12 — demoteLocalSpeaker + monitor sync)
 
-- Demote-to-audience no longer wipes the SVG mic button with emoji `textContent`.
-- Room details voice effects: Preview + Apply buttons + help (ST-7); select shows picked effect.
-- Prior: channel_patch merge, Details handraise/visibility/audience search, triage HANDLED_PUBNUB.
+- Shared `demoteLocalSpeaker` for role-sync and loop-guard demote (mute + release external + mic chrome).
+- Voice-effect Preview / Hear myself: monitor toggle uses checkbox state; Details re-renders after preview/apply/monitor.
 - **Blocked / owner:** Phase 26.7 live matrix. ST-9 `@deferred`. ACC-1 wording open.
 
 ### Previous last autonomous run (2026-10-12 — host mute/move/block)
@@ -58,7 +57,7 @@ Legend: **Uygulandı** = code is in the tree. **Canlı doğrulandı** = exercise
 | 0d | **Phase 26 Studio audio routing** — VB-Cable / Voicemeeter (Clubdeck parity): device classification, working quality levels, mixer-as-mic, loop guard, setup wizard, capture truth, live test matrix | **Code done** — 26.1–26.6 + mid-room `applyMicDevice` harden. **26.7 owner live matrix** still open |
 | 1 | **0.7 Review fixes (2026-10-11 #2)** — navigation guard, packaged recorder, clip worklet path, auto-armed clip buffer, 429/visibility, CORS proxy token leak | Uygulandı |
 | 1b | **0.8 Followers / following / friends lists** — bundle scan + labeled UI hunt; live UI uses only counts + mutual lists | Uygulandı for counts, mutual names, and chat people. The public web bundle does not contain get_followers, get_following, or get_online_friends. get_friend_zone_match and get_social_club_members are in-bundle and not called. The labeled click-through still needs a signed-in session. |
-| 0 | **Autonomous plan** (see `.cursor/rules/clubbox.mdc`): 10.1 → 11.8 (warn mode) → 10.2 → 10.5 → 11.0 → 11.1 → 11.2 → 11.3 → 11.4 → 10.4 → 11.5 → 11.6 → 11.7 → 11.9 → 11.10 → 11.8 (strict). Acceptance files: account, hallway, room_listener, room_realtime, room_host, room_moderation, audio_studio, studio, social, messages, houses_events_replays, api_health. Requirements: `docs/product/PRD.md`; design + gap list G-01…G-18: `docs/product/DESIGN.md`; acceptance: `features/*.feature` | **Idle / blocked** — demote mic + voice-effect UI closed. Waiting on 26.7 owner live matrix. ST-9 Restream `@deferred`. |
+| 0 | **Autonomous plan** (see `.cursor/rules/clubbox.mdc`): 10.1 → 11.8 (warn mode) → 10.2 → 10.5 → 11.0 → 11.1 → 11.2 → 11.3 → 11.4 → 10.4 → 11.5 → 11.6 → 11.7 → 11.9 → 11.10 → 11.8 (strict). Acceptance files: account, hallway, room_listener, room_realtime, room_host, room_moderation, audio_studio, studio, social, messages, houses_events_replays, api_health. Requirements: `docs/product/PRD.md`; design + gap list G-01…G-18: `docs/product/DESIGN.md`; acceptance: `features/*.feature` | **Idle / blocked** — demoteLocalSpeaker + monitor sync closed. Waiting on 26.7 owner live matrix. ST-9 Restream `@deferred`. |
 | — | **10.1** / **10.2** / **10.4** / **10.5** / **11.0** / **11.8 (warn)** | Uygulandı |
 | 1c | **0.9 / 12.2 Verified by use** — request log + in-app triage (no recorder) | Uygulandı. Verified by use: endpoints the owner exercises become `observed` via userData `api-log` + startup triage / `npm run api:triage` (list grows with normal use). |
 | 2 | **0.6 Community Guidelines risk** — hidden reCAPTCHA sign-in, polling, recording, distribution | Uygulandı (code). Sign-in is a visible clubhouse.com window, polling pauses when the window is hidden, recording is opt-in, and there is no publish config. A public release is still your decision. |

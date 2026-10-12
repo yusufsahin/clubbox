@@ -95,6 +95,7 @@ export type ClubboxAppCtlMethods = {
   isMeSpeaker: typeof roomCtl.isMeSpeaker;
   isMeModerator: typeof roomCtl.isMeModerator;
   syncAgoraRole: typeof roomCtl.syncAgoraRole;
+  demoteLocalSpeaker: typeof roomCtl.demoteLocalSpeaker;
   runAgoraRoleSync: typeof roomCtl.runAgoraRoleSync;
   inviteToStage: typeof roomCtl.inviteToStage;
   moderateSpeaker: typeof roomCtl.moderateSpeaker;

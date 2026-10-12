@@ -262,6 +262,20 @@ export function syncAgoraRole(this: ClubboxApp) : void {
     void this.runAgoraRoleSync();
   }
 
+/** Agora audience + local mic/external cleanup shared by role-sync and loop demote. */
+export async function demoteLocalSpeaker(
+  this: ClubboxApp,
+  opts: { toastMoved?: boolean } = {},
+): Promise<void> {
+    await agoraVoice.demoteToAudience();
+    audioEngine.releaseExternal();
+    audioEngine.setMuted(true);
+    // syncSelfMuteFromEngine → renderCockpit keeps the SVG mic button intact.
+    this.syncSelfMuteFromEngine();
+    void this.queueMuteSync();
+    if (opts.toastMoved !== false) this.showToast(t('movedToAudience'), '🎙️');
+  }
+
 export async function runAgoraRoleSync(this: ClubboxApp) : Promise<void> {
     try {
       if (this.currentChannel && agoraVoice.getIsJoined()) {
@@ -274,13 +288,7 @@ export async function runAgoraRoleSync(this: ClubboxApp) : Promise<void> {
               if (!ok) this.showToast(t('micStageFailed'), '🔇');
             }
           } else {
-            await agoraVoice.demoteToAudience();
-            audioEngine.releaseExternal();
-            audioEngine.setMuted(true);
-            // syncSelfMuteFromEngine → renderCockpit keeps the SVG mic button intact.
-            this.syncSelfMuteFromEngine();
-            void this.queueMuteSync();
-            this.showToast(t('movedToAudience'), '🎙️');
+            await this.demoteLocalSpeaker();
           }
         }
       }
@@ -1282,6 +1290,7 @@ export function wireRoomCtl(proto: ClubboxApp): void {
   proto.isMeSpeaker = isMeSpeaker;
   proto.isMeModerator = isMeModerator;
   proto.syncAgoraRole = syncAgoraRole;
+  proto.demoteLocalSpeaker = demoteLocalSpeaker;
   proto.runAgoraRoleSync = runAgoraRoleSync;
   proto.inviteToStage = inviteToStage;
   proto.moderateSpeaker = moderateSpeaker;
