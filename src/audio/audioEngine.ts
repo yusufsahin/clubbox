@@ -78,6 +78,9 @@ export class AudioEngine {
   private micOwnedExternally = false;
   private outputDeviceId = '';
   private outputDeviceLabel = '';
+  /** Device ids whose getUserMedia failed. Labels only are shown in the pickers. */
+  public readonly unavailableDeviceIds = new Set<string>();
+  private unavailableListener: (() => void) | null = null;
   private remoteVolumes = new Map<string, number>();
   private isMuted: boolean = true;
   private isMusicMode: boolean = false;
@@ -233,6 +236,7 @@ export class AudioEngine {
         this.micStream = await tryConstraints(preferred);
       } catch (firstErr: unknown) {
         const kind = this.classifyMicError(firstErr);
+        if (kind === 'device' && this.inputDeviceId) this.noteUnavailableDevice(this.inputDeviceId);
         // OS privacy denial will fail again without a deviceId — do not double-prompt.
         if (kind === 'system' || !this.inputDeviceId) {
           throw firstErr;
@@ -261,6 +265,7 @@ export class AudioEngine {
       return true;
     } catch (err: unknown) {
       this.lastMicError = this.classifyMicError(err);
+      if (this.lastMicError === 'device' && this.inputDeviceId) this.noteUnavailableDevice(this.inputDeviceId);
       console.warn(
         '[Clubbox] Microphone access not granted or unavailable:',
         err instanceof Error ? err.message : err,
@@ -537,6 +542,32 @@ export class AudioEngine {
 
   public getOutputDeviceId(): string {
     return this.outputDeviceId;
+  }
+
+  public noteUnavailableDevice(id: string): void {
+    if (!id || id === 'default' || this.unavailableDeviceIds.has(id)) return;
+    this.unavailableDeviceIds.add(id);
+    this.unavailableListener?.();
+  }
+
+  public setUnavailableListener(listener: (() => void) | null): void {
+    this.unavailableListener = listener;
+  }
+
+  /** Short local beep. Not wired into the room mix. */
+  public playLocalTone(): void {
+    const ctx = this.initContextIfNeeded();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.frequency.value = 440;
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    const now = ctx.currentTime;
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.08, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+    osc.start(now);
+    osc.stop(now + 0.4);
   }
 
   public setOutputDevice(deviceId: string, label?: string): void {
@@ -1044,6 +1075,7 @@ export class AudioEngine {
     } catch (err: unknown) {
       const detail = err instanceof Error ? err.message : String(err);
       console.warn('[Clubbox] external audio unavailable:', detail);
+      if (deviceId && deviceId !== SYSTEM_AUDIO_DEVICE_ID) this.noteUnavailableDevice(deviceId);
       this.releaseExternal();
       return false;
     }

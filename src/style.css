@@ -562,6 +562,9 @@ body {
   background: var(--accent-emerald);
   transition: width 80ms linear;
 }
+option.device-unavailable {
+  color: #c0392b;
+}
 
 .sidebar-user {
   margin-top: 0;

@@ -1,6 +1,7 @@
 import { applySelfMute, chainLatestMute } from '../api/remoteMute.ts';
 import { audioEngine } from '../audio/audioEngine.ts';
 import type { AudioQuality } from '../audio/audioQuality.ts';
+import { compareAudioDevices, displayDeviceLabel } from '../audio/devicePicker.ts';
 import { writeAudioPrefs } from '../audio/audioPrefs.ts';
 import { eventToAccelerator, normalizeShortcuts, writeShortcuts, type ShortcutAction, type ShortcutMap } from '../shortcuts.ts';
 import { adjustZoomPercent, readAppPrefs, writeAppPrefs, zoomFactorFromPercent } from './appPrefs.ts';
@@ -173,6 +174,13 @@ export function updateVuMeter(this: ClubboxApp, vol: number) {
     const fill = document.getElementById('vu-meter-fill');
     if (fill) {
       fill.style.width = `${Math.min(100, Math.round(vol * 100))}%`;
+    }
+    const setupMic = document.querySelector<HTMLElement>('[data-setup-mic-meter]');
+    if (setupMic) setupMic.style.width = `${Math.min(100, Math.round(vol * 100))}%`;
+    const setupExternal = document.querySelector<HTMLElement>('[data-setup-external-meter]');
+    if (setupExternal) {
+      const level = audioEngine.getExternalLevel();
+      setupExternal.style.width = `${Math.min(100, Math.round(level * 100))}%`;
     }
 
     const mySpeakerCard = document.querySelector('.speaker-card.me-speaker');
@@ -395,10 +403,17 @@ export function fillDeviceSelect(this: ClubboxApp, id: string, devices: MediaDev
     fallback.value = '';
     fallback.textContent = t('systemDefault');
     select.append(fallback);
-    devices.forEach((device, index) => {
+    const sorted = [...devices].sort(compareAudioDevices);
+    sorted.forEach((device) => {
       const option = document.createElement('option');
       option.value = device.deviceId;
-      option.textContent = device.label || `${t('unnamedDevice')} ${index + 1}`;
+      const unavailable = audioEngine.unavailableDeviceIds.has(device.deviceId);
+      if (unavailable) option.className = 'device-unavailable';
+      option.textContent = displayDeviceLabel(
+        { id: device.deviceId, label: device.label || t('unnamedDevice'), kind: device.kind },
+        unavailable,
+        t('audioDeviceUnavailableMark'),
+      );
       select.append(option);
     });
     select.value = [...select.options].some((option) => option.value === selected) ? selected : '';

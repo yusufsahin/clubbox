@@ -15,6 +15,7 @@ import { audioEngine } from '../audio/audioEngine';
 import { readAudioPrefs, type AudioPrefs } from '../audio/audioPrefs';
 import { SYSTEM_AUDIO_DEVICE_ID } from '../audio/externalConstraints';
 import { externalDoublesMic, shouldPromptMixerMusic } from '../audio/mixerMic';
+import { compareAudioDevices, displayDeviceLabel, installedAudioSummary, missingChosenDevices, suggestAudioSetup, type AudioSetupDraft, type ListedDevice, type SetupChoice } from '../audio/devicePicker';
 import { loopGuard, type LoopGuard } from '../audio/loopGuard';
 import { systemAudioCaptureAllowed } from '../audio/externalDuck';
 import { readAppPrefs, syncSystemThemeListener, zoomFactorFromPercent } from './appPrefs';
@@ -34,6 +35,7 @@ import { cockpitBar } from '../ui/components/cockpitBar';
 import { mountCreateModal } from '../ui/components/createModal';
 import { selfProfilePage } from '../ui/components/profileDrawer';
 import { roomDetailsPanel } from '../ui/components/roomDetailsPanel';
+import { audioSetupWizard, isSetupQuality } from '../ui/components/audioSetupWizard';
 import { showToast } from '../ui/components/toast';
 import { html, markup, safeUrl } from '../ui/html';
 import { icon } from '../ui/icons';
@@ -162,6 +164,11 @@ export class ClubboxApp {
   audioQualityTicket = 0;
   loopGuard: LoopGuard = { roomLoop: false, voicemeeterAux: false, blockStage: false };
   loopDemoteStarted = false;
+  audioSetupOpen = false;
+  audioSetupStep: 1 | 2 | 3 | 4 = 1;
+  audioSetupChoice: SetupChoice | null = null;
+  audioSetupDevices: ListedDevice[] = [];
+  audioSetupDraft: AudioSetupDraft = { micId: '', externalId: '', outputId: '', quality: 'normal' };
   muteChain: Promise<void> = Promise.resolve();
   eventsBound = false;
 
@@ -281,8 +288,14 @@ export class ClubboxApp {
     void electronAPI()?.setZoomFactor?.(zoomFactorFromPercent(readAppPrefs().zoomPercent));
     this.applyAudioPrefs();
     void this.syncMixerMicLabel();
-    navigator.mediaDevices?.addEventListener('devicechange', () => {
+    audioEngine.setUnavailableListener(() => {
+      this.showToast(t('audioDeviceUnavailable'), '🔊');
       if (this.currentTab === 'settings') void this.fillAudioDevices();
+      if (this.roomDetailsOpen) void this.refreshExternalAudioOptions();
+      if (this.audioSetupOpen) this.renderAudioSetup();
+    });
+    navigator.mediaDevices?.addEventListener('devicechange', () => {
+      void this.onAudioDevicesChanged();
     });
     this.setupHotkeys();
     electronAPI()?.onGlobalShortcut((action) => {
@@ -724,6 +737,7 @@ export class ClubboxApp {
     this.renderGuidelines();
     if (this.isProfileDrawerOpen) this.renderProfileDrawer();
     this.renderRoomDetails();
+    this.renderAudioSetup();
     // Open the Clubhouse window once; re-running show() on every render stole
     // focus mid-OTP. openOfficialSignIn() resets the flag to reopen it.
     if (gated && this.guidelinesAccepted() && this.currentTab === 'login') {
@@ -806,9 +820,14 @@ export class ClubboxApp {
     }
     const nextOptions = devices
       .filter((device) => device.kind === 'audioinput' && device.deviceId && device.deviceId !== micId)
-      .map((device, index) => ({
+      .sort(compareAudioDevices)
+      .map((device) => ({
         id: device.deviceId,
-        label: device.label || `${t('unnamedDevice')} ${index + 1}`,
+        label: displayDeviceLabel(
+          { id: device.deviceId, label: device.label || t('unnamedDevice'), kind: device.kind },
+          audioEngine.unavailableDeviceIds.has(device.deviceId),
+          t('audioDeviceUnavailableMark'),
+        ),
       }));
     const platform = electronAPI()?.platform;
     const outputId = audioEngine.getOutputDeviceId() || this.audioPrefs.outputDeviceId || '';
@@ -1018,6 +1037,126 @@ export class ClubboxApp {
     if (this.roomDetailsOpen && document.getElementById('room-details-root')) this.renderRoomDetails();
   }
 
+  async onAudioDevicesChanged(): Promise<void> {
+    let devices: MediaDeviceInfo[] = [];
+    try {
+      devices = await navigator.mediaDevices.enumerateDevices();
+    } catch {
+      return;
+    }
+    const missing = missingChosenDevices(
+      [this.audioPrefs.inputDeviceId, this.audioPrefs.externalDeviceId, this.audioPrefs.outputDeviceId],
+      devices.map((device) => device.deviceId),
+    );
+    if (missing.length) this.showToast(t('audioDevicesReset'), '🔊');
+    if (this.currentTab === 'settings') void this.fillAudioDevices();
+    if (this.roomDetailsOpen) void this.refreshExternalAudioOptions();
+    if (!this.audioSetupOpen) return;
+    await this.loadAudioSetupDevices();
+    this.renderAudioSetup();
+  }
+
+  async openAudioSetup(): Promise<void> {
+    this.audioSetupOpen = true;
+    this.audioSetupStep = 1;
+    this.audioSetupChoice = null;
+    await this.loadAudioSetupDevices();
+    this.audioSetupDraft = {
+      micId: this.audioPrefs.inputDeviceId,
+      externalId: this.audioPrefs.externalDeviceId === SYSTEM_AUDIO_DEVICE_ID ? '' : this.audioPrefs.externalDeviceId,
+      outputId: this.audioPrefs.outputDeviceId,
+      quality: this.audioPrefs.audioQuality,
+    };
+    this.renderAudioSetup();
+  }
+
+  async loadAudioSetupDevices(): Promise<void> {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      this.audioSetupDevices = devices
+        .filter((device) => (device.kind === 'audioinput' || device.kind === 'audiooutput') && device.deviceId && device.deviceId !== 'default')
+        .map((device) => ({ id: device.deviceId, label: device.label || t('unnamedDevice'), kind: device.kind }));
+    } catch {
+      this.audioSetupDevices = [];
+    }
+  }
+
+  closeAudioSetup(): void {
+    this.audioSetupOpen = false;
+    document.getElementById('audio-setup-root')?.remove();
+  }
+
+  skipAudioSetupStep(): void {
+    if (this.audioSetupStep === 1) this.audioSetupStep = 2;
+    else if (this.audioSetupStep === 2) this.audioSetupStep = 3;
+    else if (this.audioSetupStep === 3) this.audioSetupStep = 4;
+    else {
+      this.closeAudioSetup();
+      return;
+    }
+    this.renderAudioSetup();
+  }
+
+  chooseAudioSetup(choice: SetupChoice): void {
+    this.audioSetupChoice = choice;
+    this.audioSetupDraft = suggestAudioSetup(this.audioSetupDevices, choice, this.audioPrefs.audioQuality);
+    this.audioSetupStep = 3;
+    this.renderAudioSetup();
+  }
+
+  applyAudioSetup(): void {
+    const draft = this.audioSetupDraft;
+    const mic = this.audioSetupDevices.find((device) => device.id === draft.micId);
+    const output = this.audioSetupDevices.find((device) => device.id === draft.outputId);
+    const previous = this.audioPrefs.audioQuality;
+    this.audioPrefs.inputDeviceId = draft.micId;
+    this.audioPrefs.outputDeviceId = draft.outputId;
+    this.saveAudioPrefs();
+    audioEngine.setInputDeviceId(draft.micId, mic?.label ?? '');
+    audioEngine.setOutputDevice(draft.outputId, output?.label ?? '');
+    this.audioSetupStep = 4;
+    if (draft.quality !== previous) this.setAudioQuality(draft.quality);
+    if (draft.externalId) {
+      const external = this.audioSetupDevices.find((device) => device.id === draft.externalId);
+      if (external && !this.externalInputOptions.some((device) => device.id === external.id)) {
+        this.externalInputOptions = [...this.externalInputOptions, { id: external.id, label: external.label }];
+      }
+      void this.setExternalAudioDevice(draft.externalId);
+    } else {
+      audioEngine.releaseExternal();
+      audioEngine.setExternalDeviceId('');
+      audioEngine.setExternalDeviceLabel('');
+      this.audioPrefs.externalDeviceId = '';
+      this.saveAudioPrefs();
+    }
+    this.refreshLoopGuardUi();
+    this.renderAudioSetup();
+    if (!agoraVoice.getIsJoined() || !agoraVoice.getIsSpeaker()) void audioEngine.ensureMicrophone();
+  }
+
+  renderAudioSetup(): void {
+    if (!this.audioSetupOpen) {
+      document.getElementById('audio-setup-root')?.remove();
+      return;
+    }
+    let root = document.getElementById('audio-setup-root');
+    if (!root) {
+      root = document.createElement('div');
+      root.id = 'audio-setup-root';
+      document.querySelector('.studio-main')?.appendChild(root);
+    }
+    const guard = this.currentLoopGuard();
+    root.innerHTML = markup(audioSetupWizard({
+      step: this.audioSetupStep,
+      summary: installedAudioSummary(this.audioSetupDevices),
+      devices: this.audioSetupDevices,
+      unavailable: audioEngine.unavailableDeviceIds,
+      draft: this.audioSetupDraft,
+      choice: this.audioSetupChoice,
+      loopClear: !guard.roomLoop && !guard.blockStage,
+    }));
+  }
+
   ensureShell(): void {
     if (document.getElementById('shell-sidebar')) return;
     const app = document.getElementById('app');
@@ -1156,6 +1295,9 @@ export class ClubboxApp {
           </div>
 
           <div class="top-actions">
+            ${this.isAuthGated() ? '' : html`
+              <button class="btn btn-secondary" type="button" data-action="open-audio-setup">${t('audioDevicesButton')}</button>
+            `}
             ${onRoomPage ? html`
               <button class="btn btn-secondary" type="button" data-action="minimize-room">${t('minimize')}</button>
             ` : this.isAuthGated() ? '' : html`
@@ -1558,6 +1700,16 @@ export class ClubboxApp {
       const target = event.target as HTMLInputElement | HTMLSelectElement | null;
       if (!target) return;
       const action = target.getAttribute('data-action');
+      if (action === 'audio-setup-draft' && target instanceof HTMLSelectElement) {
+        const field = target.getAttribute('data-field');
+        if (field === 'mic') this.audioSetupDraft = { ...this.audioSetupDraft, micId: target.value };
+        else if (field === 'external') this.audioSetupDraft = { ...this.audioSetupDraft, externalId: target.value };
+        else if (field === 'output') this.audioSetupDraft = { ...this.audioSetupDraft, outputId: target.value };
+        else if (field === 'quality' && isSetupQuality(target.value)) {
+          this.audioSetupDraft = { ...this.audioSetupDraft, quality: target.value };
+        }
+        return;
+      }
       if (action === 'set-handraise' && target instanceof HTMLSelectElement) {
         void this.setHandRaisePermission(target.value);
         return;
@@ -1740,6 +1892,27 @@ export class ClubboxApp {
         this.soundsOpen = !this.soundsOpen;
         this.reactionsOpen = false;
         this.render();
+        break;
+      case 'open-audio-setup':
+        void this.openAudioSetup();
+        break;
+      case 'audio-setup-close':
+        this.closeAudioSetup();
+        break;
+      case 'audio-setup-next':
+      case 'audio-setup-skip':
+        this.skipAudioSetupStep();
+        break;
+      case 'audio-setup-choose': {
+        const choice = el.getAttribute('data-setup');
+        if (choice === 'mix' || choice === 'mixer') this.chooseAudioSetup(choice);
+        break;
+      }
+      case 'audio-setup-apply':
+        this.applyAudioSetup();
+        break;
+      case 'play-setup-tone':
+        audioEngine.playLocalTone();
         break;
       case 'toggle-room-bar-more':
         this.roomBarOverflowOpen = !this.roomBarOverflowOpen;
