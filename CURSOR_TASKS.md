@@ -17,7 +17,15 @@ Owner reported: triage noise, new-room participants invisible, moderation action
 
 Idle recheck after 24.7.
 
-### Last autonomous run (2026-10-12 #12 — host tools first-class)
+### Last autonomous run (2026-10-12 — Phase 25–26 code)
+
+- Phase 25 closed: 25.1 leave on close/quit, 25.2 mute badge/extras, 25.3 AI denoiser init, 25.4 log hygiene.
+- Phase 26 code done: 26.1–26.6 (device classify, quality/music, mixer-as-mic, loop guard, setup wizard, capture truth + Windows/ASIO hints). Commits on `phase-23-24-agora` through `fd757e5`.
+- Verified: `npm run test:unit` (266) + `npx tsc --noEmit` green after 26.6.
+- Blocked for the agent: **26.7 owner live test matrix** (Setup 1 VB-Cable / Setup 2 Voicemeeter). Do not automate Clubhouse.
+- Leftover elsewhere: ST-9 Restream `@deferred`; ACC-1 wording question; live verify host mod 2xx → observed.
+
+### Previous last autonomous run (2026-10-12 #12 — host tools first-class)
 
 - Mute, make moderator, invite, end room, visibility, handraise, hide: always callable (no Experimental, no confirm).
 - Prior `end_channel` 404 no longer buries host tools as unsupported (revived on config load).
@@ -41,7 +49,7 @@ Legend: **Uygulandı** = code is in the tree. **Canlı doğrulandı** = exercise
 | 0d | **Phase 26 Studio audio routing** — VB-Cable / Voicemeeter (Clubdeck parity): device classification, working quality levels, mixer-as-mic, loop guard, setup wizard, capture truth, live test matrix | **In progress** — 26.1–26.6 done (device classification, quality levels, mixer-as-mic, loop guard, setup wizard, capture truth). 26.7 is the owner's live test |
 | 1 | **0.7 Review fixes (2026-10-11 #2)** — navigation guard, packaged recorder, clip worklet path, auto-armed clip buffer, 429/visibility, CORS proxy token leak | Uygulandı |
 | 1b | **0.8 Followers / following / friends lists** — bundle scan + labeled UI hunt; live UI uses only counts + mutual lists | Uygulandı for counts, mutual names, and chat people. The public web bundle does not contain get_followers, get_following, or get_online_friends. get_friend_zone_match and get_social_club_members are in-bundle and not called. The labeled click-through still needs a signed-in session. |
-| 0 | **Autonomous plan** (see `.cursor/rules/clubbox.mdc`): 10.1 → 11.8 (warn mode) → 10.2 → 10.5 → 11.0 → 11.1 → 11.2 → 11.3 → 11.4 → 10.4 → 11.5 → 11.6 → 11.7 → 11.9 → 11.10 → 11.8 (strict). Acceptance files: account, hallway, room_listener, room_realtime, room_host, room_moderation, audio_studio, studio, social, messages, houses_events_replays, api_health. Requirements: `docs/product/PRD.md`; design + gap list G-01…G-18: `docs/product/DESIGN.md`; acceptance: `features/*.feature` | **Idle** — Phases 12–**24** (incl. 24.7) done. Only ST-9 Restream remains `@deferred`. |
+| 0 | **Autonomous plan** (see `.cursor/rules/clubbox.mdc`): 10.1 → 11.8 (warn mode) → 10.2 → 10.5 → 11.0 → 11.1 → 11.2 → 11.3 → 11.4 → 10.4 → 11.5 → 11.6 → 11.7 → 11.9 → 11.10 → 11.8 (strict). Acceptance files: account, hallway, room_listener, room_realtime, room_host, room_moderation, audio_studio, studio, social, messages, houses_events_replays, api_health. Requirements: `docs/product/PRD.md`; design + gap list G-01…G-18: `docs/product/DESIGN.md`; acceptance: `features/*.feature` | **Idle** — Phases 12–**26** code done (26.7 is the owner's live test). Only ST-9 Restream remains `@deferred`. |
 | — | **10.1** / **10.2** / **10.4** / **10.5** / **11.0** / **11.8 (warn)** | Uygulandı |
 | 1c | **0.9 / 12.2 Verified by use** — request log + in-app triage (no recorder) | Uygulandı. Verified by use: endpoints the owner exercises become `observed` via userData `api-log` + startup triage / `npm run api:triage` (list grows with normal use). |
 | 2 | **0.6 Community Guidelines risk** — hidden reCAPTCHA sign-in, polling, recording, distribution | Uygulandı (code). Sign-in is a visible clubhouse.com window, polling pauses when the window is hidden, recording is opt-in, and there is no publish config. A public release is still your decision. |
