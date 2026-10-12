@@ -26,8 +26,10 @@ test('evidence ladder: observed/bundle always; host community always; other comm
   // Core host tools work without Experimental actions.
   assert.equal(canCall('invite_speaker', 'web-session'), true);
   assert.equal(canCall('mute_speaker', 'web-session'), true);
-  assert.equal(canCall('make_moderator', 'web-session'), true);
   assert.equal(canCall('end_channel', 'web-session'), true);
+  // Live web returns 404; not in the clubhouse.com bundle (web-client-methods.md).
+  assert.equal(canCall('make_moderator', 'web-session'), false);
+  assert.equal(canCall('make_moderator', 'sandbox'), true);
 
   // Speculative community reads still need the toggle.
   assert.equal(canCall('get_events', 'web-session'), false);
@@ -101,7 +103,7 @@ test('room control flags expose mute/mod/invite/end with experimental off', () =
     (endpoint) => canCall(endpoint, 'web-session', { experimentalActions: false }),
   );
   assert.equal(flags.canMute, true);
-  assert.equal(flags.canMod, true);
+  assert.equal(flags.canMod, false);
   assert.equal(flags.canMoveToAudience, true);
   assert.equal(flags.canBlock, true);
   assert.equal(flags.canInvite, true);

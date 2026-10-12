@@ -98,7 +98,7 @@ export const HOST_COMMUNITY_ENDPOINTS = new Set([
   'invite_speaker',
   'uninvite_speaker',
   'mute_speaker',
-  'make_moderator',
+  // make_moderator: not in the web client; live POST /web_api/make_moderator → 404
   'block_from_channel',
   'reject_speaker_invite',
   'invite_to_existing_channel',

@@ -253,7 +253,7 @@
   "make_moderator": {
     "path": "/web_api/make_moderator",
     "method": "POST",
-    "evidence": "community",
+    "evidence": "unsupported",
     "mutation": true
   },
   "block_from_channel": {

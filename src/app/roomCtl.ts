@@ -773,11 +773,13 @@ export async function saveClip(this: ClubboxApp) : Promise<void> {
 export function allowAction(this: ClubboxApp, endpoint: string) : boolean {
     if (!clubhouseClient.supports(endpoint)) {
       const evidence = clubhouseClient.evidence(endpoint);
-      const key = evidence === 'unsupported'
-        ? 'unsupportedAction'
-        : evidence === 'community'
-          ? 'moderationNeedsExperimental'
-          : 'temporarilyUnavailable';
+      const key = endpoint === 'make_moderator'
+        ? 'makeModeratorUnavailable'
+        : evidence === 'unsupported'
+          ? 'unsupportedAction'
+          : evidence === 'community'
+            ? 'moderationNeedsExperimental'
+            : 'temporarilyUnavailable';
       this.showToast(t(key), '🔒');
       return false;
     }

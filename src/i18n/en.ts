@@ -587,6 +587,7 @@ export const en = {
   notVerifiedYet: 'Not verified yet',
   notVerifiedHint: 'This call is not in a captured session yet. See docs/api/web-api.md.',
   unsupportedAction: 'This action has no captured or configured request.',
+  makeModeratorUnavailable: 'Make moderator is not available on Clubhouse web (the route returns 404). Use the Clubhouse app.',
   allowUnverified: 'Developer: allow unverified room actions',
   allowUnverifiedHelp: 'Sends the join, leave, hand, and chat requests already configured in the app. A capture has not confirmed those bodies yet.',
   experimentalActions: 'Experimental actions',
