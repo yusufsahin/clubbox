@@ -164,4 +164,9 @@ export class PubNubRoomSource implements RoomUpdateSource {
   shouldPollChat(): boolean {
     return this.coordinator?.shouldPollChat() ?? false;
   }
+
+  /** Last applied PubNub timetoken (from envelope `_pubnub_tt`), if any. */
+  getLastPubnubTimetoken(): string | null {
+    return this.coordinator?.lastPubnubTimetoken ?? null;
+  }
 }

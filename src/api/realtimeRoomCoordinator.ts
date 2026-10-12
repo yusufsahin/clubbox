@@ -48,6 +48,8 @@ export class RealtimeRoomCoordinator {
   presenceActive = false;
   chatMessages: CHChatMessage[] = [];
   reconnecting = false;
+  /** Last PubNub timetoken from an applied envelope (30.4 reconnect catch-up). */
+  lastPubnubTimetoken: string | null = null;
   private readonly client: ClubhouseApiClient;
   private readonly hub: RealtimeHub;
   private readonly myUserId: number;
@@ -119,6 +121,7 @@ export class RealtimeRoomCoordinator {
     this.hub.unsubscribe();
     this.channel = null;
     this.chatMessages = [];
+    this.lastPubnubTimetoken = null;
     this.muteStates.clear();
     this.agoraPresence = createAgoraPresenceState();
   }
@@ -166,6 +169,8 @@ export class RealtimeRoomCoordinator {
   }
 
   handleRaw(raw: Record<string, unknown>): void {
+    const tt = raw._pubnub_tt;
+    if (typeof tt === 'string' && tt.length > 0) this.lastPubnubTimetoken = tt;
     const current = this.channel ? this.channel.channel || String(this.channel.channel_id) : null;
     const parsed = parseRealtimeMessage(raw, current);
     this.applyParsed(parsed);

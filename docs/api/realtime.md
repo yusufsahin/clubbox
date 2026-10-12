@@ -40,7 +40,7 @@ Not in the clubhouse.com bundle (the web room UI only parses `channel_message` /
 [seovchinnikov/clubhouse-web `JoinChannel.vue`](https://github.com/seovchinnikov/clubhouse-web) (web).
 Evidence level: **community** — confirm with the request/realtime log in live use.
 
-Subscribe (`/v2/subscribe/{sub_key}/{channels}/0`, `auth` = `pubnub_token`, `uuid` = my user id; the v2 answer is `{ t: { t, r }, m: [ { c, d } ] }` — send `tt` and `tr` back):
+Subscribe (`/v2/subscribe/{sub_key}/{channels}/0`, `auth` = `pubnub_token`, `uuid` = my user id; the v2 answer is `{ t: { t, r }, m: [ { c, d } ] }` — send `tt` and `tr` back). On reconnect, Clubbox also tries `/v2/history/{sub_key}/{channel_all.*}/0?start={last_tt}` when Message Persistence allows it; a 403/404 disables history for the session and the UI stays on “Reconnecting…” until the next subscribe event (no invented state):
 
 - `users.{myUserId}`
 - `channel_user.{channel}.{myUserId}` — personal room events (speaker invites)

@@ -51,3 +51,28 @@ test('unknown PubNub types report type and keys only', () => {
   assert.equal(seen[0].type, 'weird_event');
   assert.deepEqual(seen[0].keys, ['bar', 'foo', 'type']);
 });
+
+test('records last applied PubNub timetoken from _pubnub_tt', () => {
+  const hub = new FakePubNub();
+  const source = new PubNubRoomSource({ hub, myUserId: 42 });
+  source.setChannel({
+    channel: 'abc123',
+    channel_id: 1,
+    topic: 'Test',
+    is_private: false,
+    users: [],
+    num_speakers: 0,
+    num_all: 0,
+    pubnub_token: 'token',
+  });
+  source.start('abc123');
+  assert.equal(source.getLastPubnubTimetoken(), null);
+  source.handleMessage({
+    action: 'set_channel_title',
+    channel: 'abc123',
+    title: 'Hi',
+    _pubnub_tt: '999001',
+  });
+  assert.equal(source.getLastPubnubTimetoken(), '999001');
+  source.stop();
+});
