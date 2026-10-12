@@ -101,7 +101,7 @@ Legend — Today: ✅ works live · ✅* wired (live verification pending) · �
 
 | ID | Feature | HC | CD | Today | Evidence | Priority |
 | --- | --- | --- | --- | --- | --- | --- |
-| RL-1 | Join a room and hear audio | ✓ | ✓ | 🧪 | B (join_channel) + Agora | P0 |
+| RL-1 | Join a room and hear audio | ✓ | ✓ | ✅* | B (join_channel) + Agora | P0 |
 | RL-2 | Leave quietly | ✓ | ✓ | 🧪 | B | P0 |
 | RL-3 | Stay connected (active_ping 30 s) | | | 🧪 | B | P0 |
 | RL-4 | Live stage/audience updates | ✓ | ✓ | ✅* | B/C (PubNub) | P0 |
