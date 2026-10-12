@@ -641,12 +641,11 @@ export class ClubhouseApiClient {
   }
 
   /**
-   * Dormant Token-link flag. Live host tools are out of scope (owner 2026-10-12);
-   * sandbox still reports linked so unit/sandbox host tools stay exercisable.
+   * Sandbox-only: live mobile Token link was removed (moderation app-only, 2026-10-12).
+   * Kept so sandbox host-tool tests still see a "linked" client.
    */
   public isMobileLinked(): boolean {
-    if (this.config.useSandbox) return true;
-    return false;
+    return this.config.useSandbox === true;
   }
 
   public supports(endpoint: string): boolean {
@@ -656,7 +655,6 @@ export class ClubhouseApiClient {
       appVersion: this.config.appVersion,
       sessionDisabled: this.sessionDisabled,
       evidenceOverrides: this.config.evidenceOverrides,
-      mobileLinked: this.isMobileLinked(),
     });
   }
 

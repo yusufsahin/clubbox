@@ -23,14 +23,14 @@ Each endpoint in `electron/webApiRoutes.json` has an evidence level. The level d
 | `observed` | A redacted capture shows a 2xx response | Yes | Normal |
 | `bundle` | Path + method + body keys found at a call site in the web bundle | Yes | Normal; failures go to API Health |
 | `community` | Name + body from C, mapped to `/web_api/<name>` | Visibility, hide, ping, reject invite: always callable on a web session. Speculative community (events, notifications, …) only when Settings → "Experimental actions" is on | Speculative community: first use asks for confirmation |
-| `mobile-spike` | Host moderation on `clubhouseapi.com/api` (allow-list in `docs/api/mobile-api.md`). **Out of scope 2026-10-12:** Clubhouse blocks third-party mobile SMS sign-in (device check). No Token import. Moderation is app-only. | Not callable live (`MOBILE_HOST_TOOLS_IN_SCOPE = false`); sandbox still exercises host tools | Host actions shown **disabled** with “Use the Clubhouse app to moderate” (never silent 401) |
+| `mobile-spike` | Host moderation on `clubhouseapi.com/api` (allow-list in `docs/api/mobile-api.md`). **Out of scope 2026-10-12:** Clubhouse blocks third-party mobile SMS sign-in (device check). No Token import. Moderation is app-only. Token/SMS path **removed**. | Not callable live; sandbox still exercises host tools | Host actions shown **disabled** with “Use the Clubhouse app to moderate” (never silent 401) |
 | `unsupported` | Tried and failed with 404/405, or proven absent | No | "Available in the Clubhouse app" |
 
 Rules:
 1. Every route has a correct `mutation` flag. Anything that creates, sends, deletes, updates, joins, leaves, pings, reacts, follows, mutes, invites or marks is a mutation.
 2. Circuit breaker per endpoint: the first 404/405 marks the route `unsupported` locally (host / mobile-spike tools stay callable); 2 consecutive 4xx (other than 401/429) disable it for the session; 429 → exponential backoff (1, 2, 4 … 30 min). Every failure is shown in **Settings → API Health** with status, time and a "copy redacted report" button.
 3. Promotion: a `bundle`, `community`, or `mobile-spike` route becomes `observed` automatically when the recorder (or the app's own redacted request log, opt-in) records a 2xx.
-4. Never invent a name that is in none of O, B, C, or the Phase 27 mobile allow-list. Mobile host allow-list code is dormant — **moderation is app-only** (Clubhouse blocks third-party mobile sign-in, device check, 2026-10-12). Do not resume SMS/Token without a new owner decision.
+4. Never invent a name that is in none of O, B, C, or the Phase 27 mobile allow-list. **Moderation is app-only** (Clubhouse blocks third-party mobile sign-in, device check, 2026-10-12). Mobile Token/SMS path is removed; do not reintroduce it without a new owner decision.
 5. Contract tests pin the body keys for every `bundle`, `community`, and `mobile-spike` route (see §8).
 
 Known body shapes (B unless marked C):
@@ -218,7 +218,7 @@ These appear in `create_channel` / `me` responses (`user_capabilities`, `channel
 | YouTube downloader for sounds | Copyright |
 | Voice assistant that speaks generated answers on stage | Platform-manipulation risk; low value |
 | web_listener_* flow | Requires reCAPTCHA token; Clubbox must not run reCAPTCHA itself |
-| Mobile API (clubhouseapi.com) host tools / Token / SMS | **Moderation is app-only.** Clubhouse blocks third-party mobile sign-in (device check, 2026-10-12). Do not bypass; do not import tokens from other apps. Allow-list code stays dormant. |
+| Mobile API (clubhouseapi.com) host tools / Token / SMS | **Moderation is app-only.** Clubhouse blocks third-party mobile sign-in (device check, 2026-10-12). Do not bypass; do not import tokens. Token/SMS path removed; cookie allow-list may remain for non-moderation reads. |
 | Followers/following list scraping via guessed paths | No source; guidelines risk |
 | Clubhouse Talk / paid advisor (`talk/*`) | Payments and advisor flows are out of product scope (DX-15) |
 | Unfollow API | Not in the web client; live UI keeps a non-clickable “Following” control (SO-1 decided) |

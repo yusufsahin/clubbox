@@ -66,8 +66,8 @@ All four target the **mobile API** `https://www.clubhouseapi.com/api/`. None tar
    - Web session: cookies `sessionid` + `csrftoken` live in Electron's main process (`electron/main.cjs`); all
      `/web_api` calls run there.
    - Sign-in uses the visible official clubhouse.com page (DESIGN.md C2/C3).
-   - A dormant mobile Token store exists (27.5.1, safeStorage), gated off by `MOBILE_HOST_TOOLS_IN_SCOPE = false`
-     (`electron/main.cjs:1929`).
+   - The Phase 27.5 mobile Token store / SMS link UI was removed (Phase 30 step 4); leftover
+     `mobile-auth.bin` is purged on launch.
 2. **Web vs mobile assumptions.**
    - Earlier assumption "web session is enough for host tools" (Phase 27) — **false**. The web session is accepted
      only by `get_profile`-class mobile views (Cursor canary: `get_profile` 200; moderation 401). **[V]**
@@ -167,8 +167,7 @@ interface ModerationProvider {
   - the user's `user_capabilities.can_*` allows it.
 
   It maps HTTP status to `ModerationErrorKind`.
-- **No mobile provider.** The dormant 27.5 Token code stays off (`MOBILE_HOST_TOOLS_IN_SCOPE=false`). Remove it
-  in a cleanup task so it cannot be re-enabled by accident.
+- **No mobile provider.** The 27.5 Token code was removed (Phase 30 step 4) so it cannot be re-enabled by accident.
 - **Feature flags.** `moderation.web.autoEnable` (default on: auto-detect, but still requires the observed 2xx).
   No flag exists for the mobile path.
 - **UI.**

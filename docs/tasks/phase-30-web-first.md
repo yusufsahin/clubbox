@@ -30,8 +30,7 @@ tests, then `npm run test:unit` and `npx tsc --noEmit` green, then commit, then 
 
 1. Retire the mobile Token path for host tools:
    - no SMS sheet, no "Link host tools" prompt, no Token store usage;
-   - remove the 27.5 code, or leave it dormant behind a hard `false` flag;
-   - delete `userData/mobile-auth.bin` if it exists.
+   - **done (step 4):** 27.5 Token code removed; purge leftover `userData/mobile-auth.bin` on launch.
 2. Host actions in the room (mute, invite to speak, move to audience, make moderator, remove from room, end room):
    - render them **disabled** with one shared tooltip: "Moderation is only available in the Clubhouse app";
    - clicking one shows the same text once per session, never a 401/404 toast.

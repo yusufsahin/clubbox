@@ -5,7 +5,6 @@ import {
   evidenceOf,
   HOST_COMMUNITY_ENDPOINTS,
   MOBILE_HOST_ENDPOINTS,
-  MOBILE_HOST_TOOLS_IN_SCOPE,
   transportsOf,
 } from '../src/api/capabilities.ts';
 import { roomControlFlags } from '../src/api/roomControls.ts';
@@ -21,18 +20,17 @@ test('evidence ladder: observed/bundle always; mobile host out of scope; other c
   assert.equal(evidenceOf('get_followers'), 'unsupported');
   assert.deepEqual(transportsOf('me'), ['web-session']);
   assert.deepEqual(transportsOf('mute_speaker'), ['mobile']);
-  assert.equal(MOBILE_HOST_TOOLS_IN_SCOPE, false);
 
   assert.equal(canCall('me', 'web-session'), true);
   assert.equal(canCall('join_channel', 'web-session'), true);
   assert.equal(canCall('join_channel', 'sandbox'), true);
   assert.equal(canCall('get_social_club_members', 'web-session'), true);
 
-  // Mobile host tools out of scope (owner 2026-10-12) — even with a Token link flag.
+  // Mobile host tools retired (Token/SMS removed 2026-10-12) — app-only until web observed.
   assert.equal(canCall('invite_speaker', 'web-session'), false);
-  assert.equal(canCall('mute_speaker', 'web-session', { mobileLinked: true }), false);
-  assert.equal(canCall('end_channel', 'web-session', { mobileLinked: true }), false);
-  assert.equal(canCall('make_moderator', 'web-session', { mobileLinked: true }), false);
+  assert.equal(canCall('mute_speaker', 'web-session'), false);
+  assert.equal(canCall('end_channel', 'web-session'), false);
+  assert.equal(canCall('make_moderator', 'web-session'), false);
   assert.equal(canCall('make_moderator', 'sandbox'), true);
 
   // Speculative community reads still need the toggle.
@@ -78,11 +76,10 @@ test('every remaining web host community endpoint is callable without Experiment
   }
 });
 
-test('mobile host endpoints stay blocked on web-session while out of scope', () => {
+test('mobile host endpoints stay blocked on web-session while app-only', () => {
   assert.equal(
     canCall('end_channel', 'web-session', {
       experimentalActions: false,
-      mobileLinked: true,
       unsupportedRoutes: { end_channel: '26.10.01' },
       appVersion: '26.10.01',
       evidenceOverrides: { end_channel: 'unsupported' },
@@ -91,7 +88,6 @@ test('mobile host endpoints stay blocked on web-session while out of scope', () 
   );
   assert.equal(
     canCall('mute_speaker', 'web-session', {
-      mobileLinked: true,
       evidenceOverrides: { mute_speaker: 'unsupported' },
     }),
     false,
@@ -109,7 +105,6 @@ test('room control flags show host actions from capabilities but mark them not c
     },
     (endpoint) => canCall(endpoint, 'web-session', {
       experimentalActions: false,
-      mobileLinked: true,
     }),
   );
   assert.equal(flags.canMute, true);

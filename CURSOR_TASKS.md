@@ -4,14 +4,21 @@ Each task below is a self-contained prompt. Paste one task at a time into Cursor
 
 _Last reviewed: 2026-10-11. “Uygulandı” means the code is in the tree. “Canlı doğrulandı” means it was exercised against the official Clubhouse web session. This pass is implemented; the live room, hand, invite, and chat capture is still outstanding._
 
-### Last autonomous run (2026-10-12 — Phase 30 step 3 / 30.4 reducer)
+### Last autonomous run (2026-10-12 — Phase 30 step 4 / Token path removed)
+
+- Removed dormant 27.5 Token/SMS path: store → purge-only, no auth IPC/sheet, no Token transport,
+  no interactive spike; purge `mobile-auth.bin` on launch.
+- Docs: PRD / DESIGN C2 / mobile-api / investigation §3 + clubbox.mdc updated to app-only conclusion.
+- Next: step 5 (phone QR / co-host, 30.3).
+- `npm run test:unit` (48 electron + 349) + `tsc --noEmit` green.
+
+### Previous last autonomous run (2026-10-12 — Phase 30 step 3 / 30.4 reducer)
 
 - PubNub: `uninvite_speaker`, `set_channel_title`, `emoji_reaction` / `gif_reaction`,
   `update_speaker_call_status` (per-user `is_on_call` + music badge / not-connected style).
 - Pure `applyRoomEvent` reducer; coordinator + host optimistic paths use it (no ad-hoc mute/role mutates).
 - Tests: `tests/applyRoomEvent.test.ts` (investigation §5 row 6) + updated realtimeEvents parse.
 - Still open in 30.4: Agora 10s presence overlay, PubNub reconnect history, profile refresh on role events.
-- Next: step 4 (remove dormant Token + docs), then step 5 (phone QR / co-host, 30.3).
 - `npm run test:unit` (349) + `tsc --noEmit` green.
 
 ### Previous last autonomous run (2026-10-12 — host tools app-only)
@@ -173,7 +180,7 @@ Legend: **Uygulandı** = code is in the tree. **Canlı doğrulandı** = exercise
 | 0a | **Phase 23 Live room audio (Agora)** — DNS -105 is a red herring; real join error not yet visible; web vs native SDK decision gate at 23.3 | **Web path** — 23.1–23.5 done on `phase-23-24-agora`; native 23.6+ deferred |
 | 0b | **Phase 24 Agora feature completeness** — broadcast mix, reconnect + quality, token lifecycle, device hot-swap, speaking rings, lifecycle, AI noise suppression | **Closed** — 24.1–24.7 done (AI denoiser + CSP/WASM); e2e green |
 | 0c | **Phase 25 Room exit and mic state** — leave_channel on close/quit/Ctrl+C + crash recovery, mute badge/state sync, AI denoiser init bug, log hygiene | **Closed** — 25.1–25.4 done. 25.5 moved to Phase 26 |
-| 0h | **Phase 30 Web-first** — honest host tools, crawl watch-list, accurate PubNub room state, phone QR, Live details audit, audio quality, VB-Cable check | **In progress** — 30.1 + 30.2 done; **30.4 step 3** (handlers + `applyRoomEvent`) done. Next: step 4 Token cleanup, step 5 phone QR (30.3). Agora 10s / PubNub history / profile refresh still open in 30.4. |
+| 0h | **Phase 30 Web-first** — honest host tools, crawl watch-list, accurate PubNub room state, phone QR, Live details audit, audio quality, VB-Cable check | **In progress** — 30.1–30.2 + 30.4 handlers/reducer + **step 4 Token removed**. Next: step 5 phone QR (30.3). Agora 10s / PubNub history / profile refresh still open in 30.4. |
 | 0g | **Phase 29 Live details + full moderator toolset** — Live details panel, room settings (mute all, chat, queue, replay, web listening), host banner, polls, highlights, full audience list, server-driven flags | **29.1 done** (web join/PubNub Live details). Mute-all / mobile settings **blocked app-only**. 29.3+ (banner/polls/highlights) blocked (29.0 bodies + mobile). |
 | 0f | **Phase 28 Room actions per role** — role × action matrix (Clubhouse parity), mobile body discovery, authoritative room state via get_channel, listener/speaker/moderator actions, UI gating, headphones banner fix, Moderator actions panel (Requests + History) | **UI/matrix code done**; live mobile actions **blocked app-only** (28.5). Leave stage still off. Room chat / web-session pieces OK. |
 | 0e | **Phase 27 Host tools via mobile API** — end room, invite to stage, mute, move to audience, remove from room; web API has none of these (404 / not in bundle) | **Blocked app-only 2026-10-12** — Clubhouse device-check blocks third-party SMS; no Token import. Code dormant; disabled UI + toast. |

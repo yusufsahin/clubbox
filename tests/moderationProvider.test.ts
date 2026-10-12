@@ -138,8 +138,5 @@ test('canCall: observed web moderation is callable; bundle alone is not', () => 
     }),
     false,
   );
-  assert.equal(
-    canCall('mute_speaker', 'web-session', { mobileLinked: true }),
-    false,
-  );
+  assert.equal(canCall('mute_speaker', 'web-session'), false);
 });

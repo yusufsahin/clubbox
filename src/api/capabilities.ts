@@ -108,20 +108,9 @@ export type CanCallOptions = {
   sessionDisabled?: Iterable<string>;
   /** Local promotions / test overrides (e.g. observed after a logged 2xx). */
   evidenceOverrides?: Record<string, Evidence>;
-  /**
-   * Dormant Token-link gate (Phase 27.5). Ignored while MOBILE_HOST_TOOLS_IN_SCOPE is false.
-   */
-  mobileLinked?: boolean;
 };
 
-/**
- * Owner 2026-10-12: Clubhouse rejects third-party mobile SMS (device check).
- * Do not bypass; do not import tokens. Host moderation is app-only.
- * Keep mobile transport code dormant (sandbox still exercises host tools).
- */
-export const MOBILE_HOST_TOOLS_IN_SCOPE = false;
-
-/** Moderation endpoints that use the mobile API host (Phase 27). */
+/** Moderation endpoints that use the mobile API host (Phase 27) — live calls blocked (app-only). */
 export const MOBILE_HOST_ENDPOINTS = new Set([
   'invite_speaker',
   'uninvite_speaker',
@@ -228,15 +217,12 @@ export function canCall(
   if (evidence === 'in-bundle') return false;
 
   if (mobileHost || evidence === 'mobile-spike') {
-    // Phase 30.2: if the web bundle exposes the route and Verified-by-use recorded a 2xx,
-    // call via web-session — never via mobile Token / SMS.
+    // Phase 30.2: web moderation only after bundle + Verified-by-use 2xx.
+    // Mobile Token/SMS path removed (2026-10-12) — never callable live.
     if (evidence === 'observed') {
       return transport === 'web-session' || transport === 'mobile';
     }
-    if (evidence === 'bundle') return false;
-    if (!MOBILE_HOST_TOOLS_IN_SCOPE) return false;
-    if (transport !== 'web-session' && transport !== 'mobile') return false;
-    return options?.mobileLinked === true;
+    return false;
   }
 
   if (evidence === 'unsupported' && !hostTool) return false;

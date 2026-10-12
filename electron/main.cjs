@@ -10,7 +10,6 @@ const {
   systemPreferences,
   powerMonitor,
   dialog,
-  safeStorage,
 } = require('electron');
 const path = require('path');
 const fs = require('fs');
@@ -26,7 +25,6 @@ const {
   isAllowedMobileEndpoint,
   mobileAuthHeadersFromCookies,
   callMobileApi,
-  refreshMobileToken,
   httpsPostJson,
   MOBILE_API_BASE,
 } = require('./mobileApi.cjs');
@@ -36,28 +34,8 @@ const {
   MUTATION_CONFIRM,
   MUTATION_PROBE_ORDER,
 } = require('./mobileProbe.cjs');
-const {
-  normalizeTrPhoneForAuth,
-  stripTrunkZeroFromAuthBody,
-  ensureProbeDeviceId,
-  responseHasKey,
-  detectAttestation,
-  mobileTokenHeaders,
-  callTokenProbeApi,
-  muteSpeakerWithHeaderVariants,
-} = require('./mobileTokenProbe.cjs');
-const {
-  saveMobileAuth,
-  loadMobileAuth,
-  clearMobileAuth,
-  mobileAuthStatus: readMobileAuthStatus,
-  loadRememberedPhone,
-  clearRememberedPhone,
-  ensureDeviceId,
-} = require('./mobileAuthStore.cjs');
-
-/** @type {{ endpoint: string, body: Record<string, unknown> } | null} */
-let pendingHostToolsAction = null;
+const { stripTrunkZeroFromAuthBody } = require('./mobileTokenProbe.cjs');
+const { purgeRetiredMobileAuth } = require('./mobileAuthStore.cjs');
 
 const REQUEST_TIMEOUT_MS = 20000;
 const DEV_SERVER_ORIGIN = 'http://localhost:5173';
@@ -1913,94 +1891,10 @@ ipcMain.handle('ch:request', async (event, payload) => {
   };
 });
 
-async function fetchWebMeUserId() {
-  try {
-    const sess = authSession();
-    const res = await sess.fetch('https://www.clubhouse.com/web_api/me', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: '{}',
-    });
-    if (!res.ok) return null;
-    const json = await res.json();
-    return json?.user_profile?.user_id ?? json?.user_id ?? null;
-  } catch {
-    return null;
-  }
-}
-
 /**
- * Owner 2026-10-12: mobile Token / SMS host tools are out of scope (device check).
- * Keep store + probe modules dormant; never prompt to link or call SMS.
+ * Mobile host moderation is app-only (owner 2026-10-12). Token/SMS path removed.
+ * IPC stays so the renderer never hits an unknown channel; never posts to the mobile host.
  */
-const MOBILE_HOST_TOOLS_IN_SCOPE = false;
-
-function emitHostToolsLinkNeeded(_reason) {
-  // Dormant — no SMS sheet / link prompt.
-}
-
-/**
- * Phase 27.5 — Token link status (never includes token/phone values).
- * Always unlinked while host tools are out of scope.
- */
-ipcMain.handle('clubbox:mobile-auth-status', async (event) => {
-  if (!isTrustedSender(event)) return { linked: false, mode: 'none', hasPhone: false, outOfScope: true };
-  if (!MOBILE_HOST_TOOLS_IN_SCOPE) {
-    return { linked: false, mode: 'none', hasPhone: false, outOfScope: true };
-  }
-  const webUserId = await fetchWebMeUserId();
-  const status = readMobileAuthStatus(safeStorage, app.getPath('userData'), webUserId);
-  const webSession = await hasClubhouseSessionCookie(authSession());
-  return { ...status, webSession };
-});
-
-ipcMain.handle('clubbox:mobile-auth-unlink', async (event) => {
-  if (!isTrustedSender(event)) return { ok: false };
-  clearMobileAuth(app.getPath('userData'));
-  clearRememberedPhone(app.getPath('userData'));
-  pendingHostToolsAction = null;
-  return { ok: true };
-});
-
-/** SMS Token link disabled (owner 2026-10-12). */
-ipcMain.handle('clubbox:mobile-auth-start', async (event) => {
-  if (!isTrustedSender(event)) return { ok: false, reason: 'unauthorized' };
-  return { ok: false, reason: 'out_of_scope', attestation: true };
-});
-
-ipcMain.handle('clubbox:mobile-auth-resend', async (event) => {
-  if (!isTrustedSender(event)) return { ok: false, reason: 'unauthorized' };
-  return { ok: false, reason: 'out_of_scope' };
-});
-
-ipcMain.handle('clubbox:mobile-auth-complete', async (event) => {
-  if (!isTrustedSender(event)) return { ok: false, reason: 'unauthorized' };
-  return { ok: false, reason: 'out_of_scope', attestation: true };
-});
-
-/**
- * @param {string} endpoint
- * @param {Record<string, unknown>} requestBody
- */
-async function invokeMobileCallWithAuth(endpoint, requestBody) {
-  if (!MOBILE_HOST_TOOLS_IN_SCOPE) {
-    return {
-      ok: false,
-      status: 403,
-      body: JSON.stringify({ error_message: 'Use the Clubhouse app to moderate' }),
-      appOnly: true,
-    };
-  }
-  void endpoint;
-  void requestBody;
-  return {
-    ok: false,
-    status: 403,
-    body: JSON.stringify({ error_message: 'Use the Clubhouse app to moderate' }),
-    appOnly: true,
-  };
-}
-
 ipcMain.handle('clubbox:mobile-call', async (event, payload) => {
   if (!isTrustedSender(event)) {
     return { ok: false, status: 0, body: 'Unauthorized frame' };
@@ -2012,8 +1906,13 @@ ipcMain.handle('clubbox:mobile-call', async (event, payload) => {
   if (!isPlainPayload(payload?.body, 0)) {
     return { ok: false, status: 0, body: 'Invalid payload' };
   }
-  const requestBody = payload?.body && typeof payload.body === 'object' ? payload.body : {};
-  return invokeMobileCallWithAuth(endpoint, requestBody);
+  void payload;
+  return {
+    ok: false,
+    status: 403,
+    body: JSON.stringify({ error_message: 'Use the Clubhouse app to moderate' }),
+    appOnly: true,
+  };
 });
 
 /** Phase 28.0 — DevTools: await electronAPI.mobileProbeReadOnly() while in a room. */
@@ -2276,265 +2175,6 @@ async function runCliMobileProbeFromArgv(argv) {
   return true;
 }
 
-/**
- * Dev-only text prompt (Phase 27.5.0). Value stays in main; never logged.
- * @param {string} title
- * @param {string} label
- * @param {{ password?: boolean }} [opts]
- * @returns {Promise<string | null>}
- */
-function promptMainText(title, label, opts = {}) {
-  return new Promise((resolve) => {
-    const win = new BrowserWindow({
-      width: 420,
-      height: 220,
-      parent: mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined,
-      modal: true,
-      show: true,
-      autoHideMenuBar: true,
-      webPreferences: {
-        nodeIntegration: true,
-        contextIsolation: false,
-      },
-    });
-    const inputType = opts.password ? 'password' : 'text';
-    const html = `<!doctype html><html><body style="font-family:system-ui;padding:16px;background:#1a1a1a;color:#eee">
-      <form id="f">
-        <label style="display:block;margin-bottom:8px">${label.replace(/[<>&]/g, '')}</label>
-        <input id="v" type="${inputType}" autocomplete="off" style="width:100%;padding:8px;margin-bottom:12px" />
-        <div style="display:flex;gap:8px;justify-content:flex-end">
-          <button type="button" id="c">Cancel</button>
-          <button type="submit">OK</button>
-        </div>
-      </form>
-      <script>
-        const { ipcRenderer } = require('electron');
-        document.getElementById('f').onsubmit = (e) => {
-          e.preventDefault();
-          ipcRenderer.send('clubbox:token-probe-prompt', document.getElementById('v').value || '');
-        };
-        document.getElementById('c').onclick = () => ipcRenderer.send('clubbox:token-probe-prompt', null);
-        document.getElementById('v').focus();
-      </script>
-    </body></html>`;
-    const onResult = (_event, value) => {
-      ipcMain.removeListener('clubbox:token-probe-prompt', onResult);
-      if (!win.isDestroyed()) win.close();
-      resolve(typeof value === 'string' ? value : null);
-    };
-    ipcMain.on('clubbox:token-probe-prompt', onResult);
-    win.on('closed', () => {
-      ipcMain.removeListener('clubbox:token-probe-prompt', onResult);
-      resolve(null);
-    });
-    void win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
-  });
-}
-
-/**
- * Phase 27.5.0 SMS Token spike — interactive prompts inside the running app.
- * Never logs phone / code / token. Writes reports/mobile-token-probe-27.json (keys only).
- */
-async function runTokenAuthSpikeFromArgv(argv) {
-  if (!MOBILE_HOST_TOOLS_IN_SCOPE) {
-    console.log('[token-probe] out of scope — Clubhouse blocks third-party SMS (2026-10-12); not running');
-    return false;
-  }
-  const channelFlag = argv.find((a) => String(a).startsWith('--channel='));
-  let channel = channelFlag ? channelFlag.slice('--channel='.length) : (currentRoomChannel || null);
-  if (!channel) {
-    try {
-      const last = JSON.parse(fs.readFileSync(path.join(app.getPath('userData'), 'last-room.json'), 'utf8'));
-      if (typeof last.channel === 'string') channel = last.channel;
-    } catch {
-      /* ignore */
-    }
-  }
-
-  const report = {
-    phase: '27.5.0',
-    startedAt: new Date().toISOString(),
-    channel: channel || null,
-    phoneNormalized: false,
-    start: null,
-    complete: null,
-    hasRefreshToken: false,
-    attestation: { required: false, hints: [] },
-    mute: null,
-    stoppedForAttestation: false,
-    notes: [],
-    // Owner must confirm phone-app sign-out after the spike (we cannot observe the phone).
-    phoneAppSignedOut: 'ask_owner',
-  };
-
-  console.log('[token-probe] 27.5.0 start (phone/code never logged)');
-
-  const phoneRaw = await promptMainText(
-    'Host tools Token spike',
-    'Phone number (TR → +905…).',
-  );
-  if (!phoneRaw) {
-    report.notes.push('cancelled_at_phone');
-    writeTokenProbeReport(report);
-    return false;
-  }
-  const phone = normalizeTrPhoneForAuth(phoneRaw);
-  if (!phone) {
-    report.notes.push('phone_normalize_failed');
-    writeTokenProbeReport(report);
-    console.log('[token-probe] phone normalize failed (shape only)');
-    return false;
-  }
-  report.phoneNormalized = true;
-  // Drop raw immediately — do not retain on the report object.
-  const deviceId = ensureProbeDeviceId(app.getPath('userData'));
-  // Pre-auth: no CH-UserID / Authorization (clubhouse-py pattern).
-  const startHeaders = mobileTokenHeaders({ deviceId });
-  const startRes = await callTokenProbeApi({
-    endpoint: 'start_phone_number_auth',
-    body: { phone_number: phone },
-    headers: startHeaders,
-  });
-  report.start = { status: startRes.status, shape: startRes.shape };
-  console.log('[token-probe] start_phone_number_auth', startRes.status, startRes.shape);
-
-  const attestStart = detectAttestation(startRes.body);
-  if (attestStart.required || startRes.status === 400) {
-    report.attestation = attestStart.required
-      ? attestStart
-      : { required: true, hints: ['start_400'], is_blocked: false };
-    report.stoppedForAttestation = true;
-    report.notes.push(
-      attestStart.hints.includes('token_validation')
-        ? 'token_validation_on_start'
-        : 'attestation_or_block_on_start',
-    );
-    writeTokenProbeReport(report);
-    console.log('[token-probe] STOP — start blocked', report.attestation.hints.join(','));
-    await dialog.showMessageBox(mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined, {
-      type: 'warning',
-      title: 'Token spike stopped',
-      message: 'start_phone_number_auth failed (token validation / device integrity). Spike stopped (27.5.0). SMS code was not requested.',
-    });
-    return false;
-  }
-
-  const codeRaw = await promptMainText(
-    'SMS code',
-    'Enter the SMS verification code (never stored or logged).',
-    { password: true },
-  );
-  if (!codeRaw || !codeRaw.trim()) {
-    report.notes.push('cancelled_at_code');
-    writeTokenProbeReport(report);
-    return false;
-  }
-  const code = codeRaw.trim();
-
-  const completeRes = await callTokenProbeApi({
-    endpoint: 'complete_phone_number_auth',
-    body: { phone_number: phone, verification_code: code },
-    headers: startHeaders,
-  });
-  report.complete = { status: completeRes.status, shape: completeRes.shape };
-  report.hasRefreshToken = responseHasKey(completeRes.body, 'refresh_token');
-  console.log('[token-probe] complete_phone_number_auth', completeRes.status, completeRes.shape, 'refresh_token=', report.hasRefreshToken);
-
-  const attestComplete = detectAttestation(completeRes.body);
-  if (attestComplete.required) {
-    report.attestation = attestComplete;
-    report.stoppedForAttestation = true;
-    report.notes.push('attestation_on_complete');
-    writeTokenProbeReport(report);
-    console.log('[token-probe] STOP — attestation/captcha on complete', attestComplete.hints.join(','));
-    await dialog.showMessageBox(mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined, {
-      type: 'warning',
-      title: 'Token spike stopped',
-      message: 'Attestation/captcha required on complete_phone_number_auth. Spike stopped (27.5.0).',
-    });
-    return false;
-  }
-
-  let authToken = null;
-  let authUserId = null;
-  try {
-    const json = JSON.parse(completeRes.body);
-    if (typeof json.auth_token === 'string') authToken = json.auth_token;
-    authUserId = json?.user_profile?.user_id ?? json?.user_id ?? null;
-  } catch {
-    /* ignore */
-  }
-  if (!authToken || authUserId == null) {
-    report.notes.push('no_auth_token_in_complete');
-    writeTokenProbeReport(report);
-    console.log('[token-probe] STOP — no auth_token / user_id in complete response (keys only logged)');
-    return false;
-  }
-
-  if (!channel) {
-    const channelPrompt = await promptMainText(
-      'Throwaway room',
-      'Channel id for one mute_speaker (throwaway room where you are mod).',
-    );
-    channel = channelPrompt && channelPrompt.trim() ? channelPrompt.trim() : null;
-    report.channel = channel;
-  }
-  if (!channel) {
-    report.notes.push('no_channel');
-    writeTokenProbeReport(report);
-    console.log('[token-probe] STOP — no channel for mute_speaker');
-    return false;
-  }
-
-  const muteUserRaw = await promptMainText(
-    'Mute target',
-    'Numeric user_id to mute once (second account in the throwaway room).',
-  );
-  const muteUserId = muteUserRaw && /^\d+$/.test(muteUserRaw.trim()) ? Number(muteUserRaw.trim()) : null;
-  if (muteUserId == null) {
-    report.notes.push('no_mute_user_id');
-    writeTokenProbeReport(report);
-    console.log('[token-probe] STOP — mute user_id missing');
-    return false;
-  }
-
-  const mute = await muteSpeakerWithHeaderVariants({
-    channel,
-    userId: muteUserId,
-    token: authToken,
-    deviceId,
-    authUserId,
-    timeoutMs: REQUEST_TIMEOUT_MS,
-  });
-  report.mute = {
-    status: mute.status,
-    shape: mute.shape,
-    variant: mute.variant,
-    attempts: mute.attempts,
-  };
-  console.log('[token-probe] mute_speaker', mute.status, mute.variant, mute.shape);
-
-  // Drop secrets from memory ASAP (report never held them).
-  authToken = null;
-
-  writeTokenProbeReport(report);
-  await dialog.showMessageBox(mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined, {
-    type: 'info',
-    title: 'Token spike done',
-    message: `27.5.0 finished. mute_speaker status=${mute.status} variant=${mute.variant}. Check reports/mobile-token-probe-27.json. Confirm whether the phone app was signed out.`,
-  });
-  return true;
-}
-
-function writeTokenProbeReport(report) {
-  const outDir = path.join(__dirname, '..', 'reports');
-  fs.mkdirSync(outDir, { recursive: true });
-  const outPath = path.join(outDir, 'mobile-token-probe-27.json');
-  fs.writeFileSync(outPath, `${JSON.stringify(report, null, 2)}\n`);
-  fs.writeFileSync(path.join(outDir, 'mobile-token-probe-27.done'), `${Date.now()}\n`);
-  console.log('[token-probe] wrote', outPath);
-}
-
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 if (!hasSingleInstanceLock) {
   console.error('[Electron] Clubbox is already running. Close that window, then start again.');
@@ -2543,10 +2183,6 @@ if (!hasSingleInstanceLock) {
   app.on('second-instance', (_event, argv) => {
     if (argv.some((a) => a === '--clubbox-mobile-probe' || String(a).startsWith('--clubbox-mobile-probe='))) {
       void runCliMobileProbeFromArgv(argv);
-      return;
-    }
-    if (argv.some((a) => a === '--clubbox-token-probe' || String(a).startsWith('--clubbox-token-probe='))) {
-      void runTokenAuthSpikeFromArgv(argv);
       return;
     }
     if (argv.includes('--api-recorder')) {
@@ -2705,6 +2341,7 @@ app.on('will-quit', () => {
 
 app.whenReady().then(() => {
   if (!hasSingleInstanceLock) return;
+  purgeRetiredMobileAuth(app.getPath('userData'));
   purgeAbandonedAgoraDnsArtifacts();
   console.log('[Clubbox] microphone OS access:', microphoneAccessStatus());
   const savedShortcuts = readShortcutFile();

@@ -15,39 +15,11 @@ export type ElectronAPI = {
   hideEmbeddedSignIn?: () => Promise<{ ok: boolean }>;
   setEmbeddedSignInBounds?: (bounds?: { x: number; y: number; width: number; height: number }) => Promise<{ ok: boolean }>;
   hasWebSession?: () => Promise<{ ok: boolean; hasSession?: boolean; authReady?: boolean }>;
-  /** Phase 27 — allow-listed moderation on clubhouseapi.com (Token when linked). */
+  /** Phase 27 — always app-only (403); moderation is Clubhouse-app only. */
   mobileCall?: (
     endpoint: string,
     body?: Record<string, unknown>,
-  ) => Promise<{ ok: boolean; status: number; body: string; linkNeeded?: boolean }>;
-  mobileAuthStatus?: () => Promise<{
-    linked: boolean;
-    mode?: string;
-    hasPhone?: boolean;
-    userIdMatchesWeb?: boolean;
-    webSession?: boolean;
-    clearedForMismatch?: boolean;
-  }>;
-  mobileAuthStart?: (payload?: { phone?: string }) => Promise<{
-    ok: boolean;
-    reason?: string;
-    status?: number;
-    needsCode?: boolean;
-    attestation?: boolean;
-    shape?: string;
-  }>;
-  mobileAuthResend?: () => Promise<{ ok: boolean; reason?: string; status?: number; shape?: string }>;
-  mobileAuthComplete?: (payload: { code: string }) => Promise<{
-    ok: boolean;
-    reason?: string;
-    retried?: boolean;
-    retryOk?: boolean | null;
-    retryStatus?: number | null;
-    attestation?: boolean;
-  }>;
-  mobileAuthUnlink?: () => Promise<{ ok: boolean }>;
-  onHostToolsLinkNeeded?: (callback: (payload: { reason?: string }) => void) => () => void;
-  onHostToolsLinked?: (callback: (payload: { ok?: boolean }) => void) => () => void;
+  ) => Promise<{ ok: boolean; status: number; body: string; appOnly?: boolean }>;
   /** Phase 28.0 — only when main started with CLUBBOX_PROBE_MOBILE=1. */
   mobileProbeReadOnly?: (channel?: string) => Promise<{
     ok: boolean;

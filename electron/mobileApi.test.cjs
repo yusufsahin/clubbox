@@ -109,29 +109,6 @@ test('callMobileApi posts to clubhouseapi.com/api/<endpoint>', async () => {
   assert.equal(seen?.init?.headers?.['X-CSRFToken'], 'tok');
 });
 
-test('callMobileApi prefers Token headers over cookies when tokenAuth set', async () => {
-  const { httpsPostJson } = require('./mobileApi.cjs');
-  assert.equal(typeof httpsPostJson, 'function');
-  // Live: Token path hits the wire; 401 without a real token proves Authorization was sent.
-  const result = await callMobileApi({
-    fetchFn: async () => {
-      throw new Error('fetch should not run for tokenAuth');
-    },
-    endpoint: 'mute_speaker',
-    body: { channel: 'abc', user_id: 9 },
-    cookies: [{ name: 'sessionid', value: 'sess' }],
-    userAgent: 'TestUA',
-    tokenAuth: {
-      token: 'test-token',
-      userId: 1,
-      deviceId: '00000000-0000-4000-8000-000000000099',
-    },
-    timeoutMs: 8_000,
-  });
-  assert.ok(result.status === 401 || result.status === 200 || result.status === 400);
-  assert.doesNotMatch(result.body, /fetch should not run/);
-});
-
 test('callMobileApi falls back to https when session.fetch throws', async () => {
   const { httpsPostJson } = require('./mobileApi.cjs');
   assert.equal(typeof httpsPostJson, 'function');

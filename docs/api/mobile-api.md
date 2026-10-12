@@ -43,11 +43,14 @@ Incomplete bodies where noted — used only to classify auth (400 = session acce
 allow-list. Only `get_profile`-class endpoints accept Django session cookies. Mute / invite / end /
 etc. need `Authorization: Token …`.
 
-**Owner decision 2026-10-12 — out of scope:** Clubhouse rejects mobile SMS sign-in from Clubbox
-(device check / token validation). Do **not** bypass; do **not** import tokens from other apps.
-Mobile host tools are **app-only**. Clubbox keeps allow-list / Token store code dormant
-(`MOBILE_HOST_TOOLS_IN_SCOPE = false`); no SMS sheet, no “Link host tools” prompt. Host actions
-in the room show **disabled** with “Use the Clubhouse app to moderate”.
+**Owner decision 2026-10-12 — out of scope (conclusion):** Clubhouse rejects mobile SMS sign-in
+from Clubbox (device check / token validation). Do **not** bypass; do **not** import tokens from
+other apps. Mobile host tools are **app-only**. The Token/SMS link path is **removed** (no store,
+no sheet, no Token transport); leftover `userData/mobile-auth.bin` is purged on launch. Cookie
+allow-list remains for non-moderation reads / probes. Host actions in the room show **disabled**
+with “Use the Clubhouse app to moderate”.
+
+See also `docs/investigations/moderation-api-investigation.md` §3.
 
 ## Production allow-list (`electron/mobileApi.cjs`)
 
@@ -232,14 +235,17 @@ Headers on start (values not logged): `CH-AppVersion` 1.0.8, `CH-AppBuild` 304, 
 `CH-DeviceId` (install UUID), no `CH-UserID` / `Authorization` pre-auth. TR phone normalized to `+905…`.
 
 **blocked (27.5.0):** Clubhouse rejects Electron/desktop as a phone-auth client. Do not retry SMS
-as if it works. 27.5.1–27.5.4 code ships (store / Token transport / UX / tests); live Phase 27.4
-matrix waits on a Token.
+as if it works.
 
 Report file (local, gitignored): `reports/mobile-token-probe-27.json`.
 
-## Phase 27.5.1–27.5.4 — Token store, transport, UX
+## Phase 27.5.1–27.5.4 — Token store, transport, UX — **REMOVED**
 
-- Store: `userData/mobile-auth.bin` via `safeStorage` (`electron/mobileAuthStore.cjs`). Never to renderer.
-- Transport: `callMobileApi` uses Token when linked; 401 → refresh once or `host-tools-link-needed`.
-- UX: inline code sheet on first host action; Settings › Account status + Unlink; room-bar badge.
-- Allow-list: dropped `change_handraise_settings` (404); keep `update_handraise_queue_setting`.
+Removed in Phase 30 step 4 (2026-10-12):
+
+- No `mobile-auth.bin` store, no SMS sheet, no `clubbox:mobile-auth-*` IPC, no Token headers on
+  `callMobileApi`, no `--clubbox-token-probe` spike.
+- `electron/mobileAuthStore.cjs` only purges leftover files on launch.
+- `scripts/mobile-token-probe-27.mjs` exits with a retired message.
+- Allow-list: dropped `change_handraise_settings` (404); keep `update_handraise_queue_setting` for
+  cookie/probe paths only (live moderation still app-only).
