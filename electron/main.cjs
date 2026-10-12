@@ -2108,6 +2108,14 @@ async function runCliMobileProbeFromArgv(argv) {
       ['get_suggested_speakers', { channel }],
       ['check_channel_link', { channel, link: 'https://example.com/clubbox-probe' }],
       ['get_moderator_action_history', { channel }],
+      // Phase 27 host tools — incomplete bodies only (auth class: 400 = session ok, 401 = Token-only).
+      ['mute_speaker', { channel }],
+      ['invite_speaker', { channel }],
+      ['uninvite_speaker', { channel }],
+      ['make_moderator', { channel }],
+      ['block_from_channel', { channel }],
+      ['end_channel', { channel }],
+      ['change_handraise_settings', { channel }],
     ]) {
       try {
         const result = await httpsPostJson(

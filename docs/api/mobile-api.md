@@ -24,27 +24,39 @@ calls look unauthenticated (`401 Authentication credentials were not provided`) 
 
 ### Session cookie canary (2026-10-12, live web session)
 
+Incomplete bodies where noted — used only to classify auth (400 = session accepted, 401 = Token-class).
+
 | Endpoint | Body | Status | Response keys | Meaning |
 | --- | --- | --- | --- | --- |
 | `get_profile` | `{ user_id }` (from web `/me`) | **200** | `user_profile,chatting_with,finish_profile_setup_upsell,success` | Web session **is** accepted on the mobile host |
 | `get_profile` | `{}` | 400 | `success,error_message` | Auth ok; body incomplete |
 | `get_channels` | `{}` | 404 | non-json | Not this path on mobile (use web `/web_api`) |
+| `mute_speaker` | `{ channel }` (no user_id) | **401** | `detail` | Host tool — **Token-class** (session rejected) |
+| `invite_speaker` | `{ channel }` | **401** | `detail` | Same |
+| `uninvite_speaker` | `{ channel }` | **401** | `detail` | Same |
+| `make_moderator` | `{ channel }` | **401** | `detail` | Same |
+| `block_from_channel` | `{ channel }` | **401** | `detail` | Same |
+| `end_channel` | `{ channel }` | **401** | `detail` | Same |
+| `change_handraise_settings` | `{ channel }` | **404** | non-json | Name/path not on mobile (or gone) |
+
+**Implication:** Phase 27 “web session is enough for host tools” is **false** for the moderation
+allow-list. Only `get_profile`-class endpoints accept Django session cookies. Mute / invite / end /
+etc. need `Authorization: Token …` (SMS path was skipped). Clubbox host tools will keep failing
+until a Token link is allowed or another observed auth path appears.
 
 ## Production allow-list (`electron/mobileApi.cjs`)
 
 | Endpoint | Body | Notes |
 | --- | --- | --- |
-| `end_channel` | `{ channel, channel_id }` | `channel_id` numeric when known |
-| `invite_speaker` | `{ channel, user_id }` | |
-| `uninvite_speaker` | `{ channel, user_id }` | Move to audience = mute then uninvite |
-| `mute_speaker` | `{ channel, user_id }` | Host cannot unmute others |
-| `block_from_channel` | `{ channel, user_id }` | Confirm in UI |
-| `make_moderator` | `{ channel, user_id }` | |
-| `change_handraise_settings` | `{ channel, is_enabled, handraise_permission }` | |
+| `end_channel` | `{ channel, channel_id }` | `channel_id` numeric when known — **401 with web session** |
+| `invite_speaker` | `{ channel, user_id }` | **401 with web session** |
+| `uninvite_speaker` | `{ channel, user_id }` | **401 with web session** |
+| `mute_speaker` | `{ channel, user_id }` | **401 with web session** |
+| `block_from_channel` | `{ channel, user_id }` | **401 with web session** |
+| `make_moderator` | `{ channel, user_id }` | **401 with web session** |
+| `change_handraise_settings` | `{ channel, is_enabled, handraise_permission }` | **404** on mobile host (2026-10-12) |
 
-IPC: `clubbox:mobile-call`. Evidence: `mobile-spike` in `webApiRoutes.json`.
-
-**Re-verify host tools** after the https Cookie fix (same session that returns `get_profile` 200).
+IPC: `clubbox:mobile-call`. Evidence: `mobile-spike` in `webApiRoutes.json` (transport ready; **auth blocked**).
 
 ## Phase 28.0 — body discovery (STOP before 28.1)
 

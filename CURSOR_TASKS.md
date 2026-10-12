@@ -17,7 +17,16 @@ Owner reported: triage noise, new-room participants invisible, moderation action
 
 Idle recheck after 24.7.
 
-### Last autonomous run (2026-10-12 — Phase 28.0 + 28.6 discovery STOP)
+### Last autonomous run (2026-10-12 — host-tool auth class canary STOP)
+
+- Same https+Cookie session that gets `get_profile` **200**: all Phase 27 allow-list endpoints
+  (`mute_speaker`, `invite_speaker`, `uninvite_speaker`, `make_moderator`, `block_from_channel`,
+  `end_channel`) return **401**; `change_handraise_settings` → **404**.
+- Phase 27 “web session enough for host tools” is wrong for moderation. **28.1 / 29.0 blocked.**
+  Owner decision needed: allow Token/SMS link (hard-rule exception) or accept host tools dead.
+- Docs updated. No mutations. No 28.1.
+
+### Previous last autonomous run (2026-10-12 — Phase 28.0 + 28.6 discovery STOP)
 
 - Probe allow-list + CLI second-instance poke; Node `httpsPostJson` so Cookie is not stripped.
 - Auth canary: `get_profile` **200** (web session works on mobile host). All 28.0/28.6 room reads (`get_channel`, queues, history, link check) **401** with the same cookies — Token-class endpoints.
@@ -67,11 +76,16 @@ Idle recheck after 24.7.
 
 ### Closed decisions
 
-- **Make moderator / host tools (2026-10-12, Phase 27):** Web `/web_api/*` 404; mobile host works with the signed-in web session (cookie+csrf probe 200). SMS linking skipped. Endpoints: `end_channel`, `invite_speaker`, `uninvite_speaker`, `mute_speaker`, `block_from_channel`, `make_moderator`, `change_handraise_settings` via `clubbox:mobile-call`.
+- **Make moderator / host tools (2026-10-12, Phase 27):** Web `/web_api/*` 404. **Revised 2026-10-12:** cookie+csrf → `get_profile` 200 only; moderation allow-list → **401** (Token-class). SMS linking still skipped pending owner Q. Transport: `clubbox:mobile-call` + Node https Cookie.
 - **End room (2026-10-12):** Leave and End are separate. Leave only `leave_channel`. End room (Details) calls mobile `end_channel` with `channel` + numeric `channel_id`; on success leave locally (`skipServer`); on failure the host stays in the room.
 
 ### Questions for the owner
 
+- **Mobile Token for host tools (blocks Phase 27 live + 28.1 + 29):** Live canary 2026-10-12: web
+  `sessionid`+`csrftoken` → `get_profile` 200, but every Phase 27 moderation endpoint → 401
+  (Token-class). Hard rule currently forbids phone-auth / storing a mobile Token. Options:
+  (A) allow a one-time SMS Token link (safeStorage, never logged) so mute/invite/end work, or
+  (B) leave host tools non-functional on the mobile host. Which?
 - **ACC-1 wording:** Sign-in is now a visible Clubhouse `/signin` surface embedded in the main window (BrowserView), not a separate BrowserWindow. Should `features/account.feature` ACC-1 say “visible Clubhouse sign-in surface” instead of “visible window”? (Feature file not edited by the agent.)
 
 
@@ -86,11 +100,11 @@ Legend: **Uygulandı** = code is in the tree. **Canlı doğrulandı** = exercise
 | 0c | **Phase 25 Room exit and mic state** — leave_channel on close/quit/Ctrl+C + crash recovery, mute badge/state sync, AI denoiser init bug, log hygiene | **Closed** — 25.1–25.4 done. 25.5 moved to Phase 26 |
 | 0g | **Phase 29 Live details + full moderator toolset** — Live details panel, room settings (mute all, chat, queue, replay, web listening), host banner, polls, highlights, full audience list, server-driven flags | **Open** — after Phase 28; 29.0 discovery first |
 | 0f | **Phase 28 Room actions per role** — role × action matrix (Clubhouse parity), mobile body discovery, authoritative room state via get_channel, listener/speaker/moderator actions, UI gating, headphones banner fix, Moderator actions panel (Requests + History) | **28.0 discovery done** — `get_profile` 200 via session; room/28.6 endpoints **401** (need Token); 28.4 UI done; **28.1 blocked** |
-| 0e | **Phase 27 Host tools via mobile API** — end room, invite to stage, mute, move to audience, remove from room; web API has none of these (404 / not in bundle) | **Code + docs done** — 27.1–27.2 + mobile-api.md (SMS skipped); **27.4 owner live matrix** open |
+| 0e | **Phase 27 Host tools via mobile API** — end room, invite to stage, mute, move to audience, remove from room; web API has none of these (404 / not in bundle) | **Auth blocked** — transport+https Cookie ok; moderation endpoints **401** with web session (Token needed); SMS was skipped |
 | 0d | **Phase 26 Studio audio routing** — VB-Cable / Voicemeeter (Clubdeck parity): device classification, working quality levels, mixer-as-mic, loop guard, setup wizard, capture truth, live test matrix | **Code done** — 26.1–26.6 + mid-room `applyMicDevice` harden. **26.7 owner live matrix** still open |
 | 1 | **0.7 Review fixes (2026-10-11 #2)** — navigation guard, packaged recorder, clip worklet path, auto-armed clip buffer, 429/visibility, CORS proxy token leak | Uygulandı |
 | 1b | **0.8 Followers / following / friends lists** — bundle scan + labeled UI hunt; live UI uses only counts + mutual lists | Uygulandı for counts, mutual names, and chat people. The public web bundle does not contain get_followers, get_following, or get_online_friends. get_friend_zone_match and get_social_club_members are in-bundle and not called. The labeled click-through still needs a signed-in session. |
-| 0 | **Autonomous plan** (see `.cursor/rules/clubbox.mdc`): 10.1 → 11.8 (warn mode) → 10.2 → 10.5 → 11.0 → 11.1 → 11.2 → 11.3 → 11.4 → 10.4 → 11.5 → 11.6 → 11.7 → 11.9 → 11.10 → 11.8 (strict). Acceptance files: account, hallway, room_listener, room_realtime, room_host, room_moderation, audio_studio, studio, social, messages, houses_events_replays, api_health. Requirements: `docs/product/PRD.md`; design + gap list G-01…G-18: `docs/product/DESIGN.md`; acceptance: `features/*.feature` | **Idle / blocked** — Phase 27 code+docs done. Waiting on **27.4** + **26.7** owner live matrices. ST-9 Restream `@deferred`. |
+| 0 | **Autonomous plan** (see `.cursor/rules/clubbox.mdc`): 10.1 → 11.8 (warn mode) → 10.2 → 10.5 → 11.0 → 11.1 → 11.2 → 11.3 → 11.4 → 10.4 → 11.5 → 11.6 → 11.7 → 11.9 → 11.10 → 11.8 (strict). Acceptance files: account, hallway, room_listener, room_realtime, room_host, room_moderation, audio_studio, studio, social, messages, houses_events_replays, api_health. Requirements: `docs/product/PRD.md`; design + gap list G-01…G-18: `docs/product/DESIGN.md`; acceptance: `features/*.feature` | **Idle / blocked** — mobile moderation needs Token (owner Q). Also **26.7** live matrix. ST-9 `@deferred`. |
 | — | **10.1** / **10.2** / **10.4** / **10.5** / **11.0** / **11.8 (warn)** | Uygulandı |
 | 1c | **0.9 / 12.2 Verified by use** — request log + in-app triage (no recorder) | Uygulandı. Verified by use: endpoints the owner exercises become `observed` via userData `api-log` + startup triage / `npm run api:triage` (list grows with normal use). |
 | 2 | **0.6 Community Guidelines risk** — hidden reCAPTCHA sign-in, polling, recording, distribution | Uygulandı (code). Sign-in is a visible clubhouse.com window, polling pauses when the window is hidden, recording is opt-in, and there is no publish config. A public release is still your decision. |
