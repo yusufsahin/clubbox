@@ -80,6 +80,8 @@ export type ElectronAPI = {
   onPubNubMessage?: (callback: (message: Record<string, unknown>) => void) => () => void;
   onPubNubStatus?: (callback: (status: RealtimeHubStatus) => void) => () => void;
   onRealtimeConfig?: (callback: (payload: { hasKeys?: boolean; reason?: string | null }) => void) => () => void;
+  /** Phase 30.2 — watch-list hit when clubhouse.com web_api gains a moderation route. */
+  onModerationWebDiscovered?: (callback: (payload: { endpoints?: string[]; buildId?: string }) => void) => () => void;
   clearWebSession?: () => Promise<{ ok: boolean }>;
   micAccessStatus?: () => Promise<{ ok: boolean; status?: string }>;
   openMicrophoneSettings?: () => Promise<{ ok: boolean; reason?: string }>;

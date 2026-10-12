@@ -49,6 +49,11 @@ import { mountCreateModal } from '../ui/components/createModal';
 import { selfProfilePage } from '../ui/components/profileDrawer';
 import { roomDetailsPanel } from '../ui/components/roomDetailsPanel';
 import { buildLiveDetails } from '../api/liveDetails.ts';
+import {
+  WebModerationProvider,
+  setModerationProvider,
+  type ModerationAction,
+} from '../api/moderationProvider.ts';
 import { audioSetupWizard, draftUsesSameCable, isSetupQuality } from '../ui/components/audioSetupWizard';
 import { showToast } from '../ui/components/toast';
 import { html, markup, safeUrl } from '../ui/html';
@@ -101,6 +106,8 @@ export class ClubboxApp {
   moderatorHistoryCursor: string | null = null;
   /** Phase 30.1 — show app-only moderation toast at most once per app session. */
   appOnlyModerationToastShown = false;
+  /** Phase 30.2 — one toast per discovered web_api moderation name per session. */
+  moderationWebDiscoveredToast = new Set<string>();
   currentChannel: CHChannelDetail | null = null;
   channelsList: CHChannel[] = [];
   feedTopics: FeedTopic[] = [];
@@ -307,7 +314,82 @@ export class ClubboxApp {
     }
   }
 
+  wireModerationProvider(): void {
+    setModerationProvider(new WebModerationProvider({
+      evidenceOf: (endpoint) => clubhouseClient.effectiveEvidence(endpoint),
+      statusOfError: (err) => (err instanceof ClubhouseApiError ? err.status : 0),
+      performCall: async (action, room, target) => {
+        await this.executeWebModeration(action, room.channel, target);
+      },
+    }));
+  }
+
+  async onModerationWebDiscovered(endpoints: string[]): Promise<void> {
+    const names = endpoints.filter((name) => typeof name === 'string' && name);
+    if (!names.length) return;
+    const overrides = { ...clubhouseClient.getConfig().evidenceOverrides };
+    let changed = false;
+    for (const name of names) {
+      if (overrides[name] === 'observed') continue;
+      if (overrides[name] !== 'bundle') {
+        overrides[name] = 'bundle';
+        changed = true;
+      }
+      if (!this.moderationWebDiscoveredToast.has(name)) {
+        this.moderationWebDiscoveredToast.add(name);
+        this.showToast(t('hostToolsWebDiscovered', { name }), '🔎');
+      }
+    }
+    if (changed) await clubhouseClient.updateConfig({ evidenceOverrides: overrides });
+    this.render();
+  }
+
+  async executeWebModeration(
+    action: ModerationAction,
+    channel: string,
+    target?: number,
+  ): Promise<void> {
+    switch (action) {
+      case 'invite_speaker':
+        await clubhouseClient.inviteSpeaker(channel, target!);
+        return;
+      case 'uninvite_speaker':
+        await clubhouseClient.uninviteSpeaker(channel, target!);
+        return;
+      case 'mute_speaker':
+        await clubhouseClient.muteSpeaker(channel, target!);
+        return;
+      case 'make_moderator':
+        await clubhouseClient.makeModerator(channel, target!);
+        return;
+      case 'block_from_channel':
+        await clubhouseClient.blockFromChannel(channel, target!);
+        return;
+      case 'end_channel':
+        await clubhouseClient.endChannel(channel);
+        return;
+      case 'mute_all': {
+        const users = this.currentChannel?.users ?? [];
+        const myId = this.me?.user_id ?? clubhouseClient.getCurrentUserId();
+        for (const user of users) {
+          if (!user.is_speaker || user.is_muted) continue;
+          if (myId != null && user.user_id === myId) continue;
+          await clubhouseClient.muteSpeaker(channel, Number(user.user_id));
+        }
+        return;
+      }
+      case 'set_handraise':
+        // Mode is chosen in the UI handler; provider gate only until WebProvider grows params.
+        throw new ClubhouseApiError(400, 'change_handraise_settings', 'Hand-raise mode required', 'unknown');
+      default: {
+        const _exhaustive: never = action;
+        throw new Error(String(_exhaustive));
+      }
+    }
+  }
+
   async init() {
+    this.wireModerationProvider();
     setLanguage(clubhouseClient.getConfig().language);
     {
       const theme = readAppPrefs().theme;
@@ -348,6 +430,9 @@ export class ClubboxApp {
       void clubhouseClient.updateConfig({ agoraAppId: appId }).then(() => {
         agoraVoice.appId = appId;
       });
+    });
+    electronAPI()?.onModerationWebDiscovered?.((payload) => {
+      void this.onModerationWebDiscovered(payload?.endpoints ?? []);
     });
 
     const desktop = !!electronAPI()?.isElectron;

@@ -901,6 +901,13 @@ function scheduleBundleCrawl(options = {}) {
         hasKeys: hasRealtimeKeys(),
         reason: result.reason || null,
       });
+      // Phase 30.2 — names only; renderer marks bundle evidence + one-time toast.
+      if (Array.isArray(result.watchlistHits) && result.watchlistHits.length > 0) {
+        mainWindow.webContents.send('clubbox:moderation-web-discovered', {
+          endpoints: result.watchlistHits,
+          buildId: result.buildId || null,
+        });
+      }
     }
     return result;
   }).catch((err) => {

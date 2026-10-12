@@ -102,4 +102,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('clubbox:realtime-config', listener);
     return () => ipcRenderer.removeListener('clubbox:realtime-config', listener);
   },
+  onModerationWebDiscovered: (callback) => {
+    const listener = (_event, payload) => callback(payload || {});
+    ipcRenderer.on('clubbox:moderation-web-discovered', listener);
+    return () => ipcRenderer.removeListener('clubbox:moderation-web-discovered', listener);
+  },
 });

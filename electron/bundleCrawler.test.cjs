@@ -96,6 +96,18 @@ test('secret values never land outside realtime-config.json', async () => {
   const reportDoc = discoveryReport(JSON.parse(callsites).scripts, JSON.parse(callsites).realtime);
   assert.match(reportDoc, /get_conversation.: found/);
   assert.match(reportDoc, /PubNub channel templates/);
+
+  // Phase 30.2 — endpoints.json + endpoints-diff.json under bundle-cache/<buildId>/.
+  const endpointsPath = path.join(userData, 'bundle-cache', 'buildAbc123XYZ', 'endpoints.json');
+  const diffPath = path.join(userData, 'bundle-cache', 'buildAbc123XYZ', 'endpoints-diff.json');
+  assert.equal(fs.existsSync(endpointsPath), true);
+  assert.equal(fs.existsSync(diffPath), true);
+  const endpoints = JSON.parse(fs.readFileSync(endpointsPath, 'utf8'));
+  assert.ok(Array.isArray(endpoints));
+  assert.ok(endpoints.includes('get_conversation'));
+  const diff = JSON.parse(fs.readFileSync(diffPath, 'utf8'));
+  assert.equal(diff.buildId, 'buildAbc123XYZ');
+  assert.ok(Array.isArray(diff.watchlistHits));
 });
 
 test('runtime crawl writes only under userData (never projectRoot)', async () => {

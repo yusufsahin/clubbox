@@ -14,6 +14,10 @@ const {
   scrubBundleText,
 } = require('./bundleScan.cjs');
 const { outputHasLeak } = require('./redact.cjs');
+const {
+  endpointNamesFromScripts,
+  buildEndpointsDiff,
+} = require('./moderationWatchlist.cjs');
 
 // Bump when extraction logic changes so an existing cache for the same Clubhouse build is re-analyzed.
 // 2: production config block (live Stripe key) instead of the first (dev) block for Agora/PubNub keys.
@@ -246,18 +250,22 @@ function createBundleCrawler(options) {
     }
 
     const meta = readJson(metaPath, {});
+    const previousBuildId = typeof meta.buildId === 'string' ? meta.buildId : null;
     if (meta.buildId === buildId && meta.complete && meta.extractorVersion === EXTRACTOR_VERSION && !input.force) {
       // Cache hit is only valid when secrets still exist — deleted/corrupt realtime-config must re-crawl.
       const secrets = readJson(realtimeConfigPath, {});
       const hasKeys = typeof secrets.pubnubSubscribeKey === 'string' && secrets.pubnubSubscribeKey.length > 0
         && typeof secrets.agoraAppId === 'string' && /^[a-fA-F0-9]{32}$/.test(secrets.agoraAppId);
       if (hasKeys) {
-        return { ok: true, reason: 'cache_hit', buildId, chunks: meta.chunks || 0 };
+        return { ok: true, reason: 'cache_hit', buildId, chunks: meta.chunks || 0, watchlistHits: [] };
       }
     }
 
     const buildCacheDir = path.join(cacheRoot, buildId);
     ensureDir(buildCacheDir);
+    const previousEndpoints = previousBuildId
+      ? readJson(path.join(cacheRoot, previousBuildId, 'endpoints.json'), [])
+      : [];
 
     let lastRequestAt = 0;
     async function pacedGet(url, cacheFile) {
@@ -364,6 +372,17 @@ function createBundleCrawler(options) {
       reportPathOut = reportPath;
     }
 
+    // Phase 30.2 — endpoint set + diff (names only) under bundle-cache/<buildId>/.
+    const currentEndpoints = endpointNamesFromScripts(scripts);
+    writeJsonChecked(path.join(buildCacheDir, 'endpoints.json'), currentEndpoints);
+    const endpointsDiff = buildEndpointsDiff({
+      buildId,
+      previousBuildId: previousBuildId && previousBuildId !== buildId ? previousBuildId : null,
+      previous: previousBuildId && previousBuildId !== buildId ? previousEndpoints : [],
+      current: currentEndpoints,
+    });
+    writeJsonChecked(path.join(buildCacheDir, 'endpoints-diff.json'), endpointsDiff);
+
     return {
       ok: secretsOk,
       reason: secretsOk ? 'crawled' : 'secrets_missing',
@@ -373,6 +392,8 @@ function createBundleCrawler(options) {
       reportPath: reportPathOut,
       realtimeConfigPath,
       writeProjectArtifacts,
+      watchlistHits: endpointsDiff.watchlistHits,
+      endpointsDiffPath: path.join(buildCacheDir, 'endpoints-diff.json'),
     };
   }
 
@@ -391,4 +412,5 @@ module.exports = {
   DISCOVERY_NAMES,
   PAGE_UA,
   MAX_CHUNKS,
+  endpointNamesFromScripts,
 };

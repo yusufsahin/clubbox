@@ -34,6 +34,7 @@ export const en = {
   blockFromRoomConfirm: 'Remove this person from the room? They cannot rejoin this room.',
   hostToolsNeedSession: 'Sign in with Clubhouse to use host tools (mute, move, end room).',
   hostToolsAppOnly: 'Moderation is only available in the Clubhouse app',
+  hostToolsWebDiscovered: 'Clubhouse web added {name} — host tool can be enabled',
   hostToolsLinkTitle: 'Enter the code sent to your phone',
   hostToolsLinkHelp: 'Host tools need a one-time Clubhouse phone link. Only the code is typed here.',
   hostToolsLinkCode: 'SMS code',

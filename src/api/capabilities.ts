@@ -228,6 +228,12 @@ export function canCall(
   if (evidence === 'in-bundle') return false;
 
   if (mobileHost || evidence === 'mobile-spike') {
+    // Phase 30.2: if the web bundle exposes the route and Verified-by-use recorded a 2xx,
+    // call via web-session — never via mobile Token / SMS.
+    if (evidence === 'observed') {
+      return transport === 'web-session' || transport === 'mobile';
+    }
+    if (evidence === 'bundle') return false;
     if (!MOBILE_HOST_TOOLS_IN_SCOPE) return false;
     if (transport !== 'web-session' && transport !== 'mobile') return false;
     return options?.mobileLinked === true;
