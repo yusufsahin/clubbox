@@ -305,7 +305,7 @@
     "method": "POST",
     "evidence": "mobile-spike",
     "transport": "mobile",
-    "mutation": true,
+    "mutation": false,
     "bodyKeys": [
       "channel"
     ]
@@ -345,6 +345,120 @@
     "evidence": "mobile-spike",
     "transport": "mobile",
     "mutation": true
+  },
+  "check_channel_link": {
+    "path": "/api/check_channel_link",
+    "mobilePath": "/check_channel_link",
+    "method": "POST",
+    "evidence": "mobile-spike",
+    "transport": "mobile",
+    "mutation": false,
+    "bodyKeys": [
+      "channel",
+      "link"
+    ]
+  },
+  "add_channel_link": {
+    "path": "/api/add_channel_link",
+    "mobilePath": "/add_channel_link",
+    "method": "POST",
+    "evidence": "mobile-spike",
+    "transport": "mobile",
+    "mutation": true,
+    "bodyKeys": [
+      "channel",
+      "link"
+    ]
+  },
+  "remove_channel_link": {
+    "path": "/api/remove_channel_link",
+    "mobilePath": "/remove_channel_link",
+    "method": "POST",
+    "evidence": "mobile-spike",
+    "transport": "mobile",
+    "mutation": false,
+    "bodyKeys": [
+      "channel"
+    ]
+  },
+  "enable_channel_messages": {
+    "path": "/api/enable_channel_messages",
+    "mobilePath": "/enable_channel_messages",
+    "method": "POST",
+    "evidence": "mobile-spike",
+    "transport": "mobile",
+    "mutation": false,
+    "bodyKeys": [
+      "channel"
+    ]
+  },
+  "disable_channel_messages": {
+    "path": "/api/disable_channel_messages",
+    "mobilePath": "/disable_channel_messages",
+    "method": "POST",
+    "evidence": "mobile-spike",
+    "transport": "mobile",
+    "mutation": false,
+    "bodyKeys": [
+      "channel"
+    ]
+  },
+  "delete_channel_message": {
+    "path": "/api/delete_channel_message",
+    "mobilePath": "/delete_channel_message",
+    "method": "POST",
+    "evidence": "mobile-spike",
+    "transport": "mobile",
+    "mutation": true,
+    "bodyKeys": [
+      "channel",
+      "message_id"
+    ]
+  },
+  "disable_replay": {
+    "path": "/api/disable_replay",
+    "mobilePath": "/disable_replay",
+    "method": "POST",
+    "evidence": "mobile-spike",
+    "transport": "mobile",
+    "mutation": false,
+    "bodyKeys": [
+      "channel"
+    ]
+  },
+  "get_handraise_queue": {
+    "path": "/api/get_handraise_queue",
+    "mobilePath": "/get_handraise_queue",
+    "method": "POST",
+    "evidence": "mobile-spike",
+    "transport": "mobile",
+    "mutation": false,
+    "bodyKeys": [
+      "channel"
+    ]
+  },
+  "get_suggested_speakers": {
+    "path": "/api/get_suggested_speakers",
+    "mobilePath": "/get_suggested_speakers",
+    "method": "POST",
+    "evidence": "mobile-spike",
+    "transport": "mobile",
+    "mutation": false,
+    "bodyKeys": [
+      "channel"
+    ]
+  },
+  "update_nsfw_status": {
+    "path": "/api/update_nsfw_status",
+    "mobilePath": "/update_nsfw_status",
+    "method": "POST",
+    "evidence": "mobile-spike",
+    "transport": "mobile",
+    "mutation": true,
+    "bodyKeys": [
+      "channel",
+      "is_nsfw"
+    ]
   },
   "get_online_friends": {
     "path": "/web_api/get_online_friends",

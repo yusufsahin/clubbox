@@ -353,7 +353,7 @@ function audienceSections(listeners: CHUser[], state: StageState, meRole: RoomRo
   `;
 }
 
-export function chatList(messages: CHChatMessage[]): SafeHtml {
+export function chatList(messages: CHChatMessage[], opts: { canDelete?: boolean } = {}): SafeHtml {
   if (messages.length === 0) return html`<div class="chat-empty">${t('noMessages')}</div>`;
   return html`${messages.map((msg) => html`
     <div class="chat-message-bubble">
@@ -361,6 +361,9 @@ export function chatList(messages: CHChatMessage[]): SafeHtml {
       <div class="chat-msg-content">
         <div class="chat-msg-author">${msg.name}</div>
         <div class="chat-msg-text">${linkifyChatMessage(msg.message)}</div>
+        ${opts.canDelete && msg.id ? html`
+          <button class="chat-msg-delete" type="button" data-action="delete-chat-message" data-message-id="${msg.id}">${t('deleteChatMessage')}</button>
+        ` : ''}
       </div>
     </div>
   `)}`;

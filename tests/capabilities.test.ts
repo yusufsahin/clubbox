@@ -121,19 +121,29 @@ test('room control flags expose mute/mod/invite/end when mobile link is on', () 
   assert.equal(flags.canHandraise, true);
 });
 
-test('mobile host allow-list includes Phase 28.2 listener tools', () => {
+test('mobile host allow-list includes Phase 28.2–28.3 room tools', () => {
   assert.deepEqual([...MOBILE_HOST_ENDPOINTS].sort(), [
+    'add_channel_link',
     'block_from_channel',
     'change_handraise_settings',
+    'check_channel_link',
+    'delete_channel_message',
+    'disable_channel_messages',
+    'disable_replay',
+    'enable_channel_messages',
     'end_channel',
     'get_channel',
+    'get_handraise_queue',
+    'get_suggested_speakers',
     'hide_channel',
     'invite_speaker',
     'invite_to_existing_channel',
     'make_moderator',
     'mute_speaker',
     'reject_speaker_invite',
+    'remove_channel_link',
     'save_replay',
     'uninvite_speaker',
+    'update_nsfw_status',
   ]);
 });

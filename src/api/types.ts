@@ -72,6 +72,9 @@ export interface CHChannel {
   /** Community: 1 = everyone, 2 = friends of speakers (when handraise is on). */
   handraise_permission?: number;
   is_chat_enabled?: boolean;
+  /** Pinned URL when the room has one (join / get_channel). */
+  channel_link?: string | null;
+  is_pinned_links_available?: boolean;
   should_join_muted?: boolean;
   creator_user_profile_id?: number;
   url?: string;

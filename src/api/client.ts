@@ -1369,6 +1369,56 @@ export class ClubhouseApiClient {
     return this.call('save_replay', { channel: channelId });
   }
 
+  public async checkChannelLink(channelId: string, link: string): Promise<ApiAck> {
+    return this.call('check_channel_link', { channel: channelId, link });
+  }
+
+  public async addChannelLink(channelId: string, link: string): Promise<ApiAck> {
+    return this.call('add_channel_link', { channel: channelId, link });
+  }
+
+  public async removeChannelLink(channelId: string): Promise<ApiAck> {
+    return this.call('remove_channel_link', { channel: channelId });
+  }
+
+  public async enableChannelMessages(channelId: string): Promise<ApiAck> {
+    return this.call('enable_channel_messages', { channel: channelId });
+  }
+
+  public async disableChannelMessages(channelId: string): Promise<ApiAck> {
+    return this.call('disable_channel_messages', { channel: channelId });
+  }
+
+  public async deleteChannelMessage(channelId: string, messageId: string): Promise<ApiAck> {
+    return this.call('delete_channel_message', { channel: channelId, message_id: messageId });
+  }
+
+  public async disableReplay(channelId: string): Promise<ApiAck> {
+    return this.call('disable_replay', { channel: channelId });
+  }
+
+  public async getHandraiseQueue(channelId: string): Promise<{
+    users?: CHUser[];
+    users_in_queue?: CHUser[];
+    queue?: CHUser[];
+    success?: boolean;
+  }> {
+    return this.call('get_handraise_queue', { channel: channelId });
+  }
+
+  public async getSuggestedSpeakers(channelId: string): Promise<{
+    users?: CHUser[];
+    suggested_speakers?: CHUser[];
+    speakers?: CHUser[];
+    success?: boolean;
+  }> {
+    return this.call('get_suggested_speakers', { channel: channelId });
+  }
+
+  public async updateNsfwStatus(channelId: string, isNsfw: boolean): Promise<ApiAck> {
+    return this.call('update_nsfw_status', { channel: channelId, is_nsfw: isNsfw });
+  }
+
   public async makeChannelPublic(channelId: string): Promise<ApiAck> {
     return this.call('make_channel_public', { channel: channelId });
   }

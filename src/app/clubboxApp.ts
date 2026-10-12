@@ -6,11 +6,13 @@ import { talkPartners, type PeopleListKind } from '../api/relationship';
 import type { ClubboxAppCtlMethods } from './ctlMethods.ts';
 import { electronAPI } from './electronApi.ts';
 import {
+  readUserCapabilities,
   roomHandraiseSelectMode,
   roomListenerActionFlags,
   roomVisibilitySelectMode,
   stageAccessMode,
 } from '../api/roomControls.ts';
+import { moderatorSettingsFlags } from '../api/moderatorSettings.ts';
 import { stageControlFlags } from './roomCtl.ts';
 import { wireAppControllers } from './wireControllers.ts';
 
@@ -84,6 +86,8 @@ export class ClubboxApp {
   pingCandidates: PingCandidate[] = [];
   pingSelectedIds: number[] = [];
   pingLoading = false;
+  handraiseQueueUsers: CHUser[] = [];
+  suggestedSpeakerUsers: CHUser[] = [];
   currentChannel: CHChannelDetail | null = null;
   channelsList: CHChannel[] = [];
   feedTopics: FeedTopic[] = [];
@@ -775,6 +779,11 @@ export class ClubboxApp {
     }
     const flags = stageControlFlags(this);
     const listenerFlags = roomListenerActionFlags(this.currentChannel, (endpoint) => clubhouseClient.supports(endpoint));
+    const modFlags = moderatorSettingsFlags(
+      readUserCapabilities(this.currentChannel),
+      this.currentChannel,
+      (endpoint) => clubhouseClient.supports(endpoint),
+    );
     const mod = this.isMeModerator();
     const speaker = this.isMeSpeaker();
     root.innerHTML = markup(roomDetailsPanel({
@@ -802,6 +811,17 @@ export class ClubboxApp {
       canEnd: mod && flags.canEnd,
       canChangeVisibility: mod && flags.canChangeVisibility,
       canHandraise: mod && flags.canHandraise,
+      canPinnedLink: mod && modFlags.canPinnedLink,
+      pinnedLink: typeof this.currentChannel.channel_link === 'string' ? this.currentChannel.channel_link : '',
+      canToggleChat: mod && modFlags.canToggleChat,
+      chatEnabled: this.currentChannel.is_chat_enabled !== false,
+      canDisableReplay: mod && modFlags.canDisableReplay,
+      canNsfw: mod && modFlags.canNsfw,
+      isNsfw: this.currentChannel.is_nsfw === true,
+      canHandraiseQueue: mod && modFlags.canHandraiseQueue,
+      canSuggestedSpeakers: mod && modFlags.canSuggestedSpeakers,
+      queueUsers: this.handraiseQueueUsers,
+      suggestedUsers: this.suggestedSpeakerUsers,
       visibilityMode: roomVisibilitySelectMode(this.currentChannel),
       handraiseMode: roomHandraiseSelectMode(this.currentChannel),
       audienceSearch: this.audienceSearchQuery,
@@ -820,6 +840,9 @@ export class ClubboxApp {
         ...this.loopDetailFlags(),
       }));
     if (speaker) void this.refreshExternalAudioOptions();
+    if (mod && (modFlags.canHandraiseQueue || modFlags.canSuggestedSpeakers) && this.handraiseQueueUsers.length === 0) {
+      void this.refreshHandraiseQueue();
+    }
   }
 
   async refreshExternalAudioOptions(): Promise<void> {
@@ -874,6 +897,11 @@ export class ClubboxApp {
       // Re-paint once with the enumerated list (guarded by optionsChanged).
       const flags = stageControlFlags(this);
       const listenerFlags = roomListenerActionFlags(this.currentChannel, (endpoint) => clubhouseClient.supports(endpoint));
+      const modFlags = moderatorSettingsFlags(
+        readUserCapabilities(this.currentChannel),
+        this.currentChannel,
+        (endpoint) => clubhouseClient.supports(endpoint),
+      );
       const mod = this.isMeModerator();
       const root = document.getElementById('room-details-root');
       if (!root || !this.currentChannel) return;
@@ -902,6 +930,17 @@ export class ClubboxApp {
         canEnd: mod && flags.canEnd,
         canChangeVisibility: mod && flags.canChangeVisibility,
         canHandraise: mod && flags.canHandraise,
+        canPinnedLink: mod && modFlags.canPinnedLink,
+        pinnedLink: typeof this.currentChannel.channel_link === 'string' ? this.currentChannel.channel_link : '',
+        canToggleChat: mod && modFlags.canToggleChat,
+        chatEnabled: this.currentChannel.is_chat_enabled !== false,
+        canDisableReplay: mod && modFlags.canDisableReplay,
+        canNsfw: mod && modFlags.canNsfw,
+        isNsfw: this.currentChannel.is_nsfw === true,
+        canHandraiseQueue: mod && modFlags.canHandraiseQueue,
+        canSuggestedSpeakers: mod && modFlags.canSuggestedSpeakers,
+        queueUsers: this.handraiseQueueUsers,
+        suggestedUsers: this.suggestedSpeakerUsers,
         visibilityMode: roomVisibilitySelectMode(this.currentChannel),
         handraiseMode: roomHandraiseSelectMode(this.currentChannel),
         audienceSearch: this.audienceSearchQuery,
@@ -1575,7 +1614,7 @@ export class ClubboxApp {
   }
 
   chatList(): ReturnType<typeof html> {
-    return chatList(this.chatMessages);
+    return chatList(this.chatMessages, { canDelete: this.canDeleteChatMessages() });
   }
 
   latestChatLine(): string {
@@ -1789,6 +1828,14 @@ export class ClubboxApp {
           this.audioPrefs.spatialAudioEnabled ? t('spatialAudioOn') : t('spatialAudioOff'),
           '✨',
         );
+        return;
+      }
+      if (action === 'toggle-room-chat' && target instanceof HTMLInputElement) {
+        void this.toggleRoomChat(target.checked);
+        return;
+      }
+      if (action === 'toggle-room-nsfw' && target instanceof HTMLInputElement) {
+        void this.toggleRoomNsfw(target.checked);
         return;
       }
       if (target.id === 'cfg-ai-noise' && target instanceof HTMLInputElement) {
@@ -2161,6 +2208,23 @@ export class ClubboxApp {
       case 'save-replay':
         void this.saveCurrentReplay();
         break;
+      case 'save-pinned-link':
+        void this.savePinnedLink();
+        break;
+      case 'remove-pinned-link':
+        void this.removePinnedLink();
+        break;
+      case 'disable-replay':
+        void this.disableRoomReplay();
+        break;
+      case 'refresh-handraise-queue':
+        void this.refreshHandraiseQueue();
+        break;
+      case 'delete-chat-message': {
+        const messageId = el.dataset.messageId;
+        if (messageId) void this.deleteChatMessage(messageId);
+        break;
+      }
       case 'close-conversation':
         this.openConversationId = null;
         this.openConversationThreadData = null;

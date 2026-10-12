@@ -625,6 +625,28 @@ export class SandboxBackend {
       case 'save_replay':
         return { success: true } as T;
 
+      case 'check_channel_link':
+      case 'add_channel_link':
+      case 'remove_channel_link':
+      case 'enable_channel_messages':
+      case 'disable_channel_messages':
+      case 'delete_channel_message':
+      case 'disable_replay':
+      case 'update_nsfw_status':
+        return { success: true } as T;
+
+      case 'get_handraise_queue':
+        return {
+          success: true,
+          users: this.currentChannel?.users.filter((u) => u.is_hand_raised) ?? [],
+        } as T;
+
+      case 'get_suggested_speakers':
+        return {
+          success: true,
+          users: this.currentChannel?.users.filter((u) => !u.is_speaker && !u.is_moderator).slice(0, 5) ?? [],
+        } as T;
+
       case 'change_handraise_settings': {
         const channel = this.mockChannels.find((entry) => entry.channel === input.channel);
         if (channel) {

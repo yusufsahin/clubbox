@@ -22,6 +22,17 @@ export type RoomDetailsState = {
   canEnd: boolean;
   canChangeVisibility: boolean;
   canHandraise: boolean;
+  canPinnedLink: boolean;
+  pinnedLink: string;
+  canToggleChat: boolean;
+  chatEnabled: boolean;
+  canDisableReplay: boolean;
+  canNsfw: boolean;
+  isNsfw: boolean;
+  canHandraiseQueue: boolean;
+  canSuggestedSpeakers: boolean;
+  queueUsers: { user_id: number; name: string; username?: string; photo_url?: string | null }[];
+  suggestedUsers: { user_id: number; name: string; username?: string; photo_url?: string | null }[];
   visibilityMode: 'open' | 'social' | 'other';
   handraiseMode: 'off' | '1' | '2';
   audienceSearch: string;
@@ -193,6 +204,29 @@ export function roomDetailsPanel(state: RoomDetailsState): SafeHtml {
               <option value="2" ${state.handraiseMode === '2' ? 'selected' : ''}>${t('handRaiseFriendsOfSpeakers')}</option>
             </select>
           ` : ''}
+          ${state.canToggleChat ? html`
+            <label class="form-label">
+              <input type="checkbox" data-action="toggle-room-chat" ${state.chatEnabled ? 'checked' : ''} />
+              ${t('roomChatEnabled')}
+            </label>
+          ` : ''}
+          ${state.canDisableReplay ? html`
+            <button class="btn btn-secondary" type="button" data-action="disable-replay">${t('turnOffReplay')}</button>
+          ` : ''}
+          ${state.canNsfw ? html`
+            <label class="form-label">
+              <input type="checkbox" data-action="toggle-room-nsfw" ${state.isNsfw ? 'checked' : ''} />
+              ${t('roomNsfw')}
+            </label>
+          ` : ''}
+          ${state.canPinnedLink ? html`
+            <label class="form-label" for="room-pinned-link">${t('pinnedLinkAtCreate')}</label>
+            <input class="form-input" id="room-pinned-link" type="url" value="${state.pinnedLink}" placeholder="${t('pinnedLinkPlaceholder')}" />
+            <div class="room-details-row">
+              <button class="btn btn-secondary" type="button" data-action="save-pinned-link">${t('savePinnedLink')}</button>
+              ${state.pinnedLink ? html`<button class="btn btn-secondary" type="button" data-action="remove-pinned-link">${t('removePinnedLink')}</button>` : ''}
+            </div>
+          ` : ''}
           ${state.canMuteAll ? html`<button class="btn btn-secondary" type="button" data-action="mute-everyone">${t('muteEveryone')}</button>` : ''}
           ${state.canEnd ? html`<button class="btn btn-danger" type="button" data-action="end-room">${t('endRoom')}</button>` : ''}
         </section>
@@ -202,6 +236,39 @@ export function roomDetailsPanel(state: RoomDetailsState): SafeHtml {
         <section class="room-details-card" data-details-section="invite">
           <h4>${t('invitePeople')}</h4>
           <button class="btn btn-secondary" type="button" data-action="open-ping-panel">${t('invitePeople')}</button>
+        </section>
+      ` : ''}
+
+      ${state.canHandraiseQueue || state.canSuggestedSpeakers ? html`
+        <section class="room-details-card" data-details-section="handraise-queue">
+          <h4>${t('handRaiseQueue')}</h4>
+          <button class="btn btn-secondary" type="button" data-action="refresh-handraise-queue">${t('refresh')}</button>
+          ${state.canHandraiseQueue ? html`
+            <p class="list-note">${t('handRaiseQueueHint')}</p>
+            ${state.queueUsers.length === 0
+              ? html`<p class="list-note">${t('handRaiseQueueEmpty')}</p>`
+              : html`<ul class="room-queue-list">
+                ${state.queueUsers.map((user) => html`
+                  <li>
+                    <span>${user.name || user.username || user.user_id}</span>
+                    <button class="btn btn-secondary" type="button" data-action="invite-stage" data-user-id="${user.user_id}">${t('inviteToStage')}</button>
+                  </li>
+                `)}
+              </ul>`}
+          ` : ''}
+          ${state.canSuggestedSpeakers ? html`
+            <h4>${t('suggestedSpeakers')}</h4>
+            ${state.suggestedUsers.length === 0
+              ? html`<p class="list-note">${t('suggestedSpeakersEmpty')}</p>`
+              : html`<ul class="room-queue-list">
+                ${state.suggestedUsers.map((user) => html`
+                  <li>
+                    <span>${user.name || user.username || user.user_id}</span>
+                    <button class="btn btn-secondary" type="button" data-action="invite-stage" data-user-id="${user.user_id}">${t('inviteToStage')}</button>
+                  </li>
+                `)}
+              </ul>`}
+          ` : ''}
         </section>
       ` : ''}
 

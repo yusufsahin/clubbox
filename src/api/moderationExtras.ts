@@ -12,15 +12,17 @@ function hasCallableEndpoint(endpoint: string): boolean {
 export function moderationEndpoint(feature: 'room_chat_off' | 'delete_message' | 'pinned_link' | 'web_listening'): string | null {
   switch (feature) {
     case 'room_chat_off':
-      return hasCallableEndpoint('disable_room_chat') ? 'disable_room_chat' : null;
+      return hasCallableEndpoint('disable_channel_messages') ? 'disable_channel_messages' : null;
     case 'delete_message':
       return hasCallableEndpoint('delete_channel_message') ? 'delete_channel_message' : null;
     case 'pinned_link':
-      return hasCallableEndpoint('update_channel_link') ? 'update_channel_link' : null;
+      return hasCallableEndpoint('add_channel_link') ? 'add_channel_link' : null;
     case 'web_listening':
       return hasCallableEndpoint('set_web_listening_enabled') ? 'set_web_listening_enabled' : null;
-    default:
-      return null;
+    default: {
+      const _exhaustive: never = feature;
+      return _exhaustive;
+    }
   }
 }
 

@@ -138,6 +138,14 @@ export type ClubboxAppCtlMethods = {
   leaveRoom: typeof roomCtl.leaveRoom;
   afterRoomExit: typeof roomCtl.afterRoomExit;
   endRoom: typeof roomCtl.endRoom;
+  savePinnedLink: typeof roomCtl.savePinnedLink;
+  removePinnedLink: typeof roomCtl.removePinnedLink;
+  toggleRoomChat: typeof roomCtl.toggleRoomChat;
+  disableRoomReplay: typeof roomCtl.disableRoomReplay;
+  toggleRoomNsfw: typeof roomCtl.toggleRoomNsfw;
+  refreshHandraiseQueue: typeof roomCtl.refreshHandraiseQueue;
+  deleteChatMessage: typeof roomCtl.deleteChatMessage;
+  canDeleteChatMessages: typeof roomCtl.canDeleteChatMessages;
   sendChatMessage: typeof roomCtl.sendChatMessage;
   confirmCreateRoom: typeof roomCtl.confirmCreateRoom;
   isAuthGated: typeof settingsCtl.isAuthGated;

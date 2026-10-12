@@ -17,6 +17,7 @@ import {
 import { mergeRoomDetailFields } from '../api/roomDetailMerge.ts';
 import { mergeRoomState } from '../api/roomStateMerge.ts';
 import { roomSync } from '../api/roomSync.ts';
+import { moderatorSettingsFlags, usersFromQueuePayload } from '../api/moderatorSettings.ts';
 import { audioEngine } from '../audio/audioEngine.ts';
 import { agoraVoice } from '../audio/agoraVoice.ts';
 import type { CHChannelDetail, CHChatMessage } from '../api/types.ts';
@@ -1292,6 +1293,137 @@ export function stageControlFlags(app: ClubboxApp) {
   );
 }
 
+export async function savePinnedLink(this: ClubboxApp): Promise<void> {
+  if (!this.currentChannel || !this.isMeModerator()) return;
+  const flags = moderatorSettingsFlags(
+    readUserCapabilities(this.currentChannel),
+    this.currentChannel,
+    (endpoint) => clubhouseClient.supports(endpoint),
+  );
+  if (!flags.canPinnedLink) return;
+  const input = document.getElementById('room-pinned-link') as HTMLInputElement | null;
+  const link = (input?.value || '').trim();
+  if (!link || !safeUrl(link)) {
+    this.showToast(t('pinnedLinkInvalid'), '🔗');
+    return;
+  }
+  const channelId = this.channelApiId(this.currentChannel);
+  try {
+    await clubhouseClient.checkChannelLink(channelId, link);
+    await clubhouseClient.addChannelLink(channelId, link);
+    this.currentChannel = { ...this.currentChannel, channel_link: link };
+    this.showToast(t('pinnedLinkSaved'), '🔗');
+    roomSync.scheduleAfterHostAction?.();
+    this.renderRoomDetails();
+  } catch (err) {
+    this.reportApiError(err);
+  }
+}
+
+export async function removePinnedLink(this: ClubboxApp): Promise<void> {
+  if (!this.currentChannel || !this.isMeModerator()) return;
+  if (!this.allowAction('remove_channel_link')) return;
+  try {
+    await clubhouseClient.removeChannelLink(this.channelApiId(this.currentChannel));
+    this.currentChannel = { ...this.currentChannel, channel_link: null };
+    this.showToast(t('pinnedLinkRemoved'), '🔗');
+    roomSync.scheduleAfterHostAction?.();
+    this.renderRoomDetails();
+  } catch (err) {
+    this.reportApiError(err);
+  }
+}
+
+export async function toggleRoomChat(this: ClubboxApp, enabled: boolean): Promise<void> {
+  if (!this.currentChannel || !this.isMeModerator()) return;
+  const endpoint = enabled ? 'enable_channel_messages' : 'disable_channel_messages';
+  if (!this.allowAction(endpoint)) return;
+  try {
+    if (enabled) await clubhouseClient.enableChannelMessages(this.channelApiId(this.currentChannel));
+    else await clubhouseClient.disableChannelMessages(this.channelApiId(this.currentChannel));
+    this.currentChannel = { ...this.currentChannel, is_chat_enabled: enabled };
+    if (!enabled) this.chatOpen = false;
+    roomSync.scheduleAfterHostAction?.();
+    this.render();
+    this.renderRoomDetails();
+  } catch (err) {
+    this.reportApiError(err);
+  }
+}
+
+export async function disableRoomReplay(this: ClubboxApp): Promise<void> {
+  if (!this.currentChannel || !this.isMeModerator()) return;
+  if (!this.allowAction('disable_replay')) return;
+  if (!window.confirm(t('turnOffReplayConfirm'))) return;
+  try {
+    await clubhouseClient.disableReplay(this.channelApiId(this.currentChannel));
+    this.currentChannel = { ...this.currentChannel, is_replay_enabled: false };
+    this.showToast(t('replayDisabled'), '📼');
+    roomSync.scheduleAfterHostAction?.();
+    this.renderRoomDetails();
+  } catch (err) {
+    this.reportApiError(err);
+  }
+}
+
+export async function toggleRoomNsfw(this: ClubboxApp, isNsfw: boolean): Promise<void> {
+  if (!this.currentChannel || !this.isMeModerator()) return;
+  if (!this.allowAction('update_nsfw_status')) return;
+  try {
+    await clubhouseClient.updateNsfwStatus(this.channelApiId(this.currentChannel), isNsfw);
+    this.currentChannel = { ...this.currentChannel, is_nsfw: isNsfw };
+    roomSync.scheduleAfterHostAction?.();
+    this.renderRoomDetails();
+  } catch (err) {
+    this.reportApiError(err);
+  }
+}
+
+export async function refreshHandraiseQueue(this: ClubboxApp): Promise<void> {
+  if (!this.currentChannel || !this.isMeModerator()) return;
+  const flags = moderatorSettingsFlags(
+    readUserCapabilities(this.currentChannel),
+    this.currentChannel,
+    (endpoint) => clubhouseClient.supports(endpoint),
+  );
+  const channelId = this.channelApiId(this.currentChannel);
+  try {
+    if (flags.canHandraiseQueue) {
+      const queue = await clubhouseClient.getHandraiseQueue(channelId);
+      this.handraiseQueueUsers = usersFromQueuePayload(queue);
+    }
+    if (flags.canSuggestedSpeakers) {
+      const suggested = await clubhouseClient.getSuggestedSpeakers(channelId);
+      this.suggestedSpeakerUsers = usersFromQueuePayload(suggested);
+    }
+    if (this.roomDetailsOpen) this.renderRoomDetails();
+  } catch {
+    // Token / network — keep prior lists; nothing scary (same as 28.1).
+  }
+}
+
+export async function deleteChatMessage(this: ClubboxApp, messageId: string): Promise<void> {
+  if (!this.currentChannel || !this.isMeModerator() || !messageId) return;
+  if (!this.allowAction('delete_channel_message')) return;
+  try {
+    await clubhouseClient.deleteChannelMessage(this.channelApiId(this.currentChannel), messageId);
+    this.chatMessages = this.chatMessages.filter((msg) => msg.id !== messageId);
+    this.showToast(t('chatMessageDeleted'), '💬');
+    this.renderChat();
+  } catch (err) {
+    this.reportApiError(err);
+  }
+}
+
+export function canDeleteChatMessages(this: ClubboxApp): boolean {
+  if (!this.currentChannel || !this.isMeModerator()) return false;
+  return moderatorSettingsFlags(
+    readUserCapabilities(this.currentChannel),
+    this.currentChannel,
+    (endpoint) => clubhouseClient.supports(endpoint),
+  ).canDeleteChat;
+}
+
 export function wireRoomCtl(proto: ClubboxApp): void {
   proto.handleBeforeUnload = handleBeforeUnload;
   proto.handleAgoraLifecycle = handleAgoraLifecycle;
@@ -1348,4 +1480,12 @@ export function wireRoomCtl(proto: ClubboxApp): void {
   proto.endRoom = endRoom;
   proto.sendChatMessage = sendChatMessage;
   proto.confirmCreateRoom = confirmCreateRoom;
+  proto.savePinnedLink = savePinnedLink;
+  proto.removePinnedLink = removePinnedLink;
+  proto.toggleRoomChat = toggleRoomChat;
+  proto.disableRoomReplay = disableRoomReplay;
+  proto.toggleRoomNsfw = toggleRoomNsfw;
+  proto.refreshHandraiseQueue = refreshHandraiseQueue;
+  proto.deleteChatMessage = deleteChatMessage;
+  proto.canDeleteChatMessages = canDeleteChatMessages;
 }

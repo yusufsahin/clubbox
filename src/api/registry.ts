@@ -178,6 +178,40 @@ const REQUEST_BUILDERS: Partial<Record<string, (params: RequestBody) => RequestB
   save_replay: (params) => ({
     channel: requireString(params, 'channel'),
   }),
+  check_channel_link: (params) => ({
+    channel: requireString(params, 'channel'),
+    link: requireString(params, 'link'),
+  }),
+  add_channel_link: (params) => ({
+    channel: requireString(params, 'channel'),
+    link: requireString(params, 'link'),
+  }),
+  remove_channel_link: (params) => ({
+    channel: requireString(params, 'channel'),
+  }),
+  enable_channel_messages: (params) => ({
+    channel: requireString(params, 'channel'),
+  }),
+  disable_channel_messages: (params) => ({
+    channel: requireString(params, 'channel'),
+  }),
+  delete_channel_message: (params) => ({
+    channel: requireString(params, 'channel'),
+    message_id: requireString(params, 'message_id'),
+  }),
+  disable_replay: (params) => ({
+    channel: requireString(params, 'channel'),
+  }),
+  get_handraise_queue: (params) => ({
+    channel: requireString(params, 'channel'),
+  }),
+  get_suggested_speakers: (params) => ({
+    channel: requireString(params, 'channel'),
+  }),
+  update_nsfw_status: (params) => ({
+    channel: requireString(params, 'channel'),
+    is_nsfw: params.is_nsfw === true,
+  }),
   get_online_friends: () => ({}),
   get_notifications: (params) => ({
     page_size: typeof params.page_size === 'number' ? params.page_size : 20,

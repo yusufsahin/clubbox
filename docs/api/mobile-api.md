@@ -60,6 +60,13 @@ until a Token link is allowed or another observed auth path appears.
 | `invite_to_existing_channel` | `{ channel, user_id }` | 28.2 ping panel |
 | `hide_channel` | `{ channel, hide }` | 28.2 hallway + room details |
 | `save_replay` | `{ channel }` | 28.2; only when `is_replay_enabled` |
+| `check_channel_link` | `{ channel, link }` | 28.3; validate before add |
+| `add_channel_link` / `remove_channel_link` | `{ channel, link? }` | 28.3 pinned link |
+| `enable_channel_messages` / `disable_channel_messages` | `{ channel }` | 28.3 chat on/off |
+| `delete_channel_message` | `{ channel, message_id }` | 28.3 moderator delete |
+| `disable_replay` | `{ channel }` | 28.3 one-way; `enable_replay` 404 |
+| `get_handraise_queue` / `get_suggested_speakers` | `{ channel }` | 28.3 details queue |
+| `update_nsfw_status` | `{ channel, is_nsfw }` | 28.3 NSFW flag |
 
 IPC: `clubbox:mobile-call`. Evidence: `mobile-spike` in `webApiRoutes.json` (transport ready; **auth blocked**).
 

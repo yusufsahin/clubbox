@@ -2324,6 +2324,12 @@ App endpoint key: `web_listener_leave`.
 
 Not observed in a capture yet. No request or response example is included, because none was recorded.
 
+## POST /api/get_channel
+
+App endpoint key: `get_channel`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
 ## POST /api/invite_speaker
 
 App endpoint key: `invite_speaker`.
@@ -2366,6 +2372,12 @@ App endpoint key: `invite_to_existing_channel`.
 
 Not observed in a capture yet. No request or response example is included, because none was recorded.
 
+## POST /api/save_replay
+
+App endpoint key: `save_replay`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
 ## POST /api/end_channel
 
 App endpoint key: `end_channel`.
@@ -2393,6 +2405,66 @@ Not observed in a capture yet. No request or response example is included, becau
 ## POST /web_api/hide_channel
 
 App endpoint key: `hide_channel`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /api/check_channel_link
+
+App endpoint key: `check_channel_link`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /api/add_channel_link
+
+App endpoint key: `add_channel_link`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /api/remove_channel_link
+
+App endpoint key: `remove_channel_link`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /api/enable_channel_messages
+
+App endpoint key: `enable_channel_messages`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /api/disable_channel_messages
+
+App endpoint key: `disable_channel_messages`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /api/delete_channel_message
+
+App endpoint key: `delete_channel_message`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /api/disable_replay
+
+App endpoint key: `disable_replay`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /api/get_handraise_queue
+
+App endpoint key: `get_handraise_queue`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /api/get_suggested_speakers
+
+App endpoint key: `get_suggested_speakers`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /api/update_nsfw_status
+
+App endpoint key: `update_nsfw_status`.
 
 Not observed in a capture yet. No request or response example is included, because none was recorded.
 

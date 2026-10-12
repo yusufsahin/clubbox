@@ -65,6 +65,16 @@ const ALLOWED_MOBILE_ENDPOINTS = Object.freeze([
   'invite_to_existing_channel',
   'hide_channel',
   'save_replay',
+  'check_channel_link',
+  'add_channel_link',
+  'remove_channel_link',
+  'enable_channel_messages',
+  'disable_channel_messages',
+  'delete_channel_message',
+  'disable_replay',
+  'get_handraise_queue',
+  'get_suggested_speakers',
+  'update_nsfw_status',
 ]);
 
 const ALLOWED_SET = new Set(ALLOWED_MOBILE_ENDPOINTS);
