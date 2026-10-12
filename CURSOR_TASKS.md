@@ -11,9 +11,9 @@ Owner added Phase 23 (live room audio / Agora). Run it in order and respect the 
 - [x] 23.2 Make the real Agora join result visible
 - [x] 23.3 A/B reference tooling shipped — **web path chosen** (live audio worked; see `docs/history/agora-voice-dns-fix.md` A/B)
 - [x] 23.4–23.5 (web path)
-- [x] then Phase 24 (Agora feature completeness) 24.1 → 24.7; **24.1–24.6 done**
+- [x] then Phase 24 (Agora feature completeness) 24.1 → 24.7; **24.1–24.6 done; 24.7 STOP (eval)**
 - [ ] 23.6–23.8 native SDK path deferred unless web regresses
-- [ ] continue 24.7 AI noise suppression (evaluate first)
+- [x] 24.7 evaluated — do not add package until owner accepts CSP + Agora SDK license + ~5 MB WASM
 
 ### Previous run (owner instruction, 2026-10-12 #7)
 
@@ -22,17 +22,19 @@ Owner added Phase 22 (HAL-9 room type chips). Continue from there:
 - [x] Phase 22 — hallway room types (HAL-9): chips, sparse load-more, badges, empty state
 - [x] npm test + e2e + light/dark hallway screenshots; PRD HAL-9 Today; commit; stop
 
-### Last autonomous run (2026-10-12 #phase-24.6)
+### Last autonomous run (2026-10-12 #phase-24.7-eval)
 
-- Done on `phase-23-24-agora`: **24.1–24.6** — extras, reconnect, token, hot-swap, speaking rings, lifecycle (quit/close/suspend leave + resume rejoin; exclusive join/leave queue).
+- Done on `phase-23-24-agora`: **24.1–24.6** shipped; **24.7 STOP** after evaluating `agora-extension-ai-denoiser@2.0.2` (not installed).
+- 24.7 eval: unpacked ~6.0 MB (two WASM files ~3 MB each); CSP today has no `script-src 'wasm-unsafe-eval'` (required to load WASM); license is Agora SDK licence agreement (`SEE LICENSE IN LICENSE.md` → agora.io SDK licence), not OSI-permissive — same family as `agora-rtc-sdk-ng` already in the app, but owner must accept the WASM + CSP surface for an optional toggle.
 - Tests: unit 209 + BDD 200; tsc/lint green.
-- Next: **24.7** evaluate agora-extension-ai-denoiser (STOP if CSP/size/license fails).
-- Blocked / deferred: ST-9 Restream; native 23.6+. Manual: confirm ghost user gone after quit.
-- Questions for the owner: none new.
+- Phase 24 Status table: complete except 24.7 deferred to owner decision.
+- Blocked / deferred: **24.7** until owner says add it; ST-9 Restream; native 23.6+.
+- Questions for the owner: Approve adding AI denoiser (CSP `wasm-unsafe-eval` + ~5 MB package + Agora SDK licence), or leave ANS to the browser/`createMicrophoneAudioTrack` flags only?
 
 ### Questions for the owner
 
 - **ACC-1 wording:** Sign-in is now a visible Clubhouse `/signin` surface embedded in the main window (BrowserView), not a separate BrowserWindow. Should `features/account.feature` ACC-1 say “visible Clubhouse sign-in surface” instead of “visible window”? (Feature file not edited by the agent.)
+- **24.7 AI denoiser:** Install `agora-extension-ai-denoiser` (~5 MB WASM, needs CSP `script-src 'wasm-unsafe-eval'`, Agora SDK licence)? Yes → implement toggle; No → keep browser ANS only.
 
 
 ## Status
@@ -42,7 +44,7 @@ Legend: **Uygulandı** = code is in the tree. **Canlı doğrulandı** = exercise
 | Order | Task | Status |
 | --- | --- | --- |
 | 0a | **Phase 23 Live room audio (Agora)** — DNS -105 is a red herring; real join error not yet visible; web vs native SDK decision gate at 23.3 | **Web path** — 23.1–23.5 done on `phase-23-24-agora`; native 23.6+ deferred |
-| 0b | **Phase 24 Agora feature completeness** — broadcast mix, reconnect + quality, token lifecycle, device hot-swap, speaking rings, lifecycle, AI noise suppression | **24.1–24.6 done** — next 24.7 AI denoiser eval |
+| 0b | **Phase 24 Agora feature completeness** — broadcast mix, reconnect + quality, token lifecycle, device hot-swap, speaking rings, lifecycle, AI noise suppression | **24.1–24.6 done; 24.7 STOP** — owner decide on denoiser |
 | 1 | **0.7 Review fixes (2026-10-11 #2)** — navigation guard, packaged recorder, clip worklet path, auto-armed clip buffer, 429/visibility, CORS proxy token leak | Uygulandı |
 | 1b | **0.8 Followers / following / friends lists** — bundle scan + labeled UI hunt; live UI uses only counts + mutual lists | Uygulandı for counts, mutual names, and chat people. The public web bundle does not contain get_followers, get_following, or get_online_friends. get_friend_zone_match and get_social_club_members are in-bundle and not called. The labeled click-through still needs a signed-in session. |
 | 0 | **Autonomous plan** (see `.cursor/rules/clubbox.mdc`): 10.1 → 11.8 (warn mode) → 10.2 → 10.5 → 11.0 → 11.1 → 11.2 → 11.3 → 11.4 → 10.4 → 11.5 → 11.6 → 11.7 → 11.9 → 11.10 → 11.8 (strict). Acceptance files: account, hallway, room_listener, room_realtime, room_host, room_moderation, audio_studio, studio, social, messages, houses_events_replays, api_health. Requirements: `docs/product/PRD.md`; design + gap list G-01…G-18: `docs/product/DESIGN.md`; acceptance: `features/*.feature` | **Idle** — Phases 12–**22** done. Only ST-9 Restream remains `@deferred`. |
