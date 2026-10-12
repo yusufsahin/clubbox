@@ -10,6 +10,7 @@ const {
   probeMobileReadOnly,
   probeMobileMutation,
   MUTATION_CONFIRM,
+  MUTATION_PROBE_ORDER,
 } = require('../electron/mobileProbe.cjs');
 
 const channel = process.argv[2] || '';
@@ -37,16 +38,6 @@ async function listClubhouseCookies(sess) {
   console.log('[mobile-probe-28] cookie inventory total', all.length, 'clubhouse', map.size);
   return [...map.values()];
 }
-
-const MUTATION_ORDER = [
-  'add_channel_link',
-  'remove_channel_link',
-  'disable_channel_messages',
-  'enable_channel_messages',
-  'update_nsfw_status',
-  'disable_replay',
-  'update_handraise_queue_setting',
-];
 
 app.whenReady().then(async () => {
   const report = {
@@ -97,7 +88,7 @@ app.whenReady().then(async () => {
       if (confirm !== MUTATION_CONFIRM) {
         console.log('[mobile-probe-28] mutations skipped — pass --confirm=' + MUTATION_CONFIRM);
       } else {
-        const endpoints = mutate === 'all' ? MUTATION_ORDER : [mutate];
+        const endpoints = mutate === 'all' ? [...MUTATION_PROBE_ORDER] : [mutate];
         for (const endpoint of endpoints) {
           const out = await probeMobileMutation({
             fetchFn: fetchNoAbort,
@@ -117,9 +108,10 @@ app.whenReady().then(async () => {
 
     const outDir = path.join(__dirname, '..', 'reports');
     fs.mkdirSync(outDir, { recursive: true });
-    const outPath = path.join(outDir, 'mobile-probe-28.json');
-    fs.writeFileSync(outPath, `${JSON.stringify(report, null, 2)}\n`);
-    console.log('[mobile-probe-28] wrote', outPath);
+    const payload = `${JSON.stringify(report, null, 2)}\n`;
+    fs.writeFileSync(path.join(outDir, 'mobile-probe-28.json'), payload);
+    fs.writeFileSync(path.join(outDir, 'mobile-probe-29.json'), payload);
+    console.log('[mobile-probe-28] wrote', path.join(outDir, 'mobile-probe-29.json'));
     app.exit(0);
   } catch (err) {
     console.error('[mobile-probe-28] error', err instanceof Error ? err.message : err);

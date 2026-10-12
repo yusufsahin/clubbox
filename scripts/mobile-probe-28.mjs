@@ -1,19 +1,20 @@
 /**
- * Phase 28.0 one-shot body discovery using the Clubbox Electron session (cookies).
+ * Phase 28.0 / 29.0 one-shot body discovery using the Clubbox Electron session (cookies).
  * Never prints Cookie / CSRF values.
  *
- * Read-only (default):
+ * Read-only (default) includes 29.0: get_channel_audience, get_channel_banner,
+ * get_channel_user_poll, get_highlight (+ Phase 28 room reads).
  *   node scripts/mobile-probe-28.mjs
  *   node scripts/mobile-probe-28.mjs --channel=xewy04pp
  *
  * Mutations (throwaway room only — typed confirm required):
- *   node scripts/mobile-probe-28.mjs --mutate=disable_replay --confirm=I_CONFIRM_THROWAY_ROOM
+ *   node scripts/mobile-probe-28.mjs --mutate=update_channel_flags --confirm=I_CONFIRM_THROWAY_ROOM
  *   node scripts/mobile-probe-28.mjs --mutate=all --confirm=I_CONFIRM_THROWAY_ROOM
  *
  * If Clubbox is already running, pokes it via second-instance argv (live cookies).
  * Otherwise runs a headless Electron child against userData.
  *
- * Writes JSON results to reports/mobile-probe-28.json for docs.
+ * Writes reports/mobile-probe-28.json and reports/mobile-probe-29.json (same payload).
  */
 import { createRequire } from 'node:module';
 import { readFileSync, existsSync, statSync, unlinkSync } from 'node:fs';

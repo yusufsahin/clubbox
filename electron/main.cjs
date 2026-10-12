@@ -31,6 +31,7 @@ const {
   probeMobileReadOnly,
   probeMobileMutation,
   MUTATION_CONFIRM,
+  MUTATION_PROBE_ORDER,
 } = require('./mobileProbe.cjs');
 
 const REQUEST_TIMEOUT_MS = 20000;
@@ -2156,16 +2157,7 @@ async function runCliMobileProbeFromArgv(argv) {
     if (confirm !== MUTATION_CONFIRM) {
       console.log('[mobile-probe] mutations skipped — pass --confirm=' + MUTATION_CONFIRM);
     } else {
-      const order = [
-        'add_channel_link',
-        'remove_channel_link',
-        'disable_channel_messages',
-        'enable_channel_messages',
-        'update_nsfw_status',
-        'disable_replay',
-        'update_handraise_queue_setting',
-      ];
-      const endpoints = mutate === 'all' || !mutate ? order : [mutate];
+      const endpoints = mutate === 'all' || !mutate ? [...MUTATION_PROBE_ORDER] : [mutate];
       for (const endpoint of endpoints) {
         report.mutations[endpoint] = await probeMobileMutation({
           fetchFn: fetchNoAbort,
@@ -2183,10 +2175,15 @@ async function runCliMobileProbeFromArgv(argv) {
   }
   const outDir = path.join(__dirname, '..', 'reports');
   fs.mkdirSync(outDir, { recursive: true });
-  const outPath = path.join(outDir, 'mobile-probe-28.json');
-  fs.writeFileSync(outPath, `${JSON.stringify(report, null, 2)}\n`);
+  // Same payload for 28.x / 29.0 discovery (read-only list includes Phase 29 endpoints).
+  const outPath28 = path.join(outDir, 'mobile-probe-28.json');
+  const outPath29 = path.join(outDir, 'mobile-probe-29.json');
+  const payload = `${JSON.stringify(report, null, 2)}\n`;
+  fs.writeFileSync(outPath28, payload);
+  fs.writeFileSync(outPath29, payload);
   fs.writeFileSync(path.join(outDir, 'mobile-probe-28.done'), `${Date.now()}\n`);
-  console.log('[mobile-probe] wrote', outPath);
+  fs.writeFileSync(path.join(outDir, 'mobile-probe-29.done'), `${Date.now()}\n`);
+  console.log('[mobile-probe] wrote', outPath29);
   return true;
 }
 

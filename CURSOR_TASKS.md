@@ -4,7 +4,14 @@ Each task below is a self-contained prompt. Paste one task at a time into Cursor
 
 _Last reviewed: 2026-10-11. “Uygulandı” means the code is in the tree. “Canlı doğrulandı” means it was exercised against the official Clubhouse web session. This pass is implemented; the live room, hand, invite, and chat capture is still outstanding._
 
-### Last autonomous run (2026-10-12 — Task 28.2)
+### Last autonomous run (2026-10-12 — Task 29.0 STOP)
+
+- Extended `mobileProbe.cjs` with Phase 29.0 read-only + mutation allow-list (dev only).
+- Unauth: all 11 new endpoints **401** (exist). Auth session: `get_profile` 200; room reads still **401** Token-class.
+- Mutations **not run** (would 401; need Token + `I_CONFIRM_THROWAY_ROOM` in throwaway room).
+- Docs: `docs/api/mobile-api.md` § Phase 29.0; report `reports/mobile-probe-29.json`. **STOP before 29.1.**
+
+### Previous last autonomous run (2026-10-12 — Task 28.2)
 
 - Mobile transport: `reject_speaker_invite`, `invite_to_existing_channel`, `hide_channel`, `save_replay`.
 - Room details: Hide this room / Save replay (replay-on + `can_save`); ping panel for any role with `can_invite`.
@@ -108,7 +115,7 @@ Legend: **Uygulandı** = code is in the tree. **Canlı doğrulandı** = exercise
 | 0a | **Phase 23 Live room audio (Agora)** — DNS -105 is a red herring; real join error not yet visible; web vs native SDK decision gate at 23.3 | **Web path** — 23.1–23.5 done on `phase-23-24-agora`; native 23.6+ deferred |
 | 0b | **Phase 24 Agora feature completeness** — broadcast mix, reconnect + quality, token lifecycle, device hot-swap, speaking rings, lifecycle, AI noise suppression | **Closed** — 24.1–24.7 done (AI denoiser + CSP/WASM); e2e green |
 | 0c | **Phase 25 Room exit and mic state** — leave_channel on close/quit/Ctrl+C + crash recovery, mute badge/state sync, AI denoiser init bug, log hygiene | **Closed** — 25.1–25.4 done. 25.5 moved to Phase 26 |
-| 0g | **Phase 29 Live details + full moderator toolset** — Live details panel, room settings (mute all, chat, queue, replay, web listening), host banner, polls, highlights, full audience list, server-driven flags | **Open** — after Phase 28; 29.0 discovery first |
+| 0g | **Phase 29 Live details + full moderator toolset** — Live details panel, room settings (mute all, chat, queue, replay, web listening), host banner, polls, highlights, full audience list, server-driven flags | **29.0 discovery done** — unauth 401 exists; session Token-blocked; next **29.1** after Token |
 | 0f | **Phase 28 Room actions per role** — role × action matrix (Clubhouse parity), mobile body discovery, authoritative room state via get_channel, listener/speaker/moderator actions, UI gating, headphones banner fix, Moderator actions panel (Requests + History) | **28.2 code done**; 28.1 done; 28.4 UI done; Leave stage still off; live Token open; next **28.3** |
 | 0e | **Phase 27 Host tools via mobile API** — end room, invite to stage, mute, move to audience, remove from room; web API has none of these (404 / not in bundle) | **Auth blocked** — transport+https Cookie ok; moderation endpoints **401** with web session (Token needed); SMS was skipped |
 | 0d | **Phase 26 Studio audio routing** — VB-Cable / Voicemeeter (Clubdeck parity): device classification, working quality levels, mixer-as-mic, loop guard, setup wizard, capture truth, live test matrix | **Code done** — 26.1–26.6 + mid-room `applyMicDevice` harden. **26.7 owner live matrix** still open |

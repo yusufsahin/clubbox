@@ -116,6 +116,77 @@ Production host-tool allow-list stays unchanged; transport now uses Node https s
 4. Second Electron against the same `userData` while Clubbox runs → cookie DB locked (0 cookies). Prefer second-instance poke.
 5. Production allow-list unchanged; probe uses a separate allow-list + typed mutation confirm.
 
+## Phase 29.0 — live-details body discovery (STOP before 29.1)
+
+### Tooling
+
+Extends `electron/mobileProbe.cjs` (dev allow-list only — **not** production IPC):
+
+| Kind | Endpoints |
+| --- | --- |
+| Read-only | `get_channel_audience`, `get_channel_banner`, `get_channel_user_poll`, `get_highlight` (+ Phase 28 reads) |
+| Mutations (confirm `I_CONFIRM_THROWAY_ROOM`) | `set_channel_banner`, `create_channel_user_poll`, `submit_channel_user_poll_vote`, `remove_channel_user_poll`, `create_highlight`, `delete_highlight`, `update_channel_flags` |
+
+CLI (same as 28.0): `node scripts/mobile-probe-28.mjs --channel=<id>` → writes
+`reports/mobile-probe-28.json` and `reports/mobile-probe-29.json`. Restart Clubbox after
+pulling probe changes so second-instance uses the new endpoint list. Cookie DB is locked
+while Clubbox runs — do not use headless Electron against the same userData.
+
+### Unauthenticated liveness (2026-10-12)
+
+`POST { channel: "probe" }` via Node `httpsPostJson`, no cookies. All **401**
+`detail=Authentication credentials were not provided.` (endpoint exists). None 404.
+
+| Endpoint | Status |
+| --- | --- |
+| `get_channel_audience` | 401 |
+| `get_channel_banner` | 401 |
+| `get_channel_user_poll` | 401 |
+| `get_highlight` | 401 |
+| `set_channel_banner` | 401 |
+| `create_channel_user_poll` | 401 |
+| `submit_channel_user_poll_vote` | 401 |
+| `remove_channel_user_poll` | 401 |
+| `create_highlight` | 401 |
+| `delete_highlight` | 401 |
+| `update_channel_flags` | 401 |
+
+### Authenticated (web session, same day)
+
+Canary (channel `xewy04pp`, live app cookies via second-instance + Node https):
+
+| Endpoint | Status | Notes |
+| --- | --- | --- |
+| `get_profile` | **200** | Session accepted |
+| `get_channel` / queues / history / link check | **401** | Token-class (same as Phase 28.0) |
+| 29.0 read-only set | **not 2xx with session** | Same auth class expected; body shapes still unknown until Token |
+| 29.0 mutations | **not run** | Would 401; need Token + throwaway `--confirm=I_CONFIRM_THROWAY_ROOM` |
+
+### Planned bodies (max 3 attempts; from Clubdeck / join fields / error_message)
+
+| Endpoint | Attempts |
+| --- | --- |
+| `get_channel_audience` | `{channel}` → +`page_size` → +`cursor` (note pagination keys on 2xx) |
+| `get_channel_banner` | `{channel}` |
+| `get_channel_user_poll` | `{channel}` |
+| `get_highlight` | `{channel}` → `{channel,id}` → `{id}` |
+| `set_channel_banner` | `{channel,text}` / `banner` / `message` (refine from `error_message`) |
+| `create_channel_user_poll` | `{channel, question, options[]}` (string[] then `{text}` objects) |
+| `submit_channel_user_poll_vote` | `{channel, option_index}` / `option` / `vote` |
+| `remove_channel_user_poll` | `{channel}` / +`channel_user_poll_id` |
+| `create_highlight` | `{channel, title}` / `name` / +`start_time` |
+| `delete_highlight` | `{channel, id}` / `{id}` / `{channel, highlight_id}` |
+| `update_channel_flags` | `{channel, is_web_listening_enabled}` / `is_chat_enabled` / `is_handraise_enabled` |
+
+PubNub side-effects of mutations: watch `pubnub-unknown` in api-log after a Token-auth 2xx (not observed yet).
+
+### Conclusion for Phase 29.1+
+
+Same blocker as Phase 28: web session is enough for `get_profile` only. Audience / banner /
+poll / highlight / `update_channel_flags` need Token (or a new observed auth path). Probe
+tooling and planned bodies are ready; do not add these to production `ALLOWED_MOBILE_ENDPOINTS`
+until a 2xx in the owner's throwaway room.
+
 ## App behaviour (Phase 27)
 
 - **Move to audience** = `mute_speaker` then `uninvite_speaker`
