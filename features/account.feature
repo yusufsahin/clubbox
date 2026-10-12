@@ -5,10 +5,10 @@ Feature: Account, first run and app preferences
   So that I can use Clubbox comfortably without risking my account
 
   @observed @ACC-1
-  Scenario: Sign in happens in a visible clubhouse.com window
+  Scenario: Sign in happens on a visible Clubhouse sign-in surface
     Given I am signed out
     When I click "Sign in"
-    Then a visible window opens "https://www.clubhouse.com/signin"
+    Then a visible Clubhouse sign-in surface opens "https://www.clubhouse.com/signin"
     And Clubbox never calls reCAPTCHA itself
     And after the window reports a session, a "POST /web_api/me" request is sent
     And I see my name in the sidebar

@@ -4,12 +4,12 @@ Each task below is a self-contained prompt. Paste one task at a time into Cursor
 
 _Last reviewed: 2026-10-11. “Uygulandı” means the code is in the tree. “Canlı doğrulandı” means it was exercised against the official Clubhouse web session. This pass is implemented; the live room, hand, invite, and chat capture is still outstanding._
 
-### Last autonomous run (2026-10-12 — idle / owner-blocked)
+### Last autonomous run (2026-10-12 — fix + release 2.2.0)
 
-- Re-checked Status + Autonomous plan: no unfinished agent tasks that are not blocked.
-- Still blocked on owner: live checks 30.4/30.6/30.7, 30.8 feedback, `api_health` invite_speaker row
-  (feature not edited per Hard rule), ACC-1 wording.
-- No code change this turn.
+- Owner: fix remaining gaps and release.
+- `api_health`: invite_speaker community+off → **blocked** (app-only). ACC-1 → sign-in surface wording.
+- Version **2.2.0**; `npm test` green; `npm run dist` installers.
+- Live room checks still recommended after install (not faked).
 
 ### Previous last autonomous run (2026-10-12 — Phase 30.9 bookkeeping / blocked)
 
@@ -240,16 +240,8 @@ Owner reported: triage noise, new-room participants invisible, moderation action
 
 ### Questions for the owner
 
-- **ACC-1 wording:** Sign-in is now a visible Clubhouse `/signin` surface embedded in the main window (BrowserView), not a separate BrowserWindow. Should `features/account.feature` ACC-1 say “visible Clubhouse sign-in surface” instead of “visible window”? (Feature file not edited by the agent.)
-- **Phase 30 owner live checks (blocks 30.9 “done”):**
-  1. **30.4:** in a live room, confirm Agora not-connected overlay, PubNub reconnect history, and profile refresh on role events.
-  2. **30.6:** with Agora debug on, compare normal vs music + external stereo file (phone listener); record which encoder the mix follows in `docs/product/audio-routing.md` (do not unify tracks until then).
-  3. **30.7:** run **VB-Cable check** in setup step 4; on the phone confirm music heard, ducking, stereo in Music.
-- **30.8 Clubhouse feedback (owner, no code):** Knowledge Center → Share feedback — paste:
-
-> Hi Clubhouse team — I host rooms from the web (clubhouse.com) on my computer. The web client lets me create rooms and set titles, but not moderate: invite to speak, move to audience, mute speakers, remove from room, make moderator, end room. Could you add these moderator tools to the web client, or allow hosting rooms fully from the web? It would make hosting from a desktop setup (better microphones, audio interfaces) much easier. Thank you!
-
-- **api_health invite_speaker:** Scenario Outline still says community + experimental off → `allowed`. After app-only, `canCall` returns false until evidence is `observed` (web moderation discovered). Should the feature row become `blocked`, or should community host tools stay callable in sandbox/tests only?
+- **Phase 30 live checks (post-release, personal use):** still recommended in a real room — 30.4 overlay/history/profile, 30.6 encoder measure, 30.7 phone music/duck/stereo. Dual publish kept until 30.6 is measured.
+- **30.8 Clubhouse feedback (optional):** Knowledge Center → Share feedback — paste from `docs/tasks/phase-30-web-first.md` §30.8.
 
 
 ## Status
@@ -261,7 +253,7 @@ Legend: **Uygulandı** = code is in the tree. **Canlı doğrulandı** = exercise
 | 0a | **Phase 23 Live room audio (Agora)** — DNS -105 is a red herring; real join error not yet visible; web vs native SDK decision gate at 23.3 | **Web path** — 23.1–23.5 done on `phase-23-24-agora`; native 23.6+ deferred |
 | 0b | **Phase 24 Agora feature completeness** — broadcast mix, reconnect + quality, token lifecycle, device hot-swap, speaking rings, lifecycle, AI noise suppression | **Closed** — 24.1–24.7 done (AI denoiser + CSP/WASM); e2e green |
 | 0c | **Phase 25 Room exit and mic state** — leave_channel on close/quit/Ctrl+C + crash recovery, mute badge/state sync, AI denoiser init bug, log hygiene | **Closed** — 25.1–25.4 done. 25.5 moved to Phase 26 |
-| 0h | **Phase 30 Web-first** — honest host tools, crawl watch-list, accurate PubNub room state, phone QR, Live details audit, audio quality, VB-Cable check | **Code done** — 30.1–30.7. Owner live checks (30.4/30.6/30.7) + 30.8 Clubhouse feedback still open. |
+| 0h | **Phase 30 Web-first** — honest host tools, crawl watch-list, accurate PubNub room state, phone QR, Live details audit, audio quality, VB-Cable check | **Released in 2.2.0 (code).** Post-install live checks 30.4/30.6/30.7 still recommended. |
 | 0g | **Phase 29 Live details + full moderator toolset** — Live details panel, room settings (mute all, chat, queue, replay, web listening), host banner, polls, highlights, full audience list, server-driven flags | **App-only (closed)** for mobile host tools. **29.1 done** (web Live details). 29.3+ banner/polls/highlights stay blocked (no web bodies). |
 | 0f | **Phase 28 Room actions per role** — role × action matrix (Clubhouse parity), mobile body discovery, authoritative room state via get_channel, listener/speaker/moderator actions, UI gating, headphones banner fix, Moderator actions panel (Requests + History) | **App-only (closed)** for live mobile actions. UI/matrix + web-session room chat OK. Leave stage still off. |
 | 0e | **Phase 27 Host tools via mobile API** — end room, invite to stage, mute, move to audience, remove from room; web API has none of these (404 / not in bundle) | **App-only (closed) 2026-10-12** — device check blocks third-party SMS; no Token import. Code removed/dormant; disabled UI + toast. |

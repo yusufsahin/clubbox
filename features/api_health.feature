@@ -16,7 +16,7 @@ Feature: Evidence levels, circuit breaker and API Health
       | endpoint        | level       | experimental | callable |
       | get_feed_v3     | observed    | off          | allowed  |
       | join_channel    | bundle      | off          | allowed  |
-      | invite_speaker  | community   | off          | allowed  |
+      | invite_speaker  | community   | off          | blocked  |
       | get_events      | community   | off          | blocked  |
       | get_events      | community   | on           | allowed  |
       | get_followers   | unsupported | on           | blocked  |

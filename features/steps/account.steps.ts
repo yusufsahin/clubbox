@@ -24,6 +24,11 @@ Then('a visible window opens {string}', function (this: ClubboxWorld, url: strin
   assert.equal(this.openedSignInUrl, url);
 });
 
+Then('a visible Clubhouse sign-in surface opens {string}', function (this: ClubboxWorld, url: string) {
+  // Embedded BrowserView in the main window (not a separate BrowserWindow).
+  assert.equal(this.openedSignInUrl, url);
+});
+
 Then('Clubbox never calls reCAPTCHA itself', function (this: ClubboxWorld) {
   assert.equal(this.calledRecaptcha, false);
   assert.equal(this.transport.requests.some((req) => /recaptcha|grecaptcha/i.test(req.path)), false);
