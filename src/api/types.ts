@@ -64,6 +64,11 @@ export interface CHChannel {
   /** Present on some feed cards — used for “running for” on hallway cards. */
   time_created?: string;
   is_handraise_enabled?: boolean;
+  /**
+   * Stage access queue from create/join:
+   * 0 = open stage (anyone can speak), 2 = request to join, 1 = invite only.
+   */
+  handraise_queue_setting?: number;
   /** Community: 1 = everyone, 2 = friends of speakers (when handraise is on). */
   handraise_permission?: number;
   is_chat_enabled?: boolean;

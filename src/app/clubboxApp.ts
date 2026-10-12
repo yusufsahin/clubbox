@@ -5,6 +5,7 @@ import { conversationKind } from '../api/roomActions';
 import { talkPartners, type PeopleListKind } from '../api/relationship';
 import type { ClubboxAppCtlMethods } from './ctlMethods.ts';
 import { electronAPI } from './electronApi.ts';
+import { stageAccessMode } from '../api/roomControls.ts';
 import { stageControlFlags } from './roomCtl.ts';
 import { wireAppControllers } from './wireControllers.ts';
 
@@ -1237,6 +1238,7 @@ export class ClubboxApp {
     const visibilityMode: 'open' | 'social' | 'other' = this.currentChannel.is_private
       ? 'other'
       : (this.currentChannel.is_social_mode ? 'social' : 'open');
+    const access = stageAccessMode(this.currentChannel);
     return stageColumn({
       channel: this.currentChannel,
       me: this.me,
@@ -1245,6 +1247,9 @@ export class ClubboxApp {
       moderator: this.isMeModerator(),
       ...controls,
       canFollow: clubhouseClient.supports('follow'),
+      canJoinStage: clubhouseClient.supports('become_speaker')
+        && !this.isMeSpeaker()
+        && access === 'open',
       audienceSearch: this.audienceSearchQuery,
       handraiseMode,
       visibilityMode,
@@ -1295,8 +1300,14 @@ export class ClubboxApp {
       muted: audioEngine.getIsMuted(),
       recording: audioEngine.getIsRecording(),
       handRaised: clubhouseClient.isHandRaised(),
-      handDisabled: !this.currentChannel || this.isMeSpeaker() || this.currentChannel.is_handraise_enabled === false,
-      canRaiseHand: clubhouseClient.supports('audience_reply'),
+      handDisabled: !this.currentChannel || this.isMeSpeaker() || stageAccessMode(this.currentChannel) !== 'raise',
+      canRaiseHand: clubhouseClient.supports('audience_reply')
+        && !!this.currentChannel
+        && stageAccessMode(this.currentChannel) === 'raise',
+      canJoinStage: clubhouseClient.supports('become_speaker')
+        && !!this.currentChannel
+        && !this.isMeSpeaker()
+        && stageAccessMode(this.currentChannel) === 'open',
       showAudioRetry: !!this.currentChannel && this.audioConnected === false && !clubhouseClient.getConfig().useSandbox,
       isSpeaker: this.isMeSpeaker(),
       inRoom: !!this.currentChannel,
@@ -2012,6 +2023,9 @@ export class ClubboxApp {
           this.renderStage();
           this.renderCockpit();
         });
+        break;
+      case 'join-open-stage':
+        void this.joinOpenStage();
         break;
       case 'toggle-hand':
         void this.toggleHandRaise();

@@ -573,16 +573,33 @@ export class AgoraVoiceEngine {
   }
 
   public async promoteToSpeaker(): Promise<boolean> {
-    if (!this.client || !this.isJoined) return false;
-    try {
-      await this.client.setClientRole('host');
-      this.isSpeaker = true;
-      await this.publishBroadcast(audioEngine.getIsMusicMode());
-      return true;
-    } catch (err) {
-      console.warn('[AgoraRTC] Promote to speaker failed:', err);
-      return false;
-    }
+    return this.exclusiveAgora(async () => {
+      if (!this.client || !this.isJoined) return false;
+      // Idempotent: PubNub role-sync and Accept can race; a second publish bans the UID.
+      if (this.isSpeaker) {
+        if (!this.localAudioTrack) {
+          try {
+            await this.publishBroadcast(audioEngine.getIsMusicMode());
+          } catch (err) {
+            console.warn('[AgoraRTC] Promote republish failed:', err);
+            return false;
+          }
+        }
+        await this.setMuted(audioEngine.getIsMuted());
+        return true;
+      }
+      try {
+        await this.client.setClientRole('host');
+        this.isSpeaker = true;
+        await this.publishBroadcast(audioEngine.getIsMusicMode());
+        await this.setMuted(audioEngine.getIsMuted());
+        return true;
+      } catch (err) {
+        console.warn('[AgoraRTC] Promote to speaker failed:', err);
+        this.isSpeaker = false;
+        return false;
+      }
+    });
   }
 
   public async demoteToAudience(): Promise<void> {
@@ -602,11 +619,9 @@ export class AgoraVoiceEngine {
     if (!this.client) return;
     const AgoraRTC = await this.loadSdk();
 
-    // Always publish live; connect-time mute left silence on the wire.
-    if (audioEngine.getIsMuted()) {
-      audioEngine.setMuted(false);
-      console.warn('[AgoraRTC] cleared mute before publish (was muted while connecting)');
-    }
+    // Keep engine mute across publish. Accept/join-stage must start muted (RL-7);
+    // syncVoiceEffectPublish / setMuted apply it to the Agora track after publish.
+    // Clearing mute here was publishing live audio and racing UID_BANNED kicks.
 
     // Release Clubbox's getUserMedia so Windows can hand the device to Agora.
     // Custom/cloned MediaStreamTracks were joining + flipping mute badges but

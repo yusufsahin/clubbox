@@ -9,7 +9,12 @@ import { beginJoin, commitJoin, finishLeave, localClipAllowed, roleSyncDecision,
 import { leaveClosesRoom, planLeaveServer, roomHasOthers } from '../api/roomActions.ts';
 import { visibilityChangeEndpoint } from '../api/moderationExtras.ts';
 import { mergePingCandidates, readSearchPingCandidates, readSuggestedInvites } from '../api/pingInvites.ts';
-import { isChannelModerator, readUserCapabilities, roomControlFlags } from '../api/roomControls.ts';
+import {
+  isChannelModerator,
+  readUserCapabilities,
+  roomControlFlags,
+  stageAccessMode,
+} from '../api/roomControls.ts';
 import { roomSync } from '../api/roomSync.ts';
 import { audioEngine } from '../audio/audioEngine.ts';
 import { agoraVoice } from '../audio/agoraVoice.ts';
@@ -335,13 +340,37 @@ export function closeSpeakerInvite(this: ClubboxApp, dismiss = true) : void {
   }
 
 export async function acceptSpeakerInvite(this: ClubboxApp) : Promise<void> {
+    await this.promoteToStage({ fromInvite: true });
+  }
+
+/** Open-stage rooms: audience joins the stage without a moderator invite. */
+export async function joinOpenStage(this: ClubboxApp): Promise<void> {
+    if (!this.currentChannel || this.isMeSpeaker()) return;
+    if (stageAccessMode(this.currentChannel) !== 'open') {
+      this.showToast(t('stageInviteOnly'), '✋');
+      return;
+    }
+    await this.promoteToStage({ fromInvite: false });
+  }
+
+export async function promoteToStage(
+    this: ClubboxApp,
+    options: { fromInvite: boolean },
+  ): Promise<void> {
     if (!this.currentChannel || !this.me) return;
     if (!this.allowAction('become_speaker')) return;
+    if (this.isMeSpeaker() && agoraVoice.getIsSpeaker()) return;
     const acceptBtn = document.getElementById('accept-speak-btn') as HTMLButtonElement | null;
+    const joinBtns = document.querySelectorAll<HTMLButtonElement>('[data-action="join-open-stage"]');
     if (acceptBtn) acceptBtn.disabled = true;
+    joinBtns.forEach((btn) => { btn.disabled = true; });
+    // Block PubNub role-sync from a parallel promote (double publish → UID_BANNED).
+    this.agoraRoleSyncing = true;
+    // Stage etiquette: Accept / open-stage join always start muted.
+    audioEngine.setMuted(true);
     try {
       await clubhouseClient.becomeSpeaker(this.channelApiId(this.currentChannel));
-      this.closeSpeakerInvite();
+      if (options.fromInvite) this.closeSpeakerInvite(false);
       const mine = this.currentChannel.users.find((user) => user.user_id === this.me?.user_id);
       if (mine) {
         mine.is_speaker = true;
@@ -351,17 +380,22 @@ export async function acceptSpeakerInvite(this: ClubboxApp) : Promise<void> {
       if (!clubhouseClient.getConfig().useSandbox && agoraVoice.getIsJoined()) {
         const ok = await agoraVoice.promoteToSpeaker();
         this.audioConnected = ok;
+        await agoraVoice.setMuted(true);
         if (!ok) {
           this.showToast(t('micStageFailed'), '🔇');
-          this.syncAgoraRole();
           return;
         }
       }
       audioEngine.setMuted(true);
+      this.agoraPromoteFailures = 0;
       this.showToast(t('onStage'), '🎙️');
+      this.render();
     } catch (err) {
       this.reportApiError(err);
       if (acceptBtn) acceptBtn.disabled = false;
+      joinBtns.forEach((btn) => { btn.disabled = false; });
+    } finally {
+      this.agoraRoleSyncing = false;
     }
   }
 
@@ -591,8 +625,13 @@ export async function refreshStageManual(this: ClubboxApp) : Promise<void> {
 export async function toggleHandRaise(this: ClubboxApp) {
     if (!this.currentChannel) return;
     if (!this.allowAction('audience_reply')) return;
-    if (this.currentChannel.is_handraise_enabled === false) {
-      this.showToast(t('handOff'), '✋');
+    const access = stageAccessMode(this.currentChannel);
+    if (access === 'open') {
+      void this.joinOpenStage();
+      return;
+    }
+    if (access === 'invite' || this.currentChannel.is_handraise_enabled === false) {
+      this.showToast(t('stageInviteOnly'), '✋');
       return;
     }
     if (this.isMeSpeaker()) return;
@@ -1199,6 +1238,8 @@ export function wireRoomCtl(proto: ClubboxApp): void {
   proto.renderSpeakerInvite = renderSpeakerInvite;
   proto.closeSpeakerInvite = closeSpeakerInvite;
   proto.acceptSpeakerInvite = acceptSpeakerInvite;
+  proto.joinOpenStage = joinOpenStage;
+  proto.promoteToStage = promoteToStage;
   proto.declineSpeakerInvite = declineSpeakerInvite;
   proto.muteEveryone = muteEveryone;
   proto.setHandRaisePermission = setHandRaisePermission;

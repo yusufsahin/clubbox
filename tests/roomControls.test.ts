@@ -1,7 +1,15 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { isChannelModerator, roomControlFlags } from '../src/api/roomControls.ts';
+import { isChannelModerator, roomControlFlags, stageAccessMode } from '../src/api/roomControls.ts';
 import { getEndpoint } from '../src/api/registry.ts';
+
+test('stageAccessMode maps handraise_queue_setting to open / raise / invite', () => {
+  assert.equal(stageAccessMode({ handraise_queue_setting: 0 }), 'open');
+  assert.equal(stageAccessMode({ handraise_queue_setting: 2, is_handraise_enabled: true }), 'raise');
+  assert.equal(stageAccessMode({ handraise_queue_setting: 1 }), 'invite');
+  assert.equal(stageAccessMode({ is_handraise_enabled: true }), 'raise');
+  assert.equal(stageAccessMode({ is_handraise_enabled: false }), 'open');
+});
 
 test('isChannelModerator treats the room creator as host when the user row is missing', () => {
   assert.equal(

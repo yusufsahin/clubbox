@@ -315,6 +315,7 @@ export const INITIAL_MOCK_CHANNELS: CHChannel[] = [
     privacy_tooltip: 'Friends of friends',
     is_chat_enabled: false,
     is_handraise_enabled: false,
+    handraise_queue_setting: 0,
     should_join_muted: true,
     num_speakers: 1,
     num_all: 1,

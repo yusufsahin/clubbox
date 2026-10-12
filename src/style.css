@@ -1211,6 +1211,40 @@ body {
   color: var(--text-on-accent);
 }
 
+.open-stage-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid color-mix(in srgb, var(--accent-emerald) 45%, var(--border-subtle));
+  background: color-mix(in srgb, var(--accent-emerald) 14%, var(--bg-card));
+}
+
+.open-stage-banner-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.open-stage-banner-copy strong {
+  font-size: 14px;
+}
+
+.open-stage-banner-copy span {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.room-bar-join-stage {
+  background: color-mix(in srgb, var(--accent-emerald) 22%, transparent) !important;
+  border-color: color-mix(in srgb, var(--accent-emerald) 50%, var(--border-subtle)) !important;
+  color: var(--accent-emerald-text) !important;
+}
+
 .speaker-menu-btn {
   position: absolute;
   top: 8px;

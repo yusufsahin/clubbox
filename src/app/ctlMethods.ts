@@ -102,6 +102,8 @@ export type ClubboxAppCtlMethods = {
   renderSpeakerInvite: typeof roomCtl.renderSpeakerInvite;
   closeSpeakerInvite: typeof roomCtl.closeSpeakerInvite;
   acceptSpeakerInvite: typeof roomCtl.acceptSpeakerInvite;
+  joinOpenStage: typeof roomCtl.joinOpenStage;
+  promoteToStage: typeof roomCtl.promoteToStage;
   declineSpeakerInvite: typeof roomCtl.declineSpeakerInvite;
   muteEveryone: typeof roomCtl.muteEveryone;
   setHandRaisePermission: typeof roomCtl.setHandRaisePermission;

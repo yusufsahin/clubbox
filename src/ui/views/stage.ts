@@ -25,6 +25,8 @@ export interface StageState {
   canPing: boolean;
   canChangeVisibility: boolean;
   canFollow: boolean;
+  /** Audience in an open-stage room — show Join stage CTA. */
+  canJoinStage: boolean;
   audienceSearch: string;
   handraiseMode: 'off' | '1' | '2';
   visibilityMode: 'open' | 'social' | 'other';
@@ -79,11 +81,25 @@ export function stageColumn(state: StageState): SafeHtml {
   if (state.audienceSearch.trim()) {
     audience = audience.filter((user) => audienceMatchesQuery(user, state.audienceSearch));
   }
+  const meId = state.me != null ? String(state.me.user_id) : '';
+  const meOnStage = !!state.me && speakers.some((u) => String(u.user_id) === meId);
+  const showJoinStage = state.canJoinStage && !meOnStage;
   return html`
         <div class="stage-section">
           <div>
             ${state.channel.is_web_listening_enabled === false ? html`
               <p class="list-note" data-web-listening-off style="margin-bottom:12px;">${t('webListeningDisabled')}</p>
+            ` : ''}
+            ${showJoinStage ? html`
+              <div class="open-stage-banner" data-open-stage-banner>
+                <div class="open-stage-banner-copy">
+                  <strong>${t('joinStage')}</strong>
+                  <span>${t('joinStageHelp')}</span>
+                </div>
+                <button class="btn btn-primary" type="button" data-action="join-open-stage" id="join-open-stage-btn">
+                  ${t('joinStage')}
+                </button>
+              </div>
             ` : ''}
             <div class="stage-header" style="margin-bottom:16px;">
               <div class="section-title">

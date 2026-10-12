@@ -9,6 +9,8 @@ export interface CockpitState {
   handRaised: boolean;
   handDisabled: boolean;
   canRaiseHand: boolean;
+  /** Open-stage rooms: audience can become speaker without an invite. */
+  canJoinStage: boolean;
   showAudioRetry: boolean;
   isSpeaker: boolean;
   inRoom: boolean;
@@ -55,7 +57,8 @@ function barBtn(
 }
 
 export function cockpitBar(state: CockpitState): SafeHtml {
-  const showHand = state.canRaiseHand && !state.isSpeaker;
+  const showHand = state.canRaiseHand && !state.isSpeaker && !state.canJoinStage;
+  const showJoinStage = state.canJoinStage && !state.isSpeaker;
   const showRecord = state.canRecord || state.recording || state.canClip;
   return html`
     <div class="cockpit-bar" data-cockpit="room">
@@ -97,6 +100,18 @@ export function cockpitBar(state: CockpitState): SafeHtml {
           ${icon(state.muted ? 'micOff' : 'mic')}
           <span class="room-bar-label">${t('mic')}</span>
         </button>
+
+        ${showJoinStage ? html`
+          <button
+            class="room-bar-btn room-bar-join-stage is-active"
+            type="button"
+            data-action="join-open-stage"
+            data-room-bar-item="join-stage"
+            id="join-open-stage-bar-btn"
+            aria-label="${t('joinStage')}"
+            title="${t('joinStageHelp')}"
+          >${icon('plus')}<span class="room-bar-label">${t('joinStage')}</span></button>
+        ` : ''}
 
         ${showHand ? barBtn('hand', 'toggle-hand', t('hand'), 'hand', {
           active: state.handRaised,

@@ -64,3 +64,24 @@ export function isChannelModerator(
   }
   return channel.creator_user_profile_id != null && String(channel.creator_user_profile_id) === mine;
 }
+
+/** How listeners get on stage for this room. */
+export type StageAccessMode = 'open' | 'raise' | 'invite';
+
+/**
+ * Clubhouse handraise_queue_setting: 0 open stage, 2 request-to-join, 1 invite-only.
+ * When the field is missing, treat handraise-on as raise-queue; otherwise open
+ * (server create default is usually 0 — matching create_channel fixtures).
+ */
+export function stageAccessMode(channel: {
+  handraise_queue_setting?: number;
+  is_handraise_enabled?: boolean;
+} | null | undefined): StageAccessMode {
+  if (!channel) return 'invite';
+  const queue = channel.handraise_queue_setting;
+  if (queue === 0) return 'open';
+  if (queue === 1) return 'invite';
+  if (queue === 2) return 'raise';
+  if (channel.is_handraise_enabled === true) return 'raise';
+  return 'open';
+}
