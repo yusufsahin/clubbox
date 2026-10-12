@@ -166,6 +166,53 @@ test('a cache written by an older extractor is re-crawled for the same build', a
   assert.equal(second.reason, 'cache_hit');
 });
 
+test('cache hit is skipped when realtime-config secrets are missing', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'clubbox-crawl-secrets-'));
+  const userData = path.join(root, 'userData');
+  const projectRoot = path.join(root, 'project');
+  fs.mkdirSync(path.join(projectRoot, 'electron'), { recursive: true });
+  fs.mkdirSync(path.join(projectRoot, 'api-captures'), { recursive: true });
+  fs.writeFileSync(path.join(projectRoot, 'electron', 'webApiRoutes.json'), '{}\n');
+
+  const files = new Map([
+    ['https://www.clubhouse.com/', homeHtml],
+    ['https://www.clubhouse.com/_next/static/buildAbc123XYZ/_buildManifest.js', manifest],
+    ['https://www.clubhouse.com/_next/static/chunks/fixture-room.js', roomChunk],
+    ['https://www.clubhouse.com/_next/static/chunks/webpack.js', 'console.log("webpack");'],
+  ]);
+  const crawler = createBundleCrawler({
+    userDataPath: userData,
+    projectRoot,
+    writeProjectArtifacts: false,
+    sleepFn: async () => {},
+    fetchFn: async (url) => {
+      const body = files.get(url);
+      if (body == null) return { ok: false, status: 404, text: async () => '' };
+      return { ok: true, status: 200, text: async () => body };
+    },
+  });
+  const first = await crawler.crawl();
+  assert.equal(first.reason, 'crawled');
+  fs.unlinkSync(path.join(userData, 'realtime-config.json'));
+  let fetches = 0;
+  const crawler2 = createBundleCrawler({
+    userDataPath: userData,
+    projectRoot,
+    writeProjectArtifacts: false,
+    sleepFn: async () => {},
+    fetchFn: async (url) => {
+      fetches += 1;
+      const body = files.get(url);
+      if (body == null) return { ok: false, status: 404, text: async () => '' };
+      return { ok: true, status: 200, text: async () => body };
+    },
+  });
+  const again = await crawler2.crawl();
+  assert.equal(again.reason, 'crawled');
+  assert.ok(fetches > 0);
+  assert.ok(fs.existsSync(path.join(userData, 'realtime-config.json')));
+});
+
 test('extractSecrets picks the production config block, not the first (dev) one', () => {
   // The clubhouse.com bundle ships dev, staging and production config objects in that order.
   // Production is the block with a live Stripe key; .match() alone returns the dev block.

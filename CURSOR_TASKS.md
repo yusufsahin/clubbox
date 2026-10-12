@@ -4,7 +4,15 @@ Each task below is a self-contained prompt. Paste one task at a time into Cursor
 
 _Last reviewed: 2026-10-11. “Uygulandı” means the code is in the tree. “Canlı doğrulandı” means it was exercised against the official Clubhouse web session. This pass is implemented; the live room, hand, invite, and chat capture is still outstanding._
 
-### Next run (owner instruction, 2026-10-12 #7)
+### Next run (owner instruction, 2026-10-12 #8)
+
+Owner added Phase 23 (live room audio / Agora). Run it in order and respect the decision gate:
+- [ ] 23.1 Remove the DNS workarounds (wrong diagnosis)
+- [ ] 23.2 Make the real Agora join result visible
+- [ ] 23.3 A/B reference: clubhouse.com room in the same Electron — **STOP after this task and report** (decision gate)
+- [ ] then 23.4–23.5 (web path) **or** 23.6–23.8 (native SDK path), as the owner decides from the 23.3 result
+
+### Previous run (owner instruction, 2026-10-12 #7)
 
 Owner added Phase 22 (HAL-9 room type chips). Continue from there:
 - [x] Phases 18–21 (see history above)
@@ -28,6 +36,7 @@ Legend: **Uygulandı** = code is in the tree. **Canlı doğrulandı** = exercise
 
 | Order | Task | Status |
 | --- | --- | --- |
+| 0a | **Phase 23 Live room audio (Agora)** — DNS -105 is a red herring; real join error not yet visible; web vs native SDK decision gate at 23.3 | Open — spec + evidence in `docs/history/agora-voice-dns-fix.md` |
 | 1 | **0.7 Review fixes (2026-10-11 #2)** — navigation guard, packaged recorder, clip worklet path, auto-armed clip buffer, 429/visibility, CORS proxy token leak | Uygulandı |
 | 1b | **0.8 Followers / following / friends lists** — bundle scan + labeled UI hunt; live UI uses only counts + mutual lists | Uygulandı for counts, mutual names, and chat people. The public web bundle does not contain get_followers, get_following, or get_online_friends. get_friend_zone_match and get_social_club_members are in-bundle and not called. The labeled click-through still needs a signed-in session. |
 | 0 | **Autonomous plan** (see `.cursor/rules/clubbox.mdc`): 10.1 → 11.8 (warn mode) → 10.2 → 10.5 → 11.0 → 11.1 → 11.2 → 11.3 → 11.4 → 10.4 → 11.5 → 11.6 → 11.7 → 11.9 → 11.10 → 11.8 (strict). Acceptance files: account, hallway, room_listener, room_realtime, room_host, room_moderation, audio_studio, studio, social, messages, houses_events_replays, api_health. Requirements: `docs/product/PRD.md`; design + gap list G-01…G-18: `docs/product/DESIGN.md`; acceptance: `features/*.feature` | **Idle** — Phases 12–**22** done. Only ST-9 Restream remains `@deferred`. |
@@ -256,4 +265,198 @@ Context (verified, do not re-investigate):
 Acceptance: features/hallway.feature @HAL-9 scenarios pass via real functions (remove @pending as each passes) (no shortcut steps), unit tests green,
 npm run test:e2e green with a hallway fixture containing all three types, fresh light + dark screenshots of the chips
 and a badge, PRD HAL-9 Today column set. Then stop.
+```
+
+## Phase 23 — Live room audio (Agora) (owner report 2026-10-12: "join 200 but no audio")
+
+```text
+Context (verified 2026-10-12, do not re-investigate — full evidence: docs/history/agora-voice-dns-fix.md):
+- The Clubhouse side works: join_channel 200, token + user_profile_id arrive, the user lands on stage.
+- Agora never connects: CONNECTING → our own 12 s timeout → LEAVE → cloud proxy mode 5 → NETWORK_ERROR / JOIN_TIMEOUT.
+  Agora's actual join verdict (INVALID_TOKEN, INVALID_VENDOR_KEY, UID_BANNED, CAN_NOT_GET_GATEWAY_SERVER, …) has
+  never been logged, because our timeout aborts first.
+- "Failed to resolve address for 148-153-93-xx.edge.agora.io., errorcode: -105" is NOT the cause. Proven in a plain
+  Electron 44 with no app switches: Chromium's P2P layer (services/network/p2p/socket_manager.cc) resolves STUN/TURN
+  hosts once per local socket, in that socket's address family. The edge hosts have an A record (148.153.93.25) and
+  NO AAAA record, so each IPv6 socket logs -105 (5 IPv6 addresses → exactly 5 errors) while IPv4 succeeds (srflx
+  candidate gathered). System DNS, 1.1.1.1 and 8.8.8.8 all resolve the host. Chrome logs the same noise.
+- The workarounds built on that wrong diagnosis make things worse: CONNECT_GATEWAY_WITHOUT_DOMAIN makes the SDK open
+  wss://<IP>:<port>, which the CSP in index.html (connect-src wss://*.agora.io …) blocks — see <userData>/chromium-net.log.
+- History: Clubhouse once closed its channels to WebRTC (web SDK) clients, which is why known desktop clients used the
+  native Agora SDK (github.com/seovchinnikov/clubhouse-web). clubhouse.com now ships an Agora web key
+  (NEXT_PUBLIC_AGORA_KEY) and join_channel returns is_web_listening_enabled, so the web path may work, at least for
+  some rooms. Task 23.3 decides which path we take.
+Rules for this phase (in addition to Project context):
+- Never log tokens, rtm/pubnub tokens, full app ids, phone numbers or cookies. Log lengths, prefixes (max 4 chars)
+  and key names only.
+- No DNS switches, host-resolver-rules, DoH changes, network-service sandbox changes, or stdout/stderr monkeypatching.
+- No CSP widening (no bare wss: or https: sources).
+```
+
+### Task 23.1 — Remove the DNS workarounds
+
+```text
+Delete (wrong diagnosis; harmful or no effect):
+1. electron/main.cjs
+   - app.commandLine 'disable-features' AsyncDns,DnsOverHttps,NetworkServiceSandbox
+   - app.commandLine 'enable-features' NetworkServiceInProcess2
+   - the app.configureHostResolver({ enableBuiltInResolver:false, secureDnsMode:'off' }) block in whenReady
+   - enableChromiumNetLog(), applyAgoraEdgeMaps(), watchChromiumLogFile(), watchStderrForEdgeDnsFailures() and their
+     require. Keep an opt-in: when process.env.CLUBBOX_NETLOG === '1', append enable-logging + log-file
+     (<userData>/chromium-net.log). Nothing in the app reads that file.
+   - KEEP the 'disk-cache-dir' switch (separate, real Windows cache-lock fix).
+2. Delete electron/agoraEdgeDns.cjs, electron/agoraEdgeHost.cjs and tests/agoraEdgeHost.test.ts; remove them from any
+   test script or package.json list.
+3. src/audio/agoraVoice.ts loadSdk(): remove the setParameter block (CONNECT_GATEWAY_WITHOUT_DOMAIN, USE_TURN_IP) and
+   the comment that blames DNS. Also remove other comments that call -105 the cause (e.g. at joinWithTimeout).
+4. One-time startup migration: delete <userData>/agora-edge-maps.json and <userData>/chromium-net.log if present
+   (try/catch, silent when missing). Keep chromium-net.log when CLUBBOX_NETLOG=1.
+5. README troubleshooting gets a short "Known log noise" note: -105 for *.edge.agora.io = IPv6 AAAA lookups, harmless.
+Acceptance: grep finds no host-resolver-rules / AsyncDns / CONNECT_GATEWAY_WITHOUT_DOMAIN / agoraEdge; tsc, lint,
+npm test and npm run build green; the app starts, and sign-in and hallway still work (sandbox e2e green). Commit.
+```
+
+### Task 23.2 — Make the real Agora join result visible
+
+```text
+src/audio/agoraVoice.ts (audioEngine only if needed):
+1. Client listeners, logged through the existing logger + api-log (Task 21.2 shape, kind 'agora'):
+   - connection-state-change (cur, prev, reason)
+   - exception (code, msg, uid)
+   - user-joined / user-left counts (no names)
+2. join(): on failure log AgoraRTCError.code, .message and the key names of .data; on success log
+   "Joined <channel> uid=<number|string> role=<audience|host> mode=<direct|proxy>".
+   Before join, log the shape of the inputs: appId prefix (4 chars) + length + source (config | signin-extract |
+   fallback), token length, typeof uid, channel length. Never the values.
+3. Timeout: raise JOIN_MS from 12 s to 20 s. When it fires, log the last connection-state reason and the last exception
+   BEFORE calling leave(), so the abort is no longer the only thing in the log.
+4. Cloud proxy (startProxyServer(5)) only after an Agora error that indicates a network block
+   (CAN_NOT_GET_GATEWAY_SERVER, WS_ERR / ws close 1006, NETWORK_ERROR from the gateway). Never after our own timeout,
+   and at most once per join attempt. Remove the extra retry loop that re-joins after LEAVE.
+5. AgoraRTC.setLogLevel: 1 (INFO) in dev builds or when localStorage 'clubbox.agoraDebug' === '1', else 3.
+   Settings › Advanced gets a "Verbose voice log" toggle bound to that key (en + tr strings).
+6. Settings › Advanced › Connection status (Task 21.2): the Agora row shows the last join result code, not only ✓/✗.
+7. Tests: unit-test the error classification (network-block vs auth vs timeout) as a pure function in a new
+   src/audio/agoraErrors.ts; BDD room_listener scenario "voice failure shows its reason" (the sandbox transport
+   simulates an Agora error code; the room shows the reason, not a spinner).
+Acceptance: in a live room the log holds exactly one "Joined …" line or one AgoraRTCError code per attempt. Commit.
+```
+
+### Task 23.3 — A/B reference: does clubhouse.com play this room inside our Electron? (DECISION GATE)
+
+```text
+Goal: tell "Electron/network cannot do Agora web" apart from "our join parameters are wrong".
+1. Dev-only action (Settings › Advanced; hidden unless dev build or 'clubbox.agoraDebug' = 1):
+   "Open current room on clubhouse.com". It opens https://www.clubhouse.com/room/<channel> in a separate BrowserWindow
+   on session.defaultSession (same web session), with PAGE_UA, no preload, navigation limited to clubhouse.com
+   (reuse isClubhouseHttps and the will-navigate guard), and the media permission allowed only for this window.
+2. Passive observation via webContents.debugger (CDP), same pattern as attachSignInAuthDebugger in main.cjs:
+   - Network.enable; log Network.webSocketCreated for *.agora.io / *.sd-rtn.com (host + port only).
+   - Network.webSocketFrameSent / Received on those sockets: parse JSON. For join frames (or frames that carry
+     cname / uid / token keys) log ONLY: key names, appid prefix (4) + length, cname length, typeof uid + digit count,
+     token length, sdk version, role. For the received join result log success or the error code.
+   - Do not inject scripts into the page. Detach the debugger on close.
+3. The owner runs it once, in a room that Clubbox cannot play, and reports (a) whether audio is audible in that window
+   and (b) the logged join shape. The agent then writes a table "clubhouse.com vs Clubbox" (appid prefix/len, token
+   len, uid type, cname len, role, mode, result) into docs/history/agora-voice-dns-fix.md under a new "A/B" section,
+   including is_web_listening_enabled for that room from our join_channel response.
+4. STOP. Do not start 23.4+ until the owner picks the path:
+   - clubhouse.com plays → web path (23.4, 23.5).
+   - clubhouse.com fails too, or Agora answers a vendor/permission error for web → native path (23.6–23.8).
+Acceptance: the A/B table exists with real values (shapes only). Commit.
+```
+
+### Task 23.4 — Web path: align join parameters with clubhouse.com
+
+```text
+Only if 23.3 shows that clubhouse.com plays. Change Clubbox's join to match the reference, row by row:
+- App ID: prefer the id extracted from the signed-in clubhouse.com page (extractAgoraAppIdFromSignIn → config) over
+  the hard-coded default; drop stale ids; log the source (23.2).
+- Token: the RTC join uses join_channel.token (never rtm_token or pubnub_token).
+- UID: user_profile_id as a number when the reference uses a number (a string UID does not match a numeric token).
+- Channel: join_channel.channel verbatim.
+- Client: the same mode/codec/role order as the reference (start as audience; setClientRole('host') after promotion).
+Tests: unit-test the join-parameter builder (pure function) against a fixture shaped like the A/B row.
+Acceptance: the owner hears audio in the same room in Clubbox; the log shows "Joined …". Commit.
+```
+
+### Task 23.5 — Web path: rooms that are not web-listenable
+
+```text
+Only if 23.3 shows that rooms with is_web_listening_enabled=false fail on clubhouse.com too.
+- Do not call Agora join for such rooms. The room shows "This room can't be listened to on the web" (tr: "Bu oda web
+  üzerinden dinlenemiyor"); chat, stage and PubNub keep working.
+- Hallway card: a small muted "Web listening off" badge when the feed payload carries the flag; otherwise show the
+  notice only inside the room.
+- BDD: room_listener scenario for a non-listenable room (sandbox fixture with the flag set to false).
+Acceptance: no Agora attempts for flagged rooms in the log; tests green. Commit.
+```
+
+### Task 23.6 — Native path: spike on a branch (agora-electron-sdk)
+
+```text
+Only if the owner picks the native path. Branch: spike/agora-native. Goal: hear one live room and speak with the mic.
+No Web Audio integration yet.
+1. Dependency: agora-electron-sdk (v4.x). Check for a prebuilt addon for our Electron (44.x, win x64); if there is
+   none, set prebuilt=false and build locally (document the toolchain in README: VS 2022 C++ build tools, Python).
+   If the addon cannot load in Electron 44 at all, STOP and report the exact error. Do not downgrade Electron on your own.
+2. Process model (security): the addon needs Node in a renderer. Do NOT enable nodeIntegration in the main window.
+   Create a hidden "voice host" BrowserWindow (show:false) that loads ONLY a local file (dist/voice-host.html), with
+   nodeIntegration:true, contextIsolation:false, webSecurity:true, a strict CSP (default-src 'self'), all navigation
+   and window.open denied, and never any remote content. The main window talks to it over a MessageChannelMain pair
+   brokered by main.cjs (one port per side); accept only validated message types.
+3. Voice host protocol (shared TypeScript types in src/audio/voiceProtocol.ts):
+   commands: join {appId, channel, token, uid, role}, leave, setRole, muteLocal, setRemoteVolume {uid, vol},
+   setDevices {input, output};
+   events: joined {uid}, error {code, msg}, connectionState {state, reason}, userJoined / userOffline {uid},
+   remoteAudioState {uid, muted}, volumes [{uid, level}].
+4. Engine calls (these are the v4 names; verify them against the installed typings):
+   createAgoraRtcEngine(); initialize({ appId, channelProfile: LiveBroadcasting });
+   registerEventHandler({ onJoinChannelSuccess, onError, onConnectionStateChanged, onUserJoined, onUserOffline,
+   onRemoteAudioStateChanged, onAudioVolumeIndication }); enableAudio(); enableAudioVolumeIndication(200, 3, true);
+   setClientRole(Audience | Broadcaster); joinChannel(token, channel, uid, { clientRoleType, publishMicrophoneTrack });
+   leaveChannel(); release() on app quit.
+5. Use the same token/appId/uid/channel as the web path (from the join_channel response). Log shapes only (23.2 rules).
+Acceptance (spike): the owner hears a live room and is heard after promotion; join result codes are visible; a short
+SPIKE.md on the branch lists what worked, the addon size, the startup cost and the open problems. STOP for owner review.
+```
+
+### Task 23.7 — Native path: VoiceTransport abstraction + full parity
+
+```text
+After the owner approves the spike.
+1. Add src/audio/voiceTransport.ts: interface VoiceTransport { join, leave, promote, demote, setMuted,
+   onVolumeLevels, onRemoteMute, onConnectionProblem, isJoined, isSpeaker, currentChannel }. agoraVoice becomes a thin
+   facade that delegates to WebVoiceTransport (today's agora-rtc-sdk-ng code, moved) or NativeVoiceTransport (the voice
+   host). Controllers (roomCtl, studioCtl, settingsCtl) keep calling agoraVoice; no call-site changes beyond imports.
+   Selection: Settings › Advanced "Voice engine: Web | Native" (default Native once 23.8 passes); sandbox keeps a fake
+   transport.
+2. Remote audio into the Web Audio graph (recording, per-user volume, spatial audio, meters): use the native audio
+   frame observer (onPlaybackAudioFrameBeforeMixing, per uid, 48 kHz, 10 ms frames); stream PCM to the main window over
+   the MessagePort as transferable ArrayBuffers; feed an AudioWorklet (public/remote-pcm-processor.js, ~100 ms ring
+   buffer, drop on overflow) through a new audioEngine.addRemotePcmSource(uid) that returns a node. Silence native
+   playout (e.g. adjustPlaybackSignalVolume(0)) so audio is not heard twice.
+3. Local broadcast (effects, soundpad, music mode, external input): capture audioEngine's broadcast mix with an
+   AudioWorklet (public/broadcast-pcm-processor.js) → 10 ms PCM frames → voice host → external/custom audio source
+   (pushAudioFrame in the v4 media engine; publish the custom audio track instead of the microphone track). Mic capture
+   stays in Web Audio (device selection, effects); the native engine must not open the mic itself.
+4. Remote mute badges from onRemoteAudioStateChanged / onUserMuteAudio; volumes from onAudioVolumeIndication.
+5. Latency budget: at most 150 ms added on the remote path; log underruns/overruns per minute (shape only).
+6. Tests: unit-test the PCM ring buffer and frame chunking (pure TS); BDD audio_studio and room_listener scenarios run
+   against the fake transport; existing tests stay green.
+Acceptance: every room/studio feature works on Native exactly as on Web (record a room, per-user volume, effects heard
+by others, soundpad, external input); no double audio; under 10 % CPU on the owner's machine while listening.
+Commit per sub-step.
+```
+
+### Task 23.8 — Native path: packaging and release
+
+```text
+1. electron-builder: asarUnpack the agora addon and its DLLs (node_modules/agora-electron-sdk/**/*.node, **/*.dll);
+   add voice-host.html and its bundle to files. Keep the web SDK chunk while the Web engine exists.
+2. npm run dist:dir, then test:e2e:packaged covers: the app starts, the voice host window loads the addon, a sandbox
+   room works.
+3. Record the installer size before/after in README. Windows x64 first; macOS only after a separate owner decision.
+4. Crash safety: if the addon fails to load, fall back to the Web engine automatically and show a one-line notice.
+Acceptance: the packaged app plays a live room with the Native engine on a clean Windows user account. Commit.
 ```

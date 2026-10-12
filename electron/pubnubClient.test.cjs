@@ -66,3 +66,29 @@ test('falls back to the room id when no channel list is given', async () => {
   for (let i = 0; i < 20 && urls.length < 1; i += 1) await new Promise((resolve) => setTimeout(resolve, 5));
   assert.match(decodeURIComponent(new URL(urls[0]).pathname), /\/channel_all\.room1\/0$/);
 });
+
+test('resubscribe does not start a second concurrent long-poll', async () => {
+  let inflight = 0;
+  let maxInflight = 0;
+  let client;
+  const gate = [];
+  client = createPubNubClient({
+    fetchFn: async () => {
+      inflight += 1;
+      maxInflight = Math.max(maxInflight, inflight);
+      await new Promise((resolve) => { gate.push(resolve); });
+      inflight -= 1;
+      return { ok: true, status: 200, text: async () => v2('1', 1, []) };
+    },
+    onMessage: () => {},
+    onStatus: () => {},
+  });
+  client.start({ channelId: 'room1', token: 't', origin: 'clubhouse.pubnubapi.com', uuid: '1' }, 'sub-c-test');
+  for (let i = 0; i < 40 && gate.length < 1; i += 1) await new Promise((resolve) => setTimeout(resolve, 5));
+  client.resubscribe();
+  client.resubscribe();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.equal(maxInflight, 1, 'only one PubNub long-poll at a time');
+  while (gate.length) gate.shift()();
+  client.stop();
+});

@@ -230,22 +230,43 @@ export function handleRecordingStateChange(this: ClubboxApp, isRecording: boolea
   }
 
 export function toggleMute(this: ClubboxApp) {
-    // Local gain only. A capture has not shown a server mute flag, so other listeners do not see this change.
-    const isMuted = audioEngine.toggleMute();
-    agoraVoice.setMuted(isMuted);
-
-    const micBtn = document.getElementById('mic-toggle-btn');
-    if (micBtn) {
-      if (isMuted) {
-        micBtn.classList.remove('unmuted');
-        micBtn.textContent = '🔇';
-        this.showToast(t('micMuted'), '🔇');
-      } else {
-        micBtn.classList.add('unmuted');
-        micBtn.textContent = '🎙️';
-        this.showToast(t('micLive'), '🎙️');
-      }
+    // Muting while Agora is still CONNECTING publishes silence (engineMuted=true)
+    // and phones hear nothing — wait until joined.
+    if (this.currentChannel && !agoraVoice.getIsJoined() && (this.joinInFlight || this.audioConnected === false)) {
+      this.showToast(t('waitForAudioConnect'), '🎙️');
+      return;
     }
+
+    const isMuted = audioEngine.toggleMute();
+    void agoraVoice.setMuted(isMuted).then(() => {
+      console.log(`[Clubbox] mute toggled muted=${isMuted} agoraJoined=${agoraVoice.getIsJoined()}`);
+    });
+
+    if (isMuted) {
+      this.showToast(t('micMuted'), '🔇');
+      this.renderCockpit();
+      return;
+    }
+
+    // Join may have failed to open the mic — open + publish on first unmute.
+    if (agoraVoice.getIsJoined() && agoraVoice.getIsSpeaker()) {
+      void agoraVoice.ensurePublished(audioEngine.getIsMusicMode()).then((ok) => {
+        if (!ok) {
+          if (audioEngine.lastMicError === 'system') {
+            this.showToast(t('micPermissionDenied'), '🔇');
+            void electronAPI()?.openMicrophoneSettings?.();
+          } else {
+            this.showToast(t('micStageFailed'), '🔇');
+          }
+        } else {
+          this.showToast(t('micLive'), '🎙️');
+        }
+        this.renderCockpit();
+      });
+      return;
+    }
+    this.showToast(t('micLive'), '🎙️');
+    this.renderCockpit();
   }
 
 export function toggleMusicMode(this: ClubboxApp) : void {

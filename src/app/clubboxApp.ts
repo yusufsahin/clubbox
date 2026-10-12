@@ -105,6 +105,8 @@ export class ClubboxApp {
   adoptRetryTimer: number | null = null;
   adoptRetryCount = 0;
   adoptInFlight = false;
+  /** True after we have asked Electron to open the Clubhouse sign-in window. */
+  signInWindowSynced = false;
   guidelinesOpen = false;
   pendingLive = false;
   isCreateModalOpen: boolean = false;
@@ -182,6 +184,8 @@ export class ClubboxApp {
     onReconnecting: (reconnecting) => {
       const banner = document.getElementById('realtime-banner');
       if (banner) banner.hidden = !reconnecting;
+      // Hub connect/fail toggles shouldPollChat — arm HTTP chat fallback when PubNub is down.
+      this.syncChatPolling();
     },
     onRoomEnded: () => {
       void this.releaseRoomLocally({ skipServer: true }).then(() => {
@@ -262,6 +266,16 @@ export class ClubboxApp {
     electronAPI()?.onWebSessionMaybe?.(() => {
       void this.tryAdoptOfficialSession();
     });
+    electronAPI()?.onSignInProgress?.((payload) => {
+      const step = payload?.step;
+      if (step === 'otp') {
+        this.loginNotice = t('officialSignInOtpWaiting');
+        this.render();
+      } else if (step === 'phone') {
+        this.loginNotice = t('officialSignInWaiting');
+        this.render();
+      }
+    });
     electronAPI()?.onAgoraAppId?.((appId) => {
       if (!appId || typeof appId !== 'string') return;
       void clubhouseClient.updateConfig({ agoraAppId: appId }).then(() => {
@@ -331,6 +345,13 @@ export class ClubboxApp {
       if (!this.currentChannel?.users) return;
       this.pubnubSource.applyAgoraMute(uid, muted);
     });
+    agoraVoice.onConnectionProblem((reason) => {
+      if (!this.currentChannel || clubhouseClient.getConfig().useSandbox) return;
+      this.audioConnected = false;
+      console.warn('[Clubbox] Agora connection problem:', reason);
+      this.showToast(t('agoraDnsFailed'), '🔇');
+      this.render();
+    });
 
     audioEngine.setSimulateMeterOnFailure(clubhouseClient.getConfig().useSandbox);
 
@@ -348,10 +369,9 @@ export class ClubboxApp {
     await this.syncShortcuts();
 
     // Render even when the network failed so the shell is never blank.
+    // render() already syncs the Clubhouse sign-in window when gated — do not
+    // call syncEmbeddedSignIn again here (double-open race → WidgetHost).
     this.render();
-    if (this.isAuthGated() && this.guidelinesAccepted()) {
-      void this.syncEmbeddedSignIn();
-    }
   }
 
 
@@ -639,10 +659,13 @@ export class ClubboxApp {
     this.renderGuidelines();
     if (this.isProfileDrawerOpen) this.renderProfileDrawer();
     this.renderRoomDetails();
+    // Open the Clubhouse window once; re-running show() on every render stole
+    // focus mid-OTP. openOfficialSignIn() resets the flag to reopen it.
     if (gated && this.guidelinesAccepted() && this.currentTab === 'login') {
-      void this.syncEmbeddedSignIn();
+      if (!this.signInWindowSynced) void this.syncEmbeddedSignIn();
     } else if (!gated) {
       this.stopAdoptRetry();
+      this.signInWindowSynced = false;
       void electronAPI()?.hideEmbeddedSignIn?.();
     }
   }

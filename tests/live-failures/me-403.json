@@ -1,0 +1,7 @@
+{
+  "endpoint": "me",
+  "status": 403,
+  "bodyKeys": [],
+  "error": "Authentication credentials were not provided.",
+  "evidence": "observed"
+}

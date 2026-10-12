@@ -96,6 +96,8 @@ export type UserCapabilities = Record<string, boolean | undefined>;
 export interface CHChannelDetail extends CHChannel {
   description?: string;
   agora_native_mute?: boolean;
+  /** When false, Clubhouse blocks web/WebRTC listeners — do not join Agora. */
+  is_web_listening_enabled?: boolean;
   user_capabilities?: UserCapabilities;
 }
 

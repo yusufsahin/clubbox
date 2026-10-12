@@ -94,11 +94,13 @@ export class PubNubRoomSource implements RoomUpdateSource {
   start(channelId: string): void {
     this.channelId = channelId;
     this.paused = false;
-    if (!this.token || !this.channelSnapshot || !this.coordinator) {
+    if (!this.channelSnapshot || !this.coordinator) {
       return;
     }
+    // Enter even without a PubNub token so active_ping still runs (subscribe is gated in enter).
     const detail = {
       ...this.channelSnapshot,
+      pubnub_token: this.token ?? this.channelSnapshot.pubnub_token ?? '',
       pubnub_origin: this.channelSnapshot.pubnub_origin ?? this.origin,
     };
     void this.coordinator.enter(detail);

@@ -17,15 +17,23 @@ export interface AgoraJoinOptions {
 
 export type RemoteMuteReport = { uid: string | number; muted: boolean };
 
+/**
+ * Agora join path matches the last known-good committed shape: plain client.join().
+ * Do not add join timeouts that call leave() (that surfaces as WS_ABORT: LEAVE and
+ * hides the real gateway result). Do not set CONNECT_GATEWAY_WITHOUT_DOMAIN —
+ * that hits CSP when the SDK dials wss://<ip>. See docs/history/agora-voice-dns-fix.md.
+ */
 export class AgoraVoiceEngine {
   private client: IAgoraRTCClient | null = null;
   private localAudioTrack: ILocalAudioTrack | null = null;
+  /** Only used when falling back to createCustomAudioTrack. */
   private publishedClone: MediaStreamTrack | null = null;
   private isJoined: boolean = false;
   private isSpeaker: boolean = false;
   private currentChannel: string | null = null;
   private onSpeakerVolumeCallbacks: ((speakers: { uid: string | number; level: number }[]) => void)[] = [];
   private onRemoteMuteCallbacks: ((report: RemoteMuteReport) => void)[] = [];
+  private onConnectionProblemCallbacks: ((reason: string) => void)[] = [];
   private sdkPromise: Promise<AgoraSdk> | null = null;
   private nativeMuteSignalling = false;
 
@@ -35,11 +43,52 @@ export class AgoraVoiceEngine {
   private loadSdk(): Promise<AgoraSdk> {
     if (!this.sdkPromise) {
       this.sdkPromise = import('agora-rtc-sdk-ng').then((mod) => {
-        mod.default.setLogLevel(3);
+        // INFO while diagnosing live join; revert to 3 when stable.
+        mod.default.setLogLevel(1);
         return mod.default;
       });
     }
     return this.sdkPromise;
+  }
+
+  private routeRemoteAudio(user: IAgoraRTCRemoteUser): void {
+    const remoteTrack = user.audioTrack as IRemoteAudioTrack | undefined;
+    if (!remoteTrack) return;
+    void audioEngine.ensureAudioContext();
+    audioEngine.addRemoteTrack(user.uid, remoteTrack.getMediaStreamTrack());
+    console.log(`[AgoraRTC] Routing remote audio for user: ${user.uid}`);
+  }
+
+  private async subscribeRemoteAudio(user: IAgoraRTCRemoteUser): Promise<void> {
+    if (!this.client) return;
+    try {
+      this.emitRemoteMute(user.uid, muteFromAgoraEvent('user-published'));
+      await this.client.subscribe(user, 'audio');
+      this.routeRemoteAudio(user);
+    } catch (err) {
+      console.warn(`[AgoraRTC] Subscribe audio failed for ${user.uid}:`, err);
+    }
+  }
+
+  private async syncRemoteUsers(): Promise<void> {
+    if (!this.client) return;
+    for (const user of this.client.remoteUsers) {
+      if (user.hasAudio) {
+        await this.subscribeRemoteAudio(user);
+      }
+    }
+  }
+
+  private formatAgoraError(err: unknown): string {
+    if (!err || typeof err !== 'object') return String(err || 'unknown');
+    const e = err as { code?: unknown; message?: unknown; data?: unknown; name?: unknown };
+    const parts = [
+      e.name != null ? String(e.name) : '',
+      e.code != null ? `code=${String(e.code)}` : '',
+      e.message != null ? String(e.message) : '',
+      e.data != null ? `data=${JSON.stringify(e.data)}` : '',
+    ].filter(Boolean);
+    return parts.join(' ') || String(err);
   }
 
   private initClient(AgoraRTC: AgoraSdk): IAgoraRTCClient {
@@ -48,15 +97,9 @@ export class AgoraVoiceEngine {
 
       // Remote audio is played through the Web Audio graph (and the recorder).
       // Mute badges follow Agora (not PubNub): publish/unpublish + user-info-updated.
-      this.client.on('user-published', async (user: IAgoraRTCRemoteUser, mediaType: 'audio' | 'video') => {
+      this.client.on('user-published', (user: IAgoraRTCRemoteUser, mediaType: 'audio' | 'video') => {
         if (mediaType === 'audio') {
-          this.emitRemoteMute(user.uid, muteFromAgoraEvent('user-published'));
-          await this.client?.subscribe(user, mediaType);
-          const remoteTrack = user.audioTrack as IRemoteAudioTrack | undefined;
-          if (remoteTrack) {
-            audioEngine.addRemoteTrack(user.uid, remoteTrack.getMediaStreamTrack());
-            console.log(`[AgoraRTC] Routing remote audio for user: ${user.uid}`);
-          }
+          void this.subscribeRemoteAudio(user);
         }
       });
 
@@ -75,7 +118,32 @@ export class AgoraVoiceEngine {
         audioEngine.removeRemoteTrack(user.uid);
       });
 
-      // Enable volume indicator for active speaker detection
+      this.client.on('connection-state-change', (cur, prev, reason) => {
+        console.warn(`[AgoraRTC] connection ${prev} → ${cur}${reason ? ` (${reason})` : ''}`);
+        const ok = cur === 'CONNECTED';
+        void this.logAgora(
+          'agora_connection',
+          ok,
+          'conn',
+          `${String(prev)}->${String(cur)}${reason ? `:${String(reason)}` : ''}`,
+        );
+        if (!this.isJoined) return;
+        const why = String(reason || '');
+        if (
+          (cur === 'DISCONNECTED' || String(cur) === 'FAILED')
+          && why
+          && !/LEAVE|UID_BANNED|CHANNEL_BANNED/i.test(why)
+        ) {
+          this.onConnectionProblemCallbacks.forEach((cb) => cb(why || String(cur)));
+        }
+      });
+
+      this.client.on('exception', (e: { code?: number; msg?: string; uid?: string | number }) => {
+        console.warn(
+          `[AgoraRTC] exception code=${String(e?.code ?? '')} msg=${String(e?.msg ?? '')} uid=${String(e?.uid ?? '')}`,
+        );
+      });
+
       this.client.enableAudioVolumeIndicator();
       this.client.on('volume-indicator', (volumes) => {
         const mapped = volumes.map((v) => ({
@@ -93,7 +161,7 @@ export class AgoraVoiceEngine {
     channelName: string,
     token: string,
     uid: number,
-    options: AgoraJoinOptions
+    options: AgoraJoinOptions,
   ): Promise<boolean> {
     try {
       const AgoraRTC = await this.loadSdk();
@@ -109,30 +177,58 @@ export class AgoraVoiceEngine {
       }
 
       this.isSpeaker = options.isSpeaker;
+      console.log(
+        `[AgoraRTC] joining channel=${channelName} uid=${uid} tokenLen=${token?.length ?? 0}`
+          + ` appIdLen=${this.appId.length} role=${options.isSpeaker ? 'host' : 'audience'}`,
+      );
       await client.setClientRole(options.isSpeaker ? 'host' : 'audience');
       await client.join(this.appId, channelName, token, uid);
       this.isJoined = true;
       this.currentChannel = channelName;
+      void audioEngine.ensureAudioContext();
+
+      await this.syncRemoteUsers();
 
       if (options.isSpeaker) {
-        await this.publishBroadcast(options.isMusicMode);
+        try {
+          await this.publishBroadcast(options.isMusicMode);
+        } catch (publishErr) {
+          // Stay joined so the host can still hear the room; mic can retry on unmute.
+          console.warn('[AgoraRTC] Host join ok but publish failed:', this.formatAgoraError(publishErr));
+          void this.logAgora('agora_publish', false, configuredAppId ? 'config' : 'fallback', 'MICROPHONE_UNAVAILABLE');
+        }
       }
 
       console.log(
-        `[AgoraRTC] Joined ${channelName} as UID ${uid} (${options.isSpeaker ? 'host' : 'audience'})`
+        `[AgoraRTC] Joined ${channelName} as UID ${uid} (${options.isSpeaker ? 'host' : 'audience'})`,
       );
       void this.logAgora('agora_join', true, configuredAppId ? 'config' : 'fallback');
       return true;
     } catch (err) {
       // No Agora token-refresh request has been captured. Do not invent one.
-      console.warn('[AgoraRTC] Live Agora join failed:', err);
-      const code = err && typeof err === 'object' && 'code' in err ? String((err as { code: unknown }).code) : 'join_failed';
+      console.warn('[AgoraRTC] Live Agora join failed:', this.formatAgoraError(err));
+      const code = err && typeof err === 'object' && 'code' in err
+        ? String((err as { code: unknown }).code)
+        : 'join_failed';
       void this.logAgora('agora_join', false, clubhouseClient.getConfig().agoraAppId ? 'config' : 'fallback', code);
       try {
         await this.leave();
       } catch {
         // Leave is best-effort after a failed join.
       }
+      return false;
+    }
+  }
+
+  /** Ensure mic is open and published (unmute / retry). */
+  public async ensurePublished(isMusicMode: boolean): Promise<boolean> {
+    if (!this.client || !this.isJoined || !this.isSpeaker) return false;
+    if (this.localAudioTrack) return true;
+    try {
+      await this.publishBroadcast(isMusicMode);
+      return true;
+    } catch (err) {
+      console.warn('[AgoraRTC] ensurePublished failed:', this.formatAgoraError(err));
       return false;
     }
   }
@@ -185,20 +281,48 @@ export class AgoraVoiceEngine {
     if (!this.client) return;
     const AgoraRTC = await this.loadSdk();
 
-    await audioEngine.ensureMicrophone();
-    const broadcastTrack = audioEngine.getBroadcastTrack();
-    if (!broadcastTrack) {
-      throw new Error('Broadcast mix is unavailable');
+    // Always publish live; connect-time mute left silence on the wire.
+    if (audioEngine.getIsMuted()) {
+      audioEngine.setMuted(false);
+      console.warn('[AgoraRTC] cleared mute before publish (was muted while connecting)');
     }
 
-    // Clone so closing the Agora track does not end the Web Audio send bus.
-    const mediaStreamTrack = broadcastTrack.clone();
-    this.publishedClone = mediaStreamTrack;
-    this.localAudioTrack = AgoraRTC.createCustomAudioTrack({
-      mediaStreamTrack,
-      encoderConfig: isMusicMode ? 'high_quality_stereo' : 'speech_standard',
-    });
+    // Release Clubbox's getUserMedia so Windows can hand the device to Agora.
+    // Custom/cloned MediaStreamTracks were joining + flipping mute badges but
+    // remotes heard nothing (inbound still worked). createMicrophoneAudioTrack
+    // is the SDK path native Clubhouse clients expect.
+    audioEngine.stopMicrophone();
+
+    const encoderConfig = isMusicMode ? 'high_quality_stereo' : 'speech_standard';
+    const micId = audioEngine.getInputDeviceId() || undefined;
+    try {
+      this.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack({
+        microphoneId: micId,
+        encoderConfig,
+        AEC: !isMusicMode,
+        ANS: !isMusicMode,
+        AGC: true,
+      });
+    } catch (firstErr) {
+      if (!micId) throw firstErr;
+      console.warn('[AgoraRTC] preferred mic failed — retrying default:', firstErr);
+      this.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack({
+        encoderConfig,
+        AEC: !isMusicMode,
+        ANS: !isMusicMode,
+        AGC: true,
+      });
+    }
+
     await this.client.publish([this.localAudioTrack]);
+    // Feed Agora's live track into the local graph for VU / monitor (no second capture).
+    audioEngine.adoptMicrophoneTrack(this.localAudioTrack.getMediaStreamTrack());
+    const media = this.localAudioTrack.getMediaStreamTrack();
+    console.log(
+      '[AgoraRTC] published createMicrophoneAudioTrack',
+      `readyState=${media.readyState}`,
+      `enabled=${media.enabled}`,
+    );
   }
 
   private async unpublishLocal(): Promise<void> {
@@ -226,6 +350,8 @@ export class AgoraVoiceEngine {
     } catch (err) {
       console.warn('[AgoraRTC] Unpublish on leave failed:', err);
     }
+    // Drop adopted Agora mic from the local graph (track already closed above).
+    audioEngine.stopMicrophone();
     audioEngine.clearRemoteTracks();
 
     if (this.client && this.isJoined) {
@@ -246,9 +372,15 @@ export class AgoraVoiceEngine {
   }
 
   public async setMuted(muted: boolean): Promise<void> {
-    if (!this.nativeMuteSignalling || !this.localAudioTrack) return;
+    if (!this.localAudioTrack) return;
     try {
+      // Always mute the published SDK track (audio + remote badges when native).
       await this.localAudioTrack.setMuted(muted);
+      console.log(
+        `[AgoraRTC] local track muted=${muted}`,
+        `nativeSignalling=${this.nativeMuteSignalling}`,
+        `enabled=${this.localAudioTrack.getMediaStreamTrack().enabled}`,
+      );
     } catch (err) {
       console.warn('[AgoraRTC] Track mute failed:', err);
     }
@@ -271,6 +403,13 @@ export class AgoraVoiceEngine {
     this.onRemoteMuteCallbacks.push(cb);
     return () => {
       this.onRemoteMuteCallbacks = this.onRemoteMuteCallbacks.filter((c) => c !== cb);
+    };
+  }
+
+  public onConnectionProblem(cb: (reason: string) => void): () => void {
+    this.onConnectionProblemCallbacks.push(cb);
+    return () => {
+      this.onConnectionProblemCallbacks = this.onConnectionProblemCallbacks.filter((c) => c !== cb);
     };
   }
 

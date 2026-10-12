@@ -66,17 +66,10 @@ export function createElectronRealtimeHub(electronAPI: ElectronPubNubApi | null 
   };
 
   const trySubscribe = (params: PubNubSubscribeParams) => {
-    void electronAPI?.pubnubSubscribe?.(params).then((result) => {
-      if (result?.ok) {
-        connected = true;
-        reconnecting = false;
-        lastFailureReason = null;
-        emitStatus();
-        return;
-      }
+    const applyFailure = (reason: string) => {
       connected = false;
       reconnecting = true;
-      lastFailureReason = result?.reason || 'subscribe_failed';
+      lastFailureReason = reason;
       emitStatus();
       void electronAPI?.appendApiLog?.({
         endpoint: 'pubnub_subscribe',
@@ -85,10 +78,25 @@ export function createElectronRealtimeHub(electronAPI: ElectronPubNubApi | null 
         error: lastFailureReason,
         kind: 'realtime',
       });
-      // Missing keys: crawl, then retry when keys arrive.
       if (lastFailureReason === 'missing_subscribe_key') {
         void electronAPI?.ensureRealtimeConfig?.();
       }
+    };
+    if (!electronAPI?.pubnubSubscribe) {
+      applyFailure('no_electron_api');
+      return;
+    }
+    void electronAPI.pubnubSubscribe(params).then((result) => {
+      if (result?.ok) {
+        connected = true;
+        reconnecting = false;
+        lastFailureReason = null;
+        emitStatus();
+        return;
+      }
+      applyFailure(result?.reason || 'subscribe_failed');
+    }).catch((err: unknown) => {
+      applyFailure(err instanceof Error ? err.message : 'subscribe_rejected');
     });
   };
 
@@ -100,6 +108,7 @@ export function createElectronRealtimeHub(electronAPI: ElectronPubNubApi | null 
     reconnecting = status.reconnecting;
     reconnectDelayMs = status.reconnectDelayMs;
     if (status.connected) lastFailureReason = null;
+    else if (status.reason) lastFailureReason = status.reason;
     statusHandlers.forEach((handler) => handler({
       ...status,
       reason: lastFailureReason ?? status.reason,
@@ -114,8 +123,9 @@ export function createElectronRealtimeHub(electronAPI: ElectronPubNubApi | null 
   return {
     subscribe(params) {
       last = params;
-      connected = true;
-      reconnecting = false;
+      // Stay disconnected until IPC confirms — optimistic true blocks chat poll fallback.
+      connected = false;
+      reconnecting = true;
       lastFailureReason = null;
       emitStatus();
       trySubscribe(params);

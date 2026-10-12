@@ -1,4 +1,14 @@
-const { app, BrowserWindow, session, ipcMain, globalShortcut, shell, Notification, nativeTheme } = require('electron');
+const {
+  app,
+  BrowserWindow,
+  session,
+  ipcMain,
+  globalShortcut,
+  shell,
+  Notification,
+  nativeTheme,
+  systemPreferences,
+} = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -14,7 +24,9 @@ const DEV_SERVER_ORIGIN = 'http://localhost:5173';
 
 const CH_WEB_APP_VERSION = '22.2.0';
 /** Same browser UA as the API recorder — Electron's default UA often gets 403 from Clubhouse web_api. */
-const PAGE_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+// Use the real Chromium major so the UA agrees with Sec-CH-UA / navigator.userAgentData;
+// reCAPTCHA on the SMS step scores mismatched client hints as a bot.
+const PAGE_UA = `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${String(process.versions.chrome || '131').split('.')[0]}.0.0.0 Safari/537.36`;
 
 app.setName('Clubbox');
 if (process.platform === 'win32') {
@@ -29,8 +41,35 @@ if (process.env.CLUBBOX_USER_DATA) {
 // open, and the window then never finishes loading. Keep the cache somewhere
 // that is not the locked user-data Cache directory.
 app.commandLine.appendSwitch('disk-cache-dir', path.join(os.tmpdir(), 'clubbox-disk-cache'));
+// Optional Chromium net log for voice/DNS diagnosis (see docs/history/agora-voice-dns-fix.md).
+if (process.env.CLUBBOX_NETLOG === '1') {
+  try {
+    app.commandLine.appendSwitch('enable-logging');
+    app.commandLine.appendSwitch(
+      'log-file',
+      path.join(app.getPath('userData'), 'chromium-net.log'),
+    );
+  } catch {
+    // ignore
+  }
+}
 
 let mainWindow = null;
+
+/** One-shot cleanup of abandoned Agora edge-map / net-log experiments. */
+function purgeAbandonedAgoraDnsArtifacts() {
+  const dir = app.getPath('userData');
+  const names = ['agora-edge-maps.json'];
+  // Keep the file when the operator explicitly asked for a net log this run.
+  if (process.env.CLUBBOX_NETLOG !== '1') names.push('chromium-net.log');
+  for (const name of names) {
+    try {
+      fs.unlinkSync(path.join(dir, name));
+    } catch {
+      // missing or locked — fine
+    }
+  }
+}
 
 function appIndexUrl() {
   return pathToFileURL(path.join(__dirname, '../dist/index.html'));
@@ -60,6 +99,27 @@ function isClubhouseHttps(target) {
   if (url.username || url.password) return false;
   const host = url.hostname.toLowerCase();
   return host === 'clubhouse.com' || host.endsWith('.clubhouse.com');
+}
+
+/** Google / reCAPTCHA hosts the SMS step may open (iframes + rare full navigations). */
+function isSignInAuxHttps(target) {
+  let url;
+  try {
+    url = new URL(target);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== 'https:') return false;
+  if (url.username || url.password) return false;
+  const host = url.hostname.toLowerCase();
+  return host === 'google.com' || host.endsWith('.google.com')
+    || host === 'gstatic.com' || host.endsWith('.gstatic.com')
+    || host === 'recaptcha.net' || host.endsWith('.recaptcha.net')
+    || host === 'google.com.tr' || host.endsWith('.google.com.tr');
+}
+
+function isSignInAllowedHttps(target) {
+  return isClubhouseHttps(target) || isSignInAuxHttps(target);
 }
 
 /** Profile social links + Clubhouse pages — opened via shell.openExternal. */
@@ -141,9 +201,22 @@ function createWindow() {
     },
   });
 
-  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+  const allowMediaFor = (webContents) => {
     const mainId = mainWindow && !mainWindow.isDestroyed() ? mainWindow.webContents.id : -1;
-    if (permission === 'media' && (webContents.id === mainId || webContents.id === recorderWebContentsId)) {
+    return !!(webContents && (webContents.id === mainId || webContents.id === recorderWebContentsId));
+  };
+  // Chromium asks both check + request for getUserMedia. Request-only leaves mic denied.
+  session.defaultSession.setPermissionCheckHandler((webContents, permission) => {
+    if (permission === 'media' || permission === 'microphone' || permission === 'audioCapture') {
+      return allowMediaFor(webContents);
+    }
+    return false;
+  });
+  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+    if (
+      (permission === 'media' || permission === 'microphone' || permission === 'audioCapture')
+      && allowMediaFor(webContents)
+    ) {
       return callback(true);
     }
     callback(false);
@@ -166,6 +239,15 @@ function createWindow() {
 
   mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
     console.error('[Electron] Failed to load URL:', validatedURL, errorCode, errorDescription);
+  });
+
+  // Surface Agora / audio diagnostics in the desktop terminal (renderer console).
+  mainWindow.webContents.on('console-message', (event) => {
+    const text = String(event?.message || '');
+    if (!/\[AgoraRTC\]|\[Clubbox\]/i.test(text)) return;
+    const line = `[renderer] ${text}`;
+    if (Number(event?.level) >= 2) console.warn(line);
+    else console.log(line);
   });
 
   mainWindow.webContents.on('will-navigate', (event, url) => {
@@ -311,16 +393,14 @@ ipcMain.handle('clubbox:has-web-session', async (event) => {
   return { ok: true, hasSession, authReady: signInAuthReady };
 });
 
-ipcMain.handle('clubbox:open-signin', (event, bounds) => {
+ipcMain.handle('clubbox:open-signin', async (event, bounds) => {
   if (!isTrustedSender(event)) return { ok: false };
-  showEmbeddedSignIn(normalizeBounds(bounds));
-  return { ok: true };
+  return showEmbeddedSignIn(normalizeBounds(bounds));
 });
 
-ipcMain.handle('clubbox:embedded-signin-show', (event, bounds) => {
+ipcMain.handle('clubbox:embedded-signin-show', async (event, bounds) => {
   if (!isTrustedSender(event)) return { ok: false };
-  showEmbeddedSignIn(normalizeBounds(bounds));
-  return { ok: true };
+  return showEmbeddedSignIn(normalizeBounds(bounds));
 });
 
 ipcMain.handle('clubbox:embedded-signin-hide', (event) => {
@@ -439,9 +519,11 @@ const WEB_SESSION_PATHS = require('./webApiRoutes.json');
 let signInWindow = null;
 let signInAuthReady = false;
 let lastSignInNotice = '';
+let signInOpenInFlight = false;
 let bundleCrawlInFlight = null;
 let bundleCrawlAttempt = 0;
 let pubnubClient = null;
+let lastCookieLogSig = '';
 
 function normalizeBounds(bounds) {
   const x = Math.max(0, Math.round(Number(bounds?.x) || 0));
@@ -458,10 +540,12 @@ function markSignInAuthReady(reason) {
   }
   signInAuthReady = true;
   console.log('[web] auth ready:', reason);
+  notifySignInProgress('ready');
   notifyWebSessionMaybe(`ready:${reason}:${Date.now()}`, { force: true });
 }
 
 function hideEmbeddedSignIn() {
+  signInOpenInFlight = false;
   if (signInWindow && !signInWindow.isDestroyed()) {
     try {
       signInWindow.close();
@@ -474,57 +558,127 @@ function hideEmbeddedSignIn() {
   lastSignInNotice = '';
 }
 
-function setEmbeddedSignInBounds(_bounds) {
+function setEmbeddedSignInBounds() {
   // Sign-in uses a dedicated BrowserWindow (not BrowserView bounds).
 }
 
-function showEmbeddedSignIn(_bounds) {
+function notifySignInProgress(step) {
   if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.send('clubbox:signin-progress', { step });
+}
+
+function focusSignInWindow() {
+  if (!signInWindow || signInWindow.isDestroyed()) return;
+  try {
+    if (signInWindow.isMinimized()) signInWindow.restore();
+    signInWindow.show();
+    signInWindow.focus();
+  } catch {
+    // ignore
+  }
+}
+
+async function showEmbeddedSignIn() {
+  if (!mainWindow || mainWindow.isDestroyed()) return { ok: false, reason: 'no-main' };
   try {
     session.defaultSession.setUserAgent(PAGE_UA);
   } catch {
     // ignore
   }
-  if (signInWindow && !signInWindow.isDestroyed()) {
-    signInWindow.show();
-    signInWindow.focus();
-    return;
+  // Reloading /signin while a *working* session exists can wipe it (me → 403).
+  // Only skip the window when we already adopted successfully (web-session-ok).
+  // A leftover sessionid without adopt leaves the user stuck if we skip forever.
+  try {
+    const hasCookie = await hasClubhouseSessionCookie();
+    const adopted = fs.existsSync(path.join(app.getPath('userData'), 'web-session-ok'));
+    if (hasCookie && adopted) {
+      console.log('[web] skip sign-in window — session already adopted');
+      markSignInAuthReady('existing-session');
+      notifyWebSessionMaybe('existing-session', { force: true });
+      return { ok: true, reused: true, existingSession: true };
+    }
+  } catch {
+    // fall through and open the window
   }
+  if (signInWindow && !signInWindow.isDestroyed()) {
+    focusSignInWindow();
+    return { ok: true, reused: true };
+  }
+  if (signInOpenInFlight) {
+    return { ok: true, reused: true, pending: true };
+  }
+  signInOpenInFlight = true;
   lastSignInNotice = '';
   signInAuthReady = false;
-  // Full BrowserWindow — BrowserView broke SMS complete (WidgetHost) and never got a session cookie.
-  // Same pattern as the API recorder window that successfully captured live /web_api/me.
+  // Independent BrowserWindow (no parent) — same shape as the API recorder.
+  // A parented/narrow window hit WidgetHost errors and never reached complete_phone.
+  // Concurrent showEmbeddedSignIn calls must not create a second window (render races).
   signInWindow = new BrowserWindow({
     show: true,
-    width: 480,
-    height: 820,
-    parent: mainWindow,
+    width: 1100,
+    height: 860,
     modal: false,
     title: 'Clubhouse',
     autoHideMenuBar: true,
     webPreferences: {
       session: session.defaultSession,
+      preload: path.join(__dirname, 'signinPreload.cjs'),
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: false,
+      backgroundThrottling: false,
     },
   });
   signInWindow.webContents.setUserAgent(PAGE_UA);
   signInWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (isClubhouseHttps(url) && signInWindow && !signInWindow.isDestroyed()) {
-      void signInWindow.webContents.loadURL(url);
+    if (isSignInAllowedHttps(url)) {
+      return {
+        action: 'allow',
+        overrideBrowserWindowOptions: {
+          parent: undefined,
+          autoHideMenuBar: true,
+          webPreferences: {
+            session: session.defaultSession,
+            preload: path.join(__dirname, 'signinPreload.cjs'),
+            nodeIntegration: false,
+            contextIsolation: true,
+            sandbox: false,
+          },
+        },
+      };
     }
     return { action: 'deny' };
   });
+  signInWindow.webContents.on('did-create-window', (child) => {
+    try {
+      child.webContents.setUserAgent(PAGE_UA);
+    } catch {
+      // ignore
+    }
+  });
   signInWindow.webContents.on('will-navigate', (event, url) => {
-    if (!isClubhouseHttps(url)) event.preventDefault();
+    if (!isSignInAllowedHttps(url)) event.preventDefault();
+  });
+  signInWindow.webContents.on('console-message', (event) => {
+    const text = String(event?.message || '').slice(0, 240);
+    const lvl = Number(event?.level);
+    if (lvl < 2) return; // warn + error only
+    if (/grecaptcha|recaptcha|otp|auth|phone|credential|NotSupported/i.test(text)) {
+      const src = event?.sourceId;
+      const ln = event?.line;
+      console.warn('[web] signin console:', text, src ? `${src}:${ln}` : '');
+    }
+  });
+  signInWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
+    if (!isMainFrame) return;
+    console.warn('[web] signin fail-load', errorCode, errorDescription, String(validatedURL || '').slice(0, 120));
   });
   const notice = (_event, url) => {
     maybeNotifyWebSession(url);
     try {
-      const path = new URL(url).pathname.toLowerCase();
-      if (path && path !== '/signin' && !path.startsWith('/signin/') && path !== '/login' && !path.startsWith('/login/')) {
-        markSignInAuthReady(`navigate:${path}`);
+      const pathName = new URL(url).pathname.toLowerCase();
+      if (pathName && pathName !== '/signin' && !pathName.startsWith('/signin/') && pathName !== '/login' && !pathName.startsWith('/login/')) {
+        markSignInAuthReady(`navigate:${pathName}`);
       }
     } catch {
       // ignore
@@ -533,6 +687,9 @@ function showEmbeddedSignIn(_bounds) {
   signInWindow.webContents.on('did-navigate', notice);
   signInWindow.webContents.on('did-redirect-navigation', notice);
   signInWindow.webContents.on('did-navigate-in-page', notice);
+  // Do not inject scripts into the sign-in page (fetch/XHR patches, focus() on
+  // inputs, synthetic clicks) — they broke the OTP auto-submit, so
+  // complete_phone was never sent. Network logging below is passive.
   signInWindow.webContents.on('did-finish-load', () => {
     void extractAgoraAppIdFromSignIn(signInWindow);
     const url = signInWindow.webContents.getURL();
@@ -542,13 +699,21 @@ function showEmbeddedSignIn(_bounds) {
   });
   signInWindow.on('closed', () => {
     signInWindow = null;
+    signInOpenInFlight = false;
     lastSignInNotice = '';
   });
   armSignInNetworkWatch();
+  attachSignInAuthDebugger(signInWindow);
+  console.log('[web] sign-in window open (independent)');
+  focusSignInWindow();
+  notifySignInProgress('phone');
   void signInWindow.webContents.loadURL('https://www.clubhouse.com/signin', {
     userAgent: PAGE_UA,
     httpReferrer: 'https://www.clubhouse.com/',
+  }).finally(() => {
+    signInOpenInFlight = false;
   });
+  return { ok: true, reused: false };
 }
 
 function readRealtimeConfig() {
@@ -565,6 +730,16 @@ function hasRealtimeKeys() {
   const config = readRealtimeConfig();
   return typeof config.pubnubSubscribeKey === 'string' && config.pubnubSubscribeKey.length > 0
     && typeof config.agoraAppId === 'string' && /^[a-fA-F0-9]{32}$/.test(config.agoraAppId);
+}
+
+/** PubNub subscribe URLs carry the room auth token — reject non-PubNub hosts. */
+function isAllowedPubNubOrigin(origin) {
+  const host = String(origin || '')
+    .replace(/^https?:\/\//i, '')
+    .split('/')[0]
+    .split(':')[0]
+    .toLowerCase();
+  return /^(?:[a-z0-9-]+\.)*(?:pubnubapi|pubnub)\.com$/.test(host);
 }
 
 function pushAgoraAppIdFromConfig() {
@@ -636,11 +811,7 @@ function scheduleBundleCrawl(options = {}) {
     if (result.ok && result.reason === 'crawled') {
       console.log(`[Clubbox] bundle crawl done buildId=${result.buildId} chunks=${result.chunks}`);
       bundleCrawlAttempt = 0;
-      try {
-        fs.writeFileSync(path.join(app.getPath('userData'), 'web-session-ok'), '1');
-      } catch {
-        // ignore
-      }
+      // Do not write web-session-ok here — crawl works without cookies; me success owns that flag.
       logRealtimeShape({ endpoint: 'bundle_crawl', path: 'bundle_crawl', ok: true, status: 200, kind: 'realtime' });
     } else if (result.ok && result.reason === 'cache_hit') {
       console.log(`[Clubbox] bundle crawl cache hit buildId=${result.buildId}`);
@@ -720,7 +891,6 @@ function maybeNotifyWebSession(target) {
 let cookieNotifyTimer = null;
 let cookieWatchArmed = false;
 let signInNetworkWatchArmed = false;
-
 function armWebSessionCookieWatch() {
   if (cookieWatchArmed) return;
   cookieWatchArmed = true;
@@ -743,6 +913,178 @@ function armWebSessionCookieWatch() {
   });
 }
 
+function probeSignInDom(reason) {
+  if (!signInWindow || signInWindow.isDestroyed()) return;
+  void signInWindow.webContents.executeJavaScript(`
+    (() => {
+      const inputs = Array.from(document.querySelectorAll('input')).map((el) => ({
+        type: el.type || '',
+        inputMode: el.inputMode || '',
+        name: el.name || '',
+        maxLength: el.maxLength || 0,
+        disabled: !!el.disabled,
+        autocomplete: el.autocomplete || '',
+      }));
+      const buttons = Array.from(document.querySelectorAll('button')).map((el) => ({
+        text: (el.innerText || '').trim().slice(0, 40),
+        disabled: !!el.disabled,
+      }));
+      const bodyText = (document.body && document.body.innerText || '').replace(/\\s+/g, ' ').trim().slice(0, 240);
+      return {
+        href: location.href,
+        title: document.title || '',
+        inputs,
+        buttons: buttons.slice(0, 12),
+        bodyText,
+      };
+    })()
+  `).then((snap) => {
+    console.log('[web] signin dom', reason, JSON.stringify(snap));
+  }).catch((err) => {
+    console.warn('[web] signin dom probe failed', reason, err instanceof Error ? err.message : err);
+  });
+}
+
+const SIGNIN_AUTH_URL = /web_api\/(start|resend|complete|call)_phone/i;
+
+/**
+ * Shape of an auth request/response for the log. Phone numbers keep only the
+ * dial-code prefix, codes/tokens only their length — never the values.
+ */
+function summarizeAuthPayload(data, depth = 0) {
+  if (data == null || typeof data !== 'object') return data === undefined ? null : typeof data;
+  if (Array.isArray(data)) return `array:${data.length}`;
+  const out = {};
+  for (const [key, value] of Object.entries(data).slice(0, 32)) {
+    if (value === null || typeof value === 'boolean' || typeof value === 'number') {
+      out[key] = value;
+    } else if (typeof value === 'string') {
+      if (/phone/i.test(key)) {
+        // TR mobiles are +90 + 10 digits; a typed trunk "0" (+9005…) silently gets no SMS.
+        const digits = value.replace(/\D/g, '');
+        const national = digits.startsWith('90') ? digits.slice(2) : '';
+        out[key] = `${value.slice(0, 3)}…(chars:${value.length} digits:${digits.length}${national.startsWith('0') ? ' LEADING-0' : ''}${/\s|-/.test(value) ? ' has-space' : ''})`;
+      }
+      else if (/code|token|csrf|session|secret|key|auth|email/i.test(key)) out[key] = `[str:${value.length}]`;
+      else out[key] = value.slice(0, 160);
+    } else if (typeof value === 'object' && depth < 2) {
+      out[key] = summarizeAuthPayload(value, depth + 1);
+    } else {
+      out[key] = typeof value;
+    }
+  }
+  return out;
+}
+
+function parseAuthBody(text) {
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    try {
+      return Object.fromEntries(new URLSearchParams(text));
+    } catch {
+      return { raw: `[text:${text.length}]` };
+    }
+  }
+}
+
+/**
+ * Turkish users habitually type the national trunk "0" (0532…), which the
+ * sign-in form turns into "+900532…": Clubhouse answers success but no SMS
+ * is sent. Returns the rewritten JSON body, or null when nothing changes.
+ */
+function stripTrunkZeroFromAuthBody(text) {
+  if (!text) return null;
+  let body;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    return null;
+  }
+  if (!body || typeof body.phone_number !== 'string') return null;
+  const compact = body.phone_number.replace(/[\s()-]/g, '');
+  const match = /^\+900(\d{10})$/.exec(compact);
+  if (!match) return null;
+  body.phone_number = `+90${match[1]}`;
+  return JSON.stringify(body);
+}
+
+/** Read start/resend/complete phone bodies via CDP — passive, nothing runs in the page. */
+function attachSignInAuthDebugger(win) {
+  const dbg = win?.webContents?.debugger;
+  if (!dbg) return;
+  try {
+    dbg.attach('1.3');
+  } catch (err) {
+    console.warn('[web] auth debugger attach failed', err instanceof Error ? err.message : err);
+    return;
+  }
+  const tracked = new Map();
+  dbg.on('message', (_event, method, params) => {
+    if (method === 'Network.requestWillBeSent') {
+      const url = String(params?.request?.url || '');
+      if (!SIGNIN_AUTH_URL.test(url)) return;
+      const endpoint = url.replace(/^https:\/\/[^/]+/, '').split('?')[0];
+      tracked.set(params.requestId, endpoint);
+      const post = params.request.postData;
+      if (post) {
+        console.log('[web] auth req', endpoint, JSON.stringify(summarizeAuthPayload(parseAuthBody(post))));
+      } else if (params.request.hasPostData) {
+        dbg.sendCommand('Network.getRequestPostData', { requestId: params.requestId })
+          .then((r) => console.log('[web] auth req', endpoint, JSON.stringify(summarizeAuthPayload(parseAuthBody(r?.postData)))))
+          .catch(() => {});
+      }
+      return;
+    }
+    if (method === 'Network.loadingFinished' || method === 'Network.loadingFailed') {
+      const endpoint = tracked.get(params?.requestId);
+      if (!endpoint) return;
+      tracked.delete(params.requestId);
+      if (method === 'Network.loadingFailed') {
+        console.warn('[web] auth resp failed', endpoint, params?.errorText || '');
+        return;
+      }
+      dbg.sendCommand('Network.getResponseBody', { requestId: params.requestId })
+        .then((r) => {
+          const text = r?.base64Encoded ? Buffer.from(r.body || '', 'base64').toString('utf8') : r?.body;
+          console.log('[web] auth resp', endpoint, JSON.stringify(summarizeAuthPayload(parseAuthBody(text))));
+        })
+        .catch((err) => console.warn('[web] auth resp body unavailable', endpoint, err instanceof Error ? err.message : err));
+    }
+  });
+  dbg.on('message', (_event, method, params) => {
+    if (method !== 'Fetch.requestPaused') return;
+    const requestId = params?.requestId;
+    const passThrough = () => dbg.sendCommand('Fetch.continueRequest', { requestId }).catch(() => {});
+    try {
+      const fixed = stripTrunkZeroFromAuthBody(params?.request?.postData);
+      if (!fixed) {
+        void passThrough();
+        return;
+      }
+      console.log('[web] phone_number: removed leading 0 after +90 (SMS never arrives for +900…)');
+      dbg.sendCommand('Fetch.continueRequest', {
+        requestId,
+        postData: Buffer.from(fixed, 'utf8').toString('base64'),
+      }).catch(() => passThrough());
+    } catch {
+      void passThrough();
+    }
+  });
+  dbg.sendCommand('Network.enable').catch((err) => {
+    console.warn('[web] auth debugger Network.enable failed', err instanceof Error ? err.message : err);
+  });
+  dbg.sendCommand('Fetch.enable', {
+    patterns: [{ urlPattern: '*://*clubhouse.com/web_api/*phone_number*', requestStage: 'Request' }],
+  }).catch((err) => {
+    console.warn('[web] auth debugger Fetch.enable failed', err instanceof Error ? err.message : err);
+  });
+  win.on('closed', () => {
+    try { dbg.detach(); } catch { /* ignore */ }
+  });
+}
+
 function armSignInNetworkWatch() {
   if (signInNetworkWatchArmed) return;
   signInNetworkWatchArmed = true;
@@ -756,6 +1098,25 @@ function armSignInNetworkWatch() {
       // Skip noisy analytics.
       if (/google-analytics|\/collect|_ga|stripe/i.test(path)) return;
       console.log('[web] xhr', details.method, path.slice(0, 120), details.statusCode);
+      if (/complete_phone|verify|confirm_otp|check_waitlist|web_api\/me|start_phone|resend_phone/i.test(path)) {
+        if (details.statusCode >= 400) {
+          console.warn('[web] auth xhr failed', details.statusCode, path.slice(0, 120));
+        }
+        if (/start_phone/i.test(path) && details.statusCode >= 200 && details.statusCode < 400) {
+          // HTTP 200 does NOT guarantee an SMS was sent (no account / wrong country).
+          console.log('[web] phone step OK (HTTP', details.statusCode, ') — SMS only if this number already has a Clubhouse account; check +90 then Click to resend');
+          notifySignInProgress('otp');
+          setTimeout(() => probeSignInDom('after-start-phone'), 800);
+        }
+        if (/resend_phone/i.test(path) && details.statusCode >= 200 && details.statusCode < 400) {
+          console.log('[web] resend OK (HTTP', details.statusCode, ') — still no SMS ⇒ wrong country or no Clubhouse account on that number');
+          notifySignInProgress('otp');
+          setTimeout(() => probeSignInDom('after-resend'), 800);
+        }
+        if (/complete_phone|verify|confirm_otp/i.test(path)) {
+          setTimeout(() => probeSignInDom(`after-${path.split('/').pop()}`), 400);
+        }
+      }
       if (details.statusCode >= 200 && details.statusCode < 400) {
         if (/complete_phone|verify|confirm_otp|check_waitlist|web_api\/me/i.test(path) && !/start_phone|resend_phone/i.test(path)) {
           // /me 200 means the SPA itself is authenticated.
@@ -971,16 +1332,21 @@ async function postWithWebSession(endpoint, body) {
     };
   }
   const csrf = allCookies.find((cookie) => cookie.name === 'csrftoken')?.value || '';
-  console.log(
-    '[web] session cookies',
-    allCookies.map((cookie) => cookie.name).join(',') || '(none)',
-    'csrf',
-    csrf ? 'yes' : 'no',
-    'authReady',
-    signInAuthReady,
-    'hasSession',
-    hasSession,
-  );
+  // Throttle: every web_api call used to dump this line (floods the console).
+  const cookieSig = `${allCookies.map((cookie) => cookie.name).join(',')}|${csrf ? 1 : 0}|${signInAuthReady ? 1 : 0}|${hasSession ? 1 : 0}`;
+  if (cookieSig !== lastCookieLogSig) {
+    lastCookieLogSig = cookieSig;
+    console.log(
+      '[web] session cookies',
+      allCookies.map((cookie) => cookie.name).join(',') || '(none)',
+      'csrf',
+      csrf ? 'yes' : 'no',
+      'authReady',
+      signInAuthReady,
+      'hasSession',
+      hasSession,
+    );
+  }
   const method = route.method || 'POST';
   let pathName;
   let requestBody;
@@ -1089,6 +1455,40 @@ ipcMain.handle('clubbox:connection-status', async (event) => {
   };
 });
 
+function microphoneAccessStatus() {
+  try {
+    if (typeof systemPreferences.getMediaAccessStatus === 'function') {
+      return systemPreferences.getMediaAccessStatus('microphone');
+    }
+  } catch {
+    // older Electron
+  }
+  return 'unknown';
+}
+
+ipcMain.handle('clubbox:mic-access-status', async (event) => {
+  if (!isTrustedSender(event)) return { ok: false };
+  const status = microphoneAccessStatus();
+  return { ok: true, status };
+});
+
+ipcMain.handle('clubbox:open-mic-settings', async (event) => {
+  if (!isTrustedSender(event)) return { ok: false };
+  try {
+    if (process.platform === 'win32') {
+      await shell.openExternal('ms-settings:privacy-microphone');
+    } else if (process.platform === 'darwin') {
+      await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone');
+    } else {
+      return { ok: false, reason: 'unsupported' };
+    }
+    return { ok: true };
+  } catch (err) {
+    console.warn('[Clubbox] open mic settings failed:', err instanceof Error ? err.message : err);
+    return { ok: false };
+  }
+});
+
 ipcMain.handle('clubbox:pubnub-subscribe', async (event, payload) => {
   if (!isTrustedSender(event)) return { ok: false, reason: 'unauthorized' };
   const config = readRealtimeConfig();
@@ -1111,6 +1511,7 @@ ipcMain.handle('clubbox:pubnub-subscribe', async (event, payload) => {
   const origin = String(payload.origin || 'clubhouse.pubnubapi.com');
   const uuid = String(payload.uuid || 'clubbox');
   if (!channelId || !token) return { ok: false, reason: 'missing_channel_or_token' };
+  if (!isAllowedPubNubOrigin(origin)) return { ok: false, reason: 'invalid_origin' };
   // Only the room's own Clubhouse channels (users.*, channel_user.*, channel_all.*, channel_speakers.*).
   const channels = Array.isArray(payload.channels)
     ? payload.channels
@@ -1215,6 +1616,8 @@ app.on('will-quit', () => {
 
 app.whenReady().then(() => {
   if (!hasSingleInstanceLock) return;
+  purgeAbandonedAgoraDnsArtifacts();
+  console.log('[Clubbox] microphone OS access:', microphoneAccessStatus());
   const savedShortcuts = readShortcutFile();
   if (savedShortcuts) applyGlobalShortcuts(savedShortcuts);
   armWebSessionCookieWatch();

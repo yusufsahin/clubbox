@@ -1,0 +1,9 @@
+{
+  "endpoint": "get_channel_messages",
+  "status": 400,
+  "bodyKeys": [
+    "channel"
+  ],
+  "error": "{\"success\":false,\"error_message\":\"\"}",
+  "evidence": "observed"
+}

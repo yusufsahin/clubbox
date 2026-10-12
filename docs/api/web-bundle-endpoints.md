@@ -28,7 +28,7 @@ If a list name is only `in-bundle, not observed`, leave it. Do not add a button 
 - `create_conversation` — configured
 - `delete_conversation` — configured
 - `delete_conversation_segment` — configured
-- `emoji_reaction` — configured
+- `emoji_reaction` — observed
 - `follow` — configured
 - `get_channel_messages` — observed
 - `get_conversation` — observed

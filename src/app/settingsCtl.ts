@@ -47,6 +47,7 @@ export async function syncEmbeddedSignIn(this: ClubboxApp): Promise<void> {
   if (!api?.isElectron) return;
   if (!this.isAuthGated() || this.currentTab !== 'login' || !this.guidelinesAccepted()) {
     this.stopAdoptRetry();
+    this.signInWindowSynced = false;
     await api.hideEmbeddedSignIn?.();
     return;
   }
@@ -56,7 +57,11 @@ export async function syncEmbeddedSignIn(this: ClubboxApp): Promise<void> {
     this.loginNotice = t('embeddedSignInUnavailable');
     return;
   }
-  this.adoptRetryCount = 0;
+  // First sync resets the adopt counter; later render() calls only ensure the
+  // window is up (main process reuses it). Never create two windows in parallel.
+  const first = !this.signInWindowSynced;
+  this.signInWindowSynced = true;
+  if (first) this.adoptRetryCount = 0;
   await show();
   this.startAdoptRetry();
 }
@@ -156,6 +161,8 @@ export async function openOfficialSignIn(this: ClubboxApp) : Promise<void> {
     }
     this.currentTab = 'login';
     this.loginNotice = t('officialSignInWaiting');
+    // Allow a fresh window if the user closed the previous Clubhouse window.
+    this.signInWindowSynced = false;
     this.render();
     await this.syncEmbeddedSignIn();
   }

@@ -182,7 +182,7 @@
   "emoji_reaction": {
     "path": "/web_api/emoji_reaction",
     "method": "POST",
-    "evidence": "bundle",
+    "evidence": "observed",
     "mutation": true,
     "bodyKeys": [
       "channel",

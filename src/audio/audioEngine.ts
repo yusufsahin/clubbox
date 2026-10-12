@@ -68,6 +68,8 @@ export class AudioEngine {
   private spatialAudioEnabled = false;
 
   private inputDeviceId = '';
+  /** When true, mic MediaStreamTrack is owned by Agora — do not stop() it on release. */
+  private micOwnedExternally = false;
   private outputDeviceId = '';
   private remoteVolumes = new Map<string, number>();
   private isMuted: boolean = true;
@@ -131,10 +133,17 @@ export class AudioEngine {
     }
 
     if (this.ctx.state === 'suspended') {
-      this.ctx.resume();
+      void this.ctx.resume().catch((err) => {
+        console.warn('[Clubbox] AudioContext.resume failed:', err);
+      });
     }
 
     return this.ctx;
+  }
+
+  /** Ensure the Web Audio graph exists and is running (room hear / publish). */
+  public ensureAudioContext(): AudioContext {
+    return this.initContextIfNeeded();
   }
 
   public startMicrophone(): Promise<boolean> {
@@ -161,29 +170,76 @@ export class AudioEngine {
     return tracked;
   }
 
+  private micConstraintBase(): MediaTrackConstraints {
+    return this.isMusicMode
+      ? {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+          sampleRate: 48000,
+        }
+      : {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        };
+  }
+
+  /** Last mic open failure — 'system' = OS privacy block (Windows/macOS). */
+  public lastMicError: 'system' | 'device' | 'unknown' | null = null;
+
+  private classifyMicError(err: unknown): 'system' | 'device' | 'unknown' {
+    const name = err && typeof err === 'object' && 'name' in err ? String((err as { name: unknown }).name) : '';
+    const message = err instanceof Error ? err.message : String(err || '');
+    if (/Permission denied by system|NotAllowedError|Permission denied/i.test(`${name} ${message}`)) {
+      if (/by system/i.test(message) || /denied by system/i.test(message)) return 'system';
+      // Chromium often uses NotAllowedError for both prompt dismiss and OS block.
+      if (/system/i.test(message)) return 'system';
+      return 'system';
+    }
+    if (/OverconstrainedError|NotFoundError|DevicesNotFound|Could not start audio/i.test(`${name} ${message}`)) {
+      return 'device';
+    }
+    return 'unknown';
+  }
+
   private async openMicrophone(): Promise<boolean> {
+    this.lastMicError = null;
     try {
       const ctx = this.initContextIfNeeded();
+      if (ctx.state === 'suspended') {
+        try {
+          await ctx.resume();
+        } catch {
+          // User-gesture may still be required on some paths.
+        }
+      }
 
-      const audio: MediaTrackConstraints = this.isMusicMode
-        ? {
-            echoCancellation: false,
-            noiseSuppression: false,
-            autoGainControl: false,
-            sampleRate: 48000,
-          }
-        : {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-          };
-      if (this.inputDeviceId) audio.deviceId = { ideal: this.inputDeviceId };
-      this.lastMicConstraints = { ...audio };
-      const constraints: MediaStreamConstraints = { audio };
+      const tryConstraints = async (audio: MediaTrackConstraints): Promise<MediaStream> => {
+        this.lastMicConstraints = { ...audio };
+        this.releaseMicrophoneGraph();
+        return navigator.mediaDevices.getUserMedia({ audio });
+      };
 
-      this.releaseMicrophoneGraph();
+      const preferred = this.micConstraintBase();
+      if (this.inputDeviceId) preferred.deviceId = { ideal: this.inputDeviceId };
 
-      this.micStream = await navigator.mediaDevices.getUserMedia(constraints);
+      try {
+        this.micStream = await tryConstraints(preferred);
+      } catch (firstErr: unknown) {
+        const kind = this.classifyMicError(firstErr);
+        // OS privacy denial will fail again without a deviceId — do not double-prompt.
+        if (kind === 'system' || !this.inputDeviceId) {
+          throw firstErr;
+        }
+        // Stale / exclusive device — retry with the OS default input.
+        console.warn(
+          '[Clubbox] mic open failed with preferred device — retrying default:',
+          firstErr instanceof Error ? firstErr.message : firstErr,
+        );
+        this.micStream = await tryConstraints(this.micConstraintBase());
+      }
+
       this.micSource = ctx.createMediaStreamSource(this.micStream);
 
       this.micGain = ctx.createGain();
@@ -196,10 +252,15 @@ export class AudioEngine {
 
       this.startMeterLoop();
       const liveTracks = this.micStream?.getAudioTracks().filter((track) => track.readyState === 'live').length ?? 0;
-      console.log('[Clubbox] mic tracks', liveTracks);
+      console.log('[Clubbox] mic tracks', liveTracks, 'muted=', this.isMuted);
       return true;
     } catch (err: unknown) {
-      console.warn('Microphone access not granted or unavailable:', err);
+      this.lastMicError = this.classifyMicError(err);
+      console.warn(
+        '[Clubbox] Microphone access not granted or unavailable:',
+        err instanceof Error ? err.message : err,
+        `kind=${this.lastMicError}`,
+      );
       if (this.simulateMeterOnFailure) {
         this.startSimulatedMeterLoop();
       } else {
@@ -233,6 +294,26 @@ export class AudioEngine {
       this.animationFrameId = null;
       this.onVolumeChangeCallbacks.forEach((cb) => cb(0));
     }
+  }
+
+  /**
+   * Wire an externally owned mic track (Agora createMicrophoneAudioTrack) into
+   * the local VU/monitor graph without a second getUserMedia capture.
+   */
+  public adoptMicrophoneTrack(track: MediaStreamTrack): void {
+    const ctx = this.initContextIfNeeded();
+    this.releaseMicrophoneGraph();
+    this.micOwnedExternally = true;
+    this.micStream = new MediaStream([track]);
+    this.micSource = ctx.createMediaStreamSource(this.micStream);
+    this.micGain = ctx.createGain();
+    this.micGain.gain.value = this.isMuted ? 0 : this.micVolume;
+    this.micSource.connect(this.micGain);
+    this.monitorGain = ctx.createGain();
+    this.monitorGain.gain.value = 1;
+    this.wireMicEffects();
+    this.startMeterLoop();
+    console.log('[Clubbox] adopted Agora mic track muted=', this.isMuted);
   }
 
   public setMuted(muted: boolean): void {
@@ -270,15 +351,47 @@ export class AudioEngine {
   }
 
   /**
-   * Live mix of mic + soundpad. Call startMicrophone() before requesting it
-   * so the mic is on the bus. The returned track belongs to the engine;
-   * callers that hand it to Agora should clone it.
+   * Live mix of mic + soundpad (local record / future mix publish).
+   * Do not send MediaStreamAudioDestinationNode tracks to Agora — Chromium
+   * often delivers them silent or with enabled=false after setMuted.
    */
   public getBroadcastTrack(): MediaStreamTrack | null {
     if (!this.broadcastDest) {
       this.initContextIfNeeded();
     }
-    return this.broadcastDest?.stream.getAudioTracks()[0] ?? null;
+    const track = this.broadcastDest?.stream.getAudioTracks()[0] ?? null;
+    if (track && !track.enabled) track.enabled = true;
+    return track;
+  }
+
+  /** Raw getUserMedia mic track for Agora publish (clone before handing to SDK). */
+  public getMicrophoneMediaTrack(): MediaStreamTrack | null {
+    const track = this.micStream?.getAudioTracks().find((t) => t.readyState === 'live') ?? null;
+    if (track && !track.enabled) track.enabled = true;
+    return track;
+  }
+
+  /**
+   * Agora may stop the destination track on close(). Rebuild the send bus and
+   * rewire mic/soundpad/external so the next publish has a live track.
+   */
+  public refreshBroadcastDestination(): void {
+    if (!this.ctx) return;
+    const ended = !this.broadcastDest?.stream.getAudioTracks().some((t) => t.readyState === 'live');
+    if (!ended && this.broadcastDest) return;
+
+    try {
+      this.soundpadGain?.disconnect(this.broadcastDest!);
+    } catch {
+      // not connected
+    }
+    this.broadcastDest = this.ctx.createMediaStreamDestination();
+    if (this.soundpadGain) {
+      this.soundpadGain.connect(this.broadcastDest);
+    }
+    if (this.micGain) this.wireMicEffects();
+    if (this.externalSource) this.wireExternalGraph();
+    console.log('[Clubbox] broadcast destination refreshed');
   }
 
   public addRemoteTrack(uid: string | number, track: MediaStreamTrack): void {
@@ -433,9 +546,12 @@ export class AudioEngine {
 
   private releaseMicrophoneGraph(): void {
     if (this.micStream) {
-      this.micStream.getTracks().forEach((track) => track.stop());
+      if (!this.micOwnedExternally) {
+        this.micStream.getTracks().forEach((track) => track.stop());
+      }
       this.micStream = null;
     }
+    this.micOwnedExternally = false;
     this.disposeMicEffects();
     this.safeDisconnect(this.micSource);
     this.safeDisconnect(this.micGain);
@@ -799,7 +915,8 @@ export class AudioEngine {
       this.wireExternalGraph();
       return true;
     } catch (err: unknown) {
-      console.warn('[Clubbox] external audio unavailable:', err);
+      const detail = err instanceof Error ? err.message : String(err);
+      console.warn('[Clubbox] external audio unavailable:', detail);
       this.releaseExternal();
       return false;
     }

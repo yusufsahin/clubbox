@@ -1,0 +1,7 @@
+{
+  "endpoint": "get_channels",
+  "status": 403,
+  "bodyKeys": [],
+  "error": "Authentication credentials were not provided.",
+  "evidence": "observed"
+}

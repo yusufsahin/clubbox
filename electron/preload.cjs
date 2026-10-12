@@ -24,6 +24,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('clubbox:web-session-maybe', listener);
     return () => ipcRenderer.removeListener('clubbox:web-session-maybe', listener);
   },
+  onSignInProgress: (callback) => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on('clubbox:signin-progress', listener);
+    return () => ipcRenderer.removeListener('clubbox:signin-progress', listener);
+  },
   onAgoraAppId: (callback) => {
     const listener = (_event, appId) => callback(appId);
     ipcRenderer.on('clubbox:agora-app-id', listener);
@@ -40,6 +45,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   pubnubUnsubscribe: () => ipcRenderer.invoke('clubbox:pubnub-unsubscribe'),
   ensureRealtimeConfig: () => ipcRenderer.invoke('clubbox:ensure-realtime-config'),
   connectionStatus: () => ipcRenderer.invoke('clubbox:connection-status'),
+  micAccessStatus: () => ipcRenderer.invoke('clubbox:mic-access-status'),
+  openMicrophoneSettings: () => ipcRenderer.invoke('clubbox:open-mic-settings'),
   onPubNubMessage: (callback) => {
     const listener = (_event, message) => callback(message);
     ipcRenderer.on('clubbox:pubnub-message', listener);

@@ -16,6 +16,7 @@ export type ElectronAPI = {
   setEmbeddedSignInBounds?: (bounds?: { x: number; y: number; width: number; height: number }) => Promise<{ ok: boolean }>;
   hasWebSession?: () => Promise<{ ok: boolean; hasSession?: boolean; authReady?: boolean }>;
   onWebSessionMaybe?: (callback: () => void) => void;
+  onSignInProgress?: (callback: (payload: { step?: string }) => void) => () => void;
   onAgoraAppId?: (callback: (appId: string) => void) => () => void;
   pubnubSubscribe?: (params: PubNubSubscribeParams) => Promise<{ ok: boolean; reason?: string }>;
   pubnubResubscribe?: () => Promise<{ ok: boolean }>;
@@ -33,6 +34,8 @@ export type ElectronAPI = {
   onPubNubStatus?: (callback: (status: RealtimeHubStatus) => void) => () => void;
   onRealtimeConfig?: (callback: (payload: { hasKeys?: boolean; reason?: string | null }) => void) => () => void;
   clearWebSession?: () => Promise<{ ok: boolean }>;
+  micAccessStatus?: () => Promise<{ ok: boolean; status?: string }>;
+  openMicrophoneSettings?: () => Promise<{ ok: boolean; reason?: string }>;
   setNativeThemeSource?: (source: 'system' | 'light' | 'dark') => Promise<{ ok: boolean }>;
   appendApiLog?: (record: {
     endpoint: string;

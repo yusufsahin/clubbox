@@ -12,6 +12,7 @@ function createPubNubClient(options) {
 
   let stopped = true;
   let inflight = null;
+  let loopRunning = false;
   let backoffIndex = 0;
   let reconnectTimer = null;
   let config = null;
@@ -28,12 +29,17 @@ function createPubNubClient(options) {
     });
   };
 
-  const scheduleReconnect = () => {
+  const scheduleReconnect = (reason) => {
     if (stopped || !config) return;
     const delay = BACKOFF_MS[Math.min(backoffIndex, BACKOFF_MS.length - 1)];
     backoffIndex = Math.min(backoffIndex + 1, BACKOFF_MS.length - 1);
     if (reconnectTimer) clearTimeout(reconnectTimer);
-    emitStatus({ connected: false, reconnecting: true, reconnectDelayMs: delay });
+    emitStatus({
+      connected: false,
+      reconnecting: true,
+      reconnectDelayMs: delay,
+      reason: reason || undefined,
+    });
     reconnectTimer = setTimeout(() => {
       reconnectTimer = null;
       void pollLoop();
@@ -98,9 +104,10 @@ function createPubNubClient(options) {
       }
       backoffIndex = 0;
       emitStatus({ connected: true, reconnecting: false });
-    } catch {
+    } catch (err) {
       if (stopped || controller.signal.aborted) return;
-      scheduleReconnect();
+      const reason = err instanceof Error ? err.message : 'pubnub_error';
+      scheduleReconnect(reason);
       return;
     } finally {
       inflight = null;
@@ -108,9 +115,15 @@ function createPubNubClient(options) {
   };
 
   const pollLoop = async () => {
-    while (!stopped && config) {
-      await pollOnce();
-      if (stopped || reconnectTimer) break;
+    if (loopRunning) return;
+    loopRunning = true;
+    try {
+      while (!stopped && config) {
+        await pollOnce();
+        if (stopped || reconnectTimer) break;
+      }
+    } finally {
+      loopRunning = false;
     }
   };
 
@@ -133,6 +146,9 @@ function createPubNubClient(options) {
         clearTimeout(reconnectTimer);
         reconnectTimer = null;
       }
+      // Abort the in-flight long-poll so the existing loop (or a new one) continues once —
+      // never start a second pollLoop while the first is still awaiting.
+      if (inflight) inflight.abort();
       emitStatus({ connected: true, reconnecting: false });
       void pollLoop();
     },

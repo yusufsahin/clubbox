@@ -1302,7 +1302,11 @@ export class ClubhouseApiClient {
   }
 
   public async getConversation(conversationId: string): Promise<{ success: boolean; conversation?: unknown }> {
-    return this.call('get_conversation', { conversation_id: conversationId });
+    const id = typeof conversationId === 'string' ? conversationId.trim() : '';
+    if (!id) {
+      throw new ClubhouseApiError(0, 'get_conversation', 'Conversation id is required', 'business');
+    }
+    return this.call('get_conversation', { conversation_id: id });
   }
 
   public async markConversationSegmentListened(conversationId: string, segmentId: string): Promise<ApiAck> {

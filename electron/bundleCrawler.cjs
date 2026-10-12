@@ -221,15 +221,36 @@ function createBundleCrawler(options) {
   async function crawl(input = {}) {
     const base = input.baseUrl || 'https://www.clubhouse.com';
     let html = input.html;
-    if (!html) html = await fetchText(`${base}/`);
-    const buildId = extractBuildId(html);
+    let buildId = html ? extractBuildId(html) : null;
+    // Clubhouse's bare `/` sometimes returns a shell without Next buildId
+    // (bot/CDN). Fall back to /signin and /home before giving up.
+    if (!buildId) {
+      const candidates = html
+        ? []
+        : [`${base}/`, `${base}/signin`, `${base}/home`];
+      for (const url of candidates) {
+        try {
+          html = await fetchText(url);
+          buildId = extractBuildId(html);
+          if (buildId) break;
+        } catch (err) {
+          console.warn('[Clubbox] bundle crawl fetch failed:', url, err instanceof Error ? err.message : err);
+        }
+      }
+    }
     if (!buildId) {
       return { ok: false, reason: 'build_id_missing', chunks: 0 };
     }
 
     const meta = readJson(metaPath, {});
     if (meta.buildId === buildId && meta.complete && meta.extractorVersion === EXTRACTOR_VERSION && !input.force) {
-      return { ok: true, reason: 'cache_hit', buildId, chunks: meta.chunks || 0 };
+      // Cache hit is only valid when secrets still exist — deleted/corrupt realtime-config must re-crawl.
+      const secrets = readJson(realtimeConfigPath, {});
+      const hasKeys = typeof secrets.pubnubSubscribeKey === 'string' && secrets.pubnubSubscribeKey.length > 0
+        && typeof secrets.agoraAppId === 'string' && /^[a-fA-F0-9]{32}$/.test(secrets.agoraAppId);
+      if (hasKeys) {
+        return { ok: true, reason: 'cache_hit', buildId, chunks: meta.chunks || 0 };
+      }
     }
 
     const buildCacheDir = path.join(cacheRoot, buildId);

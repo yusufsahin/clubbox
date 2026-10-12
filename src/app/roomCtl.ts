@@ -14,10 +14,20 @@ import { closePingPanel, mountPingPanel, refreshPingPanel } from '../ui/componen
 import { mountSpeakerInvite } from '../ui/components/speakerInvite.ts';
 import { safeUrl } from '../ui/html.ts';
 import type { ClubboxApp } from './clubboxApp.ts';
+import { electronAPI } from './electronApi.ts';
 import { recordingFilename } from './recordingFilename.ts';
 import { popView } from './viewStack.ts';
 
 const CHAT_POLL_MS = 15_000;
+
+function reportMicFailure(app: ClubboxApp): void {
+  if (audioEngine.lastMicError === 'system') {
+    app.showToast(t('micPermissionDenied'), '🔇');
+    void electronAPI()?.openMicrophoneSettings?.();
+    return;
+  }
+  app.showToast(t('micStageFailed'), '🔇');
+}
 
 
 export function handleBeforeUnload(this: ClubboxApp) : void {
@@ -38,15 +48,7 @@ export function handleBeforeUnload(this: ClubboxApp) : void {
 
 export function startRoomPresence(this: ClubboxApp, channelId: string) : void {
     this.stopRoomPresence();
-    const pingEvidence = clubhouseClient.evidence('active_ping');
-    // Bundle or observed: keep the official-client cadence (30s), including while hidden.
-    if (pingEvidence === 'observed' || pingEvidence === 'bundle') {
-      this.pingTimer = window.setInterval(() => {
-        void clubhouseClient.activePing(channelId).catch((err) => {
-          console.warn('[Clubbox] active_ping failed:', err);
-        });
-      }, 30000);
-    }
+    // active_ping lives in RealtimeRoomCoordinator only (avoid double 30s pings).
     const channel = this.currentChannel;
     if (channel) this.pubnubSource.setChannel(channel);
     const pubnubToken = channel?.pubnub_token;
@@ -66,7 +68,10 @@ export function stopChatPolling(this: ClubboxApp) : void {
 
 export function syncChatPolling(this: ClubboxApp) : void {
     this.pubnubSource.setChatOpen(this.chatOpen);
+    // roomSession.inRoom is false as soon as leave starts — blocks PubNub
+    // onReconnecting from restarting HTTP chat after stopRoomPresence().
     const open = !!this.currentChannel
+      && this.roomSession.inRoom
       && !this.pollsPaused
       && this.chatOpen
       && this.currentChannel.is_chat_enabled !== false
@@ -94,9 +99,19 @@ export function stopRoomPresence(this: ClubboxApp) : void {
 
 export async function refreshChat(this: ClubboxApp) : Promise<void> {
     const chatEvidence = clubhouseClient.evidence('get_channel_messages');
-    if (!this.currentChannel || (chatEvidence !== 'observed' && chatEvidence !== 'bundle')) return;
+    const channel = this.currentChannel;
+    if (!channel || !this.roomSession.inRoom || (chatEvidence !== 'observed' && chatEvidence !== 'bundle')) {
+      return;
+    }
+    const generation = this.roomSession.generation;
+    const channelId = this.channelApiId(channel);
     try {
-      const chat = await clubhouseClient.getChannelMessages(this.channelApiId(this.currentChannel));
+      const chat = await clubhouseClient.getChannelMessages(channelId);
+      // Leave raced ahead — drop the response (and never apply UI).
+      if (!this.roomSession.inRoom || this.roomSession.generation !== generation || !this.currentChannel) {
+        return;
+      }
+      if (this.channelApiId(this.currentChannel) !== channelId) return;
       const next = chat.messages || [];
       const same = next.length === this.chatMessages.length
         && next.every((message, index) => message.id === this.chatMessages[index]?.id && message.message === this.chatMessages[index]?.message);
@@ -114,6 +129,8 @@ export async function refreshChat(this: ClubboxApp) : Promise<void> {
       }
       this.renderChat();
     } catch (err) {
+      // Expected when leave_channel wins the race against an in-flight poll.
+      if (!this.roomSession.inRoom || this.roomSession.generation !== generation) return;
       console.warn('[Clubbox] chat refresh failed:', err);
     }
   }
@@ -151,12 +168,16 @@ export function applyRoomUpdate(this: ClubboxApp, detail: CHChannelDetail) : voi
 
 export function isMeSpeaker(this: ClubboxApp) : boolean {
     if (!this.currentChannel || !this.me) return false;
-    return this.currentChannel.users.some((user) => user.user_id === this.me?.user_id && !!user.is_speaker);
+    const meId = String(this.me.user_id);
+    return this.currentChannel.users.some(
+      (user) => String(user.user_id) === meId && (!!user.is_speaker || !!user.is_moderator),
+    );
   }
 
 export function isMeModerator(this: ClubboxApp) : boolean {
     if (!this.currentChannel || !this.me) return false;
-    return this.currentChannel.users.some((user) => user.user_id === this.me?.user_id && !!user.is_moderator);
+    const meId = String(this.me.user_id);
+    return this.currentChannel.users.some((user) => String(user.user_id) === meId && !!user.is_moderator);
   }
 
 export function syncAgoraRole(this: ClubboxApp) : void {
@@ -296,7 +317,13 @@ export async function acceptSpeakerInvite(this: ClubboxApp) : Promise<void> {
       }
       await this.refreshCurrentRoom();
       if (!clubhouseClient.getConfig().useSandbox && agoraVoice.getIsJoined()) {
-        await agoraVoice.promoteToSpeaker();
+        const ok = await agoraVoice.promoteToSpeaker();
+        this.audioConnected = ok;
+        if (!ok) {
+          this.showToast(t('micStageFailed'), '🔇');
+          this.syncAgoraRole();
+          return;
+        }
       }
       audioEngine.setMuted(true);
       this.showToast(t('onStage'), '🎙️');
@@ -641,7 +668,16 @@ export async function joinRoom(this: ClubboxApp, channelId: string, preset?: CHC
     if (!preset && !this.allowAction('join_channel')) return;
     if (this.currentChannel) {
       const currentId = this.channelApiId(this.currentChannel);
-      if (currentId === channelId || String(this.currentChannel.channel_id) === channelId) return;
+      // Already in this room but still on hallway (e.g. audio hung) — show the stage.
+      if (currentId === channelId || String(this.currentChannel.channel_id) === channelId) {
+        if (this.currentTab !== 'stage') this.pushCurrentView();
+        this.currentTab = 'stage';
+        this.render();
+        if (this.audioConnected === false && !clubhouseClient.getConfig().useSandbox) {
+          void this.connectRoomAudio(this.roomSession.generation);
+        }
+        return;
+      }
       await this.leaveRoom({ silent: true });
     }
 
@@ -653,7 +689,13 @@ export async function joinRoom(this: ClubboxApp, channelId: string, preset?: CHC
     try {
       const joined = preset ?? await clubhouseClient.joinChannel(channelId);
       const committed = commitJoin(this.roomSession, generation);
-      if (!committed) return;
+      if (!committed) {
+        // Leave raced ahead of join — drop the server-side ghost presence.
+        if (!preset && clubhouseClient.supports('leave_channel')) {
+          void clubhouseClient.leaveChannel(channelId).catch(() => undefined);
+        }
+        return;
+      }
       this.roomSession = committed;
       const listed = this.channelsList.find((channel) => channel.channel === channelId || String(channel.channel_id) === channelId);
       if (listed) {
@@ -671,7 +713,22 @@ export async function joinRoom(this: ClubboxApp, channelId: string, preset?: CHC
       this.pubnubSource.setChannel(joined);
       if (joined.agora_native_mute === true) agoraVoice.setNativeMuteSignalling(true);
       if (joined.is_chat_enabled === false) this.chatOpen = false;
-      if (joined.should_join_muted === true) audioEngine.setMuted(true);
+      // Speakers/hosts default live in the studio. should_join_muted only for
+      // non-moderator speakers (Clubhouse audience→stage etiquette).
+      const asSpeaker = this.isMeSpeaker();
+      const asMod = this.isMeModerator();
+      console.log(
+        '[Clubbox] join mute decision',
+        `should_join_muted=${String(joined.should_join_muted)}`,
+        `speaker=${asSpeaker}`,
+        `mod=${asMod}`,
+        `me=${String(this.me?.user_id ?? '')}`,
+      );
+      if (joined.should_join_muted === true && asSpeaker && !asMod) {
+        audioEngine.setMuted(true);
+      } else if (asSpeaker) {
+        audioEngine.setMuted(false);
+      }
     } catch (err) {
       if (this.roomSession.generation !== generation) return;
       if (err instanceof ClubhouseApiError && (err.status === 404 || err.status === 405)) {
@@ -686,35 +743,64 @@ export async function joinRoom(this: ClubboxApp, channelId: string, preset?: CHC
     }
 
     if (this.roomSession.generation !== generation || !this.currentChannel) return;
+    // Enter the stage UI immediately — do not wait for Agora (DNS hangs left the
+    // Clubhouse session joined while the desktop still showed the hallway card).
     this.syncClipArm();
     this.audioConnected = clubhouseClient.getConfig().useSandbox ? null : false;
-    if (this.isMeSpeaker()) void audioEngine.startMicrophone();
-    await this.connectRoomAudio(generation);
-
-    if (this.roomSession.generation !== generation || !this.currentChannel) return;
     this.startRoomPresence(this.channelApiId(this.currentChannel));
     this.chatMessages = [];
-    {
-      const chatEvidence = clubhouseClient.evidence('get_channel_messages');
-      if (chatEvidence === 'observed' || chatEvidence === 'bundle') {
-        try {
-          const chat = await clubhouseClient.getChannelMessages(this.channelApiId(this.currentChannel));
-          this.chatMessages = chat.messages || [];
-        } catch (err) {
-          this.reportApiError(err);
-        }
-      }
-    }
-    if (this.roomSession.generation !== generation || !this.currentChannel) return;
     if (this.currentTab !== 'stage') this.pushCurrentView();
     this.currentTab = 'stage';
     this.unreadChat = 0;
     if (this.currentChannel.is_chat_enabled !== false) this.chatOpen = true;
     this.render();
-    if (clubhouseClient.getConfig().useSandbox || this.audioConnected) {
-      this.showToast(t('joinedRoom', { topic: this.currentChannel.topic }), '🎙️');
+    this.showToast(t('joinedRoom', { topic: this.currentChannel.topic }), '🎙️');
+    if (audioEngine.getIsMuted() && this.isMeSpeaker()) {
+      this.showToast(t('joinMuted'), '🔇');
     }
-    if (this.currentChannel.should_join_muted === true) this.showToast(t('joinMuted'), '🔇');
+
+    void (async () => {
+      // Re-apply after stage render — id/type mismatches can miss the earlier unmute.
+      if (this.isMeSpeaker() && (this.isMeModerator() || this.currentChannel?.should_join_muted !== true)) {
+        audioEngine.setMuted(false);
+      }
+      if (this.isMeSpeaker()) {
+        const micOk = await audioEngine.startMicrophone();
+        if (!micOk) {
+          reportMicFailure(this);
+          // OS denied mic — skip Agora publish retries (they cannot succeed).
+          if (audioEngine.lastMicError === 'system') {
+            await this.connectRoomAudio(generation);
+            this.renderCockpit();
+            return;
+          }
+        }
+      }
+      if (this.roomSession.generation !== generation || !this.currentChannel) return;
+      await this.connectRoomAudio(generation);
+      if (this.roomSession.generation !== generation || !this.currentChannel) return;
+      // Host may have joined while mic was still denied — retry publish once.
+      // Do not agoraVoice.setMuted() after publish — that was the regression (enabled=false).
+      if (this.isMeSpeaker() && agoraVoice.getIsJoined()) {
+        const published = await agoraVoice.ensurePublished(audioEngine.getIsMusicMode());
+        if (!published) reportMicFailure(this);
+      }
+      this.renderCockpit();
+    })();
+
+    {
+      const chatEvidence = clubhouseClient.evidence('get_channel_messages');
+      if (chatEvidence === 'observed' || chatEvidence === 'bundle') {
+        try {
+          const chat = await clubhouseClient.getChannelMessages(this.channelApiId(this.currentChannel));
+          if (this.roomSession.generation !== generation || !this.currentChannel) return;
+          this.chatMessages = chat.messages || [];
+          if (this.chatOpen) this.renderChat();
+        } catch (err) {
+          this.reportApiError(err);
+        }
+      }
+    }
   }
 
 export async function connectRoomAudio(this: ClubboxApp, generation: number) : Promise<void> {
@@ -723,6 +809,14 @@ export async function connectRoomAudio(this: ClubboxApp, generation: number) : P
       this.audioConnected = false;
       this.showToast(t('signInToHear'), '🔑');
       return;
+    }
+    console.log(
+      `[Clubbox] connectRoomAudio web_listening=${String(this.currentChannel.is_web_listening_enabled)}`
+        + ` tokenLen=${this.currentChannel.token?.length ?? 0}`
+        + ` channel=${this.currentChannel.channel}`,
+    );
+    if (this.currentChannel.is_web_listening_enabled === false && this.isMeSpeaker()) {
+      this.showToast(t('webListeningOffHint'), '🌐');
     }
     if (!clubhouseClient.getConfig().agoraAppId) {
       this.audioConnected = false;
