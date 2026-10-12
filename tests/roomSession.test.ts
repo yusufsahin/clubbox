@@ -110,16 +110,13 @@ test('host create joins Agora as host without join_channel', async () => {
   assert.equal(agora.lastJoin()?.role, 'host');
 });
 
-test('first experimental invite asks for confirmation', async () => {
+test('invite to stage works without experimental confirmation', async () => {
   const { transport, client, session } = harness();
   await session.startFriendsOfFriendsRoom('Morning show', { replayEnabled: true, chatEnabled: true });
-  await client.updateConfig({ experimentalActions: true, confirmedExperimentalRoutes: [] });
+  await client.updateConfig({ experimentalActions: false, confirmedExperimentalRoutes: [] });
   const first = await session.inviteToStage(7);
-  assert.equal(first.needsConfirmation, true);
-  assert.equal(transport.requestsNamed('invite_speaker').length, 0);
-  client.confirmExperimental('invite_speaker');
-  const second = await session.inviteToStage(7);
-  assert.equal(second.ok, true);
+  assert.equal(first.needsConfirmation, undefined);
+  assert.equal(first.ok, true);
   assert.equal(transport.requestsNamed('invite_speaker').length, 1);
 });
 

@@ -16,8 +16,9 @@ Feature: Evidence levels, circuit breaker and API Health
       | endpoint        | level       | experimental | callable |
       | get_feed_v3     | observed    | off          | allowed  |
       | join_channel    | bundle      | off          | allowed  |
-      | invite_speaker  | community   | off          | blocked  |
-      | invite_speaker  | community   | on           | allowed  |
+      | invite_speaker  | community   | off          | allowed  |
+      | get_events      | community   | off          | blocked  |
+      | get_events      | community   | on           | allowed  |
       | get_followers   | unsupported | on           | blocked  |
 
   Scenario: A 404 marks the route unsupported

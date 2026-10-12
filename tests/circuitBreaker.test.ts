@@ -28,6 +28,17 @@ test('404 marks the route unsupported for this app version and lists it in API H
   assert.ok(health.some((entry) => entry.endpoint === 'set_channel_title' && entry.status === 404));
 });
 
+test('host tool 404 is logged but does not bury the control as unsupported', async () => {
+  const transport = new FakeTransport();
+  transport.willAnswer('end_channel', 404, 1);
+  const now = { t: Date.parse('2026-10-11T12:00:00Z') };
+  const client = clientWith(transport, now);
+  await assert.rejects(() => client.endChannel('abc'));
+  assert.equal(client.effectiveEvidence('end_channel'), 'community');
+  assert.equal(client.supports('end_channel'), true);
+  assert.ok(client.getApiHealth().some((entry) => entry.endpoint === 'end_channel' && entry.status === 404));
+});
+
 test('two consecutive 400 errors disable the route for the session', async () => {
   const transport = new FakeTransport();
   transport.willAnswer('emoji_reaction', 400, 2);

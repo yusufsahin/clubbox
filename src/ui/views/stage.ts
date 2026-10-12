@@ -31,7 +31,7 @@ export interface StageState {
 }
 
 function unverifiedAction(): SafeHtml {
-  return html`<span class="invited-tag" title="${t('availableInClubhouseApp')}">${t('availableInClubhouseApp')}</span>`;
+  return html`<span class="invited-tag" title="${t('unsupportedAction')}">${t('temporarilyUnavailable')}</span>`;
 }
 
 export function emptyStageView(): SafeHtml {
@@ -93,9 +93,13 @@ export function stageColumn(state: StageState): SafeHtml {
               <span style="font-size:12px; color:var(--text-dim);">${state.audioDisconnected ? t('audioDisconnected') : t('roomAudio')}</span>
             </div>
             <div class="speakers-grid">
-              ${speakers.map((speaker) => html`
-                <div class="speaker-card ${speaker.is_speaking ? 'speaking' : ''} ${speaker.user_id === state.me?.user_id ? 'me-speaker' : ''}" data-action="open-profile" data-user-id="${speaker.user_id}">
-                  <div class="avatar-wrapper">
+              ${speakers.map((speaker) => {
+                const speakerId = Number(speaker.user_id);
+                const isSelf = state.me != null && String(speaker.user_id) === String(state.me.user_id);
+                const menuOpen = state.openSpeakerMenuId != null && Number(state.openSpeakerMenuId) === speakerId;
+                return html`
+                <div class="speaker-card ${speaker.is_speaking ? 'speaking' : ''} ${isSelf ? 'me-speaker' : ''}">
+                  <div class="avatar-wrapper" data-action="open-profile" data-user-id="${speaker.user_id}">
                     ${avatarHtml(speaker, 82, 'avatar-img')}
                     ${speaker.is_moderator ? html`<span class="badge-crown" title="${t('moderator')}">👑</span>` : ''}
                     ${speaker.is_muted ? html`<span class="badge-mute" title="${t('muted')}">🔇</span>` : ''}
@@ -103,12 +107,12 @@ export function stageColumn(state: StageState): SafeHtml {
                       <button class="speaker-follow-btn" type="button" data-action="follow-user" data-user-id="${speaker.user_id}" title="${t('relationshipNone')}">+</button>
                     ` : ''}
                   </div>
-                  <div class="speaker-name">${speaker.name}${state.channel.creator_user_profile_id === speaker.user_id ? html` <span class="host-tag">${t('host')}</span>` : ''}</div>
-                  ${speaker.username ? html`<div class="speaker-handle">@${speaker.username}</div>` : ''}
-                  ${state.moderator && speaker.user_id !== state.me?.user_id && !(state.canMute || state.canMod || state.canMoveToAudience || state.canBlock) ? unverifiedAction() : ''}
-                  ${state.moderator && speaker.user_id !== state.me?.user_id && (state.canMute || state.canMod || state.canMoveToAudience || state.canBlock) ? html`
-                    <button class="speaker-menu-btn" data-action="speaker-menu" data-user-id="${speaker.user_id}" title="${t('speakerActions')}">⋯</button>
-                    ${state.openSpeakerMenuId === speaker.user_id ? html`
+                  <div class="speaker-name" data-action="open-profile" data-user-id="${speaker.user_id}">${speaker.name}${state.channel.creator_user_profile_id === speaker.user_id ? html` <span class="host-tag">${t('host')}</span>` : ''}</div>
+                  ${speaker.username ? html`<div class="speaker-handle" data-action="open-profile" data-user-id="${speaker.user_id}">@${speaker.username}</div>` : ''}
+                  ${state.moderator && !isSelf && !(state.canMute || state.canMod || state.canMoveToAudience || state.canBlock) ? unverifiedAction() : ''}
+                  ${state.moderator && !isSelf && (state.canMute || state.canMod || state.canMoveToAudience || state.canBlock) ? html`
+                    <button class="speaker-menu-btn" type="button" data-action="speaker-menu" data-user-id="${speaker.user_id}" title="${t('speakerActions')}">⋯</button>
+                    ${menuOpen ? html`
                       <div class="speaker-menu">
                         ${state.canMute && !speaker.is_muted ? html`<button type="button" data-action="moderate" data-mod-action="mute" data-user-id="${speaker.user_id}">${t('mute')}</button>` : ''}
                         ${state.canMod && !speaker.is_moderator ? html`<button type="button" data-action="moderate" data-mod-action="moderator" data-user-id="${speaker.user_id}">${t('makeModerator')}</button>` : ''}
@@ -118,7 +122,8 @@ export function stageColumn(state: StageState): SafeHtml {
                     ` : ''}
                   ` : ''}
                 </div>
-              `)}
+              `;
+              })}
             </div>
           </div>
 

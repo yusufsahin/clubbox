@@ -123,6 +123,7 @@ export type ClubboxAppCtlMethods = {
   syncClipArm: typeof roomCtl.syncClipArm;
   saveClip: typeof roomCtl.saveClip;
   allowAction: typeof roomCtl.allowAction;
+  enableExperimentalActions: typeof roomCtl.enableExperimentalActions;
   joinRoom: typeof roomCtl.joinRoom;
   connectRoomAudio: typeof roomCtl.connectRoomAudio;
   fetchFreshAgoraToken: typeof roomCtl.fetchFreshAgoraToken;

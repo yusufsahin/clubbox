@@ -2183,6 +2183,9 @@ export class ClubboxApp {
         void this.moderateSpeaker(uid, kind);
         break;
       }
+      case 'enable-experimental-actions':
+        void this.enableExperimentalActions();
+        break;
       case 'open-login':
       case 'open-official-signin':
         void this.openOfficialSignIn();

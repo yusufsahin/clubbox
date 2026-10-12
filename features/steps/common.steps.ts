@@ -159,3 +159,12 @@ Then('I do not see {string}, {string} or {string}', function (this: ClubboxWorld
     assert.equal(this.visibleControls.has(label), false);
   }
 });
+
+Then(
+  'the host controls show {string}, {string} and {string}',
+  function (this: ClubboxWorld, a: string, b: string, c: string) {
+    for (const label of [a, b, c]) {
+      assert.equal(this.visibleControls.has(label), true, `expected visible control ${label}`);
+    }
+  },
+);

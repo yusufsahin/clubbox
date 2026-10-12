@@ -32,6 +32,7 @@ const SANDBOX_ENDPOINTS = new Set([
   'mute_speaker',
   'make_moderator',
   'uninvite_speaker',
+  'block_from_channel',
   'create_channel',
   'end_channel',
   'get_group_suggested_invites',
@@ -88,6 +89,30 @@ export type CanCallOptions = {
   evidenceOverrides?: Record<string, Evidence>;
 };
 
+/**
+ * Room-host tools from community clients (PRD C). These are core Clubbox host
+ * actions — callable on a web session without the Experimental actions toggle.
+ * Speculative community reads (events, notifications, …) still need the toggle.
+ */
+export const HOST_COMMUNITY_ENDPOINTS = new Set([
+  'invite_speaker',
+  'uninvite_speaker',
+  'mute_speaker',
+  'make_moderator',
+  'block_from_channel',
+  'reject_speaker_invite',
+  'invite_to_existing_channel',
+  'end_channel',
+  'make_channel_public',
+  'make_channel_social',
+  'change_handraise_settings',
+  'hide_channel',
+]);
+
+export function isHostCommunityEndpoint(endpoint: string): boolean {
+  return HOST_COMMUNITY_ENDPOINTS.has(endpoint);
+}
+
 export function evidenceOf(endpoint: string, overrides?: Record<string, Evidence>): Evidence {
   const overridden = overrides?.[endpoint];
   if (overridden) return overridden;
@@ -129,13 +154,20 @@ export function canCall(
   const disabled = options?.sessionDisabled ? new Set(options.sessionDisabled) : null;
   if (disabled?.has(endpoint)) return false;
 
+  const hostTool = isHostCommunityEndpoint(endpoint);
+
   const markedAt = options?.unsupportedRoutes?.[endpoint];
-  if (markedAt && (!options.appVersion || markedAt === options.appVersion)) return false;
+  // Host tools stay callable after a 404 — burying mute/end room made the app unusable.
+  if (!hostTool && markedAt && (!options.appVersion || markedAt === options.appVersion)) return false;
 
   const evidence = evidenceOf(endpoint, options?.evidenceOverrides);
-  if (evidence === 'unsupported' || evidence === 'in-bundle') return false;
+  if (evidence === 'in-bundle') return false;
+  if (evidence === 'unsupported' && !hostTool) return false;
   if (transport !== 'web-session') return false;
   if (evidence === 'observed' || evidence === 'bundle') return true;
-  if (evidence === 'community') return options?.experimentalActions === true;
+  if (evidence === 'community' || (evidence === 'unsupported' && hostTool)) {
+    if (hostTool) return true;
+    return options?.experimentalActions === true;
+  }
   return false;
 }

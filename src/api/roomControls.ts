@@ -51,3 +51,16 @@ export function readUserCapabilities(channel: { user_capabilities?: UserCapabili
   if (!caps || typeof caps !== 'object') return undefined;
   return caps;
 }
+
+/** True when this user is a stage moderator, or the room creator (host) when the user row is stale/missing. */
+export function isChannelModerator(
+  channel: { users?: Array<{ user_id?: number | string; is_moderator?: boolean }>; creator_user_profile_id?: number | string } | null | undefined,
+  meId: number | string | null | undefined,
+): boolean {
+  if (!channel || meId == null || meId === '') return false;
+  const mine = String(meId);
+  if ((channel.users ?? []).some((user) => String(user.user_id) === mine && user.is_moderator === true)) {
+    return true;
+  }
+  return channel.creator_user_profile_id != null && String(channel.creator_user_profile_id) === mine;
+}

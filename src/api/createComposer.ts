@@ -156,6 +156,29 @@ export function createDefaults(
   };
 }
 
+/** Whether Clubhouse lists server replay as available for this audience. */
+export function replaysOfferedForAudience(
+  targets: CreateChannelTargets | null | undefined,
+  audience: CreateAudience,
+): boolean {
+  return capabilityForAudience(targets, audience)?.is_replay_available !== false;
+}
+
+/**
+ * Resolve is_replay_enabled for create_channel from the composer controls.
+ * When the Disable-replay checkbox is absent, fall back to createDefaults — never force true.
+ */
+export function resolveCreateReplayEnabled(options: {
+  disableReplayChecked: boolean | null;
+  replaysField: string | boolean | null;
+  defaultsReplayEnabled: boolean;
+}): boolean {
+  if (options.disableReplayChecked != null) return !options.disableReplayChecked;
+  if (typeof options.replaysField === 'boolean') return options.replaysField;
+  if (typeof options.replaysField === 'string') return options.replaysField !== '0';
+  return options.defaultsReplayEnabled;
+}
+
 export function buildCreateChannelBody(
   topic: string,
   options: {

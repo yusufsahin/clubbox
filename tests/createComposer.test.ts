@@ -4,6 +4,8 @@ import {
   automaticSpeakerApprovalBodyKeyDocumented,
   buildCreateChannelBody,
   createDefaults,
+  resolveCreateReplayEnabled,
+  replaysOfferedForAudience,
   showAutomaticSpeakerApproval,
   showTopicPicker,
   topicListEndpointDocumented,
@@ -20,6 +22,35 @@ test('createDefaults turns replays on when the capability says they are availabl
   };
   assert.deepEqual(createDefaults(targets, 'public'), { replayEnabled: true, chatEnabled: true });
   assert.deepEqual(createDefaults(targets, 'friends-of-friends'), { replayEnabled: false, chatEnabled: true });
+  assert.equal(replaysOfferedForAudience(targets, 'public'), true);
+  assert.equal(replaysOfferedForAudience(targets, 'friends-of-friends'), false);
+});
+
+test('resolveCreateReplayEnabled never forces true when the Disable replay control is absent', () => {
+  assert.equal(
+    resolveCreateReplayEnabled({
+      disableReplayChecked: null,
+      replaysField: null,
+      defaultsReplayEnabled: false,
+    }),
+    false,
+  );
+  assert.equal(
+    resolveCreateReplayEnabled({
+      disableReplayChecked: true,
+      replaysField: '1',
+      defaultsReplayEnabled: true,
+    }),
+    false,
+  );
+  assert.equal(
+    resolveCreateReplayEnabled({
+      disableReplayChecked: false,
+      replaysField: '0',
+      defaultsReplayEnabled: false,
+    }),
+    true,
+  );
 });
 
 test('DX-1 topic picker stays hidden until a topic list endpoint is bound', () => {

@@ -39,12 +39,12 @@ Feature: Host and moderate a room
     Then a "POST /web_api/invite_speaker" request is sent with body keys "channel, user_id"
 
   @community @RH-4
-  Scenario: First use of an experimental action asks for confirmation
-    Given experimental actions are on
-    And I have never used "invite_speaker"
+  Scenario: Invite to stage does not ask for experimental confirmation
+    Given experimental actions are off
+    And I host the room "Morning show"
+    And "Ayse" raised her hand
     When I click "Invite to stage" for "Ayse"
-    Then I see a confirmation that this action is experimental
-    And no request is sent until I confirm
+    Then a "POST /web_api/invite_speaker" request is sent with body keys "channel, user_id"
 
   @community @RH-5
   Scenario: Mute everyone except me
@@ -70,11 +70,10 @@ Feature: Host and moderate a room
     And Agora leaves and presence pings stop
 
   @community
-  Scenario: Experimental actions are hidden by default
+  Scenario: Host moderation works without experimental actions
     Given experimental actions are off
     And I host the room "Morning show"
-    Then I do not see "Mute everyone", "End room" or "Invite to stage"
-    And I see "Available in the Clubhouse app" where those controls would be
+    Then the host controls show "Mute everyone", "End room" and "Invite to stage"
 
   @bundle @DX-1
   Scenario: Room topics in the composer

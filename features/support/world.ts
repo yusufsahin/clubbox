@@ -348,17 +348,13 @@ export class ClubboxWorld extends World {
     this.visibleControls.delete('End room');
     this.visibleControls.delete('Invite to stage');
     this.visibleControls.add('Rename');
-    if (this.session.experimentalControlsVisible()) {
-      const flags = roomControlFlags(
-        this.effectiveUserCapabilities(),
-        (endpoint) => this.client.supports(endpoint),
-      );
-      if (flags.canMuteEveryone) this.visibleControls.add('Mute everyone');
-      if (flags.canEnd) this.visibleControls.add('End room');
-      if (flags.canInvite) this.visibleControls.add('Invite to stage');
-    } else {
-      this.uiMessages.push('Available in the Clubhouse app');
-    }
+    const flags = roomControlFlags(
+      this.effectiveUserCapabilities(),
+      (endpoint) => this.client.supports(endpoint),
+    );
+    if (flags.canMuteEveryone) this.visibleControls.add('Mute everyone');
+    if (flags.canEnd) this.visibleControls.add('End room');
+    if (flags.canInvite) this.visibleControls.add('Invite to stage');
   }
 
   async chooseModeration(action: string, name: string): Promise<void> {

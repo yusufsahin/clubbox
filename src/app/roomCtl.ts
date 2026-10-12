@@ -1,10 +1,15 @@
 export { RoomEffectRunner, type RoomEffectDeps } from './roomEffectRunner.ts';
 import { ClubhouseApiError, clubhouseClient } from '../api/client.ts';
+import {
+  createDefaults,
+  resolveCreateReplayEnabled,
+  type CreateAudience,
+} from '../api/createComposer.ts';
 import { beginJoin, commitJoin, finishLeave, localClipAllowed, roleSyncDecision, roomAudience } from '../api/guards.ts';
 import { leaveClosesRoom, planLeaveServer, roomHasOthers } from '../api/roomActions.ts';
 import { visibilityChangeEndpoint } from '../api/moderationExtras.ts';
 import { mergePingCandidates, readSearchPingCandidates, readSuggestedInvites } from '../api/pingInvites.ts';
-import { readUserCapabilities, roomControlFlags } from '../api/roomControls.ts';
+import { isChannelModerator, readUserCapabilities, roomControlFlags } from '../api/roomControls.ts';
 import { roomSync } from '../api/roomSync.ts';
 import { audioEngine } from '../audio/audioEngine.ts';
 import { agoraVoice } from '../audio/agoraVoice.ts';
@@ -200,9 +205,7 @@ export function isMeSpeaker(this: ClubboxApp) : boolean {
   }
 
 export function isMeModerator(this: ClubboxApp) : boolean {
-    if (!this.currentChannel || !this.me) return false;
-    const meId = String(this.me.user_id);
-    return this.currentChannel.users.some((user) => String(user.user_id) === meId && !!user.is_moderator);
+    return isChannelModerator(this.currentChannel, this.me?.user_id);
   }
 
 export function syncAgoraRole(this: ClubboxApp) : void {
@@ -274,7 +277,11 @@ export async function inviteToStage(this: ClubboxApp, userId: number) : Promise<
   }
 
 export async function moderateSpeaker(this: ClubboxApp, userId: number, action: 'mute' | 'moderator' | 'audience' | 'block') : Promise<void> {
-    if (!this.currentChannel || !this.isMeModerator()) return;
+    if (!this.currentChannel) return;
+    if (!this.isMeModerator()) {
+      this.showToast(t('permissionDenied'), '🔒');
+      return;
+    }
     const channelId = this.channelApiId(this.currentChannel);
     const endpoint = action === 'mute' ? 'mute_speaker'
       : action === 'moderator' ? 'make_moderator'
@@ -677,8 +684,8 @@ export function allowAction(this: ClubboxApp, endpoint: string) : boolean {
       const key = evidence === 'unsupported'
         ? 'unsupportedAction'
         : evidence === 'community'
-          ? 'availableInClubhouseApp'
-          : 'unverifiedAction';
+          ? 'moderationNeedsExperimental'
+          : 'temporarilyUnavailable';
       this.showToast(t(key), '🔒');
       return false;
     }
@@ -687,6 +694,13 @@ export function allowAction(this: ClubboxApp, endpoint: string) : boolean {
       clubhouseClient.confirmExperimental(endpoint);
     }
     return true;
+  }
+
+export async function enableExperimentalActions(this: ClubboxApp): Promise<void> {
+    await clubhouseClient.updateConfig({ experimentalActions: true });
+    this.showToast(t('experimentalActionsEnabled'), '✅');
+    this.render();
+    if (document.getElementById('room-details-root')) this.renderRoomDetails();
   }
 
 export async function joinRoom(this: ClubboxApp, channelId: string, preset?: CHChannelDetail) {
@@ -1106,17 +1120,20 @@ export async function sendChatMessage(this: ClubboxApp) {
 export async function confirmCreateRoom(this: ClubboxApp) : Promise<void> {
     const topic = (document.getElementById('new-room-topic') as HTMLInputElement | null)?.value.trim();
     const privacy = (document.getElementById('new-room-privacy') as HTMLInputElement | HTMLSelectElement | null)?.value;
-    const audience = privacy === 'friends' || privacy === 'friends-of-friends' || privacy === 'house'
+    const audience: CreateAudience = privacy === 'friends' || privacy === 'friends-of-friends' || privacy === 'house'
       || privacy === 'social' || privacy === 'closed' ? privacy : 'public';
     const clubField = document.getElementById('new-room-house') as HTMLInputElement | HTMLSelectElement | null;
     const socialClubId = audience === 'house' && clubField?.value ? Number(clubField.value) : undefined;
     const disableReplay = document.getElementById('new-room-disable-replay') as HTMLInputElement | null;
     const replaysEl = document.getElementById('new-room-replays') as HTMLInputElement | null;
-    const replayEnabled = disableReplay
-      ? !disableReplay.checked
-      : replaysEl
-        ? (replaysEl.type === 'checkbox' ? replaysEl.checked : replaysEl.value !== '0')
-        : true;
+    const replayDefaults = createDefaults(this.createChannelTargets, audience);
+    const replayEnabled = resolveCreateReplayEnabled({
+      disableReplayChecked: disableReplay ? disableReplay.checked : null,
+      replaysField: replaysEl
+        ? (replaysEl.type === 'checkbox' ? replaysEl.checked : replaysEl.value)
+        : null,
+      defaultsReplayEnabled: replayDefaults.replayEnabled,
+    });
     const chatEnabled = (document.getElementById('new-room-chat') as HTMLInputElement | null)?.checked !== false;
     const handraiseRaw = (document.getElementById('new-room-handraise') as HTMLSelectElement | null)?.value;
     const handraisePermission = handraiseRaw === '2' ? 2 : handraiseRaw === '1' ? 1 : undefined;
@@ -1203,6 +1220,7 @@ export function wireRoomCtl(proto: ClubboxApp): void {
   proto.syncClipArm = syncClipArm;
   proto.saveClip = saveClip;
   proto.allowAction = allowAction;
+  proto.enableExperimentalActions = enableExperimentalActions;
   proto.joinRoom = joinRoom;
   proto.connectRoomAudio = connectRoomAudio;
   proto.fetchFreshAgoraToken = fetchFreshAgoraToken;

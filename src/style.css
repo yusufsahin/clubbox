@@ -424,6 +424,10 @@ body {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  max-height: min(240px, 32vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 2px;
 }
 
 .room-type-row {
@@ -464,12 +468,12 @@ body {
 
 .create-go-live {
   width: 100%;
-  margin-top: 16px;
+  margin-top: 12px;
 }
 
 .create-more-options {
-  margin-top: 8px;
-  margin-bottom: 4px;
+  margin-top: 0;
+  margin-bottom: 0;
 }
 
 .create-more-options > summary {
@@ -484,6 +488,12 @@ body {
   align-items: flex-start;
   gap: 10px;
   cursor: pointer;
+}
+
+.create-replay-help {
+  display: block;
+  font-weight: 400;
+  margin-top: 4px;
 }
 
 .create-replay-toggle input {
@@ -1212,6 +1222,7 @@ body {
   background: var(--bg-overlay);
   color: var(--text-main);
   cursor: pointer;
+  z-index: 5;
 }
 
 .speaker-menu {
@@ -2589,9 +2600,27 @@ body {
 }
 
 .modal-content.create-modal-simple {
+  display: flex;
+  flex-direction: column;
   max-height: calc(100vh - 48px);
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+.create-modal-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
+  padding-right: 2px;
+}
+
+.create-modal-footer {
+  flex: 0 0 auto;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-sidebar);
 }
 
 .modal-header {

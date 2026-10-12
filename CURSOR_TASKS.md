@@ -10,17 +10,19 @@ Owner reported: triage noise, new-room participants invisible, moderation action
 - [x] Root cause: bundle crawl missed HTML runtime chunks → `realtime-config.json` empty → `missing_subscribe_key`
 - [x] Fix crawler extractor v3 (HTML `<script>` + webpack expansion); force rediscover keys
 - [x] Triage: ignore Agora 200/connection chatter; keep real 404 fixtures (end_channel / events / notifications)
-- [x] Toast when PubNub keys missing; moderation still needs Settings › Experimental actions
+- [x] Toast when PubNub keys missing
+- [x] Host tools (mute / make mod / invite / end room) are first-class — no Experimental gate
 
 ### Previous run (owner instruction, 2026-10-12 #10)
 
 Idle recheck after 24.7.
 
-### Last autonomous run (2026-10-12 #11 — PubNub keys)
+### Last autonomous run (2026-10-12 #12 — host tools first-class)
 
-- Fixed empty realtime keys (participants now update via PubNub once app restarted).
-- Moderation routes remain `community` → enable **Experimental actions** in Settings.
-- Leftover: ST-9 `@deferred`; ACC-1 wording question.
+- Mute, make moderator, invite, end room, visibility, handraise, hide: always callable (no Experimental, no confirm).
+- Prior `end_channel` 404 no longer buries host tools as unsupported (revived on config load).
+- Verified: `npm test` (225 unit + 201 BDD), lint, build green.
+- Leftover: ST-9 `@deferred`; ACC-1 wording; live verify host mod 2xx → observed.
 
 ### Questions for the owner
 

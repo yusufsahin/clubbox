@@ -1,7 +1,28 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { roomControlFlags } from '../src/api/roomControls.ts';
+import { isChannelModerator, roomControlFlags } from '../src/api/roomControls.ts';
 import { getEndpoint } from '../src/api/registry.ts';
+
+test('isChannelModerator treats the room creator as host when the user row is missing', () => {
+  assert.equal(
+    isChannelModerator({ creator_user_profile_id: 9, users: [] }, 9),
+    true,
+  );
+  assert.equal(
+    isChannelModerator({
+      creator_user_profile_id: 1,
+      users: [{ user_id: 2, is_moderator: true }],
+    }, 2),
+    true,
+  );
+  assert.equal(
+    isChannelModerator({
+      creator_user_profile_id: 1,
+      users: [{ user_id: 2, is_moderator: false }],
+    }, 2),
+    false,
+  );
+});
 
 test('roomControlFlags gates handraise, rename, and emoji by capability + support', () => {
   const all = roomControlFlags(

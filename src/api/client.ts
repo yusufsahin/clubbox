@@ -1,5 +1,14 @@
 import { ApiHealthStore, type ApiHealthFailure, type RedactedRequestLogEntry } from './apiHealth';
-import { canCall, evidenceOf, routeMethod, routePath, routeRecord, type Evidence, type Transport } from './capabilities';
+import {
+  canCall,
+  evidenceOf,
+  isHostCommunityEndpoint,
+  routeMethod,
+  routePath,
+  routeRecord,
+  type Evidence,
+  type Transport,
+} from './capabilities';
 import { PEOPLE_LIST_ENDPOINTS, readPeopleList, readProfile, type PeopleListPage } from './relationship';
 import { businessFailure, classifyHttpFailure, nextBackoffMs, type ApiErrorKind } from './guards';
 import { FEED_MAX_PAGES, mergeFeedChannels, nextFeedCursor, type FeedPage } from './feedPagination';
@@ -560,13 +569,33 @@ export class ClubhouseApiClient {
         ?? parsedSaved.confirmedExperimentalRoutes
         ?? DEFAULT_CONFIG.confirmedExperimentalRoutes,
     };
+    // Revive core host tools that an earlier 404 buried as unsupported.
+    let hostRoutesRevived = false;
+    for (const endpoint of Object.keys(this.config.unsupportedRoutes)) {
+      if (!isHostCommunityEndpoint(endpoint)) continue;
+      delete this.config.unsupportedRoutes[endpoint];
+      if (this.config.evidenceOverrides[endpoint] === 'unsupported') {
+        delete this.config.evidenceOverrides[endpoint];
+      }
+      hostRoutesRevived = true;
+    }
+    for (const endpoint of Object.keys(this.config.evidenceOverrides)) {
+      if (!isHostCommunityEndpoint(endpoint)) continue;
+      if (this.config.evidenceOverrides[endpoint] !== 'unsupported') continue;
+      delete this.config.evidenceOverrides[endpoint];
+      hostRoutesRevived = true;
+    }
     if (STALE_AGORA_APP_IDS.has(this.config.agoraAppId)) {
       this.config.agoraAppId = DEFAULT_CONFIG.agoraAppId;
     }
     if (this.config.language !== 'en' && this.config.language !== 'tr') {
       this.config.language = 'en';
     }
-    if ((parsedSaved.appBuild && !clientIsCurrent) || STALE_AGORA_APP_IDS.has(parsedSaved.agoraAppId ?? '')) {
+    if (
+      hostRoutesRevived
+      || (parsedSaved.appBuild && !clientIsCurrent)
+      || STALE_AGORA_APP_IDS.has(parsedSaved.agoraAppId ?? '')
+    ) {
       writeConfig(this.config);
     }
 
@@ -671,8 +700,11 @@ export class ClubhouseApiClient {
   }
 
   public needsExperimentalConfirmation(endpoint: string): boolean {
-    return this.effectiveEvidence(endpoint) === 'community'
-      && this.config.experimentalActions
+    // Host room tools are first-class; no confirm dialog. Speculative community
+    // reads (events, notifications, …) still ask once when Experimental is on.
+    if (this.effectiveEvidence(endpoint) !== 'community') return false;
+    if (isHostCommunityEndpoint(endpoint)) return false;
+    return this.config.experimentalActions === true
       && !this.config.confirmedExperimentalRoutes.includes(endpoint);
   }
 
@@ -801,13 +833,17 @@ export class ClubhouseApiClient {
       bodyKeys: Object.keys(body ?? {}),
       time: new Date(this.nowFn()).toISOString(),
     });
-    if (status === 404 || status === 405) {
+    // Core host tools must stay available after a single 404 (web may not expose
+    // every mobile route). Still recorded in API Health above.
+    if ((status === 404 || status === 405) && !isHostCommunityEndpoint(endpoint)) {
       void this.updateConfig({
         unsupportedRoutes: { ...this.config.unsupportedRoutes, [endpoint]: this.config.appVersion },
         evidenceOverrides: { ...this.config.evidenceOverrides, [endpoint]: 'unsupported' },
       });
     }
     if (status >= 400 && status < 500 && status !== 401 && status !== 429) {
+      // 404/405 on host tools is "web may not have this route" — keep the control.
+      if (isHostCommunityEndpoint(endpoint) && (status === 404 || status === 405)) return;
       const count = (this.consecutiveClientErrors.get(endpoint) ?? 0) + 1;
       this.consecutiveClientErrors.set(endpoint, count);
       if (count >= 2) this.sessionDisabled.add(endpoint);

@@ -3,6 +3,7 @@ import {
   capabilityForAudience,
   composerPrivacyOptions,
   createDefaults,
+  replaysOfferedForAudience,
   showAutomaticSpeakerApproval,
   showTopicPicker,
 } from '../../api/createComposer';
@@ -48,13 +49,45 @@ function roomTypeChoices(targets: CreateChannelTargets | null): RoomTypeChoice[]
   return out;
 }
 
+function parseAudience(value: string): CreateAudience {
+  if (value.startsWith('house:')) return 'house';
+  if (
+    value === 'friends'
+    || value === 'friends-of-friends'
+    || value === 'house'
+    || value === 'social'
+    || value === 'closed'
+  ) {
+    return value;
+  }
+  return 'public';
+}
+
+function syncReplayControls(
+  overlay: HTMLElement,
+  targets: CreateChannelTargets | null,
+  audience: CreateAudience,
+): void {
+  const offered = replaysOfferedForAudience(targets, audience);
+  const defaults = createDefaults(targets, audience);
+  const disableReplay = overlay.querySelector('#new-room-disable-replay') as HTMLInputElement | null;
+  const replaysHidden = overlay.querySelector('#new-room-replays') as HTMLInputElement | null;
+  const help = overlay.querySelector('#new-room-replays-help') as HTMLElement | null;
+  if (disableReplay) {
+    disableReplay.checked = !defaults.replayEnabled;
+    disableReplay.disabled = false;
+  }
+  if (replaysHidden) replaysHidden.value = defaults.replayEnabled ? '1' : '0';
+  if (help) help.textContent = offered ? t('replaysAtCreateHelp') : t('replaysUnavailableAtCreate');
+}
+
 export function mountCreateModal(config: CreateModalConfig): HTMLElement {
   const choices = roomTypeChoices(config.targets);
   const initial = choices[0];
   const initialAudience: CreateAudience = initial?.audience ?? 'public';
   const defaults = createDefaults(config.targets, initialAudience);
   const initialCap = capabilityForAudience(config.targets, initialAudience);
-  const showReplays = initialCap?.is_replay_available !== false;
+  const replaysOffered = replaysOfferedForAudience(config.targets, initialAudience);
   const showTopics = showTopicPicker(config.targets, initialAudience);
   const showAutoApprove = showAutomaticSpeakerApproval(config.targets, initialAudience);
   const topicChoices = (config.targets?.topics ?? []).filter(
@@ -72,104 +105,104 @@ export function mountCreateModal(config: CreateModalConfig): HTMLElement {
         <button class="modal-close-btn" data-action="close-create">✕</button>
       </div>
 
-      <div class="form-group">
-        <label class="form-label" for="new-room-topic">${t('roomTopic')}</label>
-        <input class="form-input" id="new-room-topic" data-create-title placeholder="${t('roomTopic')}" />
-        ${config.titleSuggestions.length > 0 ? html`
-          <div class="topic-chips room-title-ideas">
-            ${config.titleSuggestions.map((title) => html`<button class="topic-chip" type="button" data-action="pick-room-title" data-title="${title}">${title}</button>`)}
-          </div>
-        ` : ''}
-      </div>
-
-      <div class="form-group" data-room-type-list>
-        <label class="form-label">${t('roomType')}</label>
-        <div class="room-type-list" role="listbox" aria-label="${t('roomType')}">
-          ${choices.map((choice, index) => {
-            const value = choice.kind === 'house' ? `house:${choice.clubId}` : choice.audience;
-            const checked = index === 0 ? 'checked' : '';
-            const photo = choice.kind === 'house' && choice.photo ? safeUrl(choice.photo) : null;
-            return html`
-              <label class="room-type-row" data-room-type="${value}">
-                <input type="radio" name="new-room-type" value="${value}" ${checked} />
-                ${photo ? html`<img class="room-type-photo" src="${photo}" alt="" width="36" height="36" />` : html`<span class="room-type-icon" aria-hidden="true">🎙️</span>`}
-                <span class="room-type-copy">
-                  <strong>${choice.label}</strong>
-                  ${choice.kind === 'house' ? html`<span class="list-empty">${choice.access}</span>` : ''}
-                </span>
-              </label>
-            `;
-          })}
+      <div class="create-modal-scroll">
+        <div class="form-group">
+          <label class="form-label" for="new-room-topic">${t('roomTopic')}</label>
+          <input class="form-input" id="new-room-topic" data-create-title placeholder="${t('roomTopic')}" />
+          ${config.titleSuggestions.length > 0 ? html`
+            <div class="topic-chips room-title-ideas">
+              ${config.titleSuggestions.map((title) => html`<button class="topic-chip" type="button" data-action="pick-room-title" data-title="${title}">${title}</button>`)}
+            </div>
+          ` : ''}
         </div>
-        <input type="hidden" id="new-room-privacy" value="${initialAudience}" />
-        <input type="hidden" id="new-room-house" value="${initial?.kind === 'house' ? String(initial.clubId) : ''}" />
+
+        <div class="form-group" data-room-type-list>
+          <label class="form-label">${t('roomType')}</label>
+          <div class="room-type-list" role="listbox" aria-label="${t('roomType')}">
+            ${choices.map((choice, index) => {
+              const value = choice.kind === 'house' ? `house:${choice.clubId}` : choice.audience;
+              const checked = index === 0 ? 'checked' : '';
+              const photo = choice.kind === 'house' && choice.photo ? safeUrl(choice.photo) : null;
+              return html`
+                <label class="room-type-row" data-room-type="${value}">
+                  <input type="radio" name="new-room-type" value="${value}" ${checked} />
+                  ${photo ? html`<img class="room-type-photo" src="${photo}" alt="" width="36" height="36" />` : html`<span class="room-type-icon" aria-hidden="true">🎙️</span>`}
+                  <span class="room-type-copy">
+                    <strong>${choice.label}</strong>
+                    ${choice.kind === 'house' ? html`<span class="list-empty">${choice.access}</span>` : ''}
+                  </span>
+                </label>
+              `;
+            })}
+          </div>
+          <input type="hidden" id="new-room-privacy" value="${initialAudience}" />
+          <input type="hidden" id="new-room-house" value="${initial?.kind === 'house' ? String(initial.clubId) : ''}" />
+        </div>
       </div>
 
-      <details class="create-more-options" data-more-options open>
-        <summary>${t('moreOptions')}</summary>
-        ${showReplays ? html`
+      <div class="create-modal-footer">
+        <details class="create-more-options" data-more-options open>
+          <summary>${t('moreOptions')}</summary>
           <div class="form-group" id="new-room-replays-group">
             <label class="form-label create-replay-toggle">
               <input type="checkbox" id="new-room-disable-replay" ${defaults.replayEnabled ? '' : 'checked'} />
               <span>
                 <strong>${t('disableReplay')}</strong>
-                <span class="list-note" style="display:block; font-weight:400; margin-top:4px;">${t('replaysAtCreateHelp')}</span>
+                <span class="list-note create-replay-help" id="new-room-replays-help">${replaysOffered ? t('replaysAtCreateHelp') : t('replaysUnavailableAtCreate')}</span>
               </span>
             </label>
             <input type="hidden" id="new-room-replays" value="${defaults.replayEnabled ? '1' : '0'}" />
           </div>
-        ` : html`
-          <p class="list-note" id="new-room-replays-unavailable">${t('replaysUnavailableAtCreate')}</p>
-        `}
 
-        <div class="form-group">
-          <label class="form-label">
-            <input type="checkbox" id="new-room-chat" ${defaults.chatEnabled ? 'checked' : ''} />
-            ${t('chatAtCreate')}
-          </label>
-        </div>
-
-        ${initialCap?.is_handraise_available === true ? html`
-          <div class="form-group" id="new-room-handraise-group">
-            <label class="form-label" for="new-room-handraise">${t('handraiseAtCreate')}</label>
-            <select class="form-input" id="new-room-handraise">
-              <option value="1">${t('handraiseEveryone')}</option>
-              <option value="2">${t('handraiseFriendsOfSpeakers')}</option>
-            </select>
-          </div>
-        ` : ''}
-
-        ${initialCap?.is_pinned_links_available === true ? html`
-          <div class="form-group" id="new-room-link-group">
-            <label class="form-label" for="new-room-link">${t('pinnedLinkAtCreate')}</label>
-            <input class="form-input" id="new-room-link" type="url" placeholder="${t('pinnedLinkPlaceholder')}" />
-          </div>
-        ` : ''}
-
-        ${showTopics && topicChoices.length > 0 ? html`
-          <div class="form-group" id="new-room-topics-group">
-            <label class="form-label">${t('topicsAtCreate')}</label>
-            <div class="topic-chips" id="new-room-topics">
-              ${topicChoices.map((topic) => {
-                const id = topic.topic_id ?? topic.id;
-                const label = topic.name ?? topic.title ?? '';
-                return html`<label class="topic-chip"><input type="checkbox" name="new-room-topic-id" value="${id}" /> ${label}</label>`;
-              })}
-            </div>
-          </div>
-        ` : ''}
-
-        ${showAutoApprove ? html`
-          <div class="form-group" id="new-room-auto-approve-group">
+          <div class="form-group">
             <label class="form-label">
-              <input type="checkbox" id="new-room-auto-approve" />
-              ${t('approveSpeakersAutomatically')}
+              <input type="checkbox" id="new-room-chat" ${defaults.chatEnabled ? 'checked' : ''} />
+              ${t('chatAtCreate')}
             </label>
           </div>
-        ` : ''}
-      </details>
 
-      <button class="btn btn-primary create-go-live" type="button" data-action="confirm-create">${t('goLive')}</button>
+          ${initialCap?.is_handraise_available === true ? html`
+            <div class="form-group" id="new-room-handraise-group">
+              <label class="form-label" for="new-room-handraise">${t('handraiseAtCreate')}</label>
+              <select class="form-input" id="new-room-handraise">
+                <option value="1">${t('handraiseEveryone')}</option>
+                <option value="2">${t('handraiseFriendsOfSpeakers')}</option>
+              </select>
+            </div>
+          ` : ''}
+
+          ${initialCap?.is_pinned_links_available === true ? html`
+            <div class="form-group" id="new-room-link-group">
+              <label class="form-label" for="new-room-link">${t('pinnedLinkAtCreate')}</label>
+              <input class="form-input" id="new-room-link" type="url" placeholder="${t('pinnedLinkPlaceholder')}" />
+            </div>
+          ` : ''}
+
+          ${showTopics && topicChoices.length > 0 ? html`
+            <div class="form-group" id="new-room-topics-group">
+              <label class="form-label">${t('topicsAtCreate')}</label>
+              <div class="topic-chips" id="new-room-topics">
+                ${topicChoices.map((topic) => {
+                  const id = topic.topic_id ?? topic.id;
+                  const label = topic.name ?? topic.title ?? '';
+                  return html`<label class="topic-chip"><input type="checkbox" name="new-room-topic-id" value="${id}" /> ${label}</label>`;
+                })}
+              </div>
+            </div>
+          ` : ''}
+
+          ${showAutoApprove ? html`
+            <div class="form-group" id="new-room-auto-approve-group">
+              <label class="form-label">
+                <input type="checkbox" id="new-room-auto-approve" />
+                ${t('approveSpeakersAutomatically')}
+              </label>
+            </div>
+          ` : ''}
+        </details>
+
+        <button class="btn btn-primary create-go-live" type="button" data-action="confirm-create">${t('goLive')}</button>
+      </div>
     </div>
   `);
 
@@ -187,6 +220,7 @@ export function mountCreateModal(config: CreateModalConfig): HTMLElement {
         privacyHidden.value = value;
         houseHidden.value = '';
       }
+      syncReplayControls(overlay, config.targets, parseAudience(value));
     });
   });
   disableReplay?.addEventListener('change', () => {

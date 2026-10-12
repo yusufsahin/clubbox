@@ -391,6 +391,15 @@ export class SandboxBackend {
         return { success: true } as T;
       }
 
+      case 'block_from_channel': {
+        const channel = this.findMockChannel(input.channel);
+        if (channel) {
+          channel.users = channel.users.filter((entry) => entry.user_id !== input.userId);
+          this.syncChannelCounts(channel);
+        }
+        return { success: true } as T;
+      }
+
       case 'create_channel': {
         const audience = input.audience === 'friends' || input.audience === 'friends-of-friends' || input.audience === 'house'
           ? input.audience
