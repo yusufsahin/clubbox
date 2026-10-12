@@ -1140,6 +1140,9 @@ export async function confirmCreateRoom(this: ClubboxApp) : Promise<void> {
         ...(handraisePermission != null ? { handraisePermission } : {}),
         ...(link ? { link } : {}),
       });
+      if (!replayEnabled && newChan.is_replay_enabled === true) {
+        this.showToast(t('replaysStillOnAfterCreate'), '⚠️');
+      }
       this.channelsList.unshift(newChan);
       this.closeCreateModal();
       await this.joinRoom(newChan.channel || newChan.channel_id.toString(), newChan);

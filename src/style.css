@@ -468,7 +468,8 @@ body {
 }
 
 .create-more-options {
-  margin-top: 16px;
+  margin-top: 8px;
+  margin-bottom: 4px;
 }
 
 .create-more-options > summary {
@@ -476,6 +477,17 @@ body {
   font-weight: 600;
   color: var(--text-muted);
   margin-bottom: 12px;
+}
+
+.create-replay-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.create-replay-toggle input {
+  margin-top: 3px;
 }
 
 #room-details-root {

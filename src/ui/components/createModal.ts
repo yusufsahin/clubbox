@@ -105,20 +105,22 @@ export function mountCreateModal(config: CreateModalConfig): HTMLElement {
         <input type="hidden" id="new-room-house" value="${initial?.kind === 'house' ? String(initial.clubId) : ''}" />
       </div>
 
-      <button class="btn btn-primary create-go-live" type="button" data-action="confirm-create">${t('goLive')}</button>
-
-      <details class="create-more-options" data-more-options>
+      <details class="create-more-options" data-more-options open>
         <summary>${t('moreOptions')}</summary>
         ${showReplays ? html`
           <div class="form-group" id="new-room-replays-group">
-            <label class="form-label">
+            <label class="form-label create-replay-toggle">
               <input type="checkbox" id="new-room-disable-replay" ${defaults.replayEnabled ? '' : 'checked'} />
-              ${t('disableReplay')}
+              <span>
+                <strong>${t('disableReplay')}</strong>
+                <span class="list-note" style="display:block; font-weight:400; margin-top:4px;">${t('replaysAtCreateHelp')}</span>
+              </span>
             </label>
             <input type="hidden" id="new-room-replays" value="${defaults.replayEnabled ? '1' : '0'}" />
-            <p class="list-note">${t('replaysAtCreateHelp')}</p>
           </div>
-        ` : ''}
+        ` : html`
+          <p class="list-note" id="new-room-replays-unavailable">${t('replaysUnavailableAtCreate')}</p>
+        `}
 
         <div class="form-group">
           <label class="form-label">
@@ -166,6 +168,8 @@ export function mountCreateModal(config: CreateModalConfig): HTMLElement {
           </div>
         ` : ''}
       </details>
+
+      <button class="btn btn-primary create-go-live" type="button" data-action="confirm-create">${t('goLive')}</button>
     </div>
   `);
 
