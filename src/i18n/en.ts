@@ -33,6 +33,7 @@ export const en = {
   blockFromRoom: 'Block from room',
   blockFromRoomConfirm: 'Remove this person from the room? They cannot rejoin this room.',
   hostToolsNeedSession: 'Sign in with Clubhouse to use host tools (mute, move, end room).',
+  hostToolsAppOnly: 'Use the Clubhouse app to moderate',
   hostToolsLinkTitle: 'Enter the code sent to your phone',
   hostToolsLinkHelp: 'Host tools need a one-time Clubhouse phone link. Only the code is typed here.',
   hostToolsLinkCode: 'SMS code',

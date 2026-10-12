@@ -109,11 +109,17 @@ export type CanCallOptions = {
   /** Local promotions / test overrides (e.g. observed after a logged 2xx). */
   evidenceOverrides?: Record<string, Evidence>;
   /**
-   * Phase 27: web session sets mobileAuthStatus.linked (transport gate).
-   * Live moderation still needs Token — cookie alone → 401 (see docs/api/mobile-api.md).
+   * Dormant Token-link gate (Phase 27.5). Ignored while MOBILE_HOST_TOOLS_IN_SCOPE is false.
    */
   mobileLinked?: boolean;
 };
+
+/**
+ * Owner 2026-10-12: Clubhouse rejects third-party mobile SMS (device check).
+ * Do not bypass; do not import tokens. Host moderation is app-only.
+ * Keep mobile transport code dormant (sandbox still exercises host tools).
+ */
+export const MOBILE_HOST_TOOLS_IN_SCOPE = false;
 
 /** Moderation endpoints that use the mobile API host (Phase 27). */
 export const MOBILE_HOST_ENDPOINTS = new Set([
@@ -222,6 +228,7 @@ export function canCall(
   if (evidence === 'in-bundle') return false;
 
   if (mobileHost || evidence === 'mobile-spike') {
+    if (!MOBILE_HOST_TOOLS_IN_SCOPE) return false;
     if (transport !== 'web-session' && transport !== 'mobile') return false;
     return options?.mobileLinked === true;
   }

@@ -20,7 +20,7 @@ function installFakeMobile(calls: MobileCall[]): () => void {
   };
 }
 
-test('live web-session routes moderation through mobileCall IPC', async () => {
+test('live web-session does not call mobile host tools (app-only 2026-10-12)', async () => {
   const calls: MobileCall[] = [];
   const restore = installFakeMobile(calls);
   try {
@@ -29,25 +29,21 @@ test('live web-session routes moderation through mobileCall IPC', async () => {
       webSession: true,
       userId: 42,
     });
-    assert.equal(client.isMobileLinked(), true);
-    assert.equal(client.supports('mute_speaker'), true);
-    await client.muteSpeaker('abc123', 7);
-    await client.inviteSpeaker('abc123', 9);
-    await client.endChannel('abc123', 55);
-    assert.deepEqual(calls.map((c) => c.endpoint), ['mute_speaker', 'invite_speaker', 'end_channel']);
-    assert.deepEqual(calls[0]?.body, { channel: 'abc123', user_id: 7 });
-    assert.deepEqual(calls[2]?.body, { channel: 'abc123', channel_id: 55 });
+    assert.equal(client.isMobileLinked(), false);
+    assert.equal(client.supports('mute_speaker'), false);
+    await assert.rejects(() => client.muteSpeaker('abc123', 7));
+    await assert.rejects(() => client.inviteSpeaker('abc123', 9));
+    await assert.rejects(() => client.endChannel('abc123', 55));
+    assert.deepEqual(calls, []);
   } finally {
     restore();
   }
 });
 
-test('moveToAudience sends mute_speaker then uninvite_speaker', async () => {
+test('sandbox moveToAudience still sends mute then uninvite', async () => {
   const transport = new FakeTransport();
   const client = new ClubhouseApiClient({
-    useSandbox: false,
-    webSession: true,
-    userId: 42,
+    useSandbox: true,
     transport,
   });
   await client.moveToAudience('abc123', 7);
@@ -59,11 +55,11 @@ test('moveToAudience sends mute_speaker then uninvite_speaker', async () => {
   assert.deepEqual(transport.requests[1]?.body, { channel: 'abc123', user_id: 7 });
 });
 
-test('host tools stay hidden when web session (mobile link) is absent', () => {
+test('host tools stay unsupported on live web session', () => {
   const client = new ClubhouseApiClient({
     useSandbox: false,
-    webSession: false,
-    userId: null,
+    webSession: true,
+    userId: 42,
   });
   assert.equal(client.isMobileLinked(), false);
   assert.equal(client.supports('mute_speaker'), false);

@@ -23,14 +23,14 @@ Each endpoint in `electron/webApiRoutes.json` has an evidence level. The level d
 | `observed` | A redacted capture shows a 2xx response | Yes | Normal |
 | `bundle` | Path + method + body keys found at a call site in the web bundle | Yes | Normal; failures go to API Health |
 | `community` | Name + body from C, mapped to `/web_api/<name>` | Visibility, hide, ping, reject invite: always callable on a web session. Speculative community (events, notifications, …) only when Settings → "Experimental actions" is on | Speculative community: first use asks for confirmation |
-| `mobile-spike` | Host moderation on `clubhouseapi.com/api` (allow-list in `docs/api/mobile-api.md`). Token store/transport/UX (27.5.1–4) ready; **live auth needs `Authorization: Token`** — web session only unlocks `get_profile`-class calls; Electron SMS failed 27.5.0 (`token validation`) | Callable in code when mobile link reports linked; **live 2xx blocked until Token** | Host tools shown; live mute/invite/end fail until Token |
+| `mobile-spike` | Host moderation on `clubhouseapi.com/api` (allow-list in `docs/api/mobile-api.md`). **Out of scope 2026-10-12:** Clubhouse blocks third-party mobile SMS sign-in (device check). No Token import. Moderation is app-only. | Not callable live (`MOBILE_HOST_TOOLS_IN_SCOPE = false`); sandbox still exercises host tools | Host actions shown **disabled** with “Use the Clubhouse app to moderate” (never silent 401) |
 | `unsupported` | Tried and failed with 404/405, or proven absent | No | "Available in the Clubhouse app" |
 
 Rules:
 1. Every route has a correct `mutation` flag. Anything that creates, sends, deletes, updates, joins, leaves, pings, reacts, follows, mutes, invites or marks is a mutation.
 2. Circuit breaker per endpoint: the first 404/405 marks the route `unsupported` locally (host / mobile-spike tools stay callable); 2 consecutive 4xx (other than 401/429) disable it for the session; 429 → exponential backoff (1, 2, 4 … 30 min). Every failure is shown in **Settings → API Health** with status, time and a "copy redacted report" button.
 3. Promotion: a `bundle`, `community`, or `mobile-spike` route becomes `observed` automatically when the recorder (or the app's own redacted request log, opt-in) records a 2xx.
-4. Never invent a name that is in none of O, B, C, or the Phase 27 mobile allow-list. Mobile host only for that allow-list (main process). Auth: Token when linked (27.5); else cookie+csrf (insufficient for moderation — see `docs/api/mobile-api.md`).
+4. Never invent a name that is in none of O, B, C, or the Phase 27 mobile allow-list. Mobile host allow-list code is dormant — **moderation is app-only** (Clubhouse blocks third-party mobile sign-in, device check, 2026-10-12). Do not resume SMS/Token without a new owner decision.
 5. Contract tests pin the body keys for every `bundle`, `community`, and `mobile-spike` route (see §8).
 
 Known body shapes (B unless marked C):
@@ -125,14 +125,14 @@ Legend — Today: ✅ works live · ✅* wired (live verification pending) · �
 | RH-1 | Start room: audience (friends / friends of friends / house / public), title, replays, chat | ✓ | ✓ | ✅ | O | P0 |
 | RH-2 | Speak: Agora publish with mic + soundboard mix | ✓ | ✓ | ✅* | O (token in create) | P0 |
 | RH-3 | Edit room title | ✓ | ✓ | 🧪 | B (set_channel_title) | P1 |
-| RH-4 | Hand queue list + invite to stage | ✓ | ✓ | ✅* (live Token blocked) | mobile-spike (invite_speaker) | P1 |
-| RH-5 | Mute speaker / mute everyone | ✓ | ✓ | ✅* (live Token blocked) | mobile-spike (mute_speaker ×N) | P1 |
-| RH-6 | Make moderator / move to audience / block from room | ✓ | ✓ | ✅* (live Token blocked; move = mute+uninvite) | mobile-spike | P1 |
-| RH-7 | Hand-raise permission (off / everyone / friends of speakers) | ✓ | ✓ | ✅* (create B; mid-room mobile 404/Token) | B create `handraise_permission`; mid-room mobile-spike | P1 |
+| RH-4 | Hand queue list + invite to stage | ✓ | ✓ | ❌ app-only (disabled UI) | mobile-spike (invite_speaker) — blocked | P1 |
+| RH-5 | Mute speaker / mute everyone | ✓ | ✓ | ❌ app-only (disabled UI) | mobile-spike (mute_speaker ×N) — blocked | P1 |
+| RH-6 | Make moderator / move to audience / block from room | ✓ | ✓ | ❌ app-only (disabled UI; move = mute+uninvite) | mobile-spike — blocked | P1 |
+| RH-7 | Hand-raise permission (off / everyone / friends of speakers) | ✓ | ✓ | ✅* create B; mid-room ❌ app-only | B create `handraise_permission`; mid-room mobile blocked | P1 |
 | RH-8 | Chat on/off, delete a message | ✓ | ✓ | 🧪 | N for delete | P2 |
 | RH-9 | Ping people into the room (multi-select, search by bio) | ✓ | ✓ | ✅ | C (invite_to_existing_channel) | P1 |
 | RH-10 | Room visibility change | | ✓ | ✅ | C (make_channel_public/social) | P2 |
-| RH-11 | End room (confirm) | ✓ | ✓ | ✅* (wired; live Token blocked) Leave ≠ End; End = mobile end_channel then local leave | mobile-spike (end_channel) | P0 |
+| RH-11 | End room (confirm) | ✓ | ✓ | ❌ app-only (disabled UI) Leave ≠ End; End needs mobile — blocked | mobile-spike (end_channel) — blocked | P0 |
 | RH-12 | Pinned link | ✓ | ✓ | ✅ | B (create_channel.link) | P2 |
 | RH-13 | Room details panel (mobile "live details"): replay status + note, audio quality, audience search, mute all other speakers (mod), share | ✓ | ✓ | ✅ | B/C | P1 |
 | RH-14 | Simple composer like the mobile app: title → room type list (public, friends of friends, my friends, each of my houses with photo and access label) → go live; replays ON by default with "disable replay" under More options | ✓ | ✓ | ✅ | O | P1 |
@@ -218,14 +218,14 @@ These appear in `create_channel` / `me` responses (`user_capabilities`, `channel
 | YouTube downloader for sounds | Copyright |
 | Voice assistant that speaks generated answers on stage | Platform-manipulation risk; low value |
 | web_listener_* flow | Requires reCAPTCHA token; Clubbox must not run reCAPTCHA itself |
-| Mobile API (clubhouseapi.com), token sign-in | Off-policy, superseded by web session |
+| Mobile API (clubhouseapi.com) host tools / Token / SMS | **Moderation is app-only.** Clubhouse blocks third-party mobile sign-in (device check, 2026-10-12). Do not bypass; do not import tokens from other apps. Allow-list code stays dormant. |
 | Followers/following list scraping via guessed paths | No source; guidelines risk |
 | Clubhouse Talk / paid advisor (`talk/*`) | Payments and advisor flows are out of product scope (DX-15) |
 | Unfollow API | Not in the web client; live UI keeps a non-clickable “Following” control (SO-1 decided) |
 | Mobile-only room settings: "show replay on profile", "allow web listening", "report a recent speaker", "report room title" | Not in the clubhouse.com web client (no request in the bundle). Show nothing rather than a control that cannot work; users do these in the app. |
 | Live captions | Rendered by the web client from a source not yet identified; revisit if the crawler finds it. |
 | Profile polls, clips, replays, karma, earnings | Not in the web profile data (bundle parseUserProfile); app-only. |
-| Full followers / following / friends lists of any user | No list endpoint in the web client; only counts, mutual lists and recently chatting are available. Mobile API is off-policy. |
+| Full followers / following / friends lists of any user | No list endpoint in the web client; only counts, mutual lists and recently chatting are available. Not on the host-tool mobile allow-list. |
 
 ## 5. Releases
 

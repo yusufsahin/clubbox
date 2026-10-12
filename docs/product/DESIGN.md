@@ -11,11 +11,11 @@ This document describes how Clubbox binds to the Clubhouse web API, what the tar
 | # | Constraint | Consequence |
 | --- | --- | --- |
 | C1 | No official API. Sources: captures (O), web bundle call sites (B), community clients (C) | Evidence ladder (PRD §2); endpoint registry carries evidence |
-| C2 | Web session only (cookies + csrftoken in Electron's default session) | All calls go through the main-process `ch:request` IPC; no tokens in the renderer |
+| C2 | Web session for everything. **Moderation is app-only** — Clubhouse blocks third-party mobile SMS (device check, 2026-10-12). No Token import. Mobile allow-list / Token store code is dormant. | Web calls via main-process `ch:request`. Host mute/invite/end shown disabled with “Use the Clubhouse app to moderate”. Never extend the mobile allow-list without asking. No tokens in the renderer |
 | C3 | Community Guidelines forbid bots/scripts/browser automation against the service | No scripted live actions, no reCAPTCHA automation, official polling rates |
 | C4 | Owner should not be needed in the loop | Discovery from static bundles (§6), self-healing log + triage (Task 10.5), BDD on fakes |
 | C5 | One active Clubhouse device at a time (Clubdeck manual) | Tell the user at sign-in that the phone may be signed out |
-| C6 | Live sign-in uses a visible clubhouse.com `/signin` surface (BrowserView in the login shell); cookies + `POST /web_api/me`. No hidden reCAPTCHA automation, no mobile-token path. Desktop without `webSession` and without sandbox is login-only. | ACC-1 / ACC-7 |
+| C6 | Live sign-in uses a visible clubhouse.com `/signin` surface (BrowserView in the login shell); cookies + `POST /web_api/me`. No hidden reCAPTCHA automation. No mobile Token/SMS path (C2). Desktop without `webSession` and without sandbox is login-only. | ACC-1 / ACC-7 |
 
 ---
 
@@ -216,7 +216,7 @@ Severity: **S1** blocks a P0 flow · **S2** wrong/unsafe behaviour · **S3** mis
 | G-01 | Live `create_channel` only accepts friends-of-friends + replays off + chat off; any other choice throws "Not captured". All body keys are observed — only values vary. | `src/api/roomActions.ts capturedCreateBody` | S1 | Closed in a8c8ad2 — `createComposer` + registry body for all privacy levels; house uses `social_club_id` when clubs[] present |
 | G-02 | `join_channel`, `leave_channel`, `active_ping`, `audience_reply`, `become_speaker`, chat send/read are blocked as "configured-unverified" though the bundle gives exact bodies | capabilities / routes | S1 | Closed in 0fcb781 (10.2 evidence `bundle`) |
 | G-03 | RoomSync polls `get_channel`, which the web bundle does not contain → stage never updates on web | `src/api/roomSync.ts` | S1 | Closed in 4700857 / bbd3369 — real PubNub room channels + v2 subscribe + Clubhouse `action` payloads; earlier hub in 6ba85d9 |
-| G-04 | `endChannel` throws in live mode; hosts cannot end rooms | `client.ts endChannel` | S1 | **Auth open 2026-10-12** — transport + 27.5.1–4 Token store/UX Closed; live still **401** without Token; Electron SMS **400 token validation** (27.5.0 blocked) |
+| G-04 | `endChannel` / host moderation need mobile Token; Clubhouse blocks third-party SMS | `client.ts` / mobile allow-list | S1 | **Closed as app-only 2026-10-12** — Token/SMS path disabled; UI shows disabled host actions + “Use the Clubhouse app to moderate” |
 | G-05 | Messages: thread, send text/voice, add member, start VM are sandbox-only (`sandboxThread`, `sandboxAppendSegment`, `sandboxStartVm`…); live users see an empty thread | `client.ts`, `messagesCtl.ts` | S1 (R4) / S3 | Closed in Task 11.6 — live `get_conversation`, mark listened, bundle send/react/VM via registry |
 | G-06 | Agora app id is a code constant; it must follow the bundle value `NEXT_PUBLIC_AGORA_KEY` per Clubhouse build | `agoraVoice.ts`, `client.ts` | S1 | Closed in 4700857 / bbd3369 — production config block (live Stripe) for Agora/PubNub keys; crawl + IPC from 6ba85d9 |
 | G-07 | Presence (online friends, "in a room → join") is sandbox-only | `client.sandboxPresence` | S3 | Closed in Task 11.5 — experimental `get_online_friends` + BDD panel; messages presence row uses live API when on |

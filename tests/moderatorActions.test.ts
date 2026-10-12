@@ -62,17 +62,14 @@ test('moderatorActionsFlags require history/queue capabilities', () => {
   );
 });
 
-test('history + queue-mode bodies go through mobileCall', async () => {
+test('history + queue-mode stay blocked on live (app-only host tools)', async () => {
   const calls: MobileCall[] = [];
   const restore = installFakeMobile(calls);
   try {
     const client = new ClubhouseApiClient({ useSandbox: false, webSession: true, userId: 1 });
-    await client.getModeratorActionHistory('abc', { cursor: 'c1', pageSize: 25 });
-    await client.updateHandraiseQueueSetting('abc', 2);
-    assert.equal(calls[0]?.endpoint, 'get_moderator_action_history');
-    assert.deepEqual(calls[0]?.body, { channel: 'abc', cursor: 'c1', page_size: 25 });
-    assert.equal(calls[1]?.endpoint, 'update_handraise_queue_setting');
-    assert.deepEqual(calls[1]?.body, { channel: 'abc', handraise_queue_setting: 2 });
+    await assert.rejects(() => client.getModeratorActionHistory('abc', { cursor: 'c1', pageSize: 25 }));
+    await assert.rejects(() => client.updateHandraiseQueueSetting('abc', 2));
+    assert.deepEqual(calls, []);
   } finally {
     restore();
   }

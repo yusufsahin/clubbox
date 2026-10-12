@@ -41,10 +41,13 @@ Incomplete bodies where noted — used only to classify auth (400 = session acce
 
 **Implication:** Phase 27 “web session is enough for host tools” is **false** for the moderation
 allow-list. Only `get_profile`-class endpoints accept Django session cookies. Mute / invite / end /
-etc. need `Authorization: Token …`. Owner approved SMS link (A); phone sign-out accepted.
-**27.5.0 live blocked:** Electron `start_phone_number_auth` → 400 token validation (non-native OS).
-Code for 27.5.1–27.5.4 (safeStorage Token, transport, inline code sheet) is in place; live 2xx
-host tools wait on a successful Token link (SMS from Electron remains blocked).
+etc. need `Authorization: Token …`.
+
+**Owner decision 2026-10-12 — out of scope:** Clubhouse rejects mobile SMS sign-in from Clubbox
+(device check / token validation). Do **not** bypass; do **not** import tokens from other apps.
+Mobile host tools are **app-only**. Clubbox keeps allow-list / Token store code dormant
+(`MOBILE_HOST_TOOLS_IN_SCOPE = false`); no SMS sheet, no “Link host tools” prompt. Host actions
+in the room show **disabled** with “Use the Clubhouse app to moderate”.
 
 ## Production allow-list (`electron/mobileApi.cjs`)
 

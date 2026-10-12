@@ -1,5 +1,6 @@
 export { RoomEffectRunner, type RoomEffectDeps } from './roomEffectRunner.ts';
 import { ClubhouseApiError, clubhouseClient } from '../api/client.ts';
+import { isMobileHostEndpoint } from '../api/capabilities.ts';
 import {
   createDefaults,
   resolveCreateReplayEnabled,
@@ -810,8 +811,8 @@ export async function saveClip(this: ClubboxApp) : Promise<void> {
 export function allowAction(this: ClubboxApp, endpoint: string) : boolean {
     if (!clubhouseClient.supports(endpoint)) {
       const evidence = clubhouseClient.evidence(endpoint);
-      const key = evidence === 'mobile-spike'
-        ? 'hostToolsNeedSession'
+      const key = isMobileHostEndpoint(endpoint) || evidence === 'mobile-spike'
+        ? 'hostToolsAppOnly'
         : evidence === 'unsupported'
           ? 'unsupportedAction'
           : evidence === 'community'

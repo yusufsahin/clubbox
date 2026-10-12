@@ -21,7 +21,7 @@ function installFakeMobile(calls: MobileCall[]): () => void {
   };
 }
 
-test('reject / ping / hide / save_replay go through mobileCall with documented bodies', async () => {
+test('reject / ping / hide / save_replay stay blocked on live (app-only host tools)', async () => {
   const calls: MobileCall[] = [];
   const restore = installFakeMobile(calls);
   try {
@@ -30,20 +30,11 @@ test('reject / ping / hide / save_replay go through mobileCall with documented b
       webSession: true,
       userId: 42,
     });
-    await client.rejectSpeakerInvite('abc123', 42);
-    await client.inviteToExistingChannel('abc123', 7);
-    await client.hideChannel('abc123', true);
-    await client.saveReplay('abc123');
-    assert.deepEqual(calls.map((c) => c.endpoint), [
-      'reject_speaker_invite',
-      'invite_to_existing_channel',
-      'hide_channel',
-      'save_replay',
-    ]);
-    assert.deepEqual(calls[0]?.body, { channel: 'abc123', user_id: 42 });
-    assert.deepEqual(calls[1]?.body, { channel: 'abc123', user_id: 7 });
-    assert.deepEqual(calls[2]?.body, { channel: 'abc123', hide: true });
-    assert.deepEqual(calls[3]?.body, { channel: 'abc123' });
+    await assert.rejects(() => client.rejectSpeakerInvite('abc123', 42));
+    await assert.rejects(() => client.inviteToExistingChannel('abc123', 7));
+    await assert.rejects(() => client.hideChannel('abc123', true));
+    await assert.rejects(() => client.saveReplay('abc123'));
+    assert.deepEqual(calls, []);
   } finally {
     restore();
   }

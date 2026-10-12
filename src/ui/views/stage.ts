@@ -31,6 +31,8 @@ export interface StageState {
   canGifReact: boolean;
   canPing: boolean;
   canChangeVisibility: boolean;
+  /** False when mobile host moderation is out of scope — show controls disabled. */
+  hostToolsCallable: boolean;
   canFollow: boolean;
   /** Audience in an open-stage room — show Join stage CTA. */
   canJoinStage: boolean;
@@ -157,7 +159,7 @@ export function stageColumn(state: StageState): SafeHtml {
                     <button class="speaker-menu-btn" type="button" data-action="speaker-menu" data-user-id="${speaker.user_id}" title="${t('speakerActions')}">⋯</button>
                     ${menuOpen ? html`
                       <div class="speaker-menu">
-                        ${menuActions.map((action) => cardActionButton(action, speaker.user_id))}
+                        ${menuActions.map((action) => cardActionButton(action, speaker.user_id, state.hostToolsCallable))}
                       </div>
                     ` : ''}
                   ` : ''}
@@ -187,7 +189,7 @@ export function stageColumn(state: StageState): SafeHtml {
                     </div>
                     <div class="audience-name" data-action="open-profile" data-user-id="${listener.user_id}">${listener.name} ✋</div>
                     ${listener.is_invited_to_speak ? html`<div class="invited-tag">${t('invited')}</div>` : ''}
-                    ${actions.map((action) => cardActionInline(action, listener.user_id))}
+                    ${actions.map((action) => cardActionInline(action, listener.user_id, state.hostToolsCallable))}
                   </div>
                 `;
                 })}
@@ -251,19 +253,28 @@ function cardActionLabel(action: RoomCardAction): string {
   }
 }
 
-function cardActionButton(action: RoomCardAction, userId: number | string | undefined): SafeHtml {
+function hostToolsDisabledAttr(callable: boolean): string {
+  return callable ? '' : `disabled title="${t('hostToolsAppOnly')}"`;
+}
+
+function cardActionButton(
+  action: RoomCardAction,
+  userId: number | string | undefined,
+  hostToolsCallable: boolean,
+): SafeHtml {
   const label = cardActionLabel(action);
+  const hostDisabled = hostToolsDisabledAttr(hostToolsCallable);
   switch (action) {
     case 'mute':
-      return html`<button type="button" data-action="moderate" data-mod-action="mute" data-user-id="${userId}">${label}</button>`;
+      return html`<button type="button" data-action="moderate" data-mod-action="mute" data-user-id="${userId}" ${hostDisabled}>${label}</button>`;
     case 'move_to_audience':
-      return html`<button type="button" data-action="moderate" data-mod-action="audience" data-user-id="${userId}">${label}</button>`;
+      return html`<button type="button" data-action="moderate" data-mod-action="audience" data-user-id="${userId}" ${hostDisabled}>${label}</button>`;
     case 'make_moderator':
-      return html`<button type="button" data-action="moderate" data-mod-action="moderator" data-user-id="${userId}">${label}</button>`;
+      return html`<button type="button" data-action="moderate" data-mod-action="moderator" data-user-id="${userId}" ${hostDisabled}>${label}</button>`;
     case 'remove_from_room':
-      return html`<button type="button" data-action="moderate" data-mod-action="block" data-user-id="${userId}">${label}</button>`;
+      return html`<button type="button" data-action="moderate" data-mod-action="block" data-user-id="${userId}" ${hostDisabled}>${label}</button>`;
     case 'invite_to_stage':
-      return html`<button type="button" data-action="invite-stage" data-user-id="${userId}">${label}</button>`;
+      return html`<button type="button" data-action="invite-stage" data-user-id="${userId}" ${hostDisabled}>${label}</button>`;
     case 'view_profile':
       return html`<button type="button" data-action="open-profile" data-user-id="${userId}">${label}</button>`;
     case 'leave_stage':
@@ -277,15 +288,20 @@ function cardActionButton(action: RoomCardAction, userId: number | string | unde
   }
 }
 
-function cardActionInline(action: RoomCardAction, userId: number | string | undefined): SafeHtml {
+function cardActionInline(
+  action: RoomCardAction,
+  userId: number | string | undefined,
+  hostToolsCallable: boolean,
+): SafeHtml {
+  const hostDisabled = hostToolsDisabledAttr(hostToolsCallable);
   if (action === 'view_profile') {
     return html`<button class="invite-stage-btn" type="button" data-action="open-profile" data-user-id="${userId}">${t('viewProfile')}</button>`;
   }
   if (action === 'invite_to_stage') {
-    return html`<button class="invite-stage-btn" type="button" data-action="invite-stage" data-user-id="${userId}">${t('inviteToStage')}</button>`;
+    return html`<button class="invite-stage-btn" type="button" data-action="invite-stage" data-user-id="${userId}" ${hostDisabled}>${t('inviteToStage')}</button>`;
   }
   if (action === 'remove_from_room') {
-    return html`<button class="invite-stage-btn" type="button" data-action="moderate" data-mod-action="block" data-user-id="${userId}">${t('blockFromRoom')}</button>`;
+    return html`<button class="invite-stage-btn" type="button" data-action="moderate" data-mod-action="block" data-user-id="${userId}" ${hostDisabled}>${t('blockFromRoom')}</button>`;
   }
   return html``;
 }
@@ -304,7 +320,7 @@ function listenerCards(listeners: CHUser[], state: StageState, meRole: RoomRole)
           </div>
           <div class="audience-name" data-action="open-profile" data-user-id="${listener.user_id}">${listener.name}</div>
           ${listener.is_invited_to_speak ? html`<div class="invited-tag">${t('invited')}</div>` : ''}
-          ${actions.map((action) => cardActionInline(action, listener.user_id))}
+          ${actions.map((action) => cardActionInline(action, listener.user_id, state.hostToolsCallable))}
         </div>
       `;
       })}

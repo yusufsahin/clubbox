@@ -257,7 +257,8 @@ export function profileState(this: ClubboxApp, profile: CHUser): ProfileDrawerSt
   return {
     profile,
     canChangeRelationship: clubhouseClient.supports('follow'),
-    canInvite: !isSelf && this.isMeModerator() && clubhouseClient.supports('invite_speaker') && !!this.currentChannel && !profile.is_speaker,
+    canInvite: !isSelf && this.isMeModerator() && !!this.currentChannel && !profile.is_speaker,
+    hostToolsCallable: clubhouseClient.supports('invite_speaker'),
     loading: this.profileLoading && profile.user_id === this.selectedProfile?.user_id,
     showVolume: !isSelf && !!this.currentChannel?.users.some((user) => user.user_id === profile.user_id),
     remoteVolume: audioEngine.getRemoteVolume(profile.user_id),

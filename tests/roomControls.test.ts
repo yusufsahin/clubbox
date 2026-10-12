@@ -50,6 +50,7 @@ test('roomControlFlags gates handraise, rename, and emoji by capability + suppor
   assert.equal(all.canGifReact, true);
   assert.equal(all.canPing, true);
   assert.equal(all.canChangeVisibility, true);
+  assert.equal(all.hostToolsCallable, false);
 
   const blocked = roomControlFlags(
     { can_edit_handraise_queue: false, can_edit_room_title: false },
@@ -57,6 +58,7 @@ test('roomControlFlags gates handraise, rename, and emoji by capability + suppor
   );
   assert.equal(blocked.canHandraise, false);
   assert.equal(blocked.canRename, false);
+  assert.equal(blocked.hostToolsCallable, true);
 });
 
 test('change_handraise_settings body uses community numeric permission', () => {

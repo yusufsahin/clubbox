@@ -44,6 +44,7 @@ function baseState(overrides: Partial<StageState> = {}): StageState {
     canGifReact: false,
     canPing: false,
     canChangeVisibility: false,
+    hostToolsCallable: false,
     canFollow: false,
     canJoinStage: true,
     audienceSearch: '',
@@ -122,6 +123,33 @@ test('host mute / move / block stay on speaker menu when make moderator is unava
   assert.doesNotMatch(html, /data-mod-action="moderator"/);
   // Self speaker card still offers Leave quietly via roomActionsFor.
   assert.match(html, /data-action="speaker-menu"[^>]*data-user-id="1"/);
+});
+
+test('host moderation actions render disabled with app-only tooltip when not callable', () => {
+  const html = markup(stageColumn(baseState({
+    me: { user_id: 1, name: 'Host' },
+    moderator: true,
+    canMute: true,
+    canMakeModerator: true,
+    canMoveToAudience: true,
+    canBlock: true,
+    hostToolsCallable: false,
+    canJoinStage: false,
+    openSpeakerMenuId: 3,
+    channel: {
+      channel: 'open-mic',
+      channel_id: 'ch-open',
+      topic: 'Open mic',
+      users: [
+        { user_id: 1, name: 'Host', is_speaker: true, is_moderator: true },
+        { user_id: 3, name: 'Ayse', is_speaker: true, is_moderator: false, is_muted: false },
+      ],
+    },
+  })));
+  assert.match(html, /data-mod-action="mute"[^>]*disabled[^>]*title=&quot;Use the Clubhouse app to moderate&quot;/);
+  assert.match(html, /data-mod-action="audience"[^>]*disabled/);
+  assert.match(html, /data-mod-action="moderator"[^>]*disabled/);
+  assert.match(html, /data-mod-action="block"[^>]*disabled/);
 });
 
 test('speaker menu order is mute, move, make mod, remove', () => {

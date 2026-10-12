@@ -4,28 +4,30 @@ Each task below is a self-contained prompt. Paste one task at a time into Cursor
 
 _Last reviewed: 2026-10-11. “Uygulandı” means the code is in the tree. “Canlı doğrulandı” means it was exercised against the official Clubhouse web session. This pass is implemented; the live room, hand, invite, and chat capture is still outstanding._
 
-### Last autonomous run (2026-10-12 — Task 29.2 room settings / mute-all)
+### Last autonomous run (2026-10-12 — host tools app-only)
 
-- Next-run checklist: none (n/a).
-- **29.2 (partial, no new endpoints):** `muteAllSpeakers` 150 ms + stop on 403 + “Muted N of M”;
-  Details moderation regrouped (Stage / Chat / Hand raise / Replay / Title); web listening hidden
-  (needs 29.0 `update_channel_flags`).
+- Owner decision: Clubhouse rejects mobile SMS from Clubbox (device check). No bypass / no Token import.
+  Mobile host tools **out of scope**.
+- Disabled Token/SMS UI (no sheet, badge, Settings link). `MOBILE_HOST_TOOLS_IN_SCOPE = false`.
+- Host actions (mute / invite / move / make mod / remove / end / mute-all) shown **disabled** with
+  “Use the Clubhouse app to moderate” (toast if clicked via allowAction).
+- Docs: PRD / DESIGN / mobile-api / Status 27–29 updated.
+- Keep web-session work: 29.1 Live details, room chat, rename, visibility; mobile-only 27/28/29 blocked.
 - `npm run test:unit` + `tsc --noEmit` green.
-- Still blocked: Token (27.4 / 28.5 / mute live), 26.7 owner, 29.3+ banner/polls/highlights (29.0 bodies).
+
+### Previous last autonomous run (2026-10-12 — Task 29.2 room settings / mute-all)
+
+- **29.2 (partial, no new endpoints):** `muteAllSpeakers` 150 ms + stop on 403 + “Muted N of M”;
+  Details moderation regrouped; web listening hidden (needs 29.0 `update_channel_flags`).
+- Later superseded: mute-all live is app-only (host tools out of scope).
 
 ### Previous last autonomous run (2026-10-12 — Task 29.1 Live details)
 
-- **29.1 done:** Live details sheet; `num_ever` separate from `num_all`.
-- Still blocked: 27.4/28.5 live (Token), 26.7 owner matrix, 29.3+ (29.0 bodies + Token).
+- **29.1 done:** Live details sheet; `num_ever` separate from `num_all` (web session / join data).
 
 ### Previous last autonomous run (2026-10-12 — Task 27.5.0–27.5.4)
 
-- Owner **(A)** + phone sign-out accepted (no warning). Spec: `docs/tasks/phase-27.5-host-tools-token.md`.
-- **27.5.0 blocked:** `start_phone_number_auth` → 400 token validation (attestation). Do not retry SMS.
-- **27.5.1–27.5.4 code done:** safeStorage Token store, Token transport + refresh/link-needed,
-  inline code sheet + room-bar badge + Settings Unlink, tests (TR normalize, mismatch, allow-list).
-- `npm run test:unit` + `npx tsc --noEmit` green.
-- **27.4 live checklist:** not run — no Token (SMS blocked). Host tools wait on successful link.
+- SMS Token path shipped then **abandoned** (owner 2026-10-12 app-only). Code dormant.
 
 ### Previous last autonomous run (2026-10-12 — Task 27.5.0 STOP / attestation)
 
@@ -143,13 +145,12 @@ Owner reported: triage noise, new-room participants invisible, moderation action
 
 ### Closed decisions
 
-- **Make moderator / host tools (2026-10-12, Phase 27):** Web `/web_api/*` 404. **Revised 2026-10-12:** cookie+csrf → `get_profile` 200 only; moderation allow-list → **401** (Token-class). Transport: `clubbox:mobile-call` + Node https Cookie.
-- **Mobile Token SMS link (2026-10-12, owner):** **Answered 2026-10-12: A** — one-time SMS Token link; phone sign-out accepted. Spec: `docs/tasks/phase-27.5-host-tools-token.md`. **27.5.0 live blocked** (token validation); 27.5.1–27.5.4 code shipped. Never log / IPC phone, SMS code, or token.
-- **End room (2026-10-12):** Leave and End are separate. Leave only `leave_channel`. End room (Details) calls mobile `end_channel` with `channel` + numeric `channel_id`; on success leave locally (`skipServer`); on failure the host stays in the room.
+- **Make moderator / host tools (2026-10-12, Phase 27):** Web `/web_api/*` 404. cookie+csrf → `get_profile` 200 only; moderation allow-list → **401** (Token-class).
+- **Mobile Token SMS link — SUPERSEDED 2026-10-12:** Owner first chose (A) SMS link; Electron `start_phone_number_auth` → 400 token validation (device check). **Final:** moderation is **app-only**; do not bypass; do not import tokens. Mobile host tools out of scope; UI disabled with “Use the Clubhouse app to moderate”.
+- **End room (2026-10-12):** Leave and End are separate. End room needs mobile `end_channel` — blocked (app-only). Leave stays on web `leave_channel`.
 
 ### Questions for the owner
 
-- **Mobile Token for host tools — ANSWERED 2026-10-12: A** — one-time SMS Token link; phone sign-out accepted. See `docs/tasks/phase-27.5-host-tools-token.md`. **27.5.0 live blocked** (Electron SMS → 400 token validation). 27.5.1–27.5.4 implemented; live 27.4 matrix still needs a Token.
 - **ACC-1 wording:** Sign-in is now a visible Clubhouse `/signin` surface embedded in the main window (BrowserView), not a separate BrowserWindow. Should `features/account.feature` ACC-1 say “visible Clubhouse sign-in surface” instead of “visible window”? (Feature file not edited by the agent.)
 
 
@@ -162,13 +163,13 @@ Legend: **Uygulandı** = code is in the tree. **Canlı doğrulandı** = exercise
 | 0a | **Phase 23 Live room audio (Agora)** — DNS -105 is a red herring; real join error not yet visible; web vs native SDK decision gate at 23.3 | **Web path** — 23.1–23.5 done on `phase-23-24-agora`; native 23.6+ deferred |
 | 0b | **Phase 24 Agora feature completeness** — broadcast mix, reconnect + quality, token lifecycle, device hot-swap, speaking rings, lifecycle, AI noise suppression | **Closed** — 24.1–24.7 done (AI denoiser + CSP/WASM); e2e green |
 | 0c | **Phase 25 Room exit and mic state** — leave_channel on close/quit/Ctrl+C + crash recovery, mute badge/state sync, AI denoiser init bug, log hygiene | **Closed** — 25.1–25.4 done. 25.5 moved to Phase 26 |
-| 0g | **Phase 29 Live details + full moderator toolset** — Live details panel, room settings (mute all, chat, queue, replay, web listening), host banner, polls, highlights, full audience list, server-driven flags | **29.1–29.2 code** (Live details + mute-all/settings groups); web listening / 29.3+ wait Token + 29.0 bodies |
-| 0f | **Phase 28 Room actions per role** — role × action matrix (Clubhouse parity), mobile body discovery, authoritative room state via get_channel, listener/speaker/moderator actions, UI gating, headphones banner fix, Moderator actions panel (Requests + History) | **28.6 code done**; 28.1–28.4 done; Leave stage still off; live Token open (28.5 owner) |
-| 0e | **Phase 27 Host tools via mobile API** — end room, invite to stage, mute, move to audience, remove from room; web API has none of these (404 / not in bundle) | **27.5 SMS Token link in progress** → `docs/tasks/phase-27.5-host-tools-token.md` — 27.5.1–4 code done; **27.5.0 live blocked** (token validation); 27.4 matrix waits on Token |
+| 0g | **Phase 29 Live details + full moderator toolset** — Live details panel, room settings (mute all, chat, queue, replay, web listening), host banner, polls, highlights, full audience list, server-driven flags | **29.1 done** (web join/PubNub Live details). Mute-all / mobile settings **blocked app-only**. 29.3+ (banner/polls/highlights) blocked (29.0 bodies + mobile). |
+| 0f | **Phase 28 Room actions per role** — role × action matrix (Clubhouse parity), mobile body discovery, authoritative room state via get_channel, listener/speaker/moderator actions, UI gating, headphones banner fix, Moderator actions panel (Requests + History) | **UI/matrix code done**; live mobile actions **blocked app-only** (28.5). Leave stage still off. Room chat / web-session pieces OK. |
+| 0e | **Phase 27 Host tools via mobile API** — end room, invite to stage, mute, move to audience, remove from room; web API has none of these (404 / not in bundle) | **Blocked app-only 2026-10-12** — Clubhouse device-check blocks third-party SMS; no Token import. Code dormant; disabled UI + toast. |
 | 0d | **Phase 26 Studio audio routing** — VB-Cable / Voicemeeter (Clubdeck parity): device classification, working quality levels, mixer-as-mic, loop guard, setup wizard, capture truth, live test matrix | **Code done** — 26.1–26.6 + mid-room `applyMicDevice` harden. **26.7 owner live matrix** still open |
 | 1 | **0.7 Review fixes (2026-10-11 #2)** — navigation guard, packaged recorder, clip worklet path, auto-armed clip buffer, 429/visibility, CORS proxy token leak | Uygulandı |
 | 1b | **0.8 Followers / following / friends lists** — bundle scan + labeled UI hunt; live UI uses only counts + mutual lists | Uygulandı for counts, mutual names, and chat people. The public web bundle does not contain get_followers, get_following, or get_online_friends. get_friend_zone_match and get_social_club_members are in-bundle and not called. The labeled click-through still needs a signed-in session. |
-| 0 | **Autonomous plan** (see `.cursor/rules/clubbox.mdc`): 10.1 → 11.8 (warn mode) → 10.2 → 10.5 → 11.0 → 11.1 → 11.2 → 11.3 → 11.4 → 10.4 → 11.5 → 11.6 → 11.7 → 11.9 → 11.10 → 11.8 (strict). Acceptance files: account, hallway, room_listener, room_realtime, room_host, room_moderation, audio_studio, studio, social, messages, houses_events_replays, api_health. Requirements: `docs/product/PRD.md`; design + gap list G-01…G-18: `docs/product/DESIGN.md`; acceptance: `features/*.feature` | **Idle / blocked** — mobile moderation needs live Token (27.5.0 SMS blocked). Also **26.7** live matrix. ST-9 `@deferred`. |
+| 0 | **Autonomous plan** (see `.cursor/rules/clubbox.mdc`): 10.1 → 11.8 (warn mode) → 10.2 → 10.5 → 11.0 → 11.1 → 11.2 → 11.3 → 11.4 → 10.4 → 11.5 → 11.6 → 11.7 → 11.9 → 11.10 → 11.8 (strict). Acceptance files: account, hallway, room_listener, room_realtime, room_host, room_moderation, audio_studio, studio, social, messages, houses_events_replays, api_health. Requirements: `docs/product/PRD.md`; design + gap list G-01…G-18: `docs/product/DESIGN.md`; acceptance: `features/*.feature` | **Idle / blocked** — moderation app-only (Phase 27–29 mobile). Also **26.7** live matrix. ST-9 `@deferred`. |
 | — | **10.1** / **10.2** / **10.4** / **10.5** / **11.0** / **11.8 (warn)** | Uygulandı |
 | 1c | **0.9 / 12.2 Verified by use** — request log + in-app triage (no recorder) | Uygulandı. Verified by use: endpoints the owner exercises become `observed` via userData `api-log` + startup triage / `npm run api:triage` (list grows with normal use). |
 | 2 | **0.6 Community Guidelines risk** — hidden reCAPTCHA sign-in, polling, recording, distribution | Uygulandı (code). Sign-in is a visible clubhouse.com window, polling pauses when the window is hidden, recording is opt-in, and there is no publish config. A public release is still your decision. |
@@ -1167,19 +1168,15 @@ Acceptance (Phase 27): a-e pass after 27.5 link; npm test green; no token in any
 Sources: owner api-log + bundle-cache (2026-10-12), Clubdeck 2.6.5 app.asar strings, github.com/stypr/clubhouse-py.
 ```
 
-### Task 27.5 — SMS Token link for host tools (owner decision A, 2026-10-12)
+### Task 27.5 — SMS Token link for host tools — ABANDONED (owner 2026-10-12)
 
 ```text
-Spec: docs/tasks/phase-27.5-host-tools-token.md
-Owner accepts phone app may be signed out (no warning / no check).
+Spec: docs/tasks/phase-27.5-host-tools-token.md (historical).
 
-27.5.0 DONE / BLOCKED (2026-10-12): start_phone_number_auth → 400 token validation.
-27.5.1 DONE: safeStorage mobile-auth.bin; mismatch deletes; Unlink.
-27.5.2 DONE: Token transport + refresh once + host-tools-link-needed; handraise allow-list swap.
-27.5.3 DONE: inline code sheet (prefill phone in main); room-bar badge; Settings status + Unlink.
-27.5.4 DONE: unit tests (TR normalize, mismatch, allow-list, redact Token); test:unit + tsc green.
-
-Acceptance live (27.4 matrix): pending — no Token until SMS/attestation path works.
+27.5.0 BLOCKED: start_phone_number_auth → 400 token validation (device check).
+27.5.1–4 code shipped then disabled: MOBILE_HOST_TOOLS_IN_SCOPE = false; no SMS sheet / link prompt.
+Final owner decision: Moderation is app-only; do not bypass device check; do not import tokens.
+Acceptance live (27.4): won't run — host tools out of scope.
 ```
 
 ## Phase 28 — Room actions per role (Clubhouse parity via mobile API)

@@ -51,7 +51,6 @@ const {
   loadMobileAuth,
   clearMobileAuth,
   mobileAuthStatus: readMobileAuthStatus,
-  rememberMobilePhone,
   loadRememberedPhone,
   clearRememberedPhone,
   ensureDeviceId,
@@ -1131,14 +1130,6 @@ function attachSignInAuthDebugger(win) {
           return;
         }
         console.log('[web] phone_number: TR trunk-zero stripped (+900… → +905…; SMS never arrives for +900)');
-        try {
-          const parsed = JSON.parse(fixed);
-          if (typeof parsed.phone_number === 'string') {
-            rememberMobilePhone(safeStorage, app.getPath('userData'), parsed.phone_number);
-          }
-        } catch {
-          /* ignore */
-        }
         await dbg.sendCommand('Fetch.continueRequest', {
           requestId,
           postData: Buffer.from(fixed, 'utf8').toString('base64'),
@@ -1931,16 +1922,25 @@ async function fetchWebMeUserId() {
   }
 }
 
-function emitHostToolsLinkNeeded(reason) {
-  const win = mainWindow && !mainWindow.isDestroyed() ? mainWindow : null;
-  win?.webContents?.send('clubbox:host-tools-link-needed', { reason: reason || 'token' });
+/**
+ * Owner 2026-10-12: mobile Token / SMS host tools are out of scope (device check).
+ * Keep store + probe modules dormant; never prompt to link or call SMS.
+ */
+const MOBILE_HOST_TOOLS_IN_SCOPE = false;
+
+function emitHostToolsLinkNeeded(_reason) {
+  // Dormant — no SMS sheet / link prompt.
 }
 
 /**
  * Phase 27.5 — Token link status (never includes token/phone values).
+ * Always unlinked while host tools are out of scope.
  */
 ipcMain.handle('clubbox:mobile-auth-status', async (event) => {
-  if (!isTrustedSender(event)) return { linked: false, mode: 'none', hasPhone: false };
+  if (!isTrustedSender(event)) return { linked: false, mode: 'none', hasPhone: false, outOfScope: true };
+  if (!MOBILE_HOST_TOOLS_IN_SCOPE) {
+    return { linked: false, mode: 'none', hasPhone: false, outOfScope: true };
+  }
   const webUserId = await fetchWebMeUserId();
   const status = readMobileAuthStatus(safeStorage, app.getPath('userData'), webUserId);
   const webSession = await hasClubhouseSessionCookie(authSession());
@@ -1955,117 +1955,20 @@ ipcMain.handle('clubbox:mobile-auth-unlink', async (event) => {
   return { ok: true };
 });
 
-/**
- * Start SMS for host-tools Token. Phone stays in main (remembered or payload once).
- * Never logs phone. Code is submitted via clubbox:mobile-auth-complete.
- */
-ipcMain.handle('clubbox:mobile-auth-start', async (event, payload) => {
+/** SMS Token link disabled (owner 2026-10-12). */
+ipcMain.handle('clubbox:mobile-auth-start', async (event) => {
   if (!isTrustedSender(event)) return { ok: false, reason: 'unauthorized' };
-  const userData = app.getPath('userData');
-  let phone = loadRememberedPhone(safeStorage, userData);
-  if (!phone && typeof payload?.phone === 'string') {
-    const remembered = rememberMobilePhone(safeStorage, userData, payload.phone);
-    if (!remembered.ok) return { ok: false, reason: 'normalize_failed' };
-    phone = loadRememberedPhone(safeStorage, userData);
-  }
-  if (!phone) return { ok: false, reason: 'phone_needed' };
-  const deviceId = ensureDeviceId(userData);
-  const startRes = await callTokenProbeApi({
-    endpoint: 'start_phone_number_auth',
-    body: { phone_number: phone },
-    headers: mobileTokenHeaders({ deviceId }),
-    timeoutMs: REQUEST_TIMEOUT_MS,
-  });
-  const attest = detectAttestation(startRes.body);
-  if (attest.required || startRes.status === 400) {
-    return {
-      ok: false,
-      reason: 'blocked',
-      status: startRes.status,
-      attestation: true,
-      shape: startRes.shape,
-    };
-  }
-  return { ok: startRes.ok, status: startRes.status, shape: startRes.shape, needsCode: true };
+  return { ok: false, reason: 'out_of_scope', attestation: true };
 });
 
 ipcMain.handle('clubbox:mobile-auth-resend', async (event) => {
   if (!isTrustedSender(event)) return { ok: false, reason: 'unauthorized' };
-  const userData = app.getPath('userData');
-  const phone = loadRememberedPhone(safeStorage, userData);
-  if (!phone) return { ok: false, reason: 'phone_needed' };
-  const deviceId = ensureDeviceId(userData);
-  const res = await callTokenProbeApi({
-    endpoint: 'resend_phone_number_auth',
-    body: { phone_number: phone },
-    headers: mobileTokenHeaders({ deviceId }),
-    timeoutMs: REQUEST_TIMEOUT_MS,
-  });
-  return { ok: res.ok, status: res.status, shape: res.shape };
+  return { ok: false, reason: 'out_of_scope' };
 });
 
-ipcMain.handle('clubbox:mobile-auth-complete', async (event, payload) => {
+ipcMain.handle('clubbox:mobile-auth-complete', async (event) => {
   if (!isTrustedSender(event)) return { ok: false, reason: 'unauthorized' };
-  const code = typeof payload?.code === 'string' ? payload.code.trim() : '';
-  if (!code || !/^\d{4,8}$/.test(code)) return { ok: false, reason: 'invalid_code' };
-  const userData = app.getPath('userData');
-  const phone = loadRememberedPhone(safeStorage, userData);
-  if (!phone) return { ok: false, reason: 'phone_needed' };
-  const webUserId = await fetchWebMeUserId();
-  if (webUserId == null) return { ok: false, reason: 'no_web_user' };
-  const deviceId = ensureDeviceId(userData);
-  const completeRes = await callTokenProbeApi({
-    endpoint: 'complete_phone_number_auth',
-    body: { phone_number: phone, verification_code: code },
-    headers: mobileTokenHeaders({ deviceId }),
-    timeoutMs: REQUEST_TIMEOUT_MS,
-  });
-  const attest = detectAttestation(completeRes.body);
-  if (attest.required) {
-    return { ok: false, reason: 'blocked', attestation: true, shape: completeRes.shape };
-  }
-  let authToken = null;
-  let authUserId = null;
-  let refreshToken = null;
-  try {
-    const json = JSON.parse(completeRes.body);
-    if (typeof json.auth_token === 'string') authToken = json.auth_token;
-    authUserId = json?.user_profile?.user_id ?? json?.user_id ?? null;
-    if (typeof json.refresh_token === 'string') refreshToken = json.refresh_token;
-  } catch {
-    /* ignore */
-  }
-  if (!authToken || authUserId == null) {
-    return { ok: false, reason: 'no_token', status: completeRes.status, shape: completeRes.shape };
-  }
-  if (String(authUserId) !== String(webUserId)) {
-    return { ok: false, reason: 'user_id_mismatch' };
-  }
-  saveMobileAuth(safeStorage, userData, {
-    token: authToken,
-    userId: authUserId,
-    deviceId,
-    refreshToken: refreshToken || undefined,
-    phone,
-  });
-  authToken = null;
-  refreshToken = null;
-
-  let retryResult = null;
-  if (pendingHostToolsAction) {
-    const pending = pendingHostToolsAction;
-    pendingHostToolsAction = null;
-    retryResult = await invokeMobileCallWithAuth(pending.endpoint, pending.body);
-  }
-  const win = mainWindow && !mainWindow.isDestroyed() ? mainWindow : null;
-  win?.webContents?.send('clubbox:host-tools-linked', { ok: true });
-  return {
-    ok: true,
-    shape: completeRes.shape,
-    retried: !!retryResult,
-    retryStatus: retryResult?.status ?? null,
-    retryOk: retryResult?.ok ?? null,
-  };
+  return { ok: false, reason: 'out_of_scope', attestation: true };
 });
 
 /**
@@ -2073,106 +1976,22 @@ ipcMain.handle('clubbox:mobile-auth-complete', async (event, payload) => {
  * @param {Record<string, unknown>} requestBody
  */
 async function invokeMobileCallWithAuth(endpoint, requestBody) {
-  const sess = authSession();
-  const cookies = await listClubhouseCookies(sess);
-  const userData = app.getPath('userData');
-  const webUserId = await fetchWebMeUserId();
-  let auth = loadMobileAuth(safeStorage, userData);
-  if (auth && webUserId != null && String(auth.userId) !== String(webUserId)) {
-    clearMobileAuth(userData);
-    auth = null;
-  }
-
-  if (!auth?.token) {
-    pendingHostToolsAction = { endpoint, body: requestBody };
-    emitHostToolsLinkNeeded('not_linked');
+  if (!MOBILE_HOST_TOOLS_IN_SCOPE) {
     return {
       ok: false,
-      status: 401,
-      body: JSON.stringify({ error_message: 'Host tools link needed' }),
-      linkNeeded: true,
+      status: 403,
+      body: JSON.stringify({ error_message: 'Use the Clubhouse app to moderate' }),
+      appOnly: true,
     };
   }
-
-  const tokenAuth = {
-    token: auth.token,
-    userId: auth.userId,
-    deviceId: auth.deviceId || ensureDeviceId(userData),
+  void endpoint;
+  void requestBody;
+  return {
+    ok: false,
+    status: 403,
+    body: JSON.stringify({ error_message: 'Use the Clubhouse app to moderate' }),
+    appOnly: true,
   };
-  let result = await callMobileApi({
-    fetchFn: (url, init) => sess.fetch(url, init),
-    endpoint,
-    body: requestBody,
-    cookies,
-    userAgent: PAGE_UA,
-    timeoutMs: REQUEST_TIMEOUT_MS,
-    tokenAuth,
-  });
-
-  if (result.status === 401 && auth.refreshToken) {
-    const refreshed = await refreshMobileToken({
-      refreshToken: auth.refreshToken,
-      deviceId: tokenAuth.deviceId,
-      userId: auth.userId,
-      timeoutMs: REQUEST_TIMEOUT_MS,
-    });
-    if (refreshed.ok && refreshed.token) {
-      saveMobileAuth(safeStorage, userData, {
-        ...auth,
-        token: refreshed.token,
-        refreshToken: refreshed.refreshToken || auth.refreshToken,
-      });
-      result = await callMobileApi({
-        fetchFn: (url, init) => sess.fetch(url, init),
-        endpoint,
-        body: requestBody,
-        cookies,
-        userAgent: PAGE_UA,
-        timeoutMs: REQUEST_TIMEOUT_MS,
-        tokenAuth: {
-          token: refreshed.token,
-          userId: auth.userId,
-          deviceId: tokenAuth.deviceId,
-        },
-      });
-    } else {
-      clearMobileAuth(userData);
-      pendingHostToolsAction = { endpoint, body: requestBody };
-      emitHostToolsLinkNeeded('expired');
-      return {
-        ok: false,
-        status: 401,
-        body: JSON.stringify({ error_message: 'Host tools link expired' }),
-        linkNeeded: true,
-      };
-    }
-  } else if (result.status === 401) {
-    clearMobileAuth(userData);
-    pendingHostToolsAction = { endpoint, body: requestBody };
-    emitHostToolsLinkNeeded('expired');
-    return {
-      ok: false,
-      status: 401,
-      body: JSON.stringify({ error_message: 'Host tools link needed' }),
-      linkNeeded: true,
-    };
-  }
-
-  console.log('[mobile]', endpoint, result.status);
-  try {
-    appendApiLog(userData, {
-      endpoint,
-      body: Object.fromEntries(Object.keys(requestBody).map((key) => [key, typeof requestBody[key]])),
-      status: result.status,
-      ok: result.ok,
-      responseBody: result.body,
-      appVersion: CH_WEB_APP_VERSION,
-      kind: 'mobile_api',
-    });
-  } catch (err) {
-    console.warn('[Clubbox] api-log write failed:', err);
-  }
-  return result;
 }
 
 ipcMain.handle('clubbox:mobile-call', async (event, payload) => {
@@ -2510,6 +2329,10 @@ function promptMainText(title, label, opts = {}) {
  * Never logs phone / code / token. Writes reports/mobile-token-probe-27.json (keys only).
  */
 async function runTokenAuthSpikeFromArgv(argv) {
+  if (!MOBILE_HOST_TOOLS_IN_SCOPE) {
+    console.log('[token-probe] out of scope — Clubhouse blocks third-party SMS (2026-10-12); not running');
+    return false;
+  }
   const channelFlag = argv.find((a) => String(a).startsWith('--channel='));
   let channel = channelFlag ? channelFlag.slice('--channel='.length) : (currentRoomChannel || null);
   if (!channel) {

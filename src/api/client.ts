@@ -640,10 +640,13 @@ export class ClubhouseApiClient {
     }
   }
 
-  /** Phase 27: web session marks mobile transport "linked"; live moderation still needs Token (27.5). */
+  /**
+   * Dormant Token-link flag. Live host tools are out of scope (owner 2026-10-12);
+   * sandbox still reports linked so unit/sandbox host tools stay exercisable.
+   */
   public isMobileLinked(): boolean {
     if (this.config.useSandbox) return true;
-    return this.config.webSession === true;
+    return false;
   }
 
   public supports(endpoint: string): boolean {
@@ -935,6 +938,10 @@ export class ClubhouseApiClient {
 
   private async requestViaMobile<T>(endpoint: string, body?: RequestBody): Promise<T> {
     this.assertCallable(endpoint);
+    // Owner 2026-10-12: mobile host tools out of scope — never hit IPC / Token path.
+    if (!this.supports(endpoint)) {
+      throw new ClubhouseApiError(403, endpoint, 'Use the Clubhouse app to moderate', 'unknown');
+    }
     if (this.rateLimitRemaining(endpoint) > 0) {
       throw new ClubhouseApiError(429, endpoint, 'Too many requests', 'rate-limit');
     }

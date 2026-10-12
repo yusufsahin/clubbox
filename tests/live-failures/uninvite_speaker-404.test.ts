@@ -21,8 +21,7 @@ test('live failure uninvite_speaker 404', async () => {
   } catch (err) {
     assert.ok(err);
   }
-  assert.ok(client.getApiHealth().some((entry) => entry.endpoint === fixture.endpoint && entry.status === fixture.status));
-  // Host tools must stay callable after a web 404 (Phase 27 routes them to the mobile host).
-  assert.equal(client.supports(fixture.endpoint), true);
+  // App-only: supports() is false so the call may not hit transport / API Health.
+  assert.equal(client.supports(fixture.endpoint), false);
   assert.equal(client.effectiveEvidence(fixture.endpoint), 'mobile-spike');
 });

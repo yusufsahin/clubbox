@@ -17,6 +17,11 @@ export type RoomControlFlags = {
   canGifReact: boolean;
   canPing: boolean;
   canChangeVisibility: boolean;
+  /**
+   * When false, show host moderation controls disabled with “Use the Clubhouse app to moderate”
+   * (mobile Token path out of scope — owner 2026-10-12).
+   */
+  hostToolsCallable: boolean;
 };
 
 function capAllows(caps: UserCapabilities | undefined, key: string): boolean {
@@ -24,27 +29,33 @@ function capAllows(caps: UserCapabilities | undefined, key: string): boolean {
   return permissionOn(caps[key]);
 }
 
-/** Room chrome: capability from the join/create response AND canCall() for the endpoint. */
+/**
+ * Room chrome: show host moderation from join/create capabilities; live calls need
+ * supports() (sandbox or in-scope Token). Web-session tools still gate on supports().
+ */
 export function roomControlFlags(
   caps: UserCapabilities | undefined,
   supports: (endpoint: string) => boolean,
 ): RoomControlFlags {
-  const gate = (capKey: string, endpoint: string) => capAllows(caps, capKey) && supports(endpoint);
+  const gateCap = (capKey: string) => capAllows(caps, capKey);
+  const gate = (capKey: string, endpoint: string) => gateCap(capKey) && supports(endpoint);
   return {
-    canMute: gate('can_mute_speakers', 'mute_speaker'),
-    canMakeModerator: gate('can_remove_speakers', 'make_moderator'),
-    canMoveToAudience: gate('can_remove_speakers', 'uninvite_speaker')
-      && supports('mute_speaker'),
-    canInvite: gate('can_invite', 'invite_speaker'),
-    canEnd: gate('can_end_room', 'end_channel'),
-    canMuteEveryone: gate('can_mute_speakers', 'mute_speaker'),
-    canBlock: gate('can_remove_speakers', 'block_from_channel'),
+    // Mobile host tools: visible from capabilities; disabled when !hostToolsCallable.
+    canMute: gateCap('can_mute_speakers'),
+    canMakeModerator: gateCap('can_remove_speakers'),
+    canMoveToAudience: gateCap('can_remove_speakers'),
+    canInvite: gateCap('can_invite'),
+    canEnd: gateCap('can_end_room'),
+    canMuteEveryone: gateCap('can_mute_speakers'),
+    canBlock: gateCap('can_remove_speakers'),
+    canPing: gateCap('can_invite'),
+    canHandraise: gateCap('can_edit_handraise_queue'),
+    // Web-session tools.
     canRename: gate('can_edit_room_title', 'set_channel_title'),
-    canHandraise: gate('can_edit_handraise_queue', 'change_handraise_settings'),
     canReact: supports('emoji_reaction'),
     canGifReact: supports('gif_reaction'),
-    canPing: gate('can_invite', 'invite_to_existing_channel'),
     canChangeVisibility: supports('make_channel_public') || supports('make_channel_social'),
+    hostToolsCallable: supports('mute_speaker'),
   };
 }
 

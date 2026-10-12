@@ -34,6 +34,7 @@ function baseDetails(extra: Partial<RoomDetailsState>): string {
     canRename: false,
     canPing: false,
     canEnd: false,
+    hostToolsCallable: false,
     canChangeVisibility: false,
     canHandraise: false,
     visibilityMode: 'open',
@@ -73,36 +74,22 @@ function installFakeMobile(calls: MobileCall[]): () => void {
   };
 }
 
-test('moderator settings bodies go through mobileCall', async () => {
+test('moderator settings stay blocked on live (app-only host tools)', async () => {
   const calls: MobileCall[] = [];
   const restore = installFakeMobile(calls);
   try {
     const client = new ClubhouseApiClient({ useSandbox: false, webSession: true, userId: 1 });
-    await client.checkChannelLink('abc', 'https://example.com');
-    await client.addChannelLink('abc', 'https://example.com');
-    await client.removeChannelLink('abc');
-    await client.disableChannelMessages('abc');
-    await client.enableChannelMessages('abc');
-    await client.deleteChannelMessage('abc', 'm1');
-    await client.disableReplay('abc');
-    await client.updateNsfwStatus('abc', true);
-    await client.getHandraiseQueue('abc');
-    await client.getSuggestedSpeakers('abc');
-    assert.deepEqual(calls.map((c) => c.endpoint), [
-      'check_channel_link',
-      'add_channel_link',
-      'remove_channel_link',
-      'disable_channel_messages',
-      'enable_channel_messages',
-      'delete_channel_message',
-      'disable_replay',
-      'update_nsfw_status',
-      'get_handraise_queue',
-      'get_suggested_speakers',
-    ]);
-    assert.deepEqual(calls[0]?.body, { channel: 'abc', link: 'https://example.com' });
-    assert.deepEqual(calls[5]?.body, { channel: 'abc', message_id: 'm1' });
-    assert.deepEqual(calls[7]?.body, { channel: 'abc', is_nsfw: true });
+    await assert.rejects(() => client.checkChannelLink('abc', 'https://example.com'));
+    await assert.rejects(() => client.addChannelLink('abc', 'https://example.com'));
+    await assert.rejects(() => client.removeChannelLink('abc'));
+    await assert.rejects(() => client.disableChannelMessages('abc'));
+    await assert.rejects(() => client.enableChannelMessages('abc'));
+    await assert.rejects(() => client.deleteChannelMessage('abc', 'm1'));
+    await assert.rejects(() => client.disableReplay('abc'));
+    await assert.rejects(() => client.updateNsfwStatus('abc', true));
+    await assert.rejects(() => client.getHandraiseQueue('abc'));
+    await assert.rejects(() => client.getSuggestedSpeakers('abc'));
+    assert.deepEqual(calls, []);
   } finally {
     restore();
   }

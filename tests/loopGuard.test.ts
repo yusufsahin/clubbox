@@ -76,6 +76,7 @@ function details(extra: Partial<RoomDetailsState>): string {
     canRename: false,
     canPing: false,
     canEnd: false,
+    hostToolsCallable: false,
     canChangeVisibility: false,
     canHandraise: false,
     visibilityMode: 'open',

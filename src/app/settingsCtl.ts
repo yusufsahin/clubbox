@@ -443,7 +443,6 @@ export function renderSettingsView(this: ClubboxApp) {
       anonymousEnabled: this.anonymousEnabled,
       blockedCount: this.blockedCount,
       isAdmin: this.isAdmin,
-      hostToolsLinked: this.hostToolsLinked,
     } : null,
     clubhouseClient.getApiHealth(),
     readAppPrefs(),

@@ -55,6 +55,7 @@ function details(quality: RoomDetailsState['audioQuality'], externalActive: bool
     canRename: false,
     canPing: false,
     canEnd: false,
+    hostToolsCallable: false,
     canChangeVisibility: false,
     canHandraise: false,
     visibilityMode: 'open',

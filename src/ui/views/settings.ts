@@ -14,27 +14,11 @@ export interface AccountReadout {
   anonymousEnabled: boolean | null;
   blockedCount: number | null;
   isAdmin: boolean;
-  /** Phase 27.5 — Token link for host tools (status only; never phone/token). */
-  hostToolsLinked?: boolean | null;
 }
 
 function accountSection(account: AccountReadout | null): SafeHtml {
   if (!account) return html``;
   const settings = account.settings;
-  const hostTools = account.hostToolsLinked == null
-    ? ''
-    : html`
-      <div class="profile-setting-row">
-        <span>${t('hostToolsSettingsStatus')}</span>
-        <span>${account.hostToolsLinked ? t('hostToolsBadgeOn') : t('hostToolsBadgeNeeded')}</span>
-      </div>
-      ${account.hostToolsLinked ? html`
-        <div class="profile-setting-row">
-          <span></span>
-          <button type="button" class="btn btn-secondary" data-action="host-tools-unlink">${t('hostToolsUnlink')}</button>
-        </div>
-      ` : ''}
-    `;
   return html`
     <div style="background:var(--bg-card); border:1px solid var(--border-subtle); border-radius:var(--radius-lg); padding:24px; margin-bottom:20px;">
       <h3 style="font-size:16px; font-weight:700; margin-bottom:16px;">${t('accountSection')}</h3>
@@ -47,7 +31,6 @@ function accountSection(account: AccountReadout | null): SafeHtml {
         ${account.anonymousEnabled == null ? '' : settingRow(t('anonymousMode'), account.anonymousEnabled)}
         ${account.isAdmin ? html`<div class="profile-setting-row"><span>${t('accountAdmin')}</span><span>${t('settingOn')}</span></div>` : ''}
         ${account.blockedCount && account.blockedCount > 0 ? html`<div class="profile-setting-row"><span>${t('blocked')}</span><span>${account.blockedCount}</span></div>` : ''}
-        ${hostTools}
       </div>
     </div>
   `;
