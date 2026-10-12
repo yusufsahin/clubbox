@@ -3,16 +3,21 @@ import { audioEngine } from '../audio/audioEngine.ts';
 import type { AudioQuality } from '../audio/audioQuality.ts';
 import { compareAudioDevices, displayDeviceLabel } from '../audio/devicePicker.ts';
 import { writeAudioPrefs } from '../audio/audioPrefs.ts';
+import { evaluateAudioCheck } from '../audio/sendQuality.ts';
 import { eventToAccelerator, normalizeShortcuts, writeShortcuts, type ShortcutAction, type ShortcutMap } from '../shortcuts.ts';
 import { adjustZoomPercent, readAppPrefs, writeAppPrefs, zoomFactorFromPercent } from './appPrefs.ts';
 import { agoraVoice } from '../audio/agoraVoice.ts';
 import { t } from '../i18n/index.ts';
-import { html } from '../ui/html.ts';
+import { html, markup } from '../ui/html.ts';
+import { audioCheckSheet } from '../ui/components/audioCheckSheet.ts';
 import { soundboardView } from '../ui/views/soundboard.ts';
 import { buildChapterFileContent, chapterFilename, type RecordingChapter } from '../studio/recordingChapters.ts';
 import type { ClubboxApp } from './clubboxApp.ts';
 import { electronAPI } from './electronApi.ts';
 import { recordingFilename } from './recordingFilename.ts';
+
+const AUDIO_CHECK_MS = 5_000;
+const AUDIO_CHECK_SAMPLE_MS = 100;
 
 
 
@@ -492,6 +497,102 @@ export function isShortcutAction(this: ClubboxApp, action: string | undefined) :
     return action === 'mute' || action === 'clip' || /^pad[1-9]$/.test(action || '');
   }
 
+/** Local-only 5s meter sample — nothing is published (30.6). */
+export function openAudioCheck(this: ClubboxApp): void {
+  this.audioCheckOpen = true;
+  this.audioCheckRunning = false;
+  this.audioCheckSecondsLeft = 0;
+  this.audioCheckResult = null;
+  this.stopAudioCheckTimers();
+  this.renderAudioCheck();
+}
+
+export function closeAudioCheck(this: ClubboxApp): void {
+  this.stopAudioCheckTimers();
+  this.audioCheckOpen = false;
+  this.audioCheckRunning = false;
+  this.audioCheckSecondsLeft = 0;
+  this.audioCheckResult = null;
+  this.audioCheckSamples = [];
+  document.getElementById('audio-check-root')?.remove();
+}
+
+export function stopAudioCheckTimers(this: ClubboxApp): void {
+  if (this.audioCheckTickTimer) {
+    clearInterval(this.audioCheckTickTimer);
+    this.audioCheckTickTimer = null;
+  }
+  if (this.audioCheckSampleTimer) {
+    clearInterval(this.audioCheckSampleTimer);
+    this.audioCheckSampleTimer = null;
+  }
+}
+
+export function startAudioCheck(this: ClubboxApp): void {
+  if (!this.audioCheckOpen) this.audioCheckOpen = true;
+  this.stopAudioCheckTimers();
+  this.audioCheckSamples = [];
+  this.audioCheckResult = null;
+  this.audioCheckRunning = true;
+  this.audioCheckSecondsLeft = Math.ceil(AUDIO_CHECK_MS / 1000);
+  this.renderAudioCheck();
+  const startedAt = Date.now();
+  this.audioCheckSampleTimer = setInterval(() => {
+    this.audioCheckSamples.push({
+      micLevel: audioEngine.getMicLevel(),
+      extrasLevel: audioEngine.getExternalLevel(),
+    });
+  }, AUDIO_CHECK_SAMPLE_MS);
+  this.audioCheckTickTimer = setInterval(() => {
+    const left = Math.max(0, Math.ceil((AUDIO_CHECK_MS - (Date.now() - startedAt)) / 1000));
+    this.audioCheckSecondsLeft = left;
+    if (left <= 0) {
+      this.finishAudioCheck();
+      return;
+    }
+    this.renderAudioCheck();
+  }, 250);
+}
+
+export function finishAudioCheck(this: ClubboxApp): void {
+  this.stopAudioCheckTimers();
+  this.audioCheckRunning = false;
+  this.audioCheckSecondsLeft = 0;
+  const capture = audioEngine.getMicCapture();
+  this.audioCheckResult = evaluateAudioCheck(this.audioCheckSamples, {
+    quality: audioEngine.getAudioQuality(),
+    externalActive: audioEngine.isExternalActive(),
+    capture: capture
+      ? {
+        channelCount: capture.channelCount ?? undefined,
+        sampleRate: capture.sampleRate ?? undefined,
+        echoCancellation: capture.echoCancellation ?? undefined,
+        noiseSuppression: capture.noiseSuppression ?? undefined,
+        autoGainControl: capture.autoGainControl ?? undefined,
+      }
+      : undefined,
+  });
+  this.renderAudioCheck();
+}
+
+export function renderAudioCheck(this: ClubboxApp): void {
+  if (!this.audioCheckOpen) {
+    document.getElementById('audio-check-root')?.remove();
+    return;
+  }
+  let root = document.getElementById('audio-check-root');
+  if (!root) {
+    root = document.createElement('div');
+    root.id = 'audio-check-root';
+    document.body.appendChild(root);
+  }
+  root.innerHTML = markup(audioCheckSheet({
+    running: this.audioCheckRunning,
+    secondsLeft: this.audioCheckSecondsLeft,
+    result: this.audioCheckResult,
+  }));
+}
+
 export function wireStudioCtl(proto: ClubboxApp): void {
   proto.setupHotkeys = setupHotkeys;
   proto.handleGlobalShortcut = handleGlobalShortcut;
@@ -514,4 +615,10 @@ export function wireStudioCtl(proto: ClubboxApp): void {
   proto.syncShortcuts = syncShortcuts;
   proto.publishShortcuts = publishShortcuts;
   proto.isShortcutAction = isShortcutAction;
+  proto.openAudioCheck = openAudioCheck;
+  proto.closeAudioCheck = closeAudioCheck;
+  proto.stopAudioCheckTimers = stopAudioCheckTimers;
+  proto.startAudioCheck = startAudioCheck;
+  proto.finishAudioCheck = finishAudioCheck;
+  proto.renderAudioCheck = renderAudioCheck;
 }

@@ -141,6 +141,8 @@ export type ClubboxAppCtlMethods = {
   leaveRoom: typeof roomCtl.leaveRoom;
   afterRoomExit: typeof roomCtl.afterRoomExit;
   endRoom: typeof roomCtl.endRoom;
+  sendChatMessage: typeof roomCtl.sendChatMessage;
+  confirmCreateRoom: typeof roomCtl.confirmCreateRoom;
   savePinnedLink: typeof roomCtl.savePinnedLink;
   removePinnedLink: typeof roomCtl.removePinnedLink;
   toggleRoomChat: typeof roomCtl.toggleRoomChat;
@@ -157,8 +159,6 @@ export type ClubboxAppCtlMethods = {
   loadMoreModeratorHistory: typeof roomCtl.loadMoreModeratorHistory;
   setHandraiseQueueSetting: typeof roomCtl.setHandraiseQueueSetting;
   syncModeratorActionsAfterRoomUpdate: typeof roomCtl.syncModeratorActionsAfterRoomUpdate;
-  sendChatMessage: typeof roomCtl.sendChatMessage;
-  confirmCreateRoom: typeof roomCtl.confirmCreateRoom;
   isAuthGated: typeof settingsCtl.isAuthGated;
   stopAdoptRetry: typeof settingsCtl.stopAdoptRetry;
   startAdoptRetry: typeof settingsCtl.startAdoptRetry;
@@ -206,4 +206,10 @@ export type ClubboxAppCtlMethods = {
   syncShortcuts: typeof studioCtl.syncShortcuts;
   publishShortcuts: typeof studioCtl.publishShortcuts;
   isShortcutAction: typeof studioCtl.isShortcutAction;
+  openAudioCheck: typeof studioCtl.openAudioCheck;
+  closeAudioCheck: typeof studioCtl.closeAudioCheck;
+  stopAudioCheckTimers: typeof studioCtl.stopAudioCheckTimers;
+  startAudioCheck: typeof studioCtl.startAudioCheck;
+  finishAudioCheck: typeof studioCtl.finishAudioCheck;
+  renderAudioCheck: typeof studioCtl.renderAudioCheck;
 };

@@ -37,6 +37,10 @@ export interface CockpitState {
   overflowOpen: boolean;
   networkQualityTone?: 'good' | 'ok' | 'poor' | 'unknown';
   networkQualityTitle?: string;
+  /** 30.6 send-quality chip (speaker only). */
+  sendQualityLabel?: string;
+  sendQualityWarn?: boolean;
+  sendQualityTitle?: string;
 }
 
 function barBtn(
@@ -87,6 +91,16 @@ export function cockpitBar(state: CockpitState): SafeHtml {
           title="${state.networkQualityTitle || ''}"
           aria-hidden="true"
         ></span>
+      ` : ''}
+      ${state.inRoom && state.sendQualityLabel ? html`
+        <button
+          class="send-quality-chip ${state.sendQualityWarn ? 'is-warn' : ''}"
+          type="button"
+          data-action="open-audio-check"
+          data-send-quality
+          data-warn="${state.sendQualityWarn ? '1' : '0'}"
+          title="${state.sendQualityTitle || state.sendQualityLabel}"
+        >${state.sendQualityLabel}${state.sendQualityWarn ? '!' : ''}</button>
       ` : ''}
       ${state.showAudioRetry ? html`
         <button class="btn btn-secondary audio-retry-btn" data-action="retry-audio" type="button">${t('retryAudio')}</button>

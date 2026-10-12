@@ -55,6 +55,7 @@ import {
   roomReactionEmojis,
   showModeratorCrowns,
 } from '../api/roomServerFlags.ts';
+import type { AudioCheckResult, SendQualitySnapshot } from '../audio/sendQuality.ts';
 import {
   WebModerationProvider,
   setModerationProvider,
@@ -297,6 +298,15 @@ export class ClubboxApp {
   networkQualityTone: 'good' | 'ok' | 'poor' | 'unknown' = 'unknown';
   networkQualityUp = 0;
   networkQualityDown = 0;
+  /** 30.6 — last Agora local send-quality sample while publishing. */
+  sendQualitySnap: SendQualitySnapshot | null = null;
+  audioCheckOpen = false;
+  audioCheckRunning = false;
+  audioCheckSecondsLeft = 0;
+  audioCheckResult: AudioCheckResult | null = null;
+  audioCheckTickTimer: ReturnType<typeof setInterval> | null = null;
+  audioCheckSampleTimer: ReturnType<typeof setInterval> | null = null;
+  audioCheckSamples: { micLevel: number; extrasLevel: number }[] = [];
   agoraRejoinTimer: ReturnType<typeof setTimeout> | null = null;
   rtcStatsTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -562,6 +572,11 @@ export class ClubboxApp {
         dot.dataset.tone = tone;
         dot.title = t('networkQualityTitle', { up: String(uplink), down: String(downlink) });
       }
+    });
+    agoraVoice.onSendQuality((snap) => {
+      this.sendQualitySnap = snap;
+      if (this.liveDetailsOpen) this.renderLiveDetails();
+      this.renderCockpit();
     });
     agoraVoice.onConnectionProblem((reason) => {
       if (!this.currentChannel || clubhouseClient.getConfig().useSandbox) return;
@@ -879,6 +894,7 @@ export class ClubboxApp {
     this.renderRoomDetails();
     this.renderLiveDetails();
     this.renderAudioSetup();
+    this.renderAudioCheck();
     // Open the Clubhouse window once; re-running show() on every render stole
     // focus mid-OTP. openOfficialSignIn() resets the flag to reopen it.
     if (gated && this.guidelinesAccepted() && this.currentTab === 'login') {
@@ -897,14 +913,16 @@ export class ClubboxApp {
       return;
     }
     const quality = audioEngine.getAudioQuality();
+    const snap = this.sendQualitySnap;
     const model = buildLiveDetails(this.currentChannel, {
       myUserId: this.me?.user_id ?? null,
       numEver: this.currentChannel.num_ever,
       audio: this.audioConnected
         ? {
           qualityLevel: quality,
+          sendBitrateKbps: snap?.sendBitrateKbps ?? null,
+          stereo: snap?.stereo ?? null,
           networkTone: this.networkQualityTone || null,
-          // Bitrate / stereo filled in 30.6 when measured.
         }
         : null,
     });
@@ -1864,6 +1882,19 @@ export class ClubboxApp {
 
   renderCockpitBar(): ReturnType<typeof html> {
     const flags = stageControlFlags(this);
+    const snap = this.sendQualitySnap;
+    const showSend = !!this.currentChannel && this.isMeSpeaker() && !!snap;
+    const channels = snap?.stereo === true ? 'stereo' : snap?.stereo === false ? 'mono' : '?';
+    const sendLabel = showSend
+      ? `${snap.quality} · ${Math.round(snap.sendBitrateKbps)}kbps`
+      : undefined;
+    const sendTitle = showSend
+      ? `${t('sendQualityTitle', {
+        level: snap.quality,
+        bitrate: String(Math.round(snap.sendBitrateKbps)),
+        channels,
+      })}${snap.warnLowBitrate ? ` — ${t('sendQualityLowWarn')}` : ''}`
+      : undefined;
     return cockpitBar({
       muted: audioEngine.getIsMuted(),
       mixerMic: audioEngine.isMixerMic(),
@@ -1907,6 +1938,9 @@ export class ClubboxApp {
         up: String(this.networkQualityUp),
         down: String(this.networkQualityDown),
       }),
+      sendQualityLabel: sendLabel,
+      sendQualityWarn: showSend ? snap.warnLowBitrate : false,
+      sendQualityTitle: sendTitle,
     });
   }
 
@@ -2233,6 +2267,15 @@ export class ClubboxApp {
         break;
       case 'open-audio-setup':
         void this.openAudioSetup();
+        break;
+      case 'open-audio-check':
+        this.openAudioCheck();
+        break;
+      case 'close-audio-check':
+        this.closeAudioCheck();
+        break;
+      case 'start-audio-check':
+        this.startAudioCheck();
         break;
       case 'audio-setup-close':
         this.closeAudioSetup();

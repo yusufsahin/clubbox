@@ -14,6 +14,14 @@ import { audioEngine } from './audioEngine';
 import { clubhouseClient } from '../api/client';
 import { muteFromAgoraEvent } from '../api/remoteMute';
 import {
+  nextLowBitrateWatch,
+  readTrackMediaSettings,
+  sendBitrateFromLocalStats,
+  stereoFromChannelCount,
+  targetSendBitrateKbps,
+  type SendQualitySnapshot,
+} from './sendQuality.ts';
+import {
   AGORA_JOIN_MS,
   agoraConnectionPolicy,
   agoraExceptionLogLevel,
@@ -107,6 +115,12 @@ export class AgoraVoiceEngine {
   /** Last extras-stats line, so the 2s probe logs only when a value changes. */
   private lastExtrasStatsLog: ExtrasStatsSnapshot | null = null;
   private extrasStatsTimer: ReturnType<typeof setInterval> | null = null;
+  /** 30.6 — local send bitrate / stereo while publishing (5 s). */
+  private sendQualityTimer: ReturnType<typeof setInterval> | null = null;
+  private publishQuality: AudioQuality = 'normal';
+  private belowTargetSinceMs: number | null = null;
+  private sendQualitySnapshot: SendQualitySnapshot | null = null;
+  private onSendQualityCallbacks: ((snap: SendQualitySnapshot | null) => void)[] = [];
   private rejoinAttempt = 0;
   private joinedAtMs: number | null = null;
   private networkQuality: { uplink: number; downlink: number; tone: 'good' | 'ok' | 'poor' | 'unknown' } = {
@@ -733,7 +747,9 @@ export class AgoraVoiceEngine {
       `extras=${!!this.extrasAudioTrack}`,
     );
     this.extrasSending = !!this.extrasAudioTrack;
+    this.publishQuality = quality;
     this.startExtrasStatsProbe();
+    this.startSendQualityProbe();
     await this.syncVoiceEffectPublish();
   }
 
@@ -826,9 +842,90 @@ export class AgoraVoiceEngine {
     await syncAiDenoiserOnTrack(AgoraRTC, this.localAudioTrack, !capture.aiDenoiser);
   }
 
+  private startSendQualityProbe(): void {
+    this.stopSendQualityProbe();
+    if (!this.client || !this.isSpeaker) return;
+    this.sendQualityTimer = setInterval(() => {
+      this.sampleSendQuality();
+    }, 5_000);
+    this.sampleSendQuality();
+  }
+
+  private stopSendQualityProbe(): void {
+    if (this.sendQualityTimer) {
+      clearInterval(this.sendQualityTimer);
+      this.sendQualityTimer = null;
+    }
+    this.belowTargetSinceMs = null;
+    if (this.sendQualitySnapshot != null) {
+      this.sendQualitySnapshot = null;
+      this.onSendQualityCallbacks.forEach((cb) => cb(null));
+    } else {
+      this.sendQualitySnapshot = null;
+    }
+  }
+
+  private sampleSendQuality(): void {
+    if (!this.client || !this.isJoined || !this.isSpeaker) return;
+    try {
+      const bitrateBps = sendBitrateFromLocalStats(this.client.getLocalAudioStats());
+      const bitrateKbps = bitrateBps > 0 ? bitrateBps / 1000 : 0;
+      const media = this.localAudioTrack?.getMediaStreamTrack() ?? null;
+      const settings = readTrackMediaSettings(media);
+      const stereo = stereoFromChannelCount(settings.channelCount)
+        ?? (this.publishQuality === 'music' ? true : null);
+      const watch = nextLowBitrateWatch(
+        this.belowTargetSinceMs,
+        bitrateKbps,
+        this.publishQuality,
+        Date.now(),
+      );
+      this.belowTargetSinceMs = watch.belowSinceMs;
+      const snap: SendQualitySnapshot = {
+        quality: this.publishQuality,
+        sendBitrateKbps: bitrateKbps,
+        stereo,
+        channelCount: settings.channelCount ?? null,
+        sampleRate: settings.sampleRate ?? null,
+        warnLowBitrate: watch.warn,
+        targetKbps: targetSendBitrateKbps(this.publishQuality),
+      };
+      this.sendQualitySnapshot = snap;
+      this.onSendQualityCallbacks.forEach((cb) => cb(snap));
+      // Debug-only encoder evidence for 30.6 / audio-routing.md (values only).
+      if (agoraDebugEnabled()) {
+        console.log(
+          '[AgoraRTC] local audio stats',
+          `quality=${snap.quality}`,
+          `bitrateKbps=${snap.sendBitrateKbps.toFixed(1)}`,
+          `target=${snap.targetKbps}`,
+          `stereo=${String(snap.stereo)}`,
+          `ch=${String(snap.channelCount)}`,
+          `sr=${String(snap.sampleRate)}`,
+          `tracks=${this.extrasAudioTrack ? 2 : 1}`,
+          `warnLow=${snap.warnLowBitrate}`,
+        );
+      }
+    } catch {
+      // Stats unavailable until fully connected.
+    }
+  }
+
+  public getSendQualitySnapshot(): SendQualitySnapshot | null {
+    return this.sendQualitySnapshot;
+  }
+
+  public onSendQuality(cb: (snap: SendQualitySnapshot | null) => void): () => void {
+    this.onSendQualityCallbacks.push(cb);
+    return () => {
+      this.onSendQualityCallbacks = this.onSendQualityCallbacks.filter((c) => c !== cb);
+    };
+  }
+
   private async unpublishLocal(): Promise<void> {
     await detachAiDenoiser();
     this.stopExtrasStatsProbe();
+    this.stopSendQualityProbe();
     this.extrasSending = null;
     const tracks = [this.localAudioTrack, this.extrasAudioTrack].filter(
       (t): t is ILocalAudioTrack => !!t,

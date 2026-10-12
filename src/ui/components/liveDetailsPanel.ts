@@ -32,6 +32,11 @@ export function liveDetailsPanel(model: LiveDetailsModel): SafeHtml {
       ${rowsBlock('liveDetailsState', model.stateRows)}
       ${rowsBlock('liveDetailsMe', model.meRows)}
       ${rowsBlock('liveDetailsMyAudio', model.audioRows)}
+      ${model.audioRows.length || model.meRows.length ? html`
+        <p class="list-note">
+          <button class="btn btn-secondary" type="button" data-action="open-audio-check">${t('audioCheck')}</button>
+        </p>
+      ` : ''}
       ${rowsBlock('liveDetailsServer', model.serverRows)}
       ${model.capabilityRows.length ? html`
         <section class="room-details-card" data-live-details-section="capabilities">

@@ -1209,6 +1209,8 @@ export async function releaseRoomLocally(this: ClubboxApp, options: { skipServer
     this.chatMessages = [];
     this.unreadChat = 0;
     this.audioConnected = null;
+    this.sendQualitySnap = null;
+    this.closeAudioCheck();
     this.openSpeakerMenuId = null;
   }
 

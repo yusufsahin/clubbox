@@ -56,6 +56,7 @@ export class AudioEngine {
   private externalDuckDb = DEFAULT_DUCK_DB;
   private externalDuckState: DuckEnvelopeState = initialDuckState();
   private externalLevel = 0;
+  private micLevel = 0;
   /** Last constraints / capture mode used for the external channel (tests / diagnostics). */
   public lastExternalConstraints: MediaTrackConstraints | null = null;
   public lastExternalCapture: 'device' | 'system' | null = null;
@@ -885,8 +886,10 @@ export class AudioEngine {
         }
         const avg = sum / dataArray.length;
         micLevel = Math.min(1, avg / 128);
+        this.micLevel = micLevel;
         this.onVolumeChangeCallbacks.forEach((cb) => cb(micLevel));
       } else {
+        this.micLevel = 0;
         this.onVolumeChangeCallbacks.forEach((cb) => cb(0));
       }
       if (this.externalAnalyser) {
@@ -915,8 +918,10 @@ export class AudioEngine {
         const target = Math.random() > 0.3 ? 0.3 + Math.random() * 0.6 : 0.05;
         simVol += (target - simVol) * 0.2;
         micLevel = simVol;
+        this.micLevel = micLevel;
         this.onVolumeChangeCallbacks.forEach((cb) => cb(simVol));
       } else {
+        this.micLevel = 0;
         this.onVolumeChangeCallbacks.forEach((cb) => cb(0));
       }
       this.tickExternalDuck(micLevel);
@@ -1028,6 +1033,11 @@ export class AudioEngine {
 
   public getExternalLevel(): number {
     return this.externalLevel;
+  }
+
+  /** Latest mic meter sample (0–1) for Audio check (30.6). */
+  public getMicLevel(): number {
+    return this.micLevel;
   }
 
   public isExternalActive(): boolean {

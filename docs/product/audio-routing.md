@@ -39,6 +39,14 @@ Ayarlar veya kurulum sihirbazından mikrofon değişince Clubbox `applyMicDevice
 
 Clubdeck tek giriş kullanır (miksi dışarıda kurar). Clubbox Kurulum 1’de gerçek mikrofon + Harici giriş avantajını korur; kalite (Normal/High/Music) yalnızca Oda detayları › Ses’tedir.
 
+### Çift yayın vs tek track miks (30.6 — sahip ölçene kadar açık)
+
+Harici / soundboard açıkken Clubbox hâlâ **iki** Agora track yayınlar (mikrofon + extras); her biri seçilen seviyenin encoder’ı ile. SDK yayınları sunucu tarafında karıştırır; miksin hangi encoder’ı izlediği henüz canlı ölçülmedi.
+
+- Yayın sırasında Agora debug açıksa 5 sn’de bir `getLocalAudioStats()` loglanır.
+- Cockpit’te gönderim kalitesi çipi; Live details › Sesimde bitrate / stereo örneklenince görünür.
+- Sahip normal vs music’i harici stereo dosya + telefon dinleyici ile karşılaştırıp buraya yazana kadar **tek** Web Audio mixed custom track’e geçilmez.
+
 ## English
 
 Two setups. Settings › Audio › **Music & external audio setup** is the same pane the hallway and the room open. Nothing changes until **Apply**.
@@ -77,3 +85,11 @@ Windows Sound › Recording › CABLE Output › Properties › Advanced: 2 chan
 Settings or the setup wizard go through `applyMicDevice`: while an Agora speaker, same capture profile uses `setDevice`; virtual↔physical (or AEC) changes use `republish`. No second `getUserMedia` while Agora owns the track.
 
 Clubdeck uses one input (mix outside the app). Clubbox keeps Setup 1 (real mic + External). Quality (Normal/High/Music) lives only in Room details › Audio.
+
+### Dual publish vs single-track mix (30.6 — open until owner measures)
+
+Clubbox still publishes **two** Agora tracks when External / soundboard is active: mic + extras, each with the selected level’s encoder. The SDK mixes published tracks server-side; which encoder the mix follows is **not yet measured** live.
+
+- While publishing, with Agora debug on, Clubbox logs `getLocalAudioStats()` every 5s (`bitrateKbps`, stereo, channel count, track count).
+- Cockpit shows a send-quality chip; Live details › My audio shows bitrate / stereo when sampled.
+- **Do not** collapse to a single Web Audio mixed custom track until the owner compares normal vs music with an external stereo file (phone as listener) and records the result here. If the mix follows the mic encoder, then switch to one custom track (also fixes the 25.2 mute-signal case).
