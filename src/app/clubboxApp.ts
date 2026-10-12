@@ -99,7 +99,8 @@ export class ClubboxApp {
   moderatorQueueUsers: CHUser[] = [];
   moderatorHistoryItems: ModeratorActionItem[] = [];
   moderatorHistoryCursor: string | null = null;
-  /** Phase 27.5 — Token link for host tools (null = unknown / not desktop). */
+  /** Phase 30.1 — show app-only moderation toast at most once per app session. */
+  appOnlyModerationToastShown = false;
   currentChannel: CHChannelDetail | null = null;
   channelsList: CHChannel[] = [];
   feedTopics: FeedTopic[] = [];

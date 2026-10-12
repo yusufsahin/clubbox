@@ -146,7 +146,7 @@ test('host moderation actions render disabled with app-only tooltip when not cal
       ],
     },
   })));
-  assert.match(html, /data-mod-action="mute"[^>]*disabled[^>]*title=&quot;Use the Clubhouse app to moderate&quot;/);
+  assert.match(html, /data-mod-action="mute"[^>]*disabled[^>]*title=&quot;Moderation is only available in the Clubhouse app&quot;/);
   assert.match(html, /data-mod-action="audience"[^>]*disabled/);
   assert.match(html, /data-mod-action="moderator"[^>]*disabled/);
   assert.match(html, /data-mod-action="block"[^>]*disabled/);

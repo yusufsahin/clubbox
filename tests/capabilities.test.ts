@@ -123,6 +123,8 @@ test('room control flags show host actions from capabilities but mark them not c
   assert.equal(flags.canHandraise, true);
   assert.equal(flags.hostToolsCallable, false);
   assert.equal(flags.canChangeVisibility, true);
+  // AppOnlyModerationProvider — supports() alone never unlocks host tools.
+  assert.equal(flags.canMute, true);
 });
 
 test('mobile host allow-list includes Phase 28.2–28.3 room tools', () => {

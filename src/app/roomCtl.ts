@@ -6,6 +6,13 @@ import {
   resolveCreateReplayEnabled,
   type CreateAudience,
 } from '../api/createComposer.ts';
+import {
+  getModerationProvider,
+  moderationActionFromEndpoint,
+  type ModerationAction,
+  type ModerationError,
+  type RoomContext,
+} from '../api/moderationProvider.ts';
 import { beginJoin, commitJoin, finishLeave, localClipAllowed, roleSyncDecision, roomAudience } from '../api/guards.ts';
 import { visibilityChangeEndpoint } from '../api/moderationExtras.ts';
 import { mergePingCandidates, readSearchPingCandidates, readSuggestedInvites } from '../api/pingInvites.ts';
@@ -17,7 +24,6 @@ import {
 } from '../api/roomControls.ts';
 import { mergeRoomDetailFields } from '../api/roomDetailMerge.ts';
 import { mergeRoomState } from '../api/roomStateMerge.ts';
-import { muteAllSpeakers } from '../api/muteAllSpeakers.ts';
 import { roomSync } from '../api/roomSync.ts';
 import {
   moderatorActionsFlags,
@@ -336,19 +342,49 @@ export async function runAgoraRoleSync(this: ClubboxApp) : Promise<void> {
     this.syncAgoraRole();
   }
 
+function moderationRoomContext(app: ClubboxApp): RoomContext | null {
+  if (!app.currentChannel) return null;
+  return {
+    channel: app.channelApiId(app.currentChannel),
+    userCapabilities: readUserCapabilities(app.currentChannel),
+    isModerator: app.isMeModerator(),
+  };
+}
+
+export function handleModerationError(this: ClubboxApp, error: ModerationError): void {
+  if (error.kind === 'app_only') {
+    if (this.appOnlyModerationToastShown) return;
+    this.appOnlyModerationToastShown = true;
+    this.showToast(t('hostToolsAppOnly'), '🔒');
+    return;
+  }
+  this.showToast(t('hostToolsAppOnly'), '🔒');
+}
+
+/** Run a host action through ModerationProvider; never hits the client when app-only. */
+export async function performModeration(
+  this: ClubboxApp,
+  action: ModerationAction,
+  target?: number,
+): Promise<boolean> {
+  const room = moderationRoomContext(this);
+  if (!room) return false;
+  const result = await getModerationProvider().perform(action, room, target);
+  if (!result.ok) {
+    this.handleModerationError(result.error);
+    return false;
+  }
+  return true;
+}
+
 export async function inviteToStage(this: ClubboxApp, userId: number) : Promise<void> {
     if (!this.currentChannel || !this.isMeModerator()) return;
-    if (!this.allowAction('invite_speaker')) return;
-    try {
-      await clubhouseClient.inviteSpeaker(this.channelApiId(this.currentChannel), userId);
-      const invited = this.currentChannel.users.find((user) => user.user_id === userId);
-      if (invited) invited.is_invited_to_speak = true;
-      this.showToast(t('invitedToSpeakToast'), '🎙️');
-      roomSync.scheduleAfterHostAction?.();
-      await this.refreshCurrentRoom();
-    } catch (err) {
-      this.reportApiError(err);
-    }
+    if (!(await this.performModeration('invite_speaker', userId))) return;
+    const invited = this.currentChannel.users.find((user) => user.user_id === userId);
+    if (invited) invited.is_invited_to_speak = true;
+    this.showToast(t('invitedToSpeakToast'), '🎙️');
+    roomSync.scheduleAfterHostAction?.();
+    await this.refreshCurrentRoom();
   }
 
 export async function moderateSpeaker(this: ClubboxApp, userId: number, action: 'mute' | 'moderator' | 'audience' | 'block') : Promise<void> {
@@ -357,46 +393,37 @@ export async function moderateSpeaker(this: ClubboxApp, userId: number, action: 
       this.showToast(t('permissionDenied'), '🔒');
       return;
     }
-    const channelId = this.channelApiId(this.currentChannel);
+    if (action === 'block' && !window.confirm(t('blockFromRoomConfirm'))) return;
     if (action === 'audience') {
-      if (!this.allowAction('mute_speaker')) return;
-      if (!this.allowAction('uninvite_speaker')) return;
+      if (!(await this.performModeration('mute_speaker', userId))) return;
+      if (!(await this.performModeration('uninvite_speaker', userId))) return;
     } else {
-      const endpoint = action === 'mute' ? 'mute_speaker'
+      const modAction: ModerationAction = action === 'mute' ? 'mute_speaker'
         : action === 'moderator' ? 'make_moderator'
           : 'block_from_channel';
-      if (!this.allowAction(endpoint)) return;
+      if (!(await this.performModeration(modAction, userId))) return;
     }
-    if (action === 'block' && !window.confirm(t('blockFromRoomConfirm'))) return;
-    try {
-      if (action === 'mute') await clubhouseClient.muteSpeaker(channelId, userId);
-      else if (action === 'moderator') await clubhouseClient.makeModerator(channelId, userId);
-      else if (action === 'block') await clubhouseClient.blockFromChannel(channelId, userId);
-      else await clubhouseClient.moveToAudience(channelId, userId);
-      this.openSpeakerMenuId = null;
-      const target = this.currentChannel.users.find((user) => user.user_id === userId);
-      if (action === 'block') {
-        this.currentChannel.users = this.currentChannel.users.filter((user) => user.user_id !== userId);
-      } else if (target) {
-        if (action === 'mute') {
-          target.is_muted = true;
-          if (this.me && userId === this.me.user_id) {
-            audioEngine.setMuted(true);
-            this.syncSelfMuteFromEngine();
-            void this.queueMuteSync();
-          }
+    this.openSpeakerMenuId = null;
+    const target = this.currentChannel.users.find((user) => user.user_id === userId);
+    if (action === 'block') {
+      this.currentChannel.users = this.currentChannel.users.filter((user) => user.user_id !== userId);
+    } else if (target) {
+      if (action === 'mute') {
+        target.is_muted = true;
+        if (this.me && userId === this.me.user_id) {
+          audioEngine.setMuted(true);
+          this.syncSelfMuteFromEngine();
+          void this.queueMuteSync();
         }
-        else if (action === 'moderator') target.is_moderator = true;
-        else if (action === 'audience') {
-          target.is_speaker = false;
-          target.is_moderator = false;
-        }
+      } else if (action === 'moderator') {
+        target.is_moderator = true;
+      } else if (action === 'audience') {
+        target.is_speaker = false;
+        target.is_moderator = false;
       }
-      roomSync.scheduleAfterHostAction?.();
-      await this.refreshCurrentRoom();
-    } catch (err) {
-      this.reportApiError(err);
     }
+    roomSync.scheduleAfterHostAction?.();
+    await this.refreshCurrentRoom();
   }
 
 export function maybeShowSpeakerInvite(this: ClubboxApp) : void {
@@ -501,28 +528,20 @@ export async function declineSpeakerInvite(this: ClubboxApp) : Promise<void> {
 
 export async function setHandRaisePermission(this: ClubboxApp, mode: string): Promise<void> {
     if (!this.currentChannel || !this.isMeModerator()) return;
-    if (!this.allowAction('change_handraise_settings')) return;
+    if (!(await this.performModeration('set_handraise'))) return;
     const isEnabled = mode !== 'off';
     const handraisePermission = mode === '2' ? 2 : 1;
-    try {
-      await clubhouseClient.changeHandraiseSettings(this.channelApiId(this.currentChannel), {
-        isEnabled,
-        handraisePermission,
-      });
-      this.currentChannel = {
-        ...this.currentChannel,
-        is_handraise_enabled: isEnabled,
-        handraise_permission: handraisePermission,
-      };
-      this.renderStage();
-      this.showToast(
-        !isEnabled ? t('handRaiseOff') : handraisePermission === 2 ? t('handRaiseFriendsOfSpeakers') : t('handRaiseEveryone'),
-        '✋',
-      );
-      roomSync.scheduleAfterHostAction?.();
-    } catch (err) {
-      this.reportApiError(err);
-    }
+    this.currentChannel = {
+      ...this.currentChannel,
+      is_handraise_enabled: isEnabled,
+      handraise_permission: handraisePermission,
+    };
+    this.renderStage();
+    this.showToast(
+      !isEnabled ? t('handRaiseOff') : handraisePermission === 2 ? t('handRaiseFriendsOfSpeakers') : t('handRaiseEveryone'),
+      '✋',
+    );
+    roomSync.scheduleAfterHostAction?.();
   }
 
 export async function renameRoom(this: ClubboxApp): Promise<void> {
@@ -681,23 +700,8 @@ export async function setRoomVisibility(this: ClubboxApp, visibility: string): P
 
 export async function muteEveryone(this: ClubboxApp) : Promise<void> {
     if (!this.currentChannel || !this.isMeModerator()) return;
-    if (!this.allowAction('mute_speaker')) return;
-    const channel = this.currentChannel;
-    const channelId = this.channelApiId(channel);
-    const myId = this.me?.user_id ?? clubhouseClient.getCurrentUserId();
-    try {
-      const result = await muteAllSpeakers(channel.users, myId, {
-        delayMs: 150,
-        muteSpeaker: async (userId) => {
-          await clubhouseClient.muteSpeaker(channelId, userId);
-          const row = channel.users.find((user) => user.user_id === userId);
-          if (row) row.is_muted = true;
-        },
-      });
-      this.showToast(t('mutedSpeakersCount', { muted: result.muted, total: result.total }), '🔇');
-    } catch (err) {
-      this.reportApiError(err);
-    }
+    // Provider owns the network call (WebProvider later); app-only stops here.
+    if (!(await this.performModeration('mute_all'))) return;
     roomSync.scheduleAfterHostAction?.();
     await this.refreshCurrentRoom();
   }
@@ -809,6 +813,15 @@ export async function saveClip(this: ClubboxApp) : Promise<void> {
   }
 
 export function allowAction(this: ClubboxApp, endpoint: string) : boolean {
+    const modAction = moderationActionFromEndpoint(endpoint);
+    if (modAction && !getModerationProvider().capabilities({
+      channel: this.currentChannel ? this.channelApiId(this.currentChannel) : '',
+      userCapabilities: readUserCapabilities(this.currentChannel),
+      isModerator: this.isMeModerator(),
+    }).some((cap) => cap.action === modAction && cap.available)) {
+      this.handleModerationError({ kind: 'app_only' });
+      return false;
+    }
     if (!clubhouseClient.supports(endpoint)) {
       const evidence = clubhouseClient.evidence(endpoint);
       const key = isMobileHostEndpoint(endpoint) || evidence === 'mobile-spike'
@@ -818,6 +831,10 @@ export function allowAction(this: ClubboxApp, endpoint: string) : boolean {
           : evidence === 'community'
             ? 'moderationNeedsExperimental'
             : 'temporarilyUnavailable';
+      if (key === 'hostToolsAppOnly') {
+        this.handleModerationError({ kind: 'app_only' });
+        return false;
+      }
       this.showToast(t(key), '🔒');
       return false;
     }
@@ -1194,21 +1211,11 @@ export async function endRoom(this: ClubboxApp) : Promise<void> {
     const channel = this.currentChannel;
     const myId = this.me?.user_id ?? clubhouseClient.getCurrentUserId();
     if (!channel || !this.isMeModerator() || myId == null) return;
-    if (!this.allowAction('end_channel')) return;
     if (!window.confirm(t('endRoomConfirm'))) return;
-    const channelCode = this.channelApiId(channel);
-    try {
-      await clubhouseClient.endChannel(channelCode, channel.channel_id);
-      await this.releaseRoomLocally({ skipServer: true });
-      this.afterRoomExit(true, false, true);
-    } catch (err) {
-      // Explicit End must not degrade to Leave — stay in the room and surface the error.
-      if (err instanceof ClubhouseApiError && (err.status === 404 || err.status === 405)) {
-        this.showToast(t('endRoomUnavailable'), '📱');
-        return;
-      }
-      this.reportApiError(err);
-    }
+    // Provider owns the network call; app-only returns before any request.
+    if (!(await this.performModeration('end_channel'))) return;
+    await this.releaseRoomLocally({ skipServer: true });
+    this.afterRoomExit(true, false, true);
   }
 
 export async function sendChatMessage(this: ClubboxApp) {
@@ -1632,6 +1639,8 @@ export function wireRoomCtl(proto: ClubboxApp): void {
   proto.syncClipArm = syncClipArm;
   proto.saveClip = saveClip;
   proto.allowAction = allowAction;
+  proto.handleModerationError = handleModerationError;
+  proto.performModeration = performModeration;
   proto.enableExperimentalActions = enableExperimentalActions;
   proto.joinRoom = joinRoom;
   proto.connectRoomAudio = connectRoomAudio;

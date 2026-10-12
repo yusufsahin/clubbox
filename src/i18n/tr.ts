@@ -35,7 +35,7 @@ export const tr: Record<MessageKey, string> = {
   blockFromRoom: 'Odadan engelle',
   blockFromRoomConfirm: 'Bu kişiyi odadan çıkarmak istiyor musun? Bu odaya tekrar giremez.',
   hostToolsNeedSession: 'Sustur / dinleyiciye al / odayı bitir için Clubhouse ile oturum aç.',
-  hostToolsAppOnly: 'Moderasyon için Clubhouse uygulamasını kullan',
+  hostToolsAppOnly: 'Moderasyon yalnızca Clubhouse uygulamasında kullanılabilir',
   hostToolsLinkTitle: 'Telefonuna gelen kodu gir',
   hostToolsLinkHelp: 'Sunucu araçları için bir kez Clubhouse telefon bağlantısı gerekir. Burada yalnızca kod yazılır.',
   hostToolsLinkCode: 'SMS kodu',

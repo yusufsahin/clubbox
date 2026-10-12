@@ -58,7 +58,8 @@ test('roomControlFlags gates handraise, rename, and emoji by capability + suppor
   );
   assert.equal(blocked.canHandraise, false);
   assert.equal(blocked.canRename, false);
-  assert.equal(blocked.hostToolsCallable, true);
+  // App-only provider: never callable even when supports() is true.
+  assert.equal(blocked.hostToolsCallable, false);
 });
 
 test('change_handraise_settings body uses community numeric permission', () => {

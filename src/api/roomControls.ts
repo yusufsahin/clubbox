@@ -1,3 +1,4 @@
+import { anyModerationAvailable, getModerationProvider } from './moderationProvider.ts';
 import { permissionOn } from './roomActions';
 
 export type UserCapabilities = Record<string, boolean | undefined>;
@@ -55,7 +56,10 @@ export function roomControlFlags(
     canReact: supports('emoji_reaction'),
     canGifReact: supports('gif_reaction'),
     canChangeVisibility: supports('make_channel_public') || supports('make_channel_social'),
-    hostToolsCallable: supports('mute_speaker'),
+    hostToolsCallable: anyModerationAvailable(getModerationProvider(), {
+      channel: '',
+      isModerator: true,
+    }),
   };
 }
 

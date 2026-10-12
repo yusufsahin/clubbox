@@ -128,6 +128,8 @@ export type ClubboxAppCtlMethods = {
   syncClipArm: typeof roomCtl.syncClipArm;
   saveClip: typeof roomCtl.saveClip;
   allowAction: typeof roomCtl.allowAction;
+  handleModerationError: typeof roomCtl.handleModerationError;
+  performModeration: typeof roomCtl.performModeration;
   enableExperimentalActions: typeof roomCtl.enableExperimentalActions;
   joinRoom: typeof roomCtl.joinRoom;
   connectRoomAudio: typeof roomCtl.connectRoomAudio;
