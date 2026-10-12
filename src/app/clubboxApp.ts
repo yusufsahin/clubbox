@@ -386,6 +386,7 @@ export class ClubboxApp {
       this.showToast(t('microphoneChangedTo', { label }), '🎙️');
       if (this.currentTab === 'settings') void this.fillAudioDevices();
     });
+    electronAPI()?.onAgoraLifecycle?.((payload) => this.handleAgoraLifecycle(payload?.reason || ''));
     agoraVoice.onNetworkQuality((tone, uplink, downlink) => {
       this.networkQualityTone = tone;
       this.networkQualityUp = uplink;

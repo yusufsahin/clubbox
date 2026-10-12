@@ -24,6 +24,7 @@ import {
   SPEAKING_SAMPLE_MS,
   type SpeakingHoldState,
 } from './speakingRings';
+import { createExclusiveQueue } from './asyncQueue';
 
 export interface AgoraJoinOptions {
   isSpeaker: boolean;
@@ -73,6 +74,8 @@ export class AgoraVoiceEngine {
   private speakingHold: SpeakingHoldState = new Map();
   private speakingSampleTimer: ReturnType<typeof setInterval> | null = null;
   private speakingSamplePaused = false;
+  /** Serialize join/leave so concurrent joins await the previous leave (Phase 24.6). */
+  private readonly exclusiveAgora = createExclusiveQueue();
   private onConnectionProblemCallbacks: ((reason: string) => void)[] = [];
   private onReconnectUiCallbacks: ((reconnecting: boolean) => void)[] = [];
   private onBannedCallbacks: ((reason: string) => void)[] = [];
@@ -403,11 +406,20 @@ export class AgoraVoiceEngine {
     uid: number,
     options: AgoraJoinOptions,
   ): Promise<boolean> {
+    return this.exclusiveAgora(() => this.joinExclusive(channelName, token, uid, options));
+  }
+
+  private async joinExclusive(
+    channelName: string,
+    token: string,
+    uid: number,
+    options: AgoraJoinOptions,
+  ): Promise<boolean> {
     const AgoraRTC = await this.loadSdk();
     const client = this.initClient(AgoraRTC);
 
     if (this.isJoined) {
-      await this.leave();
+      await this.leaveExclusive();
     }
 
     const params = buildAgoraJoinParams({
@@ -516,7 +528,7 @@ export class AgoraVoiceEngine {
       this.lastJoinResult = code;
       void this.logAgora('agora_join', false, params.appIdSource, code);
       try {
-        await this.leave();
+        await this.leaveExclusive();
       } catch {
         // Leave is best-effort after a failed join.
       }
@@ -764,6 +776,10 @@ export class AgoraVoiceEngine {
   }
 
   public async leave(): Promise<void> {
+    return this.exclusiveAgora(() => this.leaveExclusive());
+  }
+
+  private async leaveExclusive(): Promise<void> {
     try {
       await this.unpublishLocal();
     } catch (err) {

@@ -38,6 +38,8 @@ export type ElectronAPI = {
   openMicrophoneSettings?: () => Promise<{ ok: boolean; reason?: string }>;
   /** Dev A/B: open clubhouse.com/room/<channel> with Agora WS shape logging. */
   openAgoraAbRoom?: (channel: string) => Promise<{ ok: boolean; reason?: string; reused?: boolean }>;
+  /** Phase 24.6: quit/close/suspend/resume lifecycle for Agora leave/rejoin. */
+  onAgoraLifecycle?: (callback: (payload: { reason?: string }) => void | Promise<void>) => () => void;
   setNativeThemeSource?: (source: 'system' | 'light' | 'dark') => Promise<{ ok: boolean }>;
   appendApiLog?: (record: {
     endpoint: string;

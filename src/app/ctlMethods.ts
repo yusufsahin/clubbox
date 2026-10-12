@@ -84,6 +84,7 @@ export type ClubboxAppCtlMethods = {
   sendPrivateMessage: typeof profileCtl.sendPrivateMessage;
   findKnownUser: typeof profileCtl.findKnownUser;
   handleBeforeUnload: typeof roomCtl.handleBeforeUnload;
+  handleAgoraLifecycle: typeof roomCtl.handleAgoraLifecycle;
   startRoomPresence: typeof roomCtl.startRoomPresence;
   stopChatPolling: typeof roomCtl.stopChatPolling;
   syncChatPolling: typeof roomCtl.syncChatPolling;

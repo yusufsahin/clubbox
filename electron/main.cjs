@@ -8,6 +8,7 @@ const {
   Notification,
   nativeTheme,
   systemPreferences,
+  powerMonitor,
 } = require('electron');
 const path = require('path');
 const fs = require('fs');
@@ -289,6 +290,16 @@ function createWindow() {
 
   mainWindow.show();
   mainWindow.focus();
+
+  // Phase 24.6: leave Agora before the window tears down (2 s cap).
+  mainWindow.on('close', (event) => {
+    if (agoraLifecycleDone) return;
+    event.preventDefault();
+    void requestRendererAgoraLifecycle('close').finally(() => {
+      agoraLifecycleDone = true;
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.destroy();
+    });
+  });
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -1784,6 +1795,42 @@ if (!hasSingleInstanceLock) {
   });
 }
 
+/** Phase 24.6: ask renderer to leave Agora (2 s cap) before quit/close/suspend. */
+let agoraLifecycleDone = false;
+function requestRendererAgoraLifecycle(reason) {
+  return new Promise((resolve) => {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      resolve({ ok: false, reason: 'no_window' });
+      return;
+    }
+    const timer = setTimeout(() => {
+      ipcMain.removeListener('clubbox:agora-lifecycle-done', onDone);
+      resolve({ ok: false, reason: 'timeout' });
+    }, 2000);
+    function onDone(_event, payload) {
+      clearTimeout(timer);
+      resolve(payload && typeof payload === 'object' ? payload : { ok: true });
+    }
+    ipcMain.once('clubbox:agora-lifecycle-done', onDone);
+    try {
+      mainWindow.webContents.send('clubbox:agora-lifecycle', { reason: String(reason || '') });
+    } catch {
+      clearTimeout(timer);
+      ipcMain.removeListener('clubbox:agora-lifecycle-done', onDone);
+      resolve({ ok: false, reason: 'send_failed' });
+    }
+  });
+}
+
+app.on('before-quit', (event) => {
+  if (agoraLifecycleDone) return;
+  event.preventDefault();
+  void requestRendererAgoraLifecycle('quit').finally(() => {
+    agoraLifecycleDone = true;
+    app.quit();
+  });
+});
+
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
 });
@@ -1799,6 +1846,22 @@ app.whenReady().then(() => {
   startRecorderIfAllowed(process.argv);
   // Returning signed-in users never reopen /signin — still need PubNub/Agora keys in userData.
   scheduleBundleCrawl();
+
+  try {
+    powerMonitor.on('suspend', () => {
+      void requestRendererAgoraLifecycle('suspend');
+    });
+    powerMonitor.on('resume', () => {
+      if (!mainWindow || mainWindow.isDestroyed()) return;
+      try {
+        mainWindow.webContents.send('clubbox:agora-lifecycle', { reason: 'resume' });
+      } catch {
+        // ignore
+      }
+    });
+  } catch (err) {
+    console.warn('[Clubbox] powerMonitor unavailable:', err);
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

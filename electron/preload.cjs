@@ -48,6 +48,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
   micAccessStatus: () => ipcRenderer.invoke('clubbox:mic-access-status'),
   openMicrophoneSettings: () => ipcRenderer.invoke('clubbox:open-mic-settings'),
   openAgoraAbRoom: (channel) => ipcRenderer.invoke('clubbox:open-agora-ab-room', { channel }),
+  /** Phase 24.6: main asks renderer to leave/rejoin Agora (quit/close/suspend/resume). */
+  onAgoraLifecycle: (callback) => {
+    const listener = (_event, payload) => {
+      Promise.resolve(callback(payload || {}))
+        .catch(() => {})
+        .finally(() => {
+          ipcRenderer.send('clubbox:agora-lifecycle-done', { ok: true });
+        });
+    };
+    ipcRenderer.on('clubbox:agora-lifecycle', listener);
+    return () => ipcRenderer.removeListener('clubbox:agora-lifecycle', listener);
+  },
   onPubNubMessage: (callback) => {
     const listener = (_event, message) => callback(message);
     ipcRenderer.on('clubbox:pubnub-message', listener);

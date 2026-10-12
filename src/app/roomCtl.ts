@@ -30,6 +30,23 @@ function reportMicFailure(app: ClubboxApp): void {
 }
 
 
+/** Phase 24.6: main-process quit/close/suspend/resume → leave or rejoin Agora. */
+export async function handleAgoraLifecycle(this: ClubboxApp, reason: string): Promise<void> {
+  const why = String(reason || '').toLowerCase();
+  if (why === 'resume') {
+    if (!this.currentChannel || !this.roomSession.inRoom) return;
+    if (agoraVoice.getIsJoined()) return;
+    console.warn('[Clubbox] power resume — rejoining Agora');
+    await this.rejoinAgoraAudio();
+    return;
+  }
+  // quit / close / suspend: leave Agora promptly (HTTP leave is separate / best-effort).
+  if (agoraVoice.getIsJoined()) {
+    console.warn(`[Clubbox] Agora lifecycle leave reason=${why || 'unknown'}`);
+    await agoraVoice.leave();
+  }
+}
+
 export function handleBeforeUnload(this: ClubboxApp) : void {
     const channel = this.currentChannel;
     this.roomSession = finishLeave(this.roomSession);
@@ -1136,6 +1153,7 @@ export function stageControlFlags(app: ClubboxApp) {
 
 export function wireRoomCtl(proto: ClubboxApp): void {
   proto.handleBeforeUnload = handleBeforeUnload;
+  proto.handleAgoraLifecycle = handleAgoraLifecycle;
   proto.startRoomPresence = startRoomPresence;
   proto.stopChatPolling = stopChatPolling;
   proto.syncChatPolling = syncChatPolling;
