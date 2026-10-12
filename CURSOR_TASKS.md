@@ -15,6 +15,7 @@ Owner added Phase 23 (live room audio / Agora). Run it in order and respect the 
 - [x] 23.6–23.8 native SDK path deferred unless web regresses
 - [x] 24.7 evaluated — not installed (owner kept saying devam without approving WASM/CSP/licence)
 - [x] Phase 24 UI gate: `npm run test:e2e` (12 passed) + fresh `reports/theme/` settings + room-bar shots
+- [x] autonomous idle — no further Status-table work (ST-9 `@deferred` only)
 
 ### Previous run (owner instruction, 2026-10-12 #7)
 
@@ -23,13 +24,11 @@ Owner added Phase 22 (HAL-9 room type chips). Continue from there:
 - [x] Phase 22 — hallway room types (HAL-9): chips, sparse load-more, badges, empty state
 - [x] npm test + e2e + light/dark hallway screenshots; PRD HAL-9 Today; commit; stop
 
-### Last autonomous run (2026-10-12 #phase-24-close)
+### Last autonomous run (2026-10-12 #idle)
 
-- Interpreted repeated `devam` as **skip 24.7 install** (browser ANS only). Phase **24.1–24.6** complete; 24.7 deferred.
-- UI gate: `npm run test:e2e` — 12 passed; fresh `reports/theme/*-settings.png` and room-bar shots (gitignored).
-- Status table: Phase 24 closed except optional 24.7 later via `24.7 evet`.
-- Blocked / deferred: ST-9 Restream; native 23.6+; 24.7 WASM package.
-- Questions: ACC-1 wording only.
+- Phases **12–24** closed on `phase-23-24-agora` (24.7 deferred, no WASM). Status table **idle**.
+- Only leftover: ST-9 Restream `@deferred`; optional `24.7 evet`; ACC-1 wording question.
+- Stopped per Hard rule — no open Autonomous-plan task.
 
 ### Questions for the owner
 
@@ -47,7 +46,7 @@ Legend: **Uygulandı** = code is in the tree. **Canlı doğrulandı** = exercise
 | 0b | **Phase 24 Agora feature completeness** — broadcast mix, reconnect + quality, token lifecycle, device hot-swap, speaking rings, lifecycle, AI noise suppression | **Closed** — 24.1–24.6 done; 24.7 deferred (no WASM); e2e green |
 | 1 | **0.7 Review fixes (2026-10-11 #2)** — navigation guard, packaged recorder, clip worklet path, auto-armed clip buffer, 429/visibility, CORS proxy token leak | Uygulandı |
 | 1b | **0.8 Followers / following / friends lists** — bundle scan + labeled UI hunt; live UI uses only counts + mutual lists | Uygulandı for counts, mutual names, and chat people. The public web bundle does not contain get_followers, get_following, or get_online_friends. get_friend_zone_match and get_social_club_members are in-bundle and not called. The labeled click-through still needs a signed-in session. |
-| 0 | **Autonomous plan** (see `.cursor/rules/clubbox.mdc`): 10.1 → 11.8 (warn mode) → 10.2 → 10.5 → 11.0 → 11.1 → 11.2 → 11.3 → 11.4 → 10.4 → 11.5 → 11.6 → 11.7 → 11.9 → 11.10 → 11.8 (strict). Acceptance files: account, hallway, room_listener, room_realtime, room_host, room_moderation, audio_studio, studio, social, messages, houses_events_replays, api_health. Requirements: `docs/product/PRD.md`; design + gap list G-01…G-18: `docs/product/DESIGN.md`; acceptance: `features/*.feature` | **Idle** — Phases 12–**22** done. Only ST-9 Restream remains `@deferred`. |
+| 0 | **Autonomous plan** (see `.cursor/rules/clubbox.mdc`): 10.1 → 11.8 (warn mode) → 10.2 → 10.5 → 11.0 → 11.1 → 11.2 → 11.3 → 11.4 → 10.4 → 11.5 → 11.6 → 11.7 → 11.9 → 11.10 → 11.8 (strict). Acceptance files: account, hallway, room_listener, room_realtime, room_host, room_moderation, audio_studio, studio, social, messages, houses_events_replays, api_health. Requirements: `docs/product/PRD.md`; design + gap list G-01…G-18: `docs/product/DESIGN.md`; acceptance: `features/*.feature` | **Idle** — Phases 12–**24** done. Only ST-9 Restream remains `@deferred`. |
 | — | **10.1** / **10.2** / **10.4** / **10.5** / **11.0** / **11.8 (warn)** | Uygulandı |
 | 1c | **0.9 / 12.2 Verified by use** — request log + in-app triage (no recorder) | Uygulandı. Verified by use: endpoints the owner exercises become `observed` via userData `api-log` + startup triage / `npm run api:triage` (list grows with normal use). |
 | 2 | **0.6 Community Guidelines risk** — hidden reCAPTCHA sign-in, polling, recording, distribution | Uygulandı (code). Sign-in is a visible clubhouse.com window, polling pauses when the window is hidden, recording is opt-in, and there is no publish config. A public release is still your decision. |
