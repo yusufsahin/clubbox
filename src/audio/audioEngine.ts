@@ -556,7 +556,7 @@ export class AudioEngine {
 
   /** Read the opened track. Logs one line and never includes the device id. */
   private rememberCapture(which: 'mic' | 'external', track: MediaStreamTrack, labelOverride?: string): void {
-    let settings: CaptureSettings = {};
+    let settings: CaptureSettings;
     try {
       settings = track.getSettings() as CaptureSettings;
     } catch {

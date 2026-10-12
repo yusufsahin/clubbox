@@ -86,3 +86,18 @@ test('step 2 shows both setups and does not apply them', () => {
   assert.match(html, new RegExp(t('audioSetup2Title')));
   assert.doesNotMatch(html, /data-action="audio-setup-apply"/);
 });
+
+test('step 3 warns when mic and external are the same cable', () => {
+  const html = markup(audioSetupWizard({
+    step: 3,
+    summary: installedAudioSummary(devices),
+    devices,
+    unavailable: new Set(),
+    draft: { micId: 'cable-cap', externalId: 'cable-cap', outputId: 'phones', quality: 'music' },
+    choice: 'mix',
+    loopClear: true,
+  }));
+  assert.match(html, /data-setup-double/);
+  assert.match(html, /data-setup-hint="mix"/);
+  assert.match(html, /disabled/);
+});

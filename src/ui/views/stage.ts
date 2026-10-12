@@ -32,10 +32,6 @@ export interface StageState {
   visibilityMode: 'open' | 'social' | 'other';
 }
 
-function unverifiedAction(): SafeHtml {
-  return html`<span class="invited-tag" title="${t('unsupportedAction')}">${t('temporarilyUnavailable')}</span>`;
-}
-
 export function emptyStageView(): SafeHtml {
   return html`
     <div style="text-align:center; padding: 80px 20px;">
@@ -133,7 +129,6 @@ export function stageColumn(state: StageState): SafeHtml {
                   </div>
                   <div class="speaker-name" data-action="open-profile" data-user-id="${speaker.user_id}">${speaker.name}${state.channel.creator_user_profile_id === speaker.user_id ? html` <span class="host-tag">${t('host')}</span>` : ''}</div>
                   ${speaker.username ? html`<div class="speaker-handle" data-action="open-profile" data-user-id="${speaker.user_id}">@${speaker.username}</div>` : ''}
-                  ${state.moderator && !isSelf && !(state.canMute || state.canMod || state.canMoveToAudience || state.canBlock) ? unverifiedAction() : ''}
                   ${state.moderator && !isSelf && (state.canMute || state.canMod || state.canMoveToAudience || state.canBlock) ? html`
                     <button class="speaker-menu-btn" type="button" data-action="speaker-menu" data-user-id="${speaker.user_id}" title="${t('speakerActions')}">⋯</button>
                     ${menuOpen ? html`
@@ -167,7 +162,7 @@ export function stageColumn(state: StageState): SafeHtml {
                     </div>
                     <div class="audience-name">${listener.name} ✋</div>
                     ${listener.is_invited_to_speak ? html`<div class="invited-tag">${t('invited')}</div>` : ''}
-                    ${state.moderator ? (state.canInvite ? html`<button class="invite-stage-btn" data-action="invite-stage" data-user-id="${listener.user_id}">${t('inviteToStage')}</button>` : unverifiedAction()) : ''}
+                    ${state.moderator && state.canInvite ? html`<button class="invite-stage-btn" data-action="invite-stage" data-user-id="${listener.user_id}">${t('inviteToStage')}</button>` : ''}
                   </div>
                 `)}
               </div>
@@ -189,7 +184,7 @@ function listenerCards(listeners: CHUser[], state: StageState): SafeHtml {
           </div>
           <div class="audience-name">${listener.name}</div>
           ${listener.is_invited_to_speak ? html`<div class="invited-tag">${t('invited')}</div>` : ''}
-          ${state.moderator ? (state.canInvite ? html`<button class="invite-stage-btn" data-action="invite-stage" data-user-id="${listener.user_id}">${t('inviteToStage')}</button>` : unverifiedAction()) : ''}
+          ${state.moderator && state.canInvite ? html`<button class="invite-stage-btn" data-action="invite-stage" data-user-id="${listener.user_id}">${t('inviteToStage')}</button>` : ''}
         </div>
       `)}
     </div>

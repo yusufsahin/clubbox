@@ -67,3 +67,27 @@ test('speakers do not see Join stage CTA', () => {
   })));
   assert.doesNotMatch(html, /data-open-stage-banner/);
 });
+
+test('moderator without host tools does not fake a presence status on speakers', () => {
+  const html = markup(stageColumn(baseState({
+    me: { user_id: 2, name: 'Listener' },
+    moderator: true,
+    canMute: false,
+    canMod: false,
+    canMoveToAudience: false,
+    canBlock: false,
+    canInvite: false,
+    canJoinStage: false,
+    channel: {
+      channel: 'open-mic',
+      channel_id: 'ch-open',
+      topic: 'Open mic',
+      users: [
+        { user_id: 1, name: 'Host', username: 'host', is_speaker: true, is_moderator: true },
+        { user_id: 2, name: 'Listener', is_speaker: true, is_moderator: true },
+      ],
+    },
+  })));
+  assert.doesNotMatch(html, /Temporarily unavailable|Geçici olarak kullanılamıyor/);
+  assert.doesNotMatch(html, /data-action="speaker-menu"/);
+});

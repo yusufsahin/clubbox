@@ -508,6 +508,141 @@ body {
   z-index: 40;
 }
 
+#audio-setup-root {
+  position: absolute;
+  top: 64px;
+  right: 16px;
+  width: min(400px, calc(100% - 32px));
+  max-height: calc(100% - 140px);
+  overflow: auto;
+  z-index: 45;
+}
+
+.audio-setup-panel {
+  gap: 14px;
+}
+
+.audio-setup-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.audio-setup-heading h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.audio-setup-step-meta {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.audio-setup-progress {
+  display: flex;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.audio-setup-progress li {
+  flex: 1;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--surface-2);
+}
+
+.audio-setup-progress li.is-done {
+  background: var(--accent-purple);
+  opacity: 0.45;
+}
+
+.audio-setup-progress li.is-current {
+  background: var(--accent-purple);
+  opacity: 1;
+}
+
+.audio-setup-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.audio-setup-card .form-group {
+  margin-bottom: 0;
+}
+
+.audio-setup-hint {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-main);
+}
+
+.audio-setup-warn {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid #c0392b;
+  background: rgba(192, 57, 43, 0.12);
+  color: var(--text-main);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.audio-setup-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  width: 100%;
+  text-align: left;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
+  color: var(--text-main);
+  cursor: pointer;
+  font: inherit;
+}
+
+.audio-setup-choice:hover {
+  border-color: var(--accent-purple);
+}
+
+.audio-setup-choice strong {
+  font-size: 14px;
+}
+
+.audio-setup-choice span {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.audio-setup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.audio-setup-meter-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
 .room-details-panel {
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);

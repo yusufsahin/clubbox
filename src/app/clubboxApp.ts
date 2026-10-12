@@ -36,7 +36,7 @@ import { cockpitBar } from '../ui/components/cockpitBar';
 import { mountCreateModal } from '../ui/components/createModal';
 import { selfProfilePage } from '../ui/components/profileDrawer';
 import { roomDetailsPanel } from '../ui/components/roomDetailsPanel';
-import { audioSetupWizard, isSetupQuality } from '../ui/components/audioSetupWizard';
+import { audioSetupWizard, draftUsesSameCable, isSetupQuality } from '../ui/components/audioSetupWizard';
 import { showToast } from '../ui/components/toast';
 import { html, markup, safeUrl } from '../ui/html';
 import { icon } from '../ui/icons';
@@ -1044,7 +1044,7 @@ export class ClubboxApp {
   }
 
   async onAudioDevicesChanged(): Promise<void> {
-    let devices: MediaDeviceInfo[] = [];
+    let devices: MediaDeviceInfo[];
     try {
       devices = await navigator.mediaDevices.enumerateDevices();
     } catch {
@@ -1112,6 +1112,11 @@ export class ClubboxApp {
 
   applyAudioSetup(): void {
     const draft = this.audioSetupDraft;
+    if (draftUsesSameCable(this.audioSetupDevices, draft)) {
+      this.showToast(t('audioSetupDoubleCable'), '🔊');
+      this.paintAudioSetupDraftState();
+      return;
+    }
     const mic = this.audioSetupDevices.find((device) => device.id === draft.micId);
     const output = this.audioSetupDevices.find((device) => device.id === draft.outputId);
     const previous = this.audioPrefs.audioQuality;
@@ -1138,6 +1143,24 @@ export class ClubboxApp {
     this.refreshLoopGuardUi();
     this.renderAudioSetup();
     if (!agoraVoice.getIsJoined() || !agoraVoice.getIsSpeaker()) void audioEngine.ensureMicrophone();
+  }
+
+  paintAudioSetupDraftState(): void {
+    const root = document.getElementById('audio-setup-root');
+    if (!root || this.audioSetupStep !== 3) return;
+    const doubles = draftUsesSameCable(this.audioSetupDevices, this.audioSetupDraft);
+    let warn = root.querySelector<HTMLElement>('[data-setup-double]');
+    if (doubles && !warn) {
+      warn = document.createElement('p');
+      warn.className = 'audio-setup-warn';
+      warn.setAttribute('data-setup-double', '');
+      warn.textContent = t('audioSetupDoubleCable');
+      root.querySelector('[data-setup-devices] .list-note')?.after(warn);
+    } else if (!doubles) {
+      warn?.remove();
+    }
+    const apply = root.querySelector<HTMLButtonElement>('[data-action="audio-setup-apply"]');
+    if (apply) apply.disabled = doubles;
   }
 
   renderAudioSetup(): void {
@@ -1714,6 +1737,7 @@ export class ClubboxApp {
         else if (field === 'quality' && isSetupQuality(target.value)) {
           this.audioSetupDraft = { ...this.audioSetupDraft, quality: target.value };
         }
+        this.paintAudioSetupDraftState();
         return;
       }
       if (action === 'set-handraise' && target instanceof HTMLSelectElement) {
