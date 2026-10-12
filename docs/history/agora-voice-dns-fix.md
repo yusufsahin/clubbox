@@ -124,6 +124,22 @@ Adım 1 uygulandı (DNS/edge-map/`CONNECT_GATEWAY_WITHOUT_DOMAIN` kaldırıldı)
 
 **Regresyon (aynı gün):** Uncommitted “timeout → leave → cloud proxy” katmanı join’i `WS_ABORT: LEAVE` ile kesiyordu; Adım 4’teki `is_web_listening_enabled===false` hard-gate ise Agora’yı hiç çağırmıyordu. Geri alındı: join yine commit’teki gibi düz `client.join()`; web-listening yalnızca uyarı logu. Adım 2’nin timeout/proxy kısmı bilerek uygulanmadı — o, eski çalışan yolu bozan şeydi.
 
+## A/B — clubhouse.com vs Clubbox (Phase 23.3)
+
+**Status: awaiting owner run.** Settings › Advanced › enable “Verbose voice log” › join a room › “Open current room on clubhouse.com”. Desktop console logs `[agora-ab] ws …` shapes only. Fill the table below from that run (never paste tokens or full app ids).
+
+| Field | clubhouse.com (A/B window) | Clubbox |
+| --- | --- | --- |
+| appId prefix / len | _pending_ | `938d…` / 32 (config or fallback) |
+| token len | _pending_ | from `join_channel.token` (see live log `tokenLen=`) |
+| uid type / digits | _pending_ | `number` / profile id |
+| cname len | _pending_ | `channel` string length |
+| role / mode | _pending_ | host or audience / direct\|proxy |
+| result | _pending_ (audio audible? Y/N) | `Joined …` or error code |
+| `is_web_listening_enabled` | from Clubbox `join_channel` for that room | same |
+
+**Decision (owner):** web path (23.4–23.5) if clubhouse.com plays; native path (23.6–23.8) if it fails or Agora returns a vendor/permission error for web.
+
 ## 6. Kaynaklar
 
 - Chromium `services/network/p2p/socket_manager.cc`: FQDN ve adres ailesine göre çözümleme. <https://chromium.googlesource.com/chromium/src/+/refs/heads/main/services/network/p2p/socket_manager.cc>

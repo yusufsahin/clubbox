@@ -2138,6 +2138,18 @@ export class ClubboxApp {
         );
         break;
       }
+      case 'open-agora-ab-room': {
+        const channel = this.currentChannel?.channel;
+        if (!channel) {
+          this.showToast(t('openRoomOnClubhouseNeedRoom'), '🎙️');
+          break;
+        }
+        void electronAPI()?.openAgoraAbRoom?.(channel).then((res) => {
+          if (res?.ok) this.showToast(t('openRoomOnClubhouseOpened'), '🌐');
+          else this.showToast(t('somethingWrong'), '⚠️');
+        });
+        break;
+      }
       case 'reset-unsupported-routes':
         clubhouseClient.resetUnsupportedRoutes();
         this.showToast(t('apiHealthResetUnsupported'), '✅');

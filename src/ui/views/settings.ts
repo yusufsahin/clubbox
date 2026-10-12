@@ -239,6 +239,10 @@ export function settingsView(
           <input type="checkbox" id="cfg-verbose-voice-log" ${connectionStatus?.verboseVoiceLog ? 'checked' : ''} />
           <span><strong>${t('verboseVoiceLog')}</strong><br />${t('verboseVoiceLogHelp')}</span>
         </label>
+        ${connectionStatus?.verboseVoiceLog ? html`
+          <p style="font-size:12px; color:var(--text-muted); margin-top:16px; line-height:1.5;">${t('openRoomOnClubhouseHelp')}</p>
+          <button class="btn btn-secondary" type="button" data-action="open-agora-ab-room" style="margin-top:8px;">${t('openRoomOnClubhouse')}</button>
+        ` : ''}
       </div>
 
       ${connectionStatus ? html`

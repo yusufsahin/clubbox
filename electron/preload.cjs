@@ -47,6 +47,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   connectionStatus: () => ipcRenderer.invoke('clubbox:connection-status'),
   micAccessStatus: () => ipcRenderer.invoke('clubbox:mic-access-status'),
   openMicrophoneSettings: () => ipcRenderer.invoke('clubbox:open-mic-settings'),
+  openAgoraAbRoom: (channel) => ipcRenderer.invoke('clubbox:open-agora-ab-room', { channel }),
   onPubNubMessage: (callback) => {
     const listener = (_event, message) => callback(message);
     ipcRenderer.on('clubbox:pubnub-message', listener);

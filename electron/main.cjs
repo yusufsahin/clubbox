@@ -55,6 +55,8 @@ if (process.env.CLUBBOX_NETLOG === '1') {
 }
 
 let mainWindow = null;
+/** Dev A/B window: clubhouse.com room with Agora WS shape logging (Phase 23.3). */
+let agoraAbWindow = null;
 
 /** One-shot cleanup of abandoned Agora edge-map / net-log experiments. */
 function purgeAbandonedAgoraDnsArtifacts() {
@@ -203,7 +205,12 @@ function createWindow() {
 
   const allowMediaFor = (webContents) => {
     const mainId = mainWindow && !mainWindow.isDestroyed() ? mainWindow.webContents.id : -1;
-    return !!(webContents && (webContents.id === mainId || webContents.id === recorderWebContentsId));
+    const abId = agoraAbWindow && !agoraAbWindow.isDestroyed() ? agoraAbWindow.webContents.id : -1;
+    return !!(webContents && (
+      webContents.id === mainId
+      || webContents.id === recorderWebContentsId
+      || webContents.id === abId
+    ));
   };
   // Chromium asks both check + request for getUserMedia. Request-only leaves mic denied.
   session.defaultSession.setPermissionCheckHandler((webContents, permission) => {
@@ -1487,6 +1494,173 @@ ipcMain.handle('clubbox:open-mic-settings', async (event) => {
     console.warn('[Clubbox] open mic settings failed:', err instanceof Error ? err.message : err);
     return { ok: false };
   }
+});
+
+/**
+ * Phase 23.3 — open the current room on clubhouse.com in a separate window
+ * (same defaultSession cookies) and log Agora WebSocket join shapes via CDP.
+ */
+function summarizeAgoraWsPayload(raw) {
+  let parsed;
+  try {
+    parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  } catch {
+    return { kind: 'non-json', len: String(raw || '').length };
+  }
+  if (!parsed || typeof parsed !== 'object') {
+    return { kind: typeof parsed };
+  }
+  const obj = parsed;
+  const keys = Object.keys(obj).slice(0, 40);
+  const out = { keys };
+  const appid = obj.appid ?? obj.appId ?? obj.AppId;
+  if (typeof appid === 'string') {
+    out.appidPrefix = appid.slice(0, 4);
+    out.appidLen = appid.length;
+  }
+  const cname = obj.cname ?? obj.channel ?? obj.ChannelName;
+  if (typeof cname === 'string') out.cnameLen = cname.length;
+  const uid = obj.uid ?? obj.UID ?? obj.userId;
+  if (uid != null) {
+    out.uidType = typeof uid;
+    out.uidDigits = String(uid).replace(/\D/g, '').length;
+  }
+  const token = obj.token ?? obj.key ?? obj.Token;
+  if (typeof token === 'string') out.tokenLen = token.length;
+  if (obj.sdkVersion != null || obj.sdk_version != null) {
+    out.sdkVersion = String(obj.sdkVersion ?? obj.sdk_version).slice(0, 24);
+  }
+  if (obj.role != null || obj.clientRole != null) {
+    out.role = String(obj.role ?? obj.clientRole).slice(0, 24);
+  }
+  if (obj.success != null) out.success = Boolean(obj.success);
+  if (obj.code != null || obj.error != null || obj.reason != null) {
+    out.resultCode = String(obj.code ?? obj.error ?? obj.reason).slice(0, 48);
+  }
+  return out;
+}
+
+function isAgoraWsUrl(url) {
+  try {
+    const u = new URL(String(url || ''));
+    const host = u.hostname.toLowerCase();
+    return host.endsWith('.agora.io') || host.endsWith('.sd-rtn.com') || host === 'agora.io' || host === 'sd-rtn.com';
+  } catch {
+    return false;
+  }
+}
+
+function attachAgoraAbDebugger(win) {
+  const dbg = win?.webContents?.debugger;
+  if (!dbg) return;
+  try {
+    dbg.attach('1.3');
+  } catch (err) {
+    console.warn('[agora-ab] debugger attach failed', err instanceof Error ? err.message : err);
+    return;
+  }
+  const agoraSockets = new Set();
+  dbg.on('message', (_event, method, params) => {
+    if (method === 'Network.webSocketCreated') {
+      const url = String(params?.url || '');
+      if (!isAgoraWsUrl(url)) return;
+      agoraSockets.add(params.requestId);
+      try {
+        const u = new URL(url);
+        console.log('[agora-ab] ws created', u.hostname, u.port || (u.protocol === 'wss:' ? '443' : ''));
+      } catch {
+        console.log('[agora-ab] ws created host=?');
+      }
+      return;
+    }
+    if (method === 'Network.webSocketFrameSent' || method === 'Network.webSocketFrameReceived') {
+      if (!agoraSockets.has(params?.requestId)) return;
+      const payload = params?.response?.payloadData ?? params?.payloadData;
+      if (payload == null) return;
+      const dir = method.endsWith('Sent') ? 'sent' : 'recv';
+      const summary = summarizeAgoraWsPayload(payload);
+      // Only log frames that look like join / result (avoid flooding).
+      const keys = summary.keys || [];
+      const interesting = summary.appidLen || summary.cnameLen || summary.tokenLen
+        || summary.success != null || summary.resultCode
+        || keys.some((k) => /cname|uid|token|appid|role|success|code/i.test(String(k)));
+      if (!interesting) return;
+      console.log(`[agora-ab] ws ${dir}`, JSON.stringify(summary));
+    }
+  });
+  dbg.sendCommand('Network.enable').catch((err) => {
+    console.warn('[agora-ab] Network.enable failed', err instanceof Error ? err.message : err);
+  });
+  win.on('closed', () => {
+    try { dbg.detach(); } catch { /* ignore */ }
+  });
+}
+
+async function openAgoraAbRoomWindow(channel) {
+  const name = String(channel || '').trim();
+  if (!/^[A-Za-z0-9_-]{3,64}$/.test(name)) {
+    return { ok: false, reason: 'bad-channel' };
+  }
+  const target = `https://www.clubhouse.com/room/${encodeURIComponent(name)}`;
+  if (!isClubhouseHttps(target)) return { ok: false, reason: 'bad-url' };
+
+  if (agoraAbWindow && !agoraAbWindow.isDestroyed()) {
+    try {
+      agoraAbWindow.focus();
+      await agoraAbWindow.loadURL(target, { userAgent: PAGE_UA });
+      return { ok: true, reused: true };
+    } catch (err) {
+      console.warn('[agora-ab] reload failed', err instanceof Error ? err.message : err);
+    }
+  }
+
+  agoraAbWindow = new BrowserWindow({
+    width: 1100,
+    height: 800,
+    show: true,
+    autoHideMenuBar: true,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true,
+      preload: undefined,
+    },
+  });
+  agoraAbWindow.webContents.setUserAgent(PAGE_UA);
+  agoraAbWindow.webContents.on('will-navigate', (event, url) => {
+    if (!isClubhouseHttps(url) && !isSignInAuxHttps(url)) {
+      event.preventDefault();
+    }
+  });
+  agoraAbWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (isClubhouseHttps(url) || isSignInAuxHttps(url)) {
+      return {
+        action: 'allow',
+        overrideBrowserWindowOptions: {
+          webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true },
+        },
+      };
+    }
+    return { action: 'deny' };
+  });
+  agoraAbWindow.on('closed', () => {
+    agoraAbWindow = null;
+  });
+  attachAgoraAbDebugger(agoraAbWindow);
+  try {
+    await agoraAbWindow.loadURL(target, { userAgent: PAGE_UA });
+  } catch (err) {
+    console.warn('[agora-ab] load failed', err instanceof Error ? err.message : err);
+    return { ok: false, reason: 'load-failed' };
+  }
+  console.log('[agora-ab] opened room window channelLen=', name.length);
+  return { ok: true };
+}
+
+ipcMain.handle('clubbox:open-agora-ab-room', async (event, payload) => {
+  if (!isTrustedSender(event)) return { ok: false, reason: 'unauthorized' };
+  const channel = payload && typeof payload === 'object' ? payload.channel : payload;
+  return openAgoraAbRoomWindow(channel);
 });
 
 ipcMain.handle('clubbox:pubnub-subscribe', async (event, payload) => {

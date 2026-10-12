@@ -36,6 +36,8 @@ export type ElectronAPI = {
   clearWebSession?: () => Promise<{ ok: boolean }>;
   micAccessStatus?: () => Promise<{ ok: boolean; status?: string }>;
   openMicrophoneSettings?: () => Promise<{ ok: boolean; reason?: string }>;
+  /** Dev A/B: open clubhouse.com/room/<channel> with Agora WS shape logging. */
+  openAgoraAbRoom?: (channel: string) => Promise<{ ok: boolean; reason?: string; reused?: boolean }>;
   setNativeThemeSource?: (source: 'system' | 'light' | 'dark') => Promise<{ ok: boolean }>;
   appendApiLog?: (record: {
     endpoint: string;
