@@ -7,7 +7,7 @@ _Last reviewed: 2026-10-11. “Uygulandı” means the code is in the tree. “C
 ### Next run (owner instruction, 2026-10-12 #8)
 
 Owner added Phase 23 (live room audio / Agora). Run it in order and respect the decision gate:
-- [ ] 23.1 Remove the DNS workarounds (wrong diagnosis)
+- [x] 23.1 Remove the DNS workarounds (wrong diagnosis)
 - [ ] 23.2 Make the real Agora join result visible
 - [ ] 23.3 A/B reference: clubhouse.com room in the same Electron — **STOP after this task and report** (decision gate)
 - [ ] then 23.4–23.5 (web path) **or** 23.6–23.8 (native SDK path), as the owner decides from the 23.3 result
@@ -37,7 +37,7 @@ Legend: **Uygulandı** = code is in the tree. **Canlı doğrulandı** = exercise
 
 | Order | Task | Status |
 | --- | --- | --- |
-| 0a | **Phase 23 Live room audio (Agora)** — DNS -105 is a red herring; real join error not yet visible; web vs native SDK decision gate at 23.3 | Open — spec + evidence in `docs/history/agora-voice-dns-fix.md` |
+| 0a | **Phase 23 Live room audio (Agora)** — DNS -105 is a red herring; real join error not yet visible; web vs native SDK decision gate at 23.3 | In progress — 23.1 done on `phase-23-24-agora`; next 23.2 |
 | 0b | **Phase 24 Agora feature completeness** — broadcast mix (soundboard/music/effects not sent today), reconnect + quality, token lifecycle, device hot-swap, speaking rings, lifecycle, AI noise suppression | Open — after Phase 23 |
 | 1 | **0.7 Review fixes (2026-10-11 #2)** — navigation guard, packaged recorder, clip worklet path, auto-armed clip buffer, 429/visibility, CORS proxy token leak | Uygulandı |
 | 1b | **0.8 Followers / following / friends lists** — bundle scan + labeled UI hunt; live UI uses only counts + mutual lists | Uygulandı for counts, mutual names, and chat people. The public web bundle does not contain get_followers, get_following, or get_online_friends. get_friend_zone_match and get_social_club_members are in-bundle and not called. The labeled click-through still needs a signed-in session. |

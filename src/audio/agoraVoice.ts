@@ -18,10 +18,8 @@ export interface AgoraJoinOptions {
 export type RemoteMuteReport = { uid: string | number; muted: boolean };
 
 /**
- * Agora join path matches the last known-good committed shape: plain client.join().
- * Do not add join timeouts that call leave() (that surfaces as WS_ABORT: LEAVE and
- * hides the real gateway result). Do not set CONNECT_GATEWAY_WITHOUT_DOMAIN —
- * that hits CSP when the SDK dials wss://<ip>. See docs/history/agora-voice-dns-fix.md.
+ * Agora join: prefer a plain client.join() path. Do not dial the gateway by bare
+ * IP (CSP blocks wss://IP). See docs/history/agora-voice-dns-fix.md.
  */
 export class AgoraVoiceEngine {
   private client: IAgoraRTCClient | null = null;

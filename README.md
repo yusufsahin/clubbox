@@ -98,6 +98,10 @@ npm run build
 
 While you use Clubbox, each live `web_api` call appends one redacted JSONL line under the app userData `api-log/` folder (keys and shapes only — never tokens, phones, or message text). Run `npm run api:triage` to turn new failure groups into failing tests under `tests/live-failures/`, promote successful bundle/community routes to `observed`, and note unknown PubNub types in `docs/api/realtime.md`. A second run prints `NO NEW FAILURES` when nothing changed.
 
+### Known log noise
+
+Chromium may print `Failed to resolve address for ….edge.agora.io., errorcode: -105` a few times when joining a room. That is an IPv6/AAAA lookup for Agora STUN hosts that only publish A records — harmless. IPv4 still connects. Do not “fix” it with DNS switches or host-resolver rules (see `docs/history/agora-voice-dns-fix.md`).
+
 ---
 
 ## ⌨️ Global Shortcuts
