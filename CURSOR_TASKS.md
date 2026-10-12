@@ -17,10 +17,11 @@ Owner reported: triage noise, new-room participants invisible, moderation action
 
 Idle recheck after 24.7.
 
-### Last autonomous run (2026-10-12 — Phase 27 close-out docs + triage)
+### Last autonomous run (2026-10-12 — RH-6/RH-host BDD → mobile paths)
 
-- Triage: `uninvite_speaker` 404 fixture (host tools stay callable). `docs/api/mobile-api.md`; PRD `mobile-spike`; DESIGN G-04; hard-rule mobile exception.
-- **Blocked / owner:** 27.4 live matrix; 26.7 live matrix; ST-9 `@deferred`; ACC-1 + RH-6 BDD path questions.
+- Acceptance aligned with Phase 27: `/api/*` host tools; Move = mute+uninvite; world uses `moveToAudience`.
+- RH-4/5/6/7/11 BDD green (11 scenarios). Triage: no new failures.
+- **Blocked / owner:** 27.4 + 26.7 live matrices; ST-9 `@deferred`; ACC-1 wording.
 
 ### Previous last autonomous run (2026-10-12 — Phase 27.1 reduced mobile API)
 
@@ -53,7 +54,6 @@ Idle recheck after 24.7.
 ### Questions for the owner
 
 - **ACC-1 wording:** Sign-in is now a visible Clubhouse `/signin` surface embedded in the main window (BrowserView), not a separate BrowserWindow. Should `features/account.feature` ACC-1 say “visible Clubhouse sign-in surface” instead of “visible window”? (Feature file not edited by the agent.)
-- **RH-6 BDD path:** `features/room_moderation.feature` still expects `POST /web_api/<endpoint>` and Move → only `uninvite_speaker`. Phase 27 uses mobile `/api/<endpoint>` and Move = mute+uninvite. Update the feature file, or keep web_api wording as “logical” and assert via FakeTransport only?
 
 
 ## Status

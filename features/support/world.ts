@@ -363,7 +363,7 @@ export class ClubboxWorld extends World {
     const userId = this.onStageUsers.find((entry) => entry.name === name)?.userId ?? 99;
     const channel = this.session.channelId ?? 'morning-show';
     if (action === 'Make moderator') await this.client.makeModerator(channel, userId);
-    else if (action === 'Move to audience') await this.client.uninviteSpeaker(channel, userId);
+    else if (action === 'Move to audience') await this.client.moveToAudience(channel, userId);
     else if (action === 'Block from room') await this.client.blockFromChannel(channel, userId);
     else assert.fail(`unknown moderation action ${action}`);
   }

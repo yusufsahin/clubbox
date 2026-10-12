@@ -30,43 +30,39 @@ Feature: Host and moderate a room
     When I change the room title to "Evening show"
     Then a "POST /web_api/set_channel_title" request is sent with body keys "channel, title"
 
-  @community @RH-4
+  @mobile-spike @RH-4
   Scenario: Invite a listener with a raised hand
-    Given experimental actions are on
-    And I host the room "Morning show"
+    Given I host the room "Morning show"
     And "Ayse" raised her hand
     When I click "Invite to stage" for "Ayse"
-    Then a "POST /web_api/invite_speaker" request is sent with body keys "channel, user_id"
+    Then a "POST /api/invite_speaker" request is sent with body keys "channel, user_id"
 
-  @community @RH-4
+  @mobile-spike @RH-4
   Scenario: Invite to stage does not ask for experimental confirmation
     Given experimental actions are off
     And I host the room "Morning show"
     And "Ayse" raised her hand
     When I click "Invite to stage" for "Ayse"
-    Then a "POST /web_api/invite_speaker" request is sent with body keys "channel, user_id"
+    Then a "POST /api/invite_speaker" request is sent with body keys "channel, user_id"
 
-  @community @RH-5
+  @mobile-spike @RH-5
   Scenario: Mute everyone except me
-    Given experimental actions are on
-    And I host the room "Morning show" with 3 other unmuted speakers
+    Given I host the room "Morning show" with 3 other unmuted speakers
     When I click "Mute everyone"
-    Then 3 "POST /web_api/mute_speaker" requests are sent with body keys "channel, user_id"
+    Then 3 "POST /api/mute_speaker" requests are sent with body keys "channel, user_id"
     And no request is sent for my own user id
 
-  @community @RH-7
+  @mobile-spike @RH-7
   Scenario: Restrict hand raises to friends of speakers
-    Given experimental actions are on
-    And I host the room "Morning show"
+    Given I host the room "Morning show"
     When I set hand raise permission to "friends of speakers"
-    Then a "POST /web_api/change_handraise_settings" request is sent with body keys "channel, is_enabled, handraise_permission"
+    Then a "POST /api/change_handraise_settings" request is sent with body keys "channel, is_enabled, handraise_permission"
 
-  @community @RH-11
+  @mobile-spike @RH-11
   Scenario: End the room
-    Given experimental actions are on
-    And I host the room "Morning show"
+    Given I host the room "Morning show"
     When I click "End room" and confirm
-    Then a "POST /web_api/end_channel" request is sent with body keys "channel, channel_id"
+    Then a "POST /api/end_channel" request is sent with body keys "channel, channel_id"
     And Agora leaves and presence pings stop
 
   @community

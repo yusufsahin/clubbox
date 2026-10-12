@@ -12,7 +12,7 @@ Then(
   'a {string} request is sent with the documented body keys',
   function (this: ClubboxWorld, request: string) {
     const [method, path] = request.split(/\s+/);
-    const endpoint = path.replace('/web_api/', '');
+    const endpoint = path.replace(/^\/(?:web_api|api)\//, '');
     const match = lastMatching(this, method, path);
     const expected = documentedBodyKeys(endpoint);
     if (expected.length === 0) {
@@ -33,7 +33,7 @@ Then(
     assert.ok(match, `expected ${method} ${path}`);
     const actual = Object.keys(match.body ?? {}).sort();
     assert.deepEqual(actual, expected);
-    const queryKeys = documentedQueryKeys(path.replace('/web_api/', ''));
+    const queryKeys = documentedQueryKeys(path.replace(/^\/(?:web_api|api)\//, ''));
     if (queryKeys.length > 0) {
       assert.deepEqual(actual, queryKeys.sort());
     }

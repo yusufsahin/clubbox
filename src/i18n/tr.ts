@@ -590,7 +590,7 @@ export const tr: Record<MessageKey, string> = {
   notVerifiedYet: 'Henüz doğrulanmadı',
   notVerifiedHint: 'Bu çağrı henüz bir kayıtta yok. docs/api/web-api.md dosyasına bakın.',
   unsupportedAction: 'Bu işlem için kayıtlı veya tanımlı bir istek yok.',
-  makeModeratorUnavailable: 'Moderatör yap Clubhouse web’de yok (rota 404). Clubhouse uygulamasını kullan.',
+  makeModeratorUnavailable: 'Moderatör yapmak için Clubhouse oturumu gerekir (mobil host araçları).',
   allowUnverified: 'Geliştirici: doğrulanmamış oda işlemlerini aç',
   allowUnverifiedHelp: 'Uygulamada tanımlı katılma, ayrılma, el kaldırma ve sohbet isteklerini gönderir. Bu gövdeler henüz bir kayıtla doğrulanmadı.',
   experimentalActions: 'Deneysel işlemler',

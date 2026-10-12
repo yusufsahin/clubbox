@@ -16,19 +16,25 @@ Feature: Moderation extras
     Given my user_capabilities have "can_end_room" false
     Then I do not see "End room"
 
-  @community @RH-6
+  @mobile-spike @RH-6
   Scenario Outline: Speaker actions
     Given "Ayse" is on stage
     When I choose "<action>" for "Ayse"
-    Then a "POST /web_api/<endpoint>" request is sent with body keys "channel, user_id"
+    Then a "POST /api/<endpoint>" request is sent with body keys "channel, user_id"
 
     Examples:
-      | action             | endpoint          |
-      | Make moderator     | make_moderator    |
-      | Move to audience   | uninvite_speaker  |
+      | action             | endpoint           |
+      | Make moderator     | make_moderator     |
       | Block from room    | block_from_channel |
 
-  @community @RH-6
+  @mobile-spike @RH-6
+  Scenario: Move to audience mutes then uninvites
+    Given "Ayse" is on stage
+    When I choose "Move to audience" for "Ayse"
+    Then a "POST /api/mute_speaker" request is sent with body keys "channel, user_id"
+    And a "POST /api/uninvite_speaker" request is sent with body keys "channel, user_id"
+
+  @mobile-spike @RH-6
   Scenario: Blocking asks for confirmation
     Given "Ayse" is on stage
     When I start blocking "Ayse"
