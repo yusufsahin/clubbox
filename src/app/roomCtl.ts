@@ -273,6 +273,7 @@ export async function demoteLocalSpeaker(
     // syncSelfMuteFromEngine → renderCockpit keeps the SVG mic button intact.
     this.syncSelfMuteFromEngine();
     void this.queueMuteSync();
+    if (this.roomDetailsOpen) this.renderRoomDetails();
     if (opts.toastMoved !== false) this.showToast(t('movedToAudience'), '🎙️');
   }
 

@@ -621,6 +621,8 @@ export class AgoraVoiceEngine {
   public async demoteToAudience(): Promise<void> {
     if (!this.client || !this.isJoined) return;
     await this.unpublishLocal();
+    // Drop adopted Agora mic from the local graph (track already closed above) — same as leave.
+    audioEngine.stopMicrophone();
     await this.client.setClientRole('audience');
     this.isSpeaker = false;
   }
