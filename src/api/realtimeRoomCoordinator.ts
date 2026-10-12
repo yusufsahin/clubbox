@@ -209,6 +209,20 @@ export class RealtimeRoomCoordinator {
       return;
     }
 
+    if (parsed.kind === 'channel_patch') {
+      const nextCaps = parsed.patch.user_capabilities
+        ? { ...(this.channel.user_capabilities ?? {}), ...parsed.patch.user_capabilities }
+        : this.channel.user_capabilities;
+      this.channel = {
+        ...this.channel,
+        ...parsed.patch,
+        user_capabilities: nextCaps,
+        users: this.channel.users,
+      };
+      this.callbacks.onChannelUpdate?.(this.channel);
+      return;
+    }
+
     if (parsed.kind === 'channel_message') {
       this.chatMessages.push(parsed.message);
       this.callbacks.onChatMessage?.(parsed.message);
@@ -233,7 +247,11 @@ export class RealtimeRoomCoordinator {
       const users = applyStageEvent(this.channel.users, parsed);
       this.channel = mergeChannelUsers(this.channel, this.overlayUsers(users));
       this.callbacks.onChannelUpdate?.(this.channel);
+      return;
     }
+
+    const _exhaustive: never = parsed;
+    void _exhaustive;
   }
 
   private startPresence(channelId: string): void {

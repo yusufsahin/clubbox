@@ -14,6 +14,83 @@ test('parseRealtimeMessage maps channel_message', () => {
   assert.equal(chat.kind, 'channel_message');
 });
 
+test('live aliases new_channel_message and new_channel_reaction', () => {
+  const chat = parseRealtimeMessage({
+    action: 'new_channel_message',
+    channel: 'PG2LoOww',
+    message_id: '9',
+    from_user_id: 2,
+    from_name: 'Ayse',
+    message: 'hello',
+  }, 'PG2LoOww');
+  assert.equal(chat.kind, 'channel_message');
+  if (chat.kind === 'channel_message') assert.equal(chat.message.message, 'hello');
+
+  const reaction = parseRealtimeMessage({
+    action: 'new_channel_reaction',
+    channel: 'PG2LoOww',
+    reaction: '🔥',
+    action_user_profile: { name: 'Host' },
+    target_user_profile: { name: 'Ayse' },
+  }, 'PG2LoOww');
+  assert.equal(reaction.kind, 'channel_reaction');
+  if (reaction.kind === 'channel_reaction') {
+    assert.equal(reaction.emoji, '🔥');
+    assert.equal(reaction.fromName, 'Host');
+    assert.equal(reaction.targetName, 'Ayse');
+  }
+});
+
+test('live change_handraise_settings and update_user_capabilities patch the channel', () => {
+  const hand = parseRealtimeMessage({
+    action: 'change_handraise_settings',
+    channel: 'PG2LoOww',
+    is_enabled: false,
+    handraise_queue_setting: 1,
+    handraise_permission: 2,
+  }, 'PG2LoOww');
+  assert.equal(hand.kind, 'channel_patch');
+  if (hand.kind === 'channel_patch') {
+    assert.equal(hand.patch.is_handraise_enabled, false);
+    assert.equal(hand.patch.handraise_queue_setting, 1);
+    assert.equal(hand.patch.handraise_permission, 2);
+  }
+
+  const caps = parseRealtimeMessage({
+    action: 'update_user_capabilities',
+    channel: 'PG2LoOww',
+    can_end_room: false,
+    can_invite: true,
+    stage_removed: true,
+  }, 'PG2LoOww');
+  assert.equal(caps.kind, 'channel_patch');
+  if (caps.kind === 'channel_patch') {
+    assert.deepEqual(caps.patch.user_capabilities, {
+      can_end_room: false,
+      can_invite: true,
+    });
+  }
+});
+
+test('live cumulative_count_update sets num_all; call status is a quiet noop', () => {
+  const count = parseRealtimeMessage({
+    action: 'cumulative_count_update',
+    channel: 'PG2LoOww',
+    num_ever: 42,
+  }, 'PG2LoOww');
+  assert.equal(count.kind, 'channel_patch');
+  if (count.kind === 'channel_patch') assert.equal(count.patch.num_all, 42);
+
+  const call = parseRealtimeMessage({
+    action: 'update_speaker_call_status',
+    channel: 'PG2LoOww',
+    user_id: 1,
+    is_on_call: true,
+    audio_profile: 1,
+  }, 'PG2LoOww');
+  assert.deepEqual(call, { kind: 'ignored', reason: 'noop' });
+});
+
 // Real Clubhouse PubNub payloads (sources: grishka/Houseclub VoiceService.java and
 // seovchinnikov/clubhouse-web JoinChannel.vue): the type is in "action", users are identified by id.
 const ROOM = 'PG2LoOww';
