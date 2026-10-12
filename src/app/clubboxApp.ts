@@ -341,18 +341,17 @@ export class ClubboxApp {
       this.handleRecordingStateChange(isRec, blobUrl);
     });
 
-    // Hook Agora remote speaker volume indicator
-    agoraVoice.onVolumeLevels((speakers) => {
-      speakers.forEach((s) => {
-        const card = document.querySelector(`[data-user-id="${s.uid}"]`);
-        if (card) {
-          if (s.level > 0.15) {
-            card.classList.add('speaking');
-          } else {
-            card.classList.remove('speaking');
-          }
-        }
-      });
+    // Speaking rings: diff-only updates from 150 ms getVolumeLevel sampler + 300 ms hold (Phase 24.5).
+    agoraVoice.onSpeakingRings((changes) => {
+      for (const { uid, speaking } of changes) {
+        const selector = uid === 'local'
+          ? '.speaker-card.me-speaker'
+          : `.speaker-card[data-user-id="${uid}"]`;
+        const card = document.querySelector(selector);
+        if (!card) continue;
+        if (speaking) card.classList.add('speaking');
+        else card.classList.remove('speaking');
+      }
     });
 
     // Mute badges: Agora uid = Clubhouse user_id (not PubNub). Same room-update path as PubNub stage events.

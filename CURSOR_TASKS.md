@@ -11,9 +11,9 @@ Owner added Phase 23 (live room audio / Agora). Run it in order and respect the 
 - [x] 23.2 Make the real Agora join result visible
 - [x] 23.3 A/B reference tooling shipped — **web path chosen** (live audio worked; see `docs/history/agora-voice-dns-fix.md` A/B)
 - [x] 23.4–23.5 (web path)
-- [x] then Phase 24 (Agora feature completeness) 24.1 → 24.7; **24.1–24.4 done**
+- [x] then Phase 24 (Agora feature completeness) 24.1 → 24.7; **24.1–24.5 done**
 - [ ] 23.6–23.8 native SDK path deferred unless web regresses
-- [ ] continue 24.5 → 24.7
+- [ ] continue 24.6 → 24.7
 
 ### Previous run (owner instruction, 2026-10-12 #7)
 
@@ -22,12 +22,12 @@ Owner added Phase 22 (HAL-9 room type chips). Continue from there:
 - [x] Phase 22 — hallway room types (HAL-9): chips, sparse load-more, badges, empty state
 - [x] npm test + e2e + light/dark hallway screenshots; PRD HAL-9 Today; commit; stop
 
-### Last autonomous run (2026-10-12 #phase-24.4)
+### Last autonomous run (2026-10-12 #phase-24.5)
 
-- Done on `phase-23-24-agora`: **24.1–24.4** — extras track; reconnect/quality; token renew; mic/output hot-swap via `setDevice` / setSinkId (no republish).
-- Tests: unit 205 + BDD 200; tsc/lint/build green.
-- Next: **24.5** speaking indicators.
-- Blocked / deferred: ST-9 Restream; native 23.6+; live long-room token evidence still useful.
+- Done on `phase-23-24-agora`: **24.1–24.5** — extras, reconnect, token renew, device hot-swap, speaking rings (150 ms sample + 300 ms hold, diff-only DOM).
+- Tests: unit 208 + BDD 200; tsc/lint green.
+- Next: **24.6** lifecycle hygiene.
+- Blocked / deferred: ST-9 Restream; native 23.6+.
 - Questions for the owner: none new.
 
 ### Questions for the owner
@@ -42,7 +42,7 @@ Legend: **Uygulandı** = code is in the tree. **Canlı doğrulandı** = exercise
 | Order | Task | Status |
 | --- | --- | --- |
 | 0a | **Phase 23 Live room audio (Agora)** — DNS -105 is a red herring; real join error not yet visible; web vs native SDK decision gate at 23.3 | **Web path** — 23.1–23.5 done on `phase-23-24-agora`; native 23.6+ deferred |
-| 0b | **Phase 24 Agora feature completeness** — broadcast mix, reconnect + quality, token lifecycle, device hot-swap, speaking rings, lifecycle, AI noise suppression | **24.1–24.4 done** — next 24.5 speaking rings |
+| 0b | **Phase 24 Agora feature completeness** — broadcast mix, reconnect + quality, token lifecycle, device hot-swap, speaking rings, lifecycle, AI noise suppression | **24.1–24.5 done** — next 24.6 lifecycle |
 | 1 | **0.7 Review fixes (2026-10-11 #2)** — navigation guard, packaged recorder, clip worklet path, auto-armed clip buffer, 429/visibility, CORS proxy token leak | Uygulandı |
 | 1b | **0.8 Followers / following / friends lists** — bundle scan + labeled UI hunt; live UI uses only counts + mutual lists | Uygulandı for counts, mutual names, and chat people. The public web bundle does not contain get_followers, get_following, or get_online_friends. get_friend_zone_match and get_social_club_members are in-bundle and not called. The labeled click-through still needs a signed-in session. |
 | 0 | **Autonomous plan** (see `.cursor/rules/clubbox.mdc`): 10.1 → 11.8 (warn mode) → 10.2 → 10.5 → 11.0 → 11.1 → 11.2 → 11.3 → 11.4 → 10.4 → 11.5 → 11.6 → 11.7 → 11.9 → 11.10 → 11.8 (strict). Acceptance files: account, hallway, room_listener, room_realtime, room_host, room_moderation, audio_studio, studio, social, messages, houses_events_replays, api_health. Requirements: `docs/product/PRD.md`; design + gap list G-01…G-18: `docs/product/DESIGN.md`; acceptance: `features/*.feature` | **Idle** — Phases 12–**22** done. Only ST-9 Restream remains `@deferred`. |

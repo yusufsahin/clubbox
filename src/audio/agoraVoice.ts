@@ -19,6 +19,11 @@ import {
   shouldTryCloudProxy,
 } from './agoraErrors';
 import { buildAgoraJoinParams } from './agoraJoinParams';
+import {
+  nextSpeakingHold,
+  SPEAKING_SAMPLE_MS,
+  type SpeakingHoldState,
+} from './speakingRings';
 
 export interface AgoraJoinOptions {
   isSpeaker: boolean;
@@ -63,7 +68,11 @@ export class AgoraVoiceEngine {
   private isSpeaker: boolean = false;
   private currentChannel: string | null = null;
   private onSpeakerVolumeCallbacks: ((speakers: { uid: string | number; level: number }[]) => void)[] = [];
+  private onSpeakingRingCallbacks: ((changes: { uid: string; speaking: boolean }[]) => void)[] = [];
   private onRemoteMuteCallbacks: ((report: RemoteMuteReport) => void)[] = [];
+  private speakingHold: SpeakingHoldState = new Map();
+  private speakingSampleTimer: ReturnType<typeof setInterval> | null = null;
+  private speakingSamplePaused = false;
   private onConnectionProblemCallbacks: ((reason: string) => void)[] = [];
   private onReconnectUiCallbacks: ((reconnecting: boolean) => void)[] = [];
   private onBannedCallbacks: ((reason: string) => void)[] = [];
@@ -347,6 +356,7 @@ export class AgoraVoiceEngine {
         );
       });
 
+      // Fallback volume-indicator (SDK); rings prefer the 150 ms getVolumeLevel sampler.
       this.client.enableAudioVolumeIndicator();
       this.client.on('volume-indicator', (volumes) => {
         const mapped = volumes.map((v) => ({
@@ -354,6 +364,9 @@ export class AgoraVoiceEngine {
           level: Math.min(1, v.level / 100),
         }));
         this.onSpeakerVolumeCallbacks.forEach((cb) => cb(mapped));
+        if (!this.speakingSampleTimer) {
+          this.applySpeakingLevels(mapped);
+        }
       });
     }
 
@@ -473,6 +486,7 @@ export class AgoraVoiceEngine {
       this.joinedAtMs = Date.now();
       void audioEngine.ensureAudioContext();
       await this.syncRemoteUsers();
+      this.startSpeakingSampler();
 
       if (options.isSpeaker) {
         try {
@@ -774,6 +788,13 @@ export class AgoraVoiceEngine {
     this.joinedAtMs = null;
     this.networkQuality = { uplink: 0, downlink: 0, tone: 'unknown' };
     this.rtcStatsSnapshot = null;
+    this.stopSpeakingSampler();
+    // Clear any rings still lit.
+    const clear = [...this.speakingHold.entries()]
+      .filter(([, e]) => e.speaking)
+      .map(([uid]) => ({ uid, speaking: false }));
+    this.speakingHold = new Map();
+    if (clear.length) this.onSpeakingRingCallbacks.forEach((cb) => cb(clear));
     this.onReconnectUiCallbacks.forEach((cb) => cb(false));
   }
 
@@ -811,6 +832,68 @@ export class AgoraVoiceEngine {
     return () => {
       this.onSpeakerVolumeCallbacks = this.onSpeakerVolumeCallbacks.filter((c) => c !== cb);
     };
+  }
+
+  /** Diff-only speaking ring updates (threshold + 300 ms hold). */
+  public onSpeakingRings(cb: (changes: { uid: string; speaking: boolean }[]) => void): () => void {
+    this.onSpeakingRingCallbacks.push(cb);
+    return () => {
+      this.onSpeakingRingCallbacks = this.onSpeakingRingCallbacks.filter((c) => c !== cb);
+    };
+  }
+
+  /** Pause ring sampling while the window is hidden (polling rule). */
+  public setSpeakingSamplePaused(paused: boolean): void {
+    this.speakingSamplePaused = paused;
+    if (!paused && this.isJoined) this.startSpeakingSampler();
+    if (paused) this.stopSpeakingSampler();
+  }
+
+  private startSpeakingSampler(): void {
+    this.stopSpeakingSampler();
+    if (!this.isJoined || this.speakingSamplePaused) return;
+    this.speakingSampleTimer = setInterval(() => {
+      this.sampleSpeakingLevels();
+    }, SPEAKING_SAMPLE_MS);
+    this.sampleSpeakingLevels();
+  }
+
+  private stopSpeakingSampler(): void {
+    if (this.speakingSampleTimer) {
+      clearInterval(this.speakingSampleTimer);
+      this.speakingSampleTimer = null;
+    }
+  }
+
+  private sampleSpeakingLevels(): void {
+    if (!this.client || !this.isJoined || this.speakingSamplePaused) return;
+    const levels: { uid: string; level: number }[] = [];
+    for (const user of this.client.remoteUsers) {
+      const track = user.audioTrack as IRemoteAudioTrack | undefined;
+      if (!track) continue;
+      try {
+        levels.push({ uid: String(user.uid), level: track.getVolumeLevel() });
+      } catch {
+        // Track may be closing.
+      }
+    }
+    if (this.localAudioTrack && this.isSpeaker) {
+      try {
+        levels.push({ uid: 'local', level: this.localAudioTrack.getVolumeLevel() });
+      } catch {
+        // ignore
+      }
+    }
+    this.applySpeakingLevels(levels);
+  }
+
+  private applySpeakingLevels(levels: { uid: string | number; level: number }[]): void {
+    const normalized = levels.map((row) => ({ uid: String(row.uid), level: row.level }));
+    const { next, changed } = nextSpeakingHold(this.speakingHold, normalized, performance.now());
+    this.speakingHold = next;
+    if (changed.length) {
+      this.onSpeakingRingCallbacks.forEach((cb) => cb(changed));
+    }
   }
 
   public onRemoteMute(cb: (report: RemoteMuteReport) => void): () => void {

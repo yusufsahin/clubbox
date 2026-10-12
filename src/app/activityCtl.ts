@@ -16,6 +16,7 @@ import {
   type EventListItem,
 } from '../api/communityLists.ts';
 import { roomSync } from '../api/roomSync.ts';
+import { agoraVoice } from '../audio/agoraVoice.ts';
 import { t } from '../i18n/index.ts';
 import type { ClubboxApp } from './clubboxApp.ts';
 
@@ -306,6 +307,7 @@ export function stopActivityRefresh(this: ClubboxApp) : void {
 export function onVisibilityChange(this: ClubboxApp) : void {
     if (document.visibilityState === 'hidden') {
       this.stopRtcStatsPolling();
+      agoraVoice.setSpeakingSamplePaused(true);
       this.schedulePollPause();
       return;
     }
@@ -314,6 +316,7 @@ export function onVisibilityChange(this: ClubboxApp) : void {
       this.hiddenPauseTimer = null;
     }
     if (this.pollsPaused) this.resumePolls();
+    agoraVoice.setSpeakingSamplePaused(false);
     if (this.currentTab === 'settings') this.startRtcStatsPolling();
   }
 
