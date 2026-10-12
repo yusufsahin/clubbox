@@ -4,13 +4,19 @@ Each task below is a self-contained prompt. Paste one task at a time into Cursor
 
 _Last reviewed: 2026-10-11. “Uygulandı” means the code is in the tree. “Canlı doğrulandı” means it was exercised against the official Clubhouse web session. This pass is implemented; the live room, hand, invite, and chat capture is still outstanding._
 
-### Last autonomous run (2026-10-12 — Task 29.1 Live details)
+### Last autonomous run (2026-10-12 — Task 29.2 room settings / mute-all)
 
-- Next-run checklist: none at top of CURSOR_TASKS (n/a).
-- **29.1 done:** `buildLiveDetails` + panel from room title; cumulative `num_ever` separate from `num_all`;
-  PubNub patches refresh the sheet. Missing fields hide rows.
+- Next-run checklist: none (n/a).
+- **29.2 (partial, no new endpoints):** `muteAllSpeakers` 150 ms + stop on 403 + “Muted N of M”;
+  Details moderation regrouped (Stage / Chat / Hand raise / Replay / Title); web listening hidden
+  (needs 29.0 `update_channel_flags`).
 - `npm run test:unit` + `tsc --noEmit` green.
-- Still blocked: 27.4/28.5 live (Token), 26.7 owner matrix, 29.2+ (needs 29.0 body discovery + Token).
+- Still blocked: Token (27.4 / 28.5 / mute live), 26.7 owner, 29.3+ banner/polls/highlights (29.0 bodies).
+
+### Previous last autonomous run (2026-10-12 — Task 29.1 Live details)
+
+- **29.1 done:** Live details sheet; `num_ever` separate from `num_all`.
+- Still blocked: 27.4/28.5 live (Token), 26.7 owner matrix, 29.3+ (29.0 bodies + Token).
 
 ### Previous last autonomous run (2026-10-12 — Task 27.5.0–27.5.4)
 
@@ -156,7 +162,7 @@ Legend: **Uygulandı** = code is in the tree. **Canlı doğrulandı** = exercise
 | 0a | **Phase 23 Live room audio (Agora)** — DNS -105 is a red herring; real join error not yet visible; web vs native SDK decision gate at 23.3 | **Web path** — 23.1–23.5 done on `phase-23-24-agora`; native 23.6+ deferred |
 | 0b | **Phase 24 Agora feature completeness** — broadcast mix, reconnect + quality, token lifecycle, device hot-swap, speaking rings, lifecycle, AI noise suppression | **Closed** — 24.1–24.7 done (AI denoiser + CSP/WASM); e2e green |
 | 0c | **Phase 25 Room exit and mic state** — leave_channel on close/quit/Ctrl+C + crash recovery, mute badge/state sync, AI denoiser init bug, log hygiene | **Closed** — 25.1–25.4 done. 25.5 moved to Phase 26 |
-| 0g | **Phase 29 Live details + full moderator toolset** — Live details panel, room settings (mute all, chat, queue, replay, web listening), host banner, polls, highlights, full audience list, server-driven flags | **29.1 code done** (join/PubNub Live details); 29.0 discovery done; **29.2+** wait Token + 29.0 mutation bodies |
+| 0g | **Phase 29 Live details + full moderator toolset** — Live details panel, room settings (mute all, chat, queue, replay, web listening), host banner, polls, highlights, full audience list, server-driven flags | **29.1–29.2 code** (Live details + mute-all/settings groups); web listening / 29.3+ wait Token + 29.0 bodies |
 | 0f | **Phase 28 Room actions per role** — role × action matrix (Clubhouse parity), mobile body discovery, authoritative room state via get_channel, listener/speaker/moderator actions, UI gating, headphones banner fix, Moderator actions panel (Requests + History) | **28.6 code done**; 28.1–28.4 done; Leave stage still off; live Token open (28.5 owner) |
 | 0e | **Phase 27 Host tools via mobile API** — end room, invite to stage, mute, move to audience, remove from room; web API has none of these (404 / not in bundle) | **27.5 SMS Token link in progress** → `docs/tasks/phase-27.5-host-tools-token.md` — 27.5.1–4 code done; **27.5.0 live blocked** (token validation); 27.4 matrix waits on Token |
 | 0d | **Phase 26 Studio audio routing** — VB-Cable / Voicemeeter (Clubdeck parity): device classification, working quality levels, mixer-as-mic, loop guard, setup wizard, capture truth, live test matrix | **Code done** — 26.1–26.6 + mid-room `applyMicDevice` harden. **26.7 owner live matrix** still open |
@@ -1475,18 +1481,14 @@ Update live from 28.1 snapshots and PubNub (update_user_capabilities, change_han
 Tests: pure buildLiveDetails(join, live) → view model; unknown/missing fields hide their row.
 ```
 
-### Task 29.2 — Room settings sheet for moderators (official "room settings")
+### Task 29.2 — Room settings sheet for moderators (official "room settings") — PARTIAL 2026-10-12
 
 ```text
-Grouped like the Clubhouse app (S1): 
-- Stage: "Mute all speakers" = mute_speaker for every speaker except me (sequential, 150 ms apart, stop on first
-  403; report "Muted N of M"); existing data-action mute-everyone must use this path.
-- Chat: on/off (28.3), who can post (if update_channel_flags supports chat_permission per 29.0).
-- Hand raise: queue mode (28.6).
-- Replay: off (28.3, confirm one-way).
-- Web listening: on/off via update_channel_flags only if 29.0 proved the flag; otherwise hide.
-- Title (set_channel_title on mobile if the web route still fails), NSFW (28.3).
-Every control hidden unless its can_* is true. Tests per control.
+Done without new endpoints:
+- Stage mute-all: muteAllSpeakers (150 ms, stop on 403, toast Muted N of M); data-action mute-everyone.
+- Details regrouped: Stage / Chat / Hand raise / Replay / Title (+ NSFW, pinned link, end).
+- Web listening: hidden (29.0 did not prove update_channel_flags body).
+Still open when Token + 29.0: chat_permission who-can-post; mobile set_channel_title if web fails.
 ```
 
 ### Task 29.3 — Host banner

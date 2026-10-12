@@ -16,6 +16,7 @@ import {
 } from '../api/roomControls.ts';
 import { mergeRoomDetailFields } from '../api/roomDetailMerge.ts';
 import { mergeRoomState } from '../api/roomStateMerge.ts';
+import { muteAllSpeakers } from '../api/muteAllSpeakers.ts';
 import { roomSync } from '../api/roomSync.ts';
 import {
   moderatorActionsFlags,
@@ -680,18 +681,21 @@ export async function setRoomVisibility(this: ClubboxApp, visibility: string): P
 export async function muteEveryone(this: ClubboxApp) : Promise<void> {
     if (!this.currentChannel || !this.isMeModerator()) return;
     if (!this.allowAction('mute_speaker')) return;
+    const channel = this.currentChannel;
+    const channelId = this.channelApiId(channel);
     const myId = this.me?.user_id ?? clubhouseClient.getCurrentUserId();
-    const speakers = this.currentChannel.users.filter(
-      (user) => user.is_speaker && user.user_id !== myId && !user.is_muted,
-    );
-    for (const speaker of speakers) {
-      try {
-        await clubhouseClient.muteSpeaker(this.channelApiId(this.currentChannel), speaker.user_id);
-        speaker.is_muted = true;
-        await new Promise((resolve) => window.setTimeout(resolve, 300));
-      } catch (err) {
-        this.reportApiError(err);
-      }
+    try {
+      const result = await muteAllSpeakers(channel.users, myId, {
+        delayMs: 150,
+        muteSpeaker: async (userId) => {
+          await clubhouseClient.muteSpeaker(channelId, userId);
+          const row = channel.users.find((user) => user.user_id === userId);
+          if (row) row.is_muted = true;
+        },
+      });
+      this.showToast(t('mutedSpeakersCount', { muted: result.muted, total: result.total }), '🔇');
+    } catch (err) {
+      this.reportApiError(err);
     }
     roomSync.scheduleAfterHostAction?.();
     await this.refreshCurrentRoom();

@@ -3901,3 +3901,15 @@ button.mutual-line:hover {
   font-size: 13px;
 }
 
+.room-settings-group {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin: 16px 0 8px;
+}
+.room-settings-group:first-of-type {
+  margin-top: 4px;
+}
+

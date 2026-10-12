@@ -8,6 +8,7 @@ import {
   type RoomEffect,
   type RoomSessionState,
 } from '../domain/roomSession.ts';
+import { muteAllSpeakers } from './muteAllSpeakers.ts';
 
 export type AgoraFacade = {
   join(role: 'audience' | 'host', token: string): void;
@@ -272,11 +273,17 @@ export class RoomSessionController {
 
   async muteEveryone(speakerIds: number[]): Promise<void> {
     if (!this.channelId) return;
-    for (const userId of speakerIds) {
-      if (userId === this.myUserId) continue;
-      await this.client.muteSpeaker(this.channelId, userId);
-      await new Promise((resolve) => setTimeout(resolve, 300));
-    }
+    const channelId = this.channelId;
+    await muteAllSpeakers(
+      speakerIds.map((user_id) => ({ user_id, is_speaker: true })),
+      this.myUserId,
+      {
+        delayMs: 150,
+        muteSpeaker: async (userId) => {
+          await this.client.muteSpeaker(channelId, userId);
+        },
+      },
+    );
   }
 
   async setHandRaiseFriendsOfSpeakers(): Promise<void> {

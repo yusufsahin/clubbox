@@ -186,17 +186,29 @@ export function roomDetailsPanel(state: RoomDetailsState): SafeHtml {
       </section>
 
       ${state.canModerate ? html`
-        <section class="room-details-card" data-details-section="moderation">
+        <section class="room-details-card" data-details-section="moderation" data-room-settings>
           <h4>${t('moderationSection')}</h4>
-          ${state.canRename ? html`<button class="btn btn-secondary" type="button" data-action="rename-room">${t('renameRoom')}</button>` : ''}
-          ${state.canChangeVisibility ? html`
-            <label class="form-label" for="room-visibility">${t('roomVisibility')}</label>
-            <select class="form-input" id="room-visibility" data-action="set-room-visibility" aria-label="${t('roomVisibility')}">
-              <option value="open" ${state.visibilityMode === 'open' ? 'selected' : ''}>${t('roomVisibilityOpen')}</option>
-              <option value="social" ${state.visibilityMode === 'social' ? 'selected' : ''}>${t('roomVisibilitySocial')}</option>
-            </select>
+          ${state.canMuteAll || state.canChangeVisibility || state.canEnd ? html`
+            <h5 class="room-settings-group">${t('roomSettingsStage')}</h5>
+            ${state.canMuteAll ? html`<button class="btn btn-secondary" type="button" data-action="mute-everyone">${t('muteAllSpeakers')}</button>` : ''}
+            ${state.canChangeVisibility ? html`
+              <label class="form-label" for="room-visibility">${t('roomVisibility')}</label>
+              <select class="form-input" id="room-visibility" data-action="set-room-visibility" aria-label="${t('roomVisibility')}">
+                <option value="open" ${state.visibilityMode === 'open' ? 'selected' : ''}>${t('roomVisibilityOpen')}</option>
+                <option value="social" ${state.visibilityMode === 'social' ? 'selected' : ''}>${t('roomVisibilitySocial')}</option>
+              </select>
+            ` : ''}
+            ${state.canEnd ? html`<button class="btn btn-danger" type="button" data-action="end-room">${t('endRoom')}</button>` : ''}
+          ` : ''}
+          ${state.canToggleChat ? html`
+            <h5 class="room-settings-group">${t('roomSettingsChat')}</h5>
+            <label class="form-label">
+              <input type="checkbox" data-action="toggle-room-chat" ${state.chatEnabled ? 'checked' : ''} />
+              ${t('roomChatEnabled')}
+            </label>
           ` : ''}
           ${state.canHandraise ? html`
+            <h5 class="room-settings-group">${t('roomSettingsHandRaise')}</h5>
             <label class="form-label" for="room-handraise">${t('handRaisePermission')}</label>
             <select class="form-input" id="room-handraise" data-action="set-handraise" aria-label="${t('handRaisePermission')}">
               <option value="off" ${state.handraiseMode === 'off' ? 'selected' : ''}>${t('handRaiseOff')}</option>
@@ -204,14 +216,13 @@ export function roomDetailsPanel(state: RoomDetailsState): SafeHtml {
               <option value="2" ${state.handraiseMode === '2' ? 'selected' : ''}>${t('handRaiseFriendsOfSpeakers')}</option>
             </select>
           ` : ''}
-          ${state.canToggleChat ? html`
-            <label class="form-label">
-              <input type="checkbox" data-action="toggle-room-chat" ${state.chatEnabled ? 'checked' : ''} />
-              ${t('roomChatEnabled')}
-            </label>
-          ` : ''}
           ${state.canDisableReplay ? html`
+            <h5 class="room-settings-group">${t('roomSettingsReplay')}</h5>
             <button class="btn btn-secondary" type="button" data-action="disable-replay">${t('turnOffReplay')}</button>
+          ` : ''}
+          ${state.canRename ? html`
+            <h5 class="room-settings-group">${t('roomSettingsTitle')}</h5>
+            <button class="btn btn-secondary" type="button" data-action="rename-room">${t('renameRoom')}</button>
           ` : ''}
           ${state.canNsfw ? html`
             <label class="form-label">
@@ -227,8 +238,6 @@ export function roomDetailsPanel(state: RoomDetailsState): SafeHtml {
               ${state.pinnedLink ? html`<button class="btn btn-secondary" type="button" data-action="remove-pinned-link">${t('removePinnedLink')}</button>` : ''}
             </div>
           ` : ''}
-          ${state.canMuteAll ? html`<button class="btn btn-secondary" type="button" data-action="mute-everyone">${t('muteEveryone')}</button>` : ''}
-          ${state.canEnd ? html`<button class="btn btn-danger" type="button" data-action="end-room">${t('endRoom')}</button>` : ''}
         </section>
       ` : ''}
 
