@@ -356,10 +356,10 @@ export function handleModerationError(this: ClubboxApp, error: ModerationError):
   if (error.kind === 'app_only') {
     if (this.appOnlyModerationToastShown) return;
     this.appOnlyModerationToastShown = true;
-    this.showToast(t('hostToolsAppOnly'), '🔒');
+    this.showToast(t('hostToolsAppOnlyLearnMore'), '🔒');
     return;
   }
-  this.showToast(t('hostToolsAppOnly'), '🔒');
+  this.showToast(t('hostToolsAppOnlyLearnMore'), '🔒');
 }
 
 /** Run a host action through ModerationProvider; never hits the client when app-only. */

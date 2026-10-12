@@ -190,9 +190,15 @@ export function roomDetailsPanel(state: RoomDetailsState): SafeHtml {
       ${state.canModerate ? html`
         <section class="room-details-card" data-details-section="moderation" data-room-settings>
           <h4>${t('moderationSection')}</h4>
+          ${!state.hostToolsCallable ? html`
+            <p class="list-note phone-mod-help-note">
+              ${t('hostToolsAppOnly')}
+              <button class="btn btn-secondary" type="button" data-action="open-phone-moderation-help" style="margin-left:8px;">${t('learnMore')}</button>
+            </p>
+          ` : ''}
           ${state.canMuteAll || state.canChangeVisibility || state.canEnd ? html`
             <h5 class="room-settings-group">${t('roomSettingsStage')}</h5>
-            ${state.canMuteAll ? html`<button class="btn btn-secondary" type="button" data-action="mute-everyone" ${state.hostToolsCallable ? '' : `disabled title="${t('hostToolsAppOnly')}"`}>${t('muteAllSpeakers')}</button>` : ''}
+            ${state.canMuteAll ? html`<button class="btn btn-secondary" type="button" data-action="mute-everyone" ${state.hostToolsCallable ? '' : `disabled title="${t('hostToolsAppOnlyLearnMore')}"`}>${t('muteAllSpeakers')}</button>` : ''}
             ${state.canChangeVisibility ? html`
               <label class="form-label" for="room-visibility">${t('roomVisibility')}</label>
               <select class="form-input" id="room-visibility" data-action="set-room-visibility" aria-label="${t('roomVisibility')}">
@@ -200,19 +206,19 @@ export function roomDetailsPanel(state: RoomDetailsState): SafeHtml {
                 <option value="social" ${state.visibilityMode === 'social' ? 'selected' : ''}>${t('roomVisibilitySocial')}</option>
               </select>
             ` : ''}
-            ${state.canEnd ? html`<button class="btn btn-danger" type="button" data-action="end-room" ${state.hostToolsCallable ? '' : `disabled title="${t('hostToolsAppOnly')}"`}>${t('endRoom')}</button>` : ''}
+            ${state.canEnd ? html`<button class="btn btn-danger" type="button" data-action="end-room" ${state.hostToolsCallable ? '' : `disabled title="${t('hostToolsAppOnlyLearnMore')}"`}>${t('endRoom')}</button>` : ''}
           ` : ''}
           ${state.canToggleChat ? html`
             <h5 class="room-settings-group">${t('roomSettingsChat')}</h5>
             <label class="form-label">
-              <input type="checkbox" data-action="toggle-room-chat" ${state.chatEnabled ? 'checked' : ''} ${state.hostToolsCallable ? '' : 'disabled'} title="${state.hostToolsCallable ? '' : t('hostToolsAppOnly')}" />
+              <input type="checkbox" data-action="toggle-room-chat" ${state.chatEnabled ? 'checked' : ''} ${state.hostToolsCallable ? '' : 'disabled'} title="${state.hostToolsCallable ? '' : t('hostToolsAppOnlyLearnMore')}" />
               ${t('roomChatEnabled')}
             </label>
           ` : ''}
           ${state.canHandraise ? html`
             <h5 class="room-settings-group">${t('roomSettingsHandRaise')}</h5>
             <label class="form-label" for="room-handraise">${t('handRaisePermission')}</label>
-            <select class="form-input" id="room-handraise" data-action="set-handraise" aria-label="${t('handRaisePermission')}" ${state.hostToolsCallable ? '' : `disabled title="${t('hostToolsAppOnly')}"`}>
+            <select class="form-input" id="room-handraise" data-action="set-handraise" aria-label="${t('handRaisePermission')}" ${state.hostToolsCallable ? '' : `disabled title="${t('hostToolsAppOnlyLearnMore')}"`}>
               <option value="off" ${state.handraiseMode === 'off' ? 'selected' : ''}>${t('handRaiseOff')}</option>
               <option value="1" ${state.handraiseMode === '1' ? 'selected' : ''}>${t('handRaiseEveryone')}</option>
               <option value="2" ${state.handraiseMode === '2' ? 'selected' : ''}>${t('handRaiseFriendsOfSpeakers')}</option>
@@ -220,7 +226,7 @@ export function roomDetailsPanel(state: RoomDetailsState): SafeHtml {
           ` : ''}
           ${state.canDisableReplay ? html`
             <h5 class="room-settings-group">${t('roomSettingsReplay')}</h5>
-            <button class="btn btn-secondary" type="button" data-action="disable-replay" ${state.hostToolsCallable ? '' : `disabled title="${t('hostToolsAppOnly')}"`}>${t('turnOffReplay')}</button>
+            <button class="btn btn-secondary" type="button" data-action="disable-replay" ${state.hostToolsCallable ? '' : `disabled title="${t('hostToolsAppOnlyLearnMore')}"`}>${t('turnOffReplay')}</button>
           ` : ''}
           ${state.canRename ? html`
             <h5 class="room-settings-group">${t('roomSettingsTitle')}</h5>
@@ -228,7 +234,7 @@ export function roomDetailsPanel(state: RoomDetailsState): SafeHtml {
           ` : ''}
           ${state.canNsfw ? html`
             <label class="form-label">
-              <input type="checkbox" data-action="toggle-room-nsfw" ${state.isNsfw ? 'checked' : ''} ${state.hostToolsCallable ? '' : 'disabled'} title="${state.hostToolsCallable ? '' : t('hostToolsAppOnly')}" />
+              <input type="checkbox" data-action="toggle-room-nsfw" ${state.isNsfw ? 'checked' : ''} ${state.hostToolsCallable ? '' : 'disabled'} title="${state.hostToolsCallable ? '' : t('hostToolsAppOnlyLearnMore')}" />
               ${t('roomNsfw')}
             </label>
           ` : ''}
@@ -236,8 +242,8 @@ export function roomDetailsPanel(state: RoomDetailsState): SafeHtml {
             <label class="form-label" for="room-pinned-link">${t('pinnedLinkAtCreate')}</label>
             <input class="form-input" id="room-pinned-link" type="url" value="${state.pinnedLink}" placeholder="${t('pinnedLinkPlaceholder')}" ${state.hostToolsCallable ? '' : 'disabled'} />
             <div class="room-details-row">
-              <button class="btn btn-secondary" type="button" data-action="save-pinned-link" ${state.hostToolsCallable ? '' : `disabled title="${t('hostToolsAppOnly')}"`}>${t('savePinnedLink')}</button>
-              ${state.pinnedLink ? html`<button class="btn btn-secondary" type="button" data-action="remove-pinned-link" ${state.hostToolsCallable ? '' : `disabled title="${t('hostToolsAppOnly')}"`}>${t('removePinnedLink')}</button>` : ''}
+              <button class="btn btn-secondary" type="button" data-action="save-pinned-link" ${state.hostToolsCallable ? '' : `disabled title="${t('hostToolsAppOnlyLearnMore')}"`}>${t('savePinnedLink')}</button>
+              ${state.pinnedLink ? html`<button class="btn btn-secondary" type="button" data-action="remove-pinned-link" ${state.hostToolsCallable ? '' : `disabled title="${t('hostToolsAppOnlyLearnMore')}"`}>${t('removePinnedLink')}</button>` : ''}
             </div>
           ` : ''}
         </section>
@@ -246,7 +252,7 @@ export function roomDetailsPanel(state: RoomDetailsState): SafeHtml {
       ${state.canPing ? html`
         <section class="room-details-card" data-details-section="invite">
           <h4>${t('invitePeople')}</h4>
-          <button class="btn btn-secondary" type="button" data-action="open-ping-panel" ${state.hostToolsCallable ? '' : `disabled title="${t('hostToolsAppOnly')}"`}>${t('invitePeople')}</button>
+          <button class="btn btn-secondary" type="button" data-action="open-ping-panel" ${state.hostToolsCallable ? '' : `disabled title="${t('hostToolsAppOnlyLearnMore')}"`}>${t('invitePeople')}</button>
         </section>
       ` : ''}
 
@@ -262,7 +268,7 @@ export function roomDetailsPanel(state: RoomDetailsState): SafeHtml {
                 ${state.queueUsers.map((user) => html`
                   <li>
                     <span>${user.name || user.username || user.user_id}</span>
-                    <button class="btn btn-secondary" type="button" data-action="invite-stage" data-user-id="${user.user_id}" ${state.hostToolsCallable ? '' : `disabled title="${t('hostToolsAppOnly')}"`}>${t('inviteToStage')}</button>
+                    <button class="btn btn-secondary" type="button" data-action="invite-stage" data-user-id="${user.user_id}" ${state.hostToolsCallable ? '' : `disabled title="${t('hostToolsAppOnlyLearnMore')}"`}>${t('inviteToStage')}</button>
                   </li>
                 `)}
               </ul>`}
@@ -275,7 +281,7 @@ export function roomDetailsPanel(state: RoomDetailsState): SafeHtml {
                 ${state.suggestedUsers.map((user) => html`
                   <li>
                     <span>${user.name || user.username || user.user_id}</span>
-                    <button class="btn btn-secondary" type="button" data-action="invite-stage" data-user-id="${user.user_id}" ${state.hostToolsCallable ? '' : `disabled title="${t('hostToolsAppOnly')}"`}>${t('inviteToStage')}</button>
+                    <button class="btn btn-secondary" type="button" data-action="invite-stage" data-user-id="${user.user_id}" ${state.hostToolsCallable ? '' : `disabled title="${t('hostToolsAppOnlyLearnMore')}"`}>${t('inviteToStage')}</button>
                   </li>
                 `)}
               </ul>`}

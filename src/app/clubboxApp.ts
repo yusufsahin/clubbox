@@ -56,6 +56,10 @@ import {
 } from '../api/moderationProvider.ts';
 import { audioSetupWizard, draftUsesSameCable, isSetupQuality } from '../ui/components/audioSetupWizard';
 import { showToast } from '../ui/components/toast';
+import { roomPhoneUrlFromChannel } from '../api/roomPhoneLink.ts';
+import { openOnPhoneSheet } from '../ui/components/openOnPhoneSheet.ts';
+import { phoneModerationHelpSheet } from '../ui/components/phoneModerationHelp.ts';
+import { qrCodeDataUrl } from '../ui/qrCode.ts';
 import { html, markup, safeUrl } from '../ui/html';
 import { icon } from '../ui/icons';
 import { renderSidebarChrome } from '../ui/shellChrome';
@@ -884,6 +888,48 @@ export class ClubboxApp {
     root.innerHTML = markup(liveDetailsPanel(model));
   }
 
+  /** Phase 30.3 — room link + QR for moderating from the Clubhouse phone app. */
+  async openOnPhoneSheet(preferredUrl?: string): Promise<void> {
+    const fromAttr = preferredUrl ? safeUrl(preferredUrl) : null;
+    const roomUrl = fromAttr || roomPhoneUrlFromChannel(this.currentChannel);
+    if (!roomUrl) {
+      this.showToast(t('noShareLink'), '⚠️');
+      return;
+    }
+    this.closePhoneModerationHelp();
+    this.closeOpenOnPhoneSheet();
+    const mount = document.createElement('div');
+    document.body.appendChild(mount);
+    mount.outerHTML = markup(openOnPhoneSheet({ roomUrl, qrDataUrl: null, qrPending: true }));
+    try {
+      const qrDataUrl = await qrCodeDataUrl(roomUrl);
+      const live = document.getElementById('open-on-phone-overlay');
+      if (!live) return;
+      live.outerHTML = markup(openOnPhoneSheet({ roomUrl, qrDataUrl, qrPending: false }));
+    } catch {
+      const live = document.getElementById('open-on-phone-overlay');
+      if (!live) return;
+      live.outerHTML = markup(openOnPhoneSheet({ roomUrl, qrDataUrl: null, qrPending: false }));
+    }
+  }
+
+  closeOpenOnPhoneSheet(): void {
+    document.getElementById('open-on-phone-overlay')?.remove();
+  }
+
+  openPhoneModerationHelp(): void {
+    this.closeOpenOnPhoneSheet();
+    this.closePhoneModerationHelp();
+    const roomUrl = roomPhoneUrlFromChannel(this.currentChannel);
+    const mount = document.createElement('div');
+    document.body.appendChild(mount);
+    mount.outerHTML = markup(phoneModerationHelpSheet({ roomUrl }));
+  }
+
+  closePhoneModerationHelp(): void {
+    document.getElementById('phone-moderation-help-overlay')?.remove();
+  }
+
   renderRoomDetails(): void {
     const existing = document.getElementById('room-details-root');
     if (!this.roomDetailsOpen || !this.currentChannel) {
@@ -1519,6 +1565,7 @@ export class ClubboxApp {
               <button class="btn btn-secondary" type="button" data-action="open-audio-setup">${t('audioDevicesButton')}</button>
             `}
             ${onRoomPage ? html`
+              <button class="btn btn-secondary" type="button" data-action="open-on-phone">${t('openOnPhone')}</button>
               <button class="btn btn-secondary" type="button" data-action="minimize-room">${t('minimize')}</button>
             ` : this.isAuthGated() ? '' : html`
               ${clubhouseClient.supports('create_channel') ? html`
@@ -2571,6 +2618,32 @@ export class ClubboxApp {
         });
         break;
       }
+      case 'open-on-phone':
+        void this.openOnPhoneSheet(el.dataset.roomUrl);
+        break;
+      case 'close-open-on-phone':
+        this.closeOpenOnPhoneSheet();
+        break;
+      case 'copy-open-on-phone-link': {
+        const input = document.getElementById('open-on-phone-url') as HTMLInputElement | null;
+        const link = safeUrl(input?.value) || roomPhoneUrlFromChannel(this.currentChannel);
+        if (!link) {
+          this.showToast(t('noShareLink'), '⚠️');
+          return;
+        }
+        void navigator.clipboard.writeText(link).then(() => {
+          this.showToast(t('linkCopied'), '🔗');
+        }).catch(() => {
+          this.showToast(t('somethingWrong'), '⚠️');
+        });
+        break;
+      }
+      case 'open-phone-moderation-help':
+        this.openPhoneModerationHelp();
+        break;
+      case 'close-phone-moderation-help':
+        this.closePhoneModerationHelp();
+        break;
       case 'toggle-mic':
         this.toggleMute();
         break;

@@ -66,15 +66,15 @@ The bundle crawler (`electron/bundleCrawler.cjs`) already runs per build id.
    - a watch-list hit produces a toast plus `bundle` evidence;
    - with no live 2xx the action stays disabled.
 
-## 30.3 — Moderate from the phone: make the two-device workflow easy
+## 30.3 — Moderate from the phone: make the two-device workflow easy — **done (step 5)**
 
 1. Room header "Open on phone":
    - shows the room link `https://www.clubhouse.com/room/<channel>` with Copy;
-   - shows a QR code of the link (small, well-known dependency, e.g. `qrcode`, pinned version; lazy-loaded).
-2. A short help card (Settings › Help and the room's disabled-host-tools tooltip "Learn more"), with two options:
+   - shows a QR code of the link (`qrcode@1.5.4`, lazy-loaded via `src/ui/qrCode.ts`).
+2. Help card in Settings › Help and Details › Learn more (disabled host tools):
    - Moderate from the Clubhouse app on your phone while Clubbox handles audio and studio.
    - Same account on both may conflict: use a co-host account on the phone and make it moderator from the app.
-3. Tests: link and QR built from the channel id; the card renders.
+3. Tests: `tests/roomPhoneLink.test.ts` (link, sheet/card render, QR data URL).
 
 ## 30.4 — Accurate room state on the web session (no get_channel on web)
 

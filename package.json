@@ -87,6 +87,7 @@
     "@playwright/test": "^1.55.0",
     "@resvg/resvg-js": "^2.6.2",
     "@types/jsdom": "^30.0.0",
+    "@types/qrcode": "^1.5.5",
     "axe-core": "^4.14.0",
     "electron": "^44.7.0",
     "electron-builder": "^26.15.3",
@@ -101,6 +102,7 @@
   },
   "dependencies": {
     "agora-extension-ai-denoiser": "^2.0.2",
-    "agora-rtc-sdk-ng": "^4.24.8"
+    "agora-rtc-sdk-ng": "^4.24.8",
+    "qrcode": "^1.5.4"
   }
 }

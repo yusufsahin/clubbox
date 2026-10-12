@@ -3887,3 +3887,67 @@ button.mutual-line:hover {
   margin-top: 4px;
 }
 
+.open-on-phone-sheet,
+.phone-mod-help-sheet {
+  max-width: 420px;
+}
+
+.open-on-phone-url-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.open-on-phone-url-row .form-input {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+}
+
+.open-on-phone-qr {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 168px;
+  padding: 12px;
+  background: var(--bg);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md, 8px);
+}
+
+.open-on-phone-qr-img {
+  display: block;
+  width: 168px;
+  height: 168px;
+  image-rendering: pixelated;
+}
+
+.phone-mod-help-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0 0 8px;
+}
+
+.phone-mod-help-list {
+  margin: 12px 0;
+  padding-left: 20px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.phone-mod-help-list li + li {
+  margin-top: 8px;
+}
+
+.phone-mod-help-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.phone-mod-help-note {
+  margin-top: 12px;
+}
+

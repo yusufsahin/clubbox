@@ -6,6 +6,7 @@ import { showWindowsFormatHint, type CaptureTruth } from '../../audio/captureTru
 import { SHORTCUT_ACTIONS, type ShortcutAction, type ShortcutMap } from '../../shortcuts';
 import { html, type SafeHtml } from '../html';
 import type { LoopGuard } from '../../audio/loopGuard';
+import { phoneModerationHelpCard } from '../components/phoneModerationHelp';
 
 export interface AccountReadout {
   settings: MeSettings | null;
@@ -114,6 +115,13 @@ export function settingsView(
   return html`
     <div style="max-width:780px; margin:0 auto;" data-page="settings" data-nav-contains="api-config">
       <p style="color:var(--text-muted); font-size:13px; margin-bottom:28px;">${t('settingsHelp')}</p>
+
+      <section data-settings-section="help">
+        <h3 class="settings-section-title">${t('settingsHelpSection')}</h3>
+        <div style="background:var(--bg-card); border:1px solid var(--border-subtle); border-radius:var(--radius-lg); padding:24px; margin-bottom:20px;">
+          ${phoneModerationHelpCard()}
+        </div>
+      </section>
 
       <section data-settings-section="general">
         <h3 class="settings-section-title">${t('settingsGeneral')}</h3>

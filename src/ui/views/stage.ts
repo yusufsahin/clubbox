@@ -259,7 +259,7 @@ function cardActionLabel(action: RoomCardAction): string {
 }
 
 function hostToolsDisabledAttr(callable: boolean): string {
-  return callable ? '' : `disabled title="${t('hostToolsAppOnly')}"`;
+  return callable ? '' : `disabled title="${t('hostToolsAppOnlyLearnMore')}"`;
 }
 
 function cardActionButton(

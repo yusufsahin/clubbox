@@ -187,7 +187,7 @@ interface ModerationProvider {
    `update_speaker_call_status`, and move to a pure room reducer (30.4). This fixes the stale stage that looked
    like a moderation problem.
 4. Remove the dormant mobile Token code and update PRD/DESIGN/mobile-api.md to the conclusion of §3.
-5. Phone workflow helper: room link and QR, plus co-host guidance (30.3).
+5. Phone workflow helper: room link and QR, plus co-host guidance (30.3). **Done.**
 
 ---
 

@@ -106,7 +106,7 @@ export function paintPersonSheet(drawer: HTMLElement, state: ProfileDrawerState)
               <input type="range" id="profile-vol-slider" data-user-id="${profile.user_id}" min="0" max="1" step="0.05" value="${state.remoteVolume}" />
             </div>
           ` : ''}
-          ${state.canInvite ? html`<button class="btn btn-secondary" type="button" data-action="profile-invite" ${state.hostToolsCallable !== false ? '' : `disabled title="${t('hostToolsAppOnly')}"`}>${t('inviteToSpeak')}</button>` : ''}
+          ${state.canInvite ? html`<button class="btn btn-secondary" type="button" data-action="profile-invite" ${state.hostToolsCallable !== false ? '' : `disabled title="${t('hostToolsAppOnlyLearnMore')}"`}>${t('inviteToSpeak')}</button>` : ''}
         </section>
       ` : ''}
       ${state.canMessage ? html`
