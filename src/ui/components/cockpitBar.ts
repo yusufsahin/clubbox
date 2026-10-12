@@ -31,6 +31,8 @@ export interface CockpitState {
   canGifReact: boolean;
   /** Phase 28.6 — Moderator actions (Requests + History). */
   canModeratorActions?: boolean;
+  /** Phase 27.5 — Token link badge. */
+  hostToolsLinked?: boolean | null;
   overflowOpen: boolean;
   networkQualityTone?: 'good' | 'ok' | 'poor' | 'unknown';
   networkQualityTitle?: string;
@@ -165,6 +167,13 @@ export function cockpitBar(state: CockpitState): SafeHtml {
           t('moderatorActions'),
           'hand',
         ) : ''}
+
+        ${state.inRoom && state.hostToolsLinked != null ? html`
+          <span
+            class="room-bar-host-tools ${state.hostToolsLinked ? 'is-on' : 'is-needed'}"
+            title="${state.hostToolsLinked ? t('hostToolsBadgeOn') : t('hostToolsBadgeNeeded')}"
+          >${state.hostToolsLinked ? t('hostToolsBadgeOn') : t('hostToolsBadgeNeeded')}</span>
+        ` : ''}
 
         <button
           class="room-bar-btn room-bar-more"

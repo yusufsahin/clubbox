@@ -41,9 +41,10 @@ import type { ReplayPlayback } from '../api/replayPlayback';
 import type { CHChannel, CHChannelDetail, CHChatMessage, CHConversation, ConversationThread, CHUser, FeedTopic, MeSettings, SearchHit } from '../api/types';
 import { housesView } from '../ui/views/houses';
 import { replayView } from '../ui/views/replay';
-import { setLanguage, t } from '../i18n';
+import { setLanguage, t, type MessageKey } from '../i18n';
 import { installAvatarFallback } from '../ui/avatar';
 import { cockpitBar } from '../ui/components/cockpitBar';
+import { hostToolsLinkSheet } from '../ui/components/hostToolsLinkSheet';
 import { mountCreateModal } from '../ui/components/createModal';
 import { selfProfilePage } from '../ui/components/profileDrawer';
 import { roomDetailsPanel } from '../ui/components/roomDetailsPanel';
@@ -96,6 +97,13 @@ export class ClubboxApp {
   moderatorQueueUsers: CHUser[] = [];
   moderatorHistoryItems: ModeratorActionItem[] = [];
   moderatorHistoryCursor: string | null = null;
+  /** Phase 27.5 — Token link for host tools (null = unknown / not desktop). */
+  hostToolsLinked: boolean | null = null;
+  hostToolsHasPhone = false;
+  hostToolsLinkOpen = false;
+  hostToolsLinkNeedPhone = false;
+  hostToolsLinkBusy = false;
+  hostToolsLinkError: MessageKey | null = null;
   currentChannel: CHChannelDetail | null = null;
   channelsList: CHChannel[] = [];
   feedTopics: FeedTopic[] = [];
@@ -328,6 +336,18 @@ export class ClubboxApp {
     electronAPI()?.onWebSessionMaybe?.(() => {
       void this.tryAdoptOfficialSession();
     });
+    electronAPI()?.onHostToolsLinkNeeded?.((payload) => {
+      void this.openHostToolsLinkSheet(payload?.reason);
+    });
+    electronAPI()?.onHostToolsLinked?.(() => {
+      this.hostToolsLinked = true;
+      this.hostToolsLinkOpen = false;
+      this.hostToolsLinkBusy = false;
+      this.hostToolsLinkError = null;
+      this.showToast(t('hostToolsLinkOk'), '✅');
+      this.render();
+    });
+    void this.refreshHostToolsStatus();
     electronAPI()?.onSignInProgress?.((payload) => {
       const step = payload?.step;
       if (step === 'otp') {
@@ -757,6 +777,7 @@ export class ClubboxApp {
     this.renderView();
     if (this.currentTab === 'settings') void this.fillAudioDevices();
     this.renderCockpit();
+    this.renderHostToolsLinkSheet();
     this.syncRecBanner();
     this.renderGuidelines();
     if (this.isProfileDrawerOpen) this.renderProfileDrawer();
@@ -1268,8 +1289,102 @@ export class ClubboxApp {
     if (document.getElementById('shell-sidebar')) return;
     const app = document.getElementById('app');
     if (!app) return;
-    app.innerHTML = '<aside class="sidebar" id="shell-sidebar"></aside><main class="studio-main"><header class="top-bar" id="shell-topbar"></header><div class="rec-banner" id="rec-banner" hidden></div><div class="content-area" id="view-root"></div><div id="cockpit-root"></div></main>';
+    app.innerHTML = '<aside class="sidebar" id="shell-sidebar"></aside><main class="studio-main"><header class="top-bar" id="shell-topbar"></header><div class="rec-banner" id="rec-banner" hidden></div><div class="content-area" id="view-root"></div><div id="cockpit-root"></div><div id="host-tools-link-root"></div></main>';
     this.bindEvents();
+  }
+
+  async refreshHostToolsStatus(): Promise<void> {
+    const api = electronAPI();
+    if (!api?.mobileAuthStatus) {
+      this.hostToolsLinked = null;
+      return;
+    }
+    try {
+      const status = await api.mobileAuthStatus();
+      this.hostToolsLinked = status.linked === true;
+      this.hostToolsHasPhone = status.hasPhone === true;
+    } catch {
+      this.hostToolsLinked = null;
+    }
+  }
+
+  async openHostToolsLinkSheet(_reason?: string): Promise<void> {
+    await this.refreshHostToolsStatus();
+    this.hostToolsLinkNeedPhone = !this.hostToolsHasPhone;
+    this.hostToolsLinkError = null;
+    this.hostToolsLinkOpen = true;
+    this.renderHostToolsLinkSheet();
+    if (!this.hostToolsLinkNeedPhone) {
+      void this.startHostToolsSms();
+    }
+  }
+
+  renderHostToolsLinkSheet(): void {
+    const el = document.getElementById('host-tools-link-root');
+    if (!el) return;
+    el.innerHTML = markup(hostToolsLinkSheet({
+      open: this.hostToolsLinkOpen,
+      needPhone: this.hostToolsLinkNeedPhone,
+      busy: this.hostToolsLinkBusy,
+      errorKey: this.hostToolsLinkError,
+    }));
+  }
+
+  async startHostToolsSms(phone?: string): Promise<void> {
+    const api = electronAPI();
+    if (!api?.mobileAuthStart) return;
+    this.hostToolsLinkBusy = true;
+    this.hostToolsLinkError = null;
+    this.renderHostToolsLinkSheet();
+    const result = await api.mobileAuthStart(phone ? { phone } : {});
+    this.hostToolsLinkBusy = false;
+    if (result.reason === 'phone_needed') {
+      this.hostToolsLinkNeedPhone = true;
+      this.hostToolsLinkError = 'hostToolsLinkPhoneNeeded';
+    } else if (result.reason === 'blocked' || result.attestation) {
+      this.hostToolsLinkError = 'hostToolsLinkBlocked';
+    } else if (!result.ok && result.reason === 'normalize_failed') {
+      this.hostToolsLinkError = 'hostToolsLinkPhoneNeeded';
+    } else if (!result.ok) {
+      this.hostToolsLinkError = 'hostToolsLinkFailed';
+    } else {
+      this.hostToolsHasPhone = true;
+      this.hostToolsLinkNeedPhone = false;
+    }
+    this.renderHostToolsLinkSheet();
+  }
+
+  async submitHostToolsCode(): Promise<void> {
+    const api = electronAPI();
+    if (!api?.mobileAuthComplete) return;
+    const codeInput = document.querySelector<HTMLInputElement>('[data-host-tools-code]');
+    const phoneInput = document.querySelector<HTMLInputElement>('[data-host-tools-phone]');
+    const code = codeInput?.value?.trim() || '';
+    if (this.hostToolsLinkNeedPhone && phoneInput?.value) {
+      await this.startHostToolsSms(phoneInput.value);
+      if (this.hostToolsLinkError) return;
+    }
+    this.hostToolsLinkBusy = true;
+    this.hostToolsLinkError = null;
+    this.renderHostToolsLinkSheet();
+    const result = await api.mobileAuthComplete({ code });
+    this.hostToolsLinkBusy = false;
+    if (result.ok) {
+      this.hostToolsLinked = true;
+      this.hostToolsLinkOpen = false;
+      this.showToast(t('hostToolsLinkOk'), '✅');
+      this.render();
+      return;
+    }
+    if (result.reason === 'blocked' || result.attestation) {
+      this.hostToolsLinkError = 'hostToolsLinkBlocked';
+    } else if (result.reason === 'phone_needed') {
+      this.hostToolsLinkNeedPhone = true;
+      this.hostToolsLinkError = 'hostToolsLinkPhoneNeeded';
+    } else {
+      this.hostToolsLinkError = 'hostToolsLinkFailed';
+    }
+    this.renderHostToolsLinkSheet();
   }
 
   renderSidebar(): void {
@@ -1695,6 +1810,7 @@ export class ClubboxApp {
       canReact: flags.canReact,
       canGifReact: flags.canGifReact,
       canModeratorActions: this.canOpenModeratorActions(),
+      hostToolsLinked: this.hostToolsLinked,
       overflowOpen: this.roomBarOverflowOpen,
       networkQualityTone: this.networkQualityTone,
       networkQualityTitle: t('networkQualityTitle', {
@@ -2698,6 +2814,31 @@ export class ClubboxApp {
         break;
       case 'save-settings':
         void this.saveSettings();
+        break;
+      case 'host-tools-link-cancel':
+        this.hostToolsLinkOpen = false;
+        this.hostToolsLinkBusy = false;
+        this.hostToolsLinkError = null;
+        this.renderHostToolsLinkSheet();
+        break;
+      case 'host-tools-link-resend':
+        void electronAPI()?.mobileAuthResend?.().then((res) => {
+          if (res?.reason === 'blocked') this.hostToolsLinkError = 'hostToolsLinkBlocked';
+          else if (!res?.ok) this.hostToolsLinkError = 'hostToolsLinkFailed';
+          this.renderHostToolsLinkSheet();
+        });
+        break;
+      case 'host-tools-link-submit':
+        void this.submitHostToolsCode();
+        break;
+      case 'host-tools-unlink':
+        void electronAPI()?.mobileAuthUnlink?.().then((res) => {
+          if (res?.ok) {
+            this.hostToolsLinked = false;
+            this.showToast(t('hostToolsUnlinked'), '✅');
+            this.render();
+          }
+        });
         break;
       case 'copy-api-health-report': {
         const report = clubhouseClient.copyHealthReport();

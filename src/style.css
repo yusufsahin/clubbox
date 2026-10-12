@@ -3816,3 +3816,62 @@ button.mutual-line:hover {
   }
 }
 
+/* Phase 27.5 — host tools SMS link sheet + room-bar badge */
+.host-tools-link-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+}
+.host-tools-link-sheet-panel {
+  width: min(420px, calc(100vw - 32px));
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 20px 22px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+}
+.host-tools-link-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin: 12px 0 6px;
+}
+.host-tools-link-input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg);
+  color: var(--text);
+}
+.host-tools-link-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+.host-tools-link-error {
+  color: var(--danger, #c44);
+}
+.room-bar-host-tools {
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+  align-self: center;
+}
+.room-bar-host-tools.is-on {
+  color: var(--text-muted);
+  background: var(--bg);
+}
+.room-bar-host-tools.is-needed {
+  color: var(--text);
+  background: var(--bg-elevated, var(--bg));
+  border: 1px solid var(--border-subtle);
+}
+
