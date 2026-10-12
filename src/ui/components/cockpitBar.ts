@@ -5,7 +5,6 @@ import { icon } from '../icons';
 
 export interface CockpitState {
   muted: boolean;
-  musicMode: boolean;
   /** Virtual cable or mixer selected as the microphone. */
   mixerMic: boolean;
   recording: boolean;
@@ -103,18 +102,6 @@ export function cockpitBar(state: CockpitState): SafeHtml {
           ${icon(state.muted ? 'micOff' : 'mic')}
           <span class="room-bar-label">${state.mixerMic ? t('mixMic') : t('mic')}</span>
         </button>
-
-        ${state.inRoom ? html`
-          <button
-            class="room-bar-btn ${state.musicMode ? 'is-active' : ''}"
-            type="button"
-            data-action="toggle-music"
-            data-room-bar-item="music"
-            id="music-mode-btn"
-            aria-label="${t('musicMode')}"
-            title="${state.musicMode ? t('musicHeadphonesBanner') : t('musicModeTitle')}"
-          >${icon('speaker')}<span class="room-bar-label">${t('audioMusic')}</span></button>
-        ` : ''}
 
         ${showJoinStage ? html`
           <button

@@ -495,11 +495,22 @@ export class AudioEngine {
     return this.inputDeviceId;
   }
 
-  public setInputDeviceId(deviceId: string, label?: string): void {
+  /** Store mic id/label without touching the live track (Agora owns capture). */
+  public storeInputDeviceId(deviceId: string, label?: string): void {
     const changed = deviceId !== this.inputDeviceId;
     this.inputDeviceId = deviceId;
     if (typeof label === 'string') this.inputDeviceLabel = label;
     else if (changed) this.inputDeviceLabel = '';
+  }
+
+  public isMicOwnedExternally(): boolean {
+    return this.micOwnedExternally;
+  }
+
+  public setInputDeviceId(deviceId: string, label?: string): void {
+    this.storeInputDeviceId(deviceId, label);
+    // Agora's track is adopted into micStream as live — never steal it with getUserMedia.
+    if (this.micOwnedExternally) return;
     const live = this.micStream?.getAudioTracks().some((track) => track.readyState === 'live') ?? false;
     if (live) void this.restartMicrophone();
   }

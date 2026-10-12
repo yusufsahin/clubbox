@@ -184,7 +184,8 @@ export class AgoraVoiceEngine {
 
   /** Settings › Audio input while in a room: setDevice on live mic track (no republish). */
   public async setMicrophoneDevice(deviceId: string): Promise<boolean> {
-    audioEngine.setInputDeviceId(deviceId);
+    // Never restart local capture — Agora owns the track (applyMicDevice / store path).
+    audioEngine.storeInputDeviceId(deviceId);
     if (!this.localAudioTrack || !this.isJoined) return false;
     try {
       let id = deviceId;

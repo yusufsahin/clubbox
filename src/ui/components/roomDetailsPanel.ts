@@ -11,6 +11,7 @@ export type RoomDetailsState = {
   voiceEffect: string;
   voiceEffectOptions: { id: string; label: string }[];
   spatialAudio: boolean;
+  micVolume: number;
   canMuteAll: boolean;
   canShare: boolean;
   canModerate: boolean;
@@ -84,7 +85,15 @@ export function roomDetailsPanel(state: RoomDetailsState): SafeHtml {
           ${t('spatialAudio')}
         </label>
         <label class="form-label" for="room-mic-gain">${t('micLevel')}</label>
-        <input type="range" id="room-mic-gain" data-action="set-mic-gain" min="0" max="1" step="0.05" />
+        <input
+          type="range"
+          id="room-mic-gain"
+          data-action="set-mic-gain"
+          min="0"
+          max="1"
+          step="0.05"
+          value="${String(state.micVolume)}"
+        />
 
         ${state.showExternalAudio ? html`
           <div class="external-audio-block" data-external-audio>

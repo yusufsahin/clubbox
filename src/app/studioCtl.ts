@@ -339,8 +339,6 @@ export function applyMusicMode(this: ClubboxApp) : void {
       } else {
         await audioEngine.restartMicrophone();
       }
-      const btn = document.getElementById('music-mode-btn');
-      if (btn) btn.classList.toggle('is-active', quality === 'music');
     }).catch((err) => {
       console.warn('[Clubbox] audio quality apply failed:', err instanceof Error ? err.message : 'failed');
     });
@@ -351,7 +349,8 @@ export function applyAudioPrefs(this: ClubboxApp) : void {
     audioEngine.setMonitorEnabled(this.audioPrefs.monitorEnabled);
     audioEngine.setSpatialAudioEnabled(this.audioPrefs.spatialAudioEnabled === true);
     audioEngine.restoreAppliedVoiceEffect(this.audioPrefs.voiceEffectApplied || 'none');
-    audioEngine.setInputDeviceId(this.audioPrefs.inputDeviceId);
+    // Prefs dump must not restart an Agora-owned mic (second getUserMedia race).
+    audioEngine.storeInputDeviceId(this.audioPrefs.inputDeviceId);
     audioEngine.setOutputDevice(this.audioPrefs.outputDeviceId);
     audioEngine.setExternalDeviceId(this.audioPrefs.externalDeviceId || '');
     audioEngine.setExternalVolume(this.audioPrefs.externalVolume ?? 0.8);

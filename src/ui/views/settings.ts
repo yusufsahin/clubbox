@@ -157,6 +157,7 @@ export function settingsView(
         <h3 class="settings-section-title">${t('settingsAudio')}</h3>
       <div style="background:var(--bg-card); border:1px solid var(--border-subtle); border-radius:var(--radius-lg); padding:24px; margin-bottom:20px;">
         <h3 style="font-size:16px; font-weight:700; margin-bottom:16px;">${t('audioDevices')}</h3>
+        <p class="list-note">${t('audioDevicesReset')}</p>
         <div class="form-group">
           <label class="form-label" for="cfg-input-device">${t('inputDevice')}</label>
           <select class="form-input" id="cfg-input-device">

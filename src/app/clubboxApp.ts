@@ -14,6 +14,8 @@ import { roomSync } from '../api/roomSync';
 import { audioEngine } from '../audio/audioEngine';
 import { readAudioPrefs, type AudioPrefs } from '../audio/audioPrefs';
 import { SYSTEM_AUDIO_DEVICE_ID } from '../audio/externalConstraints';
+import { applyMicDevice } from '../audio/applyMicDevice';
+import { audioConnectionNotes } from '../audio/audioConnectionNotes';
 import { externalDoublesMic, shouldPromptMixerMusic } from '../audio/mixerMic';
 import { compareAudioDevices, displayDeviceLabel, installedAudioSummary, missingChosenDevices, suggestAudioSetup, type AudioSetupDraft, type ListedDevice, type SetupChoice } from '../audio/devicePicker';
 import type { CaptureTruth } from '../audio/captureTruth';
@@ -781,6 +783,7 @@ export class ClubboxApp {
         { id: 'echo', label: t('voiceEffectEcho') },
       ],
       spatialAudio: this.audioPrefs.spatialAudioEnabled === true,
+      micVolume: this.audioPrefs.micVolume,
       canMuteAll: mod && flags.canMuteEveryone,
       canShare: !!safeUrl(this.currentChannel.url),
       canModerate: mod,
@@ -876,6 +879,7 @@ export class ClubboxApp {
           { id: 'echo', label: t('voiceEffectEcho') },
         ],
         spatialAudio: this.audioPrefs.spatialAudioEnabled === true,
+        micVolume: this.audioPrefs.micVolume,
         canMuteAll: mod && flags.canMuteEveryone,
         canShare: !!safeUrl(this.currentChannel.url),
         canModerate: mod,
@@ -1023,11 +1027,13 @@ export class ClubboxApp {
   paintLoopNotes(): void {
     const host = document.getElementById('loop-guard-notes');
     if (!host) return;
-    const guard = this.loopGuard;
-    const notes: string[] = [];
-    if (guard.roomLoop) notes.push(t('loopRoomAudio'));
-    if (guard.voicemeeterAux) notes.push(t('loopVoicemeeterAux'));
-    if (guard.blockStage) notes.push(t('loopBlockStage'));
+    const doubles = externalDoublesMic(
+      audioEngine.getInputDevice(),
+      { label: audioEngine.getExternalDeviceLabel(), kind: 'audioinput' },
+    );
+    const notes = audioConnectionNotes({ guard: this.loopGuard, doublesMic: doubles })
+      .filter((note) => note.kind !== 'doubleCable')
+      .map((note) => t(note.messageKey));
     host.replaceChildren();
     for (const note of notes) {
       const line = document.createElement('p');
@@ -1120,13 +1126,24 @@ export class ClubboxApp {
     const mic = this.audioSetupDevices.find((device) => device.id === draft.micId);
     const output = this.audioSetupDevices.find((device) => device.id === draft.outputId);
     const previous = this.audioPrefs.audioQuality;
+    const previousDevice = audioEngine.getInputDevice();
     this.audioPrefs.inputDeviceId = draft.micId;
     this.audioPrefs.outputDeviceId = draft.outputId;
     this.saveAudioPrefs();
-    audioEngine.setInputDeviceId(draft.micId, mic?.label ?? '');
+    // Store first so quality republish (if any) opens the new device.
+    audioEngine.storeInputDeviceId(draft.micId, mic?.label ?? '');
     audioEngine.setOutputDevice(draft.outputId, output?.label ?? '');
     this.audioSetupStep = 4;
-    if (draft.quality !== previous) this.setAudioQuality(draft.quality);
+    if (draft.quality !== previous) {
+      this.setAudioQuality(draft.quality);
+    } else {
+      void applyMicDevice({
+        deviceId: draft.micId,
+        label: mic?.label ?? '',
+        quality: this.audioPrefs.audioQuality,
+        previousDevice,
+      });
+    }
     if (draft.externalId) {
       const external = this.audioSetupDevices.find((device) => device.id === draft.externalId);
       if (external && !this.externalInputOptions.some((device) => device.id === external.id)) {
@@ -1142,7 +1159,6 @@ export class ClubboxApp {
     }
     this.refreshLoopGuardUi();
     this.renderAudioSetup();
-    if (!agoraVoice.getIsJoined() || !agoraVoice.getIsSpeaker()) void audioEngine.ensureMicrophone();
   }
 
   paintAudioSetupDraftState(): void {
@@ -1589,7 +1605,6 @@ export class ClubboxApp {
     const flags = stageControlFlags(this);
     return cockpitBar({
       muted: audioEngine.getIsMuted(),
-      musicMode: this.audioPrefs.audioQuality === 'music',
       mixerMic: audioEngine.isMixerMic(),
       recording: audioEngine.getIsRecording(),
       handRaised: clubhouseClient.isHandRaised(),
@@ -1704,7 +1719,7 @@ export class ClubboxApp {
         this.audioPrefs.externalDuckDb = val;
         this.saveAudioPrefs();
       }
-      if (target.id === 'mic-vol-slider') {
+      if (target.id === 'room-mic-gain') {
         const val = parseFloat(target.value);
         if (!Number.isFinite(val)) return;
         audioEngine.setMicVolume(val);
@@ -1752,7 +1767,7 @@ export class ClubboxApp {
         this.togglePingSelect(target.dataset.userId);
         return;
       }
-      if (target.id === 'cfg-spatial-audio' && target instanceof HTMLInputElement) {
+      if (action === 'toggle-spatial-audio' && target instanceof HTMLInputElement) {
         this.audioPrefs.spatialAudioEnabled = target.checked === true;
         audioEngine.setSpatialAudioEnabled(this.audioPrefs.spatialAudioEnabled);
         this.saveAudioPrefs();
@@ -1816,17 +1831,18 @@ export class ClubboxApp {
           target.value = audioEngine.getInputDeviceId();
           return;
         }
+        const previousDevice = audioEngine.getInputDevice();
         this.audioPrefs.inputDeviceId = target.value;
         this.saveAudioPrefs();
-        audioEngine.setInputDeviceId(target.value, label);
+        audioEngine.storeInputDeviceId(target.value, label);
         const offeredMusic = this.promptMixerMicIfKnown();
         if (!offeredMusic) {
-          // In a room: switch the live Agora mic track (Phase 24.4) — no republish.
-          if (agoraVoice.getIsJoined() && agoraVoice.getIsSpeaker()) {
-            void agoraVoice.setMicrophoneDevice(target.value);
-          } else {
-            void audioEngine.restartMicrophone();
-          }
+          void applyMicDevice({
+            deviceId: target.value,
+            label,
+            quality: this.audioPrefs.audioQuality,
+            previousDevice,
+          });
         }
         this.renderCockpit();
         this.refreshLoopGuardUi();
@@ -2321,9 +2337,6 @@ export class ClubboxApp {
       }
       case 'toggle-mic':
         this.toggleMute();
-        break;
-      case 'toggle-music':
-        this.toggleMusicMode();
         break;
       case 'toggle-monitor':
         this.audioPrefs.monitorEnabled = !audioEngine.getMonitorEnabled();

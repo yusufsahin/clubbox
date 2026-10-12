@@ -33,6 +33,12 @@ A1 kulaklıktır. Oda sesi B1’e hiç gitmemelidir; gittiği anda oda kendi ses
 
 Windows Ses › Kayıt › CABLE Output › Özellikler › Gelişmiş: 2 kanal, 48000 Hz. Aynı ayarı çalma tarafı (CABLE Input / Speakers) için de yap. Stereo sorunlarının çoğu bu varsayılan biçimden gelir.
 
+### Odadayken mikrofon değiştirmek
+
+Ayarlar veya kurulum sihirbazından mikrofon değişince Clubbox `applyMicDevice` kullanır: Agora konuşmacıyken aynı yakalama profilinde `setDevice`, sanal↔fiziksel (veya AEC) değişince `republish`. Agora’nın track’i varken ikinci bir `getUserMedia` açılmaz.
+
+Clubdeck tek giriş kullanır (miksi dışarıda kurar). Clubbox Kurulum 1’de gerçek mikrofon + Harici giriş avantajını korur; kalite (Normal/High/Music) yalnızca Oda detayları › Ses’tedir.
+
 ## English
 
 Two setups. Settings › Audio › **Music & external audio setup** is the same pane the hallway and the room open. Nothing changes until **Apply**.
@@ -65,3 +71,9 @@ A1 is the headphones. Room audio must never reach B1. If it does, the room hears
 ### Windows format
 
 Windows Sound › Recording › CABLE Output › Properties › Advanced: 2 channel, 48000 Hz. Set the same format on the playback side (CABLE Input / Speakers). Most stereo problems come from that default format.
+
+### Changing the mic while in a room
+
+Settings or the setup wizard go through `applyMicDevice`: while an Agora speaker, same capture profile uses `setDevice`; virtual↔physical (or AEC) changes use `republish`. No second `getUserMedia` while Agora owns the track.
+
+Clubdeck uses one input (mix outside the app). Clubbox keeps Setup 1 (real mic + External). Quality (Normal/High/Music) lives only in Room details › Audio.

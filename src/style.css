@@ -591,8 +591,8 @@ body {
   margin: 0;
   padding: 10px 12px;
   border-radius: var(--radius-md);
-  border: 1px solid #c0392b;
-  background: rgba(192, 57, 43, 0.12);
+  border: 1px solid var(--accent-rose);
+  background: var(--accent-rose-glow);
   color: var(--text-main);
   font-size: 12px;
   line-height: 1.45;
@@ -698,7 +698,7 @@ body {
   transition: width 80ms linear;
 }
 option.device-unavailable {
-  color: #c0392b;
+  color: var(--accent-rose-text);
 }
 
 .sidebar-user {
@@ -3310,7 +3310,7 @@ button.mutual-line:hover {
 }
 
 .chat-msg-text a {
-  color: var(--accent-link, var(--accent-purple-text));
+  color: var(--accent-purple-text);
   text-decoration: underline;
   cursor: pointer;
 }

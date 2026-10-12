@@ -58,7 +58,6 @@ test('mixer mic button tooltip says Mix', () => {
   const effects: SoundEffectItem[] = [];
   const markup = cockpitBar({
     muted: false,
-    musicMode: false,
     mixerMic: true,
     recording: false,
     handRaised: false,
@@ -85,4 +84,6 @@ test('mixer mic button tooltip says Mix', () => {
   }).value;
   assert.match(markup, /Mix — muting mutes the whole mix\. Soundboard still goes through extras\./);
   assert.match(markup, /room-bar-label">Mix</);
+  assert.doesNotMatch(markup, /data-action="toggle-music"/);
+  assert.doesNotMatch(markup, /data-room-bar-item="music"/);
 });
