@@ -2324,31 +2324,31 @@ App endpoint key: `web_listener_leave`.
 
 Not observed in a capture yet. No request or response example is included, because none was recorded.
 
-## POST /web_api/invite_speaker
+## POST /api/invite_speaker
 
 App endpoint key: `invite_speaker`.
 
 Not observed in a capture yet. No request or response example is included, because none was recorded.
 
-## POST /web_api/uninvite_speaker
+## POST /api/uninvite_speaker
 
 App endpoint key: `uninvite_speaker`.
 
 Not observed in a capture yet. No request or response example is included, because none was recorded.
 
-## POST /web_api/mute_speaker
+## POST /api/mute_speaker
 
 App endpoint key: `mute_speaker`.
 
 Not observed in a capture yet. No request or response example is included, because none was recorded.
 
-## POST /web_api/make_moderator
+## POST /api/make_moderator
 
 App endpoint key: `make_moderator`.
 
 Not observed in a capture yet. No request or response example is included, because none was recorded.
 
-## POST /web_api/block_from_channel
+## POST /api/block_from_channel
 
 App endpoint key: `block_from_channel`.
 
@@ -2366,7 +2366,7 @@ App endpoint key: `invite_to_existing_channel`.
 
 Not observed in a capture yet. No request or response example is included, because none was recorded.
 
-## POST /web_api/end_channel
+## POST /api/end_channel
 
 App endpoint key: `end_channel`.
 
@@ -2384,7 +2384,7 @@ App endpoint key: `make_channel_social`.
 
 Not observed in a capture yet. No request or response example is included, because none was recorded.
 
-## POST /web_api/change_handraise_settings
+## POST /api/change_handraise_settings
 
 App endpoint key: `change_handraise_settings`.
 

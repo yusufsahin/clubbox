@@ -17,10 +17,10 @@ Owner reported: triage noise, new-room participants invisible, moderation action
 
 Idle recheck after 24.7.
 
-### Last autonomous run (2026-10-12 — Phase 27.2 route moderation)
+### Last autonomous run (2026-10-12 — Phase 27 close-out docs + triage)
 
-- Mobile host tools: mute / invite / uninvite / block / end / make_mod / handraise via `mobileCall`; move = mute+uninvite; end leaves locally; block confirm.
-- `npm run test:unit` + `tsc` green. **27.4 owner live matrix.** ST-9 `@deferred`; ACC-1 open.
+- Triage: `uninvite_speaker` 404 fixture (host tools stay callable). `docs/api/mobile-api.md`; PRD `mobile-spike`; DESIGN G-04; hard-rule mobile exception.
+- **Blocked / owner:** 27.4 live matrix; 26.7 live matrix; ST-9 `@deferred`; ACC-1 + RH-6 BDD path questions.
 
 ### Previous last autonomous run (2026-10-12 — Phase 27.1 reduced mobile API)
 
@@ -53,6 +53,7 @@ Idle recheck after 24.7.
 ### Questions for the owner
 
 - **ACC-1 wording:** Sign-in is now a visible Clubhouse `/signin` surface embedded in the main window (BrowserView), not a separate BrowserWindow. Should `features/account.feature` ACC-1 say “visible Clubhouse sign-in surface” instead of “visible window”? (Feature file not edited by the agent.)
+- **RH-6 BDD path:** `features/room_moderation.feature` still expects `POST /web_api/<endpoint>` and Move → only `uninvite_speaker`. Phase 27 uses mobile `/api/<endpoint>` and Move = mute+uninvite. Update the feature file, or keep web_api wording as “logical” and assert via FakeTransport only?
 
 
 ## Status
@@ -64,11 +65,11 @@ Legend: **Uygulandı** = code is in the tree. **Canlı doğrulandı** = exercise
 | 0a | **Phase 23 Live room audio (Agora)** — DNS -105 is a red herring; real join error not yet visible; web vs native SDK decision gate at 23.3 | **Web path** — 23.1–23.5 done on `phase-23-24-agora`; native 23.6+ deferred |
 | 0b | **Phase 24 Agora feature completeness** — broadcast mix, reconnect + quality, token lifecycle, device hot-swap, speaking rings, lifecycle, AI noise suppression | **Closed** — 24.1–24.7 done (AI denoiser + CSP/WASM); e2e green |
 | 0c | **Phase 25 Room exit and mic state** — leave_channel on close/quit/Ctrl+C + crash recovery, mute badge/state sync, AI denoiser init bug, log hygiene | **Closed** — 25.1–25.4 done. 25.5 moved to Phase 26 |
-| 0e | **Phase 27 Host tools via mobile API** — end room, invite to stage, mute, move to audience, remove from room; web API has none of these (404 / not in bundle) | **Code done** — 27.1–27.2 (SMS skipped); **27.4 owner live matrix** open |
+| 0e | **Phase 27 Host tools via mobile API** — end room, invite to stage, mute, move to audience, remove from room; web API has none of these (404 / not in bundle) | **Code + docs done** — 27.1–27.2 + mobile-api.md (SMS skipped); **27.4 owner live matrix** open |
 | 0d | **Phase 26 Studio audio routing** — VB-Cable / Voicemeeter (Clubdeck parity): device classification, working quality levels, mixer-as-mic, loop guard, setup wizard, capture truth, live test matrix | **Code done** — 26.1–26.6 + mid-room `applyMicDevice` harden. **26.7 owner live matrix** still open |
 | 1 | **0.7 Review fixes (2026-10-11 #2)** — navigation guard, packaged recorder, clip worklet path, auto-armed clip buffer, 429/visibility, CORS proxy token leak | Uygulandı |
 | 1b | **0.8 Followers / following / friends lists** — bundle scan + labeled UI hunt; live UI uses only counts + mutual lists | Uygulandı for counts, mutual names, and chat people. The public web bundle does not contain get_followers, get_following, or get_online_friends. get_friend_zone_match and get_social_club_members are in-bundle and not called. The labeled click-through still needs a signed-in session. |
-| 0 | **Autonomous plan** (see `.cursor/rules/clubbox.mdc`): 10.1 → 11.8 (warn mode) → 10.2 → 10.5 → 11.0 → 11.1 → 11.2 → 11.3 → 11.4 → 10.4 → 11.5 → 11.6 → 11.7 → 11.9 → 11.10 → 11.8 (strict). Acceptance files: account, hallway, room_listener, room_realtime, room_host, room_moderation, audio_studio, studio, social, messages, houses_events_replays, api_health. Requirements: `docs/product/PRD.md`; design + gap list G-01…G-18: `docs/product/DESIGN.md`; acceptance: `features/*.feature` | **Idle / blocked** — demote mic-graph cleanup closed. Waiting on 26.7 owner live matrix. ST-9 Restream `@deferred`. |
+| 0 | **Autonomous plan** (see `.cursor/rules/clubbox.mdc`): 10.1 → 11.8 (warn mode) → 10.2 → 10.5 → 11.0 → 11.1 → 11.2 → 11.3 → 11.4 → 10.4 → 11.5 → 11.6 → 11.7 → 11.9 → 11.10 → 11.8 (strict). Acceptance files: account, hallway, room_listener, room_realtime, room_host, room_moderation, audio_studio, studio, social, messages, houses_events_replays, api_health. Requirements: `docs/product/PRD.md`; design + gap list G-01…G-18: `docs/product/DESIGN.md`; acceptance: `features/*.feature` | **Idle / blocked** — Phase 27 code+docs done. Waiting on **27.4** + **26.7** owner live matrices. ST-9 Restream `@deferred`. |
 | — | **10.1** / **10.2** / **10.4** / **10.5** / **11.0** / **11.8 (warn)** | Uygulandı |
 | 1c | **0.9 / 12.2 Verified by use** — request log + in-app triage (no recorder) | Uygulandı. Verified by use: endpoints the owner exercises become `observed` via userData `api-log` + startup triage / `npm run api:triage` (list grows with normal use). |
 | 2 | **0.6 Community Guidelines risk** — hidden reCAPTCHA sign-in, polling, recording, distribution | Uygulandı (code). Sign-in is a visible clubhouse.com window, polling pauses when the window is hidden, recording is opt-in, and there is no publish config. A public release is still your decision. |

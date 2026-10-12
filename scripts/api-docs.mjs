@@ -264,6 +264,7 @@ function evidenceRoutes(routes, records) {
     else if (observed) evidence = 'observed';
     else if (route.evidence === 'in-bundle') evidence = 'in-bundle';
     else if (route.evidence === 'community') evidence = 'community';
+    else if (route.evidence === 'mobile-spike' || route.transport === 'mobile') evidence = 'mobile-spike';
     else if (route.evidence === 'bundle') evidence = 'bundle';
     else if (route.evidence === 'observed') evidence = 'observed';
     else evidence = 'bundle';

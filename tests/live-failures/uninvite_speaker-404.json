@@ -1,0 +1,10 @@
+{
+  "endpoint": "uninvite_speaker",
+  "status": 404,
+  "bodyKeys": [
+    "channel",
+    "user_id"
+  ],
+  "error": "Not found",
+  "evidence": "mobile-spike"
+}
