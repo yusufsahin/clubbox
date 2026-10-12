@@ -101,3 +101,30 @@ test('step 3 warns when mic and external are the same cable', () => {
   assert.match(html, /data-setup-hint="mix"/);
   assert.match(html, /disabled/);
 });
+
+test('step 4 shows VB-Cable check run button and result rows', () => {
+  const html = markup(audioSetupWizard({
+    step: 4,
+    summary: installedAudioSummary(devices),
+    devices,
+    unavailable: new Set(),
+    draft: { micId: 'mic', externalId: 'cable-cap', outputId: 'phones', quality: 'music' },
+    choice: 'mix',
+    loopClear: true,
+    vbCheckResult: {
+      atMs: 1,
+      warnDuplicate: false,
+      steps: [
+        { id: 'cable_found', pass: true, fixKey: '' },
+        { id: 'signal', pass: false, fixKey: 'vbCheckFixNoSignal' },
+        { id: 'format', pass: true, fixKey: '' },
+        { id: 'loop', pass: true, fixKey: '' },
+        { id: 'send_path', pass: true, fixKey: '' },
+      ],
+    },
+  }));
+  assert.match(html, /data-action="run-vb-cable-check"/);
+  assert.match(html, /data-vb-step="signal"/);
+  assert.match(html, /data-pass="0"/);
+  assert.ok(html.includes(t('vbCheckFixNoSignal')));
+});

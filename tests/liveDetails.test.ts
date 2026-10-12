@@ -97,6 +97,14 @@ test('buildLiveDetails me role and audio rows when provided', () => {
   assert.equal(model!.audioRows.find((r) => r.key === 'network')?.value, 'good');
 });
 
+test('buildLiveDetails shows VB-Cable check summary when provided', () => {
+  const model = buildLiveDetails(base(), {
+    audio: { vbCableCheckSummary: '4/5 pass' },
+  });
+  assert.ok(model);
+  assert.equal(model!.audioRows.find((r) => r.key === 'vb_cable')?.value, '4/5 pass');
+});
+
 test('buildLiveDetails server flag rows when present', () => {
   const model = buildLiveDetails(base({
     show_last_speaker_warning: true,

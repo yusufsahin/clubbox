@@ -212,4 +212,5 @@ export type ClubboxAppCtlMethods = {
   startAudioCheck: typeof studioCtl.startAudioCheck;
   finishAudioCheck: typeof studioCtl.finishAudioCheck;
   renderAudioCheck: typeof studioCtl.renderAudioCheck;
+  runVbCableCheck: typeof studioCtl.runVbCableCheck;
 };

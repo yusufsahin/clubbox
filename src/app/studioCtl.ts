@@ -4,6 +4,11 @@ import type { AudioQuality } from '../audio/audioQuality.ts';
 import { compareAudioDevices, displayDeviceLabel } from '../audio/devicePicker.ts';
 import { writeAudioPrefs } from '../audio/audioPrefs.ts';
 import { evaluateAudioCheck } from '../audio/sendQuality.ts';
+import {
+  evaluateVbCableCheck,
+  findVbCableRenderId,
+  writeVbCableCheckResult,
+} from '../audio/vbCableCheck.ts';
 import { eventToAccelerator, normalizeShortcuts, writeShortcuts, type ShortcutAction, type ShortcutMap } from '../shortcuts.ts';
 import { adjustZoomPercent, readAppPrefs, writeAppPrefs, zoomFactorFromPercent } from './appPrefs.ts';
 import { agoraVoice } from '../audio/agoraVoice.ts';
@@ -18,6 +23,7 @@ import { recordingFilename } from './recordingFilename.ts';
 
 const AUDIO_CHECK_MS = 5_000;
 const AUDIO_CHECK_SAMPLE_MS = 100;
+const VB_SIGNAL_SAMPLE_MS = 50;
 
 
 
@@ -593,6 +599,51 @@ export function renderAudioCheck(this: ClubboxApp): void {
   }));
 }
 
+/** Wizard step 4 — local tone into Speakers (N-) + five-step verdicts (30.7). */
+export async function runVbCableCheck(this: ClubboxApp): Promise<void> {
+  if (this.vbCheckRunning) return;
+  this.vbCheckRunning = true;
+  this.renderAudioSetup();
+  const draft = this.audioSetupDraft;
+  const externalId = draft.externalId || this.audioPrefs.externalDeviceId;
+  const renderId = findVbCableRenderId(this.audioSetupDevices, externalId);
+  let signalPeak = 0;
+  if (renderId) {
+    const sampleUntil = Date.now() + 900;
+    const sampler = window.setInterval(() => {
+      signalPeak = Math.max(signalPeak, audioEngine.getExternalLevel());
+    }, VB_SIGNAL_SAMPLE_MS);
+    try {
+      await audioEngine.playToneToSink(renderId, 800);
+    } catch {
+      // Sink may fail; still evaluate with peak=0.
+    }
+    while (Date.now() < sampleUntil) {
+      signalPeak = Math.max(signalPeak, audioEngine.getExternalLevel());
+      await new Promise<void>((r) => window.setTimeout(r, VB_SIGNAL_SAMPLE_MS));
+    }
+    clearInterval(sampler);
+  } else if (externalId) {
+    this.showToast(t('vbCheckNoRender'), '🔊');
+  }
+  const publishing = agoraVoice.getIsJoined() && agoraVoice.getIsSpeaker();
+  const result = evaluateVbCableCheck({
+    devices: this.audioSetupDevices,
+    micId: draft.micId || this.audioPrefs.inputDeviceId,
+    externalId,
+    outputId: draft.outputId || this.audioPrefs.outputDeviceId,
+    signalPeak,
+    externalCapture: audioEngine.getExternalCapture(),
+    extrasSending: agoraVoice.getExtrasSending(),
+    publishing,
+  });
+  this.vbCheckResult = result;
+  writeVbCableCheckResult(result);
+  this.vbCheckRunning = false;
+  this.renderAudioSetup();
+  if (this.liveDetailsOpen) this.renderLiveDetails();
+}
+
 export function wireStudioCtl(proto: ClubboxApp): void {
   proto.setupHotkeys = setupHotkeys;
   proto.handleGlobalShortcut = handleGlobalShortcut;
@@ -621,4 +672,5 @@ export function wireStudioCtl(proto: ClubboxApp): void {
   proto.startAudioCheck = startAudioCheck;
   proto.finishAudioCheck = finishAudioCheck;
   proto.renderAudioCheck = renderAudioCheck;
+  proto.runVbCableCheck = runVbCableCheck;
 }

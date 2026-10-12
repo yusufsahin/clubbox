@@ -618,6 +618,47 @@ export class AudioEngine {
     osc.stop(now + 0.4);
   }
 
+  /**
+   * Local-only tone into a specific output (e.g. Speakers N- VB-Cable).
+   * Uses a temporary AudioContext so Clubbox headphones / room mix are untouched (30.7).
+   */
+  public async playToneToSink(deviceId: string, durationMs = 800): Promise<void> {
+    if (!deviceId || typeof AudioContext === 'undefined') return;
+    const ctx = new AudioContext();
+    try {
+      const sink = (ctx as AudioContext & { setSinkId?: (id: string) => Promise<void> }).setSinkId;
+      if (sink) {
+        try {
+          await sink.call(ctx, deviceId);
+        } catch {
+          // Device may have disappeared; still try default destination briefly.
+        }
+      }
+      if (ctx.state === 'suspended') await ctx.resume().catch(() => undefined);
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.frequency.value = 880;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      const now = ctx.currentTime;
+      const dur = Math.max(0.2, durationMs / 1000);
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.12, now + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+      osc.start(now);
+      osc.stop(now + dur + 0.02);
+      await new Promise<void>((resolve) => {
+        window.setTimeout(resolve, Math.ceil((dur + 0.05) * 1000));
+      });
+    } finally {
+      try {
+        await ctx.close();
+      } catch {
+        // ignore
+      }
+    }
+  }
+
   public setOutputDevice(deviceId: string, label?: string): void {
     const changed = deviceId !== this.outputDeviceId;
     this.outputDeviceId = deviceId;

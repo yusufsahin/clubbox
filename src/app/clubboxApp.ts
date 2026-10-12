@@ -57,6 +57,11 @@ import {
 } from '../api/roomServerFlags.ts';
 import type { AudioCheckResult, SendQualitySnapshot } from '../audio/sendQuality.ts';
 import {
+  readVbCableCheckResult,
+  summarizeVbCableCheck,
+  type VbCableCheckResult,
+} from '../audio/vbCableCheck.ts';
+import {
   WebModerationProvider,
   setModerationProvider,
   type ModerationAction,
@@ -216,6 +221,8 @@ export class ClubboxApp {
   audioSetupChoice: SetupChoice | null = null;
   audioSetupDevices: ListedDevice[] = [];
   audioSetupDraft: AudioSetupDraft = { micId: '', externalId: '', outputId: '', quality: 'normal' };
+  vbCheckRunning = false;
+  vbCheckResult: VbCableCheckResult | null = readVbCableCheckResult();
   muteChain: Promise<void> = Promise.resolve();
   eventsBound = false;
 
@@ -914,15 +921,25 @@ export class ClubboxApp {
     }
     const quality = audioEngine.getAudioQuality();
     const snap = this.sendQualitySnap;
+    const vb = this.vbCheckResult ?? readVbCableCheckResult();
+    const vbSummary = vb
+      ? (() => {
+        const s = summarizeVbCableCheck(vb);
+        return s.allPass
+          ? t('liveDetailsVbCableAllPass')
+          : t('liveDetailsVbCablePass', { passed: String(s.passed), total: String(s.total) });
+      })()
+      : null;
     const model = buildLiveDetails(this.currentChannel, {
       myUserId: this.me?.user_id ?? null,
       numEver: this.currentChannel.num_ever,
-      audio: this.audioConnected
+      audio: this.audioConnected || vbSummary
         ? {
-          qualityLevel: quality,
-          sendBitrateKbps: snap?.sendBitrateKbps ?? null,
-          stereo: snap?.stereo ?? null,
-          networkTone: this.networkQualityTone || null,
+          qualityLevel: this.audioConnected ? quality : null,
+          sendBitrateKbps: this.audioConnected ? (snap?.sendBitrateKbps ?? null) : null,
+          stereo: this.audioConnected ? (snap?.stereo ?? null) : null,
+          networkTone: this.audioConnected ? (this.networkQualityTone || null) : null,
+          vbCableCheckSummary: vbSummary,
         }
         : null,
     });
@@ -1471,6 +1488,8 @@ export class ClubboxApp {
       draft: this.audioSetupDraft,
       choice: this.audioSetupChoice,
       loopClear: !guard.roomLoop && !guard.blockStage,
+      vbCheckRunning: this.vbCheckRunning,
+      vbCheckResult: this.vbCheckResult,
     }));
   }
 
@@ -2294,6 +2313,9 @@ export class ClubboxApp {
         break;
       case 'play-setup-tone':
         audioEngine.playLocalTone();
+        break;
+      case 'run-vb-cable-check':
+        void this.runVbCableCheck();
         break;
       case 'toggle-room-bar-more':
         this.roomBarOverflowOpen = !this.roomBarOverflowOpen;

@@ -2,7 +2,8 @@ import type { AudioQuality } from '../../audio/audioQuality';
 import { classifyAudioDevice, sameVirtualGroup } from '../../audio/deviceClassify';
 import type { AudioSetupDraft, InstallSummary, ListedDevice, SetupChoice } from '../../audio/devicePicker';
 import { compareAudioDevices, displayDeviceLabel } from '../../audio/devicePicker';
-import { t } from '../../i18n';
+import type { VbCableCheckResult, VbCableCheckStepId } from '../../audio/vbCableCheck';
+import { t, type MessageKey } from '../../i18n';
 import { html, type SafeHtml } from '../html';
 
 export type AudioSetupView = {
@@ -13,6 +14,16 @@ export type AudioSetupView = {
   draft: AudioSetupDraft;
   choice: SetupChoice | null;
   loopClear: boolean;
+  vbCheckRunning?: boolean;
+  vbCheckResult?: VbCableCheckResult | null;
+};
+
+const VB_STEP_LABEL: Record<VbCableCheckStepId, MessageKey> = {
+  cable_found: 'vbCheckStepCableFound',
+  signal: 'vbCheckStepSignal',
+  format: 'vbCheckStepFormat',
+  loop: 'vbCheckStepLoop',
+  send_path: 'vbCheckStepSendPath',
 };
 
 function deviceOptions(devices: ListedDevice[], kind: string, unavailable: ReadonlySet<string>, selected: string, blank: string): SafeHtml {
@@ -162,6 +173,23 @@ export function audioSetupWizard(state: AudioSetupView): SafeHtml {
           <button class="btn btn-secondary" type="button" data-action="play-setup-tone">${t('audioSetupTone')}</button>
           <p class="list-note">${t('audioSetupToneLocal')}</p>
           <p class="list-note" data-setup-loop>${state.loopClear ? t('audioSetupLoopOk') : t('loopRoomAudio')}</p>
+          <div class="vb-cable-check" data-vb-cable-check>
+            <h4>${t('vbCheckTitle')}</h4>
+            ${state.vbCheckRunning ? html`<p class="list-note" data-vb-running>${t('vbCheckRunning')}</p>` : html`
+              <button class="btn btn-secondary" type="button" data-action="run-vb-cable-check">${t('vbCheckRun')}</button>
+            `}
+            ${state.vbCheckResult ? html`
+              <ul class="vb-check-steps" data-vb-check-result>
+                ${state.vbCheckResult.steps.map((step) => html`
+                  <li data-vb-step="${step.id}" data-pass="${step.pass ? '1' : '0'}">
+                    <strong>${t(VB_STEP_LABEL[step.id])}</strong>
+                    <span>${step.pass ? t('vbCheckPass') : t('vbCheckFail')}</span>
+                    ${step.fixKey ? html`<p class="list-note">${t(step.fixKey as MessageKey)}</p>` : ''}
+                  </li>
+                `)}
+              </ul>
+            ` : ''}
+          </div>
           <div class="audio-setup-actions">
             <button class="btn btn-primary" type="button" data-action="audio-setup-close">${t('audioSetupClose')}</button>
           </div>

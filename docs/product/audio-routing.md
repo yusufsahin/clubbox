@@ -39,6 +39,10 @@ Ayarlar veya kurulum sihirbazından mikrofon değişince Clubbox `applyMicDevice
 
 Clubdeck tek giriş kullanır (miksi dışarıda kurar). Clubbox Kurulum 1’de gerçek mikrofon + Harici giriş avantajını korur; kalite (Normal/High/Music) yalnızca Oda detayları › Ses’tedir.
 
+### VB-Cable rehberli kontrol (30.7)
+
+Müzik ve harici ses kurulumu › adım 4 › **VB-Cable kontrolünü çalıştır** beş geçti/kaldı adımıdır. Ton yalnızca Speakers (N- VB-Cable)’e gider; odaya gitmez. Sonuç Live details › Sesimde görünür. 26.7 elle matrisin yerine geçer; telefonla duyma / ducking / stereo hâlâ sahip doğrulamasıdır.
+
 ### Çift yayın vs tek track miks (30.6 — sahip ölçene kadar açık)
 
 Harici / soundboard açıkken Clubbox hâlâ **iki** Agora track yayınlar (mikrofon + extras); her biri seçilen seviyenin encoder’ı ile. SDK yayınları sunucu tarafında karıştırır; miksin hangi encoder’ı izlediği henüz canlı ölçülmedi.
@@ -85,6 +89,10 @@ Windows Sound › Recording › CABLE Output › Properties › Advanced: 2 chan
 Settings or the setup wizard go through `applyMicDevice`: while an Agora speaker, same capture profile uses `setDevice`; virtual↔physical (or AEC) changes use `republish`. No second `getUserMedia` while Agora owns the track.
 
 Clubdeck uses one input (mix outside the app). Clubbox keeps Setup 1 (real mic + External). Quality (Normal/High/Music) lives only in Room details › Audio.
+
+### VB-Cable guided check (30.7)
+
+Music & external audio setup › step 4 › **Run VB-Cable check** walks five pass/fail steps (cable found / signal / format / loop / send path). A local tone is played into Speakers (N- VB-Cable) only — never into the room. Last result (pass/fail per step, no device ids) is saved and shown under Live details › My audio. This replaces the old 26.7 manual matrix; the owner still confirms on the phone that music is heard, ducking works, and stereo is preserved in Music.
 
 ### Dual publish vs single-track mix (30.6 — open until owner measures)
 

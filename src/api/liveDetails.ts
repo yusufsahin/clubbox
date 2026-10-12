@@ -12,6 +12,8 @@ export type LiveDetailsAudio = {
   sendBitrateKbps?: number | null;
   stereo?: boolean | null;
   networkTone?: string | null;
+  /** Pre-formatted VB-Cable check summary (30.7); omit when never run. */
+  vbCableCheckSummary?: string | null;
 };
 
 export type LiveDetailsModel = {
@@ -197,6 +199,13 @@ export function buildLiveDetails(
     }
     if (typeof audio.networkTone === 'string' && audio.networkTone) {
       audioRows.push({ key: 'network', labelKey: 'liveDetailsAudioNetwork', value: audio.networkTone });
+    }
+    if (typeof audio.vbCableCheckSummary === 'string' && audio.vbCableCheckSummary) {
+      audioRows.push({
+        key: 'vb_cable',
+        labelKey: 'liveDetailsVbCableCheck',
+        value: audio.vbCableCheckSummary,
+      });
     }
   }
 
