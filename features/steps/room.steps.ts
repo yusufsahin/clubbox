@@ -442,6 +442,7 @@ Then('I am on stage as moderator without a join_channel request', function (this
 
 Then('the broadcast mix sent to Agora contains the soundboard signal', function (this: ClubboxWorld) {
   assert.equal(this.agora.broadcastHasSoundboard, true);
+  assert.equal(this.agora.publishedTrackCount, 2, 'mic + extras tracks');
 });
 
 Then('the broadcast mix does not contain my microphone', function (this: ClubboxWorld) {

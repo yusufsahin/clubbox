@@ -37,6 +37,8 @@ export class AudioEngine {
   private masterGain: GainNode | null = null;
   private analyser: AnalyserNode | null = null;
   private broadcastDest: MediaStreamAudioDestinationNode | null = null;
+  /** Soundboard + external only (no mic) — second Agora publish track (Phase 24.1). */
+  private extrasDest: MediaStreamAudioDestinationNode | null = null;
   private recorderDest: MediaStreamAudioDestinationNode | null = null;
   private recordMix: GainNode | null = null;
   private externalStream: MediaStream | null = null;
@@ -105,7 +107,8 @@ export class AudioEngine {
   private initContextIfNeeded(): AudioContext {
     if (!this.ctx) {
       const AudioCtx = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-      this.ctx = new AudioCtx({ latencyHint: 'interactive' });
+      // 48 kHz matches Agora music profiles and extras custom-track encode.
+      this.ctx = new AudioCtx({ latencyHint: 'interactive', sampleRate: 48000 });
 
       this.masterGain = this.ctx.createGain();
       this.masterGain.gain.value = 1.0;
@@ -118,14 +121,16 @@ export class AudioEngine {
       this.analyser.smoothingTimeConstant = 0.4;
 
       this.broadcastDest = this.ctx.createMediaStreamDestination();
+      this.extrasDest = this.ctx.createMediaStreamDestination();
       this.recorderDest = this.ctx.createMediaStreamDestination();
       this.recordMix = this.ctx.createGain();
       this.recordMix.gain.value = 1;
       this.recordMix.connect(this.recorderDest);
 
-      // Local speakers hear the soundpad. The send bus is what Agora publishes.
+      // Local speakers hear the soundpad. Extras bus → Agora custom track (no mic).
       this.soundpadGain.connect(this.masterGain);
       this.soundpadGain.connect(this.broadcastDest);
+      this.soundpadGain.connect(this.extrasDest);
       this.soundpadGain.connect(this.recordMix);
       this.masterGain.connect(this.ctx.destination);
       this.startClipBuffer();
@@ -351,15 +356,27 @@ export class AudioEngine {
   }
 
   /**
-   * Live mix of mic + soundpad (local record / future mix publish).
-   * Do not send MediaStreamAudioDestinationNode tracks to Agora — Chromium
-   * often delivers them silent or with enabled=false after setMuted.
+   * Live mix of mic + soundpad (local record / meters). Prefer createMicrophoneAudioTrack
+   * + getBroadcastExtrasTrack() for Agora publish (Phase 24.1).
    */
   public getBroadcastTrack(): MediaStreamTrack | null {
     if (!this.broadcastDest) {
       this.initContextIfNeeded();
     }
     const track = this.broadcastDest?.stream.getAudioTracks()[0] ?? null;
+    if (track && !track.enabled) track.enabled = true;
+    return track;
+  }
+
+  /**
+   * Soundboard + external input only (no mic). Clone before handing to
+   * AgoraRTC.createCustomAudioTrack as the second published track.
+   */
+  public getBroadcastExtrasTrack(): MediaStreamTrack | null {
+    if (!this.extrasDest) {
+      this.initContextIfNeeded();
+    }
+    const track = this.extrasDest?.stream.getAudioTracks()[0] ?? null;
     if (track && !track.enabled) track.enabled = true;
     return track;
   }
@@ -372,22 +389,30 @@ export class AudioEngine {
   }
 
   /**
-   * Agora may stop the destination track on close(). Rebuild the send bus and
-   * rewire mic/soundpad/external so the next publish has a live track.
+   * Agora may stop destination tracks on close(). Rebuild send buses and
+   * rewire mic/soundpad/external so the next publish has live tracks.
    */
   public refreshBroadcastDestination(): void {
     if (!this.ctx) return;
-    const ended = !this.broadcastDest?.stream.getAudioTracks().some((t) => t.readyState === 'live');
-    if (!ended && this.broadcastDest) return;
+    const mixLive = this.broadcastDest?.stream.getAudioTracks().some((t) => t.readyState === 'live');
+    const extrasLive = this.extrasDest?.stream.getAudioTracks().some((t) => t.readyState === 'live');
+    if (mixLive && extrasLive && this.broadcastDest && this.extrasDest) return;
 
     try {
       this.soundpadGain?.disconnect(this.broadcastDest!);
     } catch {
       // not connected
     }
+    try {
+      this.soundpadGain?.disconnect(this.extrasDest!);
+    } catch {
+      // not connected
+    }
     this.broadcastDest = this.ctx.createMediaStreamDestination();
+    this.extrasDest = this.ctx.createMediaStreamDestination();
     if (this.soundpadGain) {
       this.soundpadGain.connect(this.broadcastDest);
+      this.soundpadGain.connect(this.extrasDest);
     }
     if (this.micGain) this.wireMicEffects();
     if (this.externalSource) this.wireExternalGraph();
@@ -568,9 +593,15 @@ export class AudioEngine {
     this.monitorEffect = null;
   }
 
-  /** Mic → applied effect → send/record/meter; mic → monitor effect → headphones when enabled. */
+  /**
+   * Mic → applied effect → send/record/meter; mic → monitor effect → headphones when enabled.
+   * When a broadcast effect is applied, also feed extrasDest so Agora's custom track carries
+   * the processed voice (mic SDK track is muted separately — see agoraVoice.syncVoiceEffectPublish).
+   */
   private wireMicEffects(): void {
-    if (!this.ctx || !this.micGain || !this.monitorGain || !this.analyser || !this.broadcastDest || !this.recordMix) return;
+    if (!this.ctx || !this.micGain || !this.monitorGain || !this.analyser || !this.broadcastDest || !this.extrasDest || !this.recordMix) {
+      return;
+    }
     this.disposeMicEffects();
     this.safeDisconnect(this.micGain);
     this.safeDisconnect(this.monitorGain);
@@ -584,6 +615,10 @@ export class AudioEngine {
     this.broadcastEffect.output.connect(this.analyser);
     this.broadcastEffect.output.connect(this.broadcastDest);
     this.broadcastEffect.output.connect(this.recordMix);
+    // Effected voice rides the extras custom track (createMicrophoneAudioTrack has no Clubbox FX).
+    if (broadcastId !== 'none') {
+      this.broadcastEffect.output.connect(this.extrasDest);
+    }
 
     this.micGain.connect(this.monitorEffect.input);
     this.monitorEffect.output.connect(this.monitorGain);
@@ -772,7 +807,9 @@ export class AudioEngine {
   }
 
   private wireExternalGraph(): void {
-    if (!this.ctx || !this.externalSource || !this.broadcastDest || !this.recordMix || !this.masterGain) return;
+    if (!this.ctx || !this.externalSource || !this.broadcastDest || !this.extrasDest || !this.recordMix || !this.masterGain) {
+      return;
+    }
     this.safeDisconnect(this.externalGain);
     this.safeDisconnect(this.externalAnalyser);
     this.externalGain = this.ctx.createGain();
@@ -787,7 +824,10 @@ export class AudioEngine {
       monitor: this.externalMonitor,
       volume: this.externalVolume,
     });
-    if (plan.toBroadcast) this.externalGain.connect(this.broadcastDest);
+    if (plan.toBroadcast) {
+      this.externalGain.connect(this.broadcastDest);
+      this.externalGain.connect(this.extrasDest);
+    }
     if (plan.toRecord) this.externalGain.connect(this.recordMix);
     if (plan.toMonitor) this.externalGain.connect(this.masterGain);
     this.externalDuckState = initialDuckState(performance.now());

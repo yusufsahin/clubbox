@@ -207,6 +207,7 @@ export class ClubboxApp {
     pubnubConnected: boolean;
     agoraJoined: boolean;
     agoraResult: string | null;
+    broadcastExtras: boolean | null;
     verboseVoiceLog: boolean;
   } | null = null;
   hallwayPrefs: HallwayPrefs = readHallwayPrefs();
@@ -1931,6 +1932,7 @@ export class ClubboxApp {
         const applied = audioEngine.getBroadcastEffect();
         this.audioPrefs.voiceEffectApplied = applied;
         this.saveAudioPrefs();
+        void agoraVoice.syncVoiceEffectPublish();
         this.showToast(t('voiceEffectApply'), '🎙️');
         break;
       }

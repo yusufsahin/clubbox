@@ -12,6 +12,8 @@ export class FakeAgora {
   left = false;
   broadcastHasSoundboard = false;
   broadcastHasMic = true;
+  /** Phase 24.1: host publishes mic + extras custom track. */
+  publishedTrackCount = 0;
   republishCount = 0;
   lastEncoder: 'speech_standard' | 'high_quality_stereo' | null = null;
   /** When set, the next join throws with this Agora-style code (BDD voice failure). */
@@ -31,10 +33,12 @@ export class FakeAgora {
     this.left = false;
     this.lastError = null;
     this.joins.push({ role, token, published: role === 'host' });
+    this.publishedTrackCount = role === 'host' ? 2 : 0;
   }
 
   switchToHost(token: string): void {
     this.joins.push({ role: 'host', token, published: true });
+    this.publishedTrackCount = 2;
   }
 
   leave(): void {
@@ -49,6 +53,10 @@ export class FakeAgora {
   setBroadcastMix(options: { soundboard: boolean; mic: boolean }): void {
     this.broadcastHasSoundboard = options.soundboard;
     this.broadcastHasMic = options.mic;
+    // Soundboard/music ride the second (extras) track alongside the mic track.
+    if (options.soundboard || this.joins.some((j) => j.published)) {
+      this.publishedTrackCount = 2;
+    }
   }
 
   lastJoin(): AgoraJoin | undefined {

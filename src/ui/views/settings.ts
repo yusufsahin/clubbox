@@ -61,6 +61,8 @@ export type ConnectionStatusReadout = {
   pubnubConnected: boolean;
   agoraJoined: boolean;
   agoraResult: string | null;
+  /** null = extras not published; true/false = sendBitrate/volume probe. */
+  broadcastExtras: boolean | null;
   verboseVoiceLog: boolean;
 };
 
@@ -254,6 +256,13 @@ export function settingsView(
           <div class="profile-setting-row"><span>${t('connectionStatusPubNub')}</span><span>${connectionStatus.pubnubConnected ? t('connectionStatusOk') : t('connectionStatusBad')}</span></div>
           <div class="profile-setting-row"><span>${t('connectionStatusAgora')}</span><span>${connectionStatus.agoraJoined ? t('connectionStatusOk') : t('connectionStatusBad')}</span></div>
           <div class="profile-setting-row"><span>${t('connectionStatusAgoraResult')}</span><span>${connectionStatus.agoraResult || '—'}</span></div>
+          <div class="profile-setting-row"><span>${t('connectionStatusBroadcastExtras')}</span><span>${
+            connectionStatus.broadcastExtras == null
+              ? '—'
+              : connectionStatus.broadcastExtras
+                ? t('connectionStatusOk')
+                : t('connectionStatusBad')
+          }</span></div>
         </div>
       </div>
       ` : ''}

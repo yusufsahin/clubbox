@@ -455,6 +455,7 @@ export async function refreshConnectionStatus(this: ClubboxApp): Promise<void> {
   const api = electronAPI();
   const agoraJoined = agoraVoice.getIsJoined();
   const agoraResult = agoraVoice.getLastJoinResult();
+  const broadcastExtras = agoraVoice.getExtrasSending();
   const verboseVoiceLog = agoraVoice.getVerboseLog();
   if (!api?.connectionStatus) {
     this.connectionStatus = {
@@ -463,6 +464,7 @@ export async function refreshConnectionStatus(this: ClubboxApp): Promise<void> {
       pubnubConnected: this.pubnubSource.isConnected(),
       agoraJoined,
       agoraResult,
+      broadcastExtras,
       verboseVoiceLog,
     };
     return;
@@ -475,6 +477,7 @@ export async function refreshConnectionStatus(this: ClubboxApp): Promise<void> {
       pubnubConnected: !!status.pubnubConnected || this.pubnubSource.isConnected(),
       agoraJoined,
       agoraResult,
+      broadcastExtras,
       verboseVoiceLog,
     };
     const prev = this.connectionStatus;
@@ -485,6 +488,7 @@ export async function refreshConnectionStatus(this: ClubboxApp): Promise<void> {
       && prev.pubnubConnected === next.pubnubConnected
       && prev.agoraJoined === next.agoraJoined
       && prev.agoraResult === next.agoraResult
+      && prev.broadcastExtras === next.broadcastExtras
       && prev.verboseVoiceLog === next.verboseVoiceLog
     ) {
       return;
@@ -498,6 +502,7 @@ export async function refreshConnectionStatus(this: ClubboxApp): Promise<void> {
       pubnubConnected: this.pubnubSource.isConnected(),
       agoraJoined,
       agoraResult,
+      broadcastExtras,
       verboseVoiceLog,
     };
   }

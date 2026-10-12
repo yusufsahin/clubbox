@@ -225,6 +225,7 @@ export const tr: Record<MessageKey, string> = {
   connectionStatusPubNub: 'PubNub bağlı',
   connectionStatusAgora: 'Agora odada',
   connectionStatusAgoraResult: 'Agora son sonuç',
+  connectionStatusBroadcastExtras: 'Yayın ekstraları: gönderiliyor',
   verboseVoiceLog: 'Ayrıntılı ses günlüğü',
   verboseVoiceLogHelp: 'Agora SDK INFO logları (localStorage clubbox.agoraDebug). Varsayılan kapalı.',
   openRoomOnClubhouse: 'Bu odayı clubhouse.com’da aç',

@@ -223,6 +223,7 @@ export const en = {
   connectionStatusPubNub: 'PubNub connected',
   connectionStatusAgora: 'Agora joined',
   connectionStatusAgoraResult: 'Agora last result',
+  connectionStatusBroadcastExtras: 'Broadcast extras: sending',
   verboseVoiceLog: 'Verbose voice log',
   verboseVoiceLogHelp: 'Agora SDK INFO logs (localStorage clubbox.agoraDebug). Off by default.',
   openRoomOnClubhouse: 'Open current room on clubhouse.com',

@@ -47,7 +47,11 @@ function agoraDebugEnabled(): boolean {
 export class AgoraVoiceEngine {
   private client: IAgoraRTCClient | null = null;
   private localAudioTrack: ILocalAudioTrack | null = null;
-  /** Only used when falling back to createCustomAudioTrack. */
+  /** Soundboard / external / effected-voice custom track (Phase 24.1). */
+  private extrasAudioTrack: ILocalAudioTrack | null = null;
+  /** MediaStreamTrack clone owned by extrasAudioTrack. */
+  private publishedExtrasClone: MediaStreamTrack | null = null;
+  /** Only used when falling back to createCustomAudioTrack for mic. */
   private publishedClone: MediaStreamTrack | null = null;
   private isJoined: boolean = false;
   private isSpeaker: boolean = false;
@@ -62,6 +66,9 @@ export class AgoraVoiceEngine {
   private lastJoinResult: string | null = null;
   private joinMode: 'direct' | 'proxy' = 'direct';
   private remoteUserCount = 0;
+  /** Connection status: extras track sending audio (bitrate/volume > 0). */
+  private extrasSending: boolean | null = null;
+  private extrasStatsTimer: ReturnType<typeof setInterval> | null = null;
 
   // Same default as ClubhouseConfig.agoraAppId. See docs/api/realtime.md.
   public appId: string = '938de3e8055e42b281bb8c6f69c21f78';
@@ -96,6 +103,11 @@ export class AgoraVoiceEngine {
 
   public getLastJoinResult(): string | null {
     return this.lastJoinResult;
+  }
+
+  /** Settings › Connection status: Broadcast extras sending ✓/✗ (null = not publishing). */
+  public getExtrasSending(): boolean | null {
+    return this.extrasSending;
   }
 
   private routeRemoteAudio(user: IAgoraRTCRemoteUser): void {
@@ -443,6 +455,8 @@ export class AgoraVoiceEngine {
     // remotes heard nothing (inbound still worked). createMicrophoneAudioTrack
     // is the SDK path native Clubhouse clients expect.
     audioEngine.stopMicrophone();
+    audioEngine.ensureAudioContext();
+    audioEngine.refreshBroadcastDestination();
 
     const encoderConfig = isMusicMode ? 'high_quality_stereo' : 'speech_standard';
     const micId = audioEngine.getInputDeviceId() || undefined;
@@ -465,21 +479,125 @@ export class AgoraVoiceEngine {
       });
     }
 
-    await this.client.publish([this.localAudioTrack]);
-    // Feed Agora's live track into the local graph for VU / monitor (no second capture).
+    // Feed Agora's live track into the local graph for VU / monitor / effects (no second capture).
     audioEngine.adoptMicrophoneTrack(this.localAudioTrack.getMediaStreamTrack());
+
+    // Phase 24.1: second track = soundboard + external (+ effected voice when FX applied).
+    // Voice effects: SDK localAudioTrack.pipe(processor) exists, but Clubbox FX are Web Audio
+    // (effectChain). When applied !== 'none', processed mic is wired into extrasDest and the
+    // mic SDK track is muted so remotes hear the effect via this custom track.
+    const extrasSource = audioEngine.getBroadcastExtrasTrack();
+    const toPublish: ILocalAudioTrack[] = [this.localAudioTrack];
+    if (extrasSource) {
+      this.publishedExtrasClone = extrasSource.clone();
+      if (!this.publishedExtrasClone.enabled) this.publishedExtrasClone.enabled = true;
+      this.extrasAudioTrack = AgoraRTC.createCustomAudioTrack({
+        mediaStreamTrack: this.publishedExtrasClone,
+        encoderConfig: isMusicMode ? 'high_quality_stereo' : 'music_standard',
+      });
+      toPublish.push(this.extrasAudioTrack);
+    } else {
+      console.warn('[AgoraRTC] extras track unavailable — publishing mic only');
+    }
+
+    await this.client.publish(toPublish);
     const media = this.localAudioTrack.getMediaStreamTrack();
     console.log(
-      '[AgoraRTC] published createMicrophoneAudioTrack',
-      `readyState=${media.readyState}`,
+      '[AgoraRTC] published mic+extras',
+      `tracks=${toPublish.length}`,
+      `mic readyState=${media.readyState}`,
       `enabled=${media.enabled}`,
+      `extras=${!!this.extrasAudioTrack}`,
     );
+    this.extrasSending = !!this.extrasAudioTrack;
+    this.startExtrasStatsProbe();
+    await this.syncVoiceEffectPublish();
+  }
+
+  /**
+   * When a broadcast voice effect is applied, mute the mic SDK track so only the
+   * processed voice on the extras custom track is sent. User mute still wins.
+   */
+  public async syncVoiceEffectPublish(): Promise<void> {
+    if (!this.localAudioTrack || !this.isSpeaker) return;
+    const effectOn = audioEngine.getBroadcastEffect() !== 'none';
+    const userMuted = audioEngine.getIsMuted();
+    try {
+      if (effectOn) {
+        await this.localAudioTrack.setMuted(true);
+        console.log('[AgoraRTC] mic muted for voice effect (processed voice on extras)');
+      } else {
+        await this.localAudioTrack.setMuted(userMuted);
+      }
+    } catch (err) {
+      console.warn('[AgoraRTC] syncVoiceEffectPublish failed:', err);
+    }
+  }
+
+  private startExtrasStatsProbe(): void {
+    this.stopExtrasStatsProbe();
+    if (!this.client || !this.extrasAudioTrack) return;
+    this.extrasStatsTimer = setInterval(() => {
+      void this.probeExtrasSending();
+    }, 2000);
+    void this.probeExtrasSending();
+  }
+
+  private stopExtrasStatsProbe(): void {
+    if (this.extrasStatsTimer) {
+      clearInterval(this.extrasStatsTimer);
+      this.extrasStatsTimer = null;
+    }
+  }
+
+  private async probeExtrasSending(): Promise<void> {
+    if (!this.client || !this.extrasAudioTrack) {
+      this.extrasSending = null;
+      return;
+    }
+    try {
+      const vol = this.extrasAudioTrack.getVolumeLevel();
+      const stats = this.client.getLocalAudioStats() as
+        | { sendBitrate?: number; sendVolumeLevel?: number }
+        | Record<string, { sendBitrate?: number; sendVolumeLevel?: number }>;
+      let bitrate = 0;
+      let sendVol = 0;
+      if (stats && typeof stats === 'object' && 'sendBitrate' in stats) {
+        bitrate = Number(stats.sendBitrate) || 0;
+        sendVol = Number(stats.sendVolumeLevel) || 0;
+      } else if (stats && typeof stats === 'object') {
+        for (const row of Object.values(stats)) {
+          if (row && typeof row === 'object') {
+            bitrate = Math.max(bitrate, Number(row.sendBitrate) || 0);
+            sendVol = Math.max(sendVol, Number(row.sendVolumeLevel) || 0);
+          }
+        }
+      }
+      // Sending = extras track has level, or aggregate local send looks alive while published.
+      this.extrasSending = vol > 0.01 || sendVol > 0 || bitrate > 0;
+      if (agoraDebugEnabled()) {
+        console.log(
+          '[AgoraRTC] extras stats',
+          `vol=${vol.toFixed(3)}`,
+          `sendVol=${sendVol}`,
+          `bitrate=${bitrate}`,
+          `sending=${this.extrasSending}`,
+        );
+      }
+    } catch {
+      this.extrasSending = this.extrasAudioTrack != null;
+    }
   }
 
   private async unpublishLocal(): Promise<void> {
-    if (this.client && this.localAudioTrack) {
+    this.stopExtrasStatsProbe();
+    this.extrasSending = null;
+    const tracks = [this.localAudioTrack, this.extrasAudioTrack].filter(
+      (t): t is ILocalAudioTrack => !!t,
+    );
+    if (this.client && tracks.length) {
       try {
-        await this.client.unpublish([this.localAudioTrack]);
+        await this.client.unpublish(tracks);
       } catch {
         // Track was never published.
       }
@@ -488,6 +606,15 @@ export class AgoraVoiceEngine {
       this.localAudioTrack.stop();
       this.localAudioTrack.close();
       this.localAudioTrack = null;
+    }
+    if (this.extrasAudioTrack) {
+      this.extrasAudioTrack.stop();
+      this.extrasAudioTrack.close();
+      this.extrasAudioTrack = null;
+    }
+    if (this.publishedExtrasClone) {
+      this.publishedExtrasClone.stop();
+      this.publishedExtrasClone = null;
     }
     if (this.publishedClone) {
       this.publishedClone.stop();
@@ -525,10 +652,14 @@ export class AgoraVoiceEngine {
   public async setMuted(muted: boolean): Promise<void> {
     if (!this.localAudioTrack) return;
     try {
-      // Always mute the published SDK track (audio + remote badges when native).
-      await this.localAudioTrack.setMuted(muted);
+      // Mic track only — soundboard/external on extras keep playing (Phase 24.1 mute semantics).
+      // Voice effect overrides: keep mic muted while effect is applied.
+      const effectOn = audioEngine.getBroadcastEffect() !== 'none';
+      await this.localAudioTrack.setMuted(muted || effectOn);
       console.log(
-        `[AgoraRTC] local track muted=${muted}`,
+        `[AgoraRTC] local track muted=${muted || effectOn}`,
+        `userMuted=${muted}`,
+        `effectOn=${effectOn}`,
         `nativeSignalling=${this.nativeMuteSignalling}`,
         `enabled=${this.localAudioTrack.getMediaStreamTrack().enabled}`,
       );
