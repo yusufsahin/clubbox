@@ -450,6 +450,7 @@ export function renderSettingsView(this: ClubboxApp) {
     this.editingSoundId,
     this.connectionStatus,
     this.audioPrefs.aiNoiseSuppression === true,
+    this.applyLoopGuard(),
   );
 }
 

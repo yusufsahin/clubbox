@@ -34,6 +34,11 @@ export type RoomDetailsState = {
   externalActive: boolean;
   systemAudioAvailable: boolean;
   systemAudioBlockedReason: string;
+  /** Output would feed a captured virtual device. */
+  monitorBlocked?: boolean;
+  loopRoom?: boolean;
+  loopVoicemeeter?: boolean;
+  loopBlockStage?: boolean;
 };
 
 export function roomDetailsPanel(state: RoomDetailsState): SafeHtml {
@@ -55,6 +60,9 @@ export function roomDetailsPanel(state: RoomDetailsState): SafeHtml {
 
       <section class="room-details-card" data-details-section="audio">
         <h4>${t('audioSection')}</h4>
+        ${state.loopRoom ? html`<p class="list-note" data-loop-room>${t('loopRoomAudio')}</p>` : ''}
+        ${state.loopVoicemeeter ? html`<p class="list-note" data-loop-voicemeeter>${t('loopVoicemeeterAux')}</p>` : ''}
+        ${state.loopBlockStage ? html`<p class="list-note" data-loop-stage>${t('loopBlockStage')}</p>` : ''}
         <label class="form-label" for="room-audio-quality">${t('audioQuality')}</label>
         <select class="form-input" id="room-audio-quality" data-action="set-audio-quality">
           <option value="normal" ${state.audioQuality === 'normal' ? 'selected' : ''}>${t('audioNormal')}</option>
@@ -120,7 +128,7 @@ export function roomDetailsPanel(state: RoomDetailsState): SafeHtml {
               ${t('externalMute')}
             </label>
             <label class="form-label">
-              <input type="checkbox" data-action="toggle-external-monitor" ${state.externalMonitor ? 'checked' : ''} ${state.externalActive ? '' : 'disabled'} />
+              <input type="checkbox" data-action="toggle-external-monitor" ${state.externalMonitor && !state.monitorBlocked ? 'checked' : ''} ${state.externalActive && !state.monitorBlocked ? '' : 'disabled'} />
               ${t('externalMonitor')}
             </label>
             <label class="form-label">

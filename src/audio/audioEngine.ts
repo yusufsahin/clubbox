@@ -77,6 +77,7 @@ export class AudioEngine {
   /** When true, mic MediaStreamTrack is owned by Agora — do not stop() it on release. */
   private micOwnedExternally = false;
   private outputDeviceId = '';
+  private outputDeviceLabel = '';
   private remoteVolumes = new Map<string, number>();
   private isMuted: boolean = true;
   private isMusicMode: boolean = false;
@@ -538,9 +539,25 @@ export class AudioEngine {
     return this.outputDeviceId;
   }
 
-  public setOutputDevice(deviceId: string): void {
+  public setOutputDevice(deviceId: string, label?: string): void {
+    const changed = deviceId !== this.outputDeviceId;
     this.outputDeviceId = deviceId;
+    if (typeof label === 'string') this.outputDeviceLabel = label;
+    else if (changed) this.outputDeviceLabel = '';
     if (this.ctx) void this.applyOutputSink();
+  }
+
+  public setOutputDeviceLabel(label: string): void {
+    this.outputDeviceLabel = label;
+  }
+
+  public getOutputDeviceLabel(): string {
+    return this.outputDeviceLabel;
+  }
+
+  public getOutputDevice(): { label: string; kind: 'audiooutput' } | null {
+    if (!this.outputDeviceLabel) return null;
+    return { label: this.outputDeviceLabel, kind: 'audiooutput' };
   }
 
   private async applyOutputSink(): Promise<void> {

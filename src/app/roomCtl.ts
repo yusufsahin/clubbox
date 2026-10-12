@@ -270,9 +270,11 @@ export async function runAgoraRoleSync(this: ClubboxApp) : Promise<void> {
         const wantSpeaker = this.isMeSpeaker();
         if (wantSpeaker !== agoraVoice.getIsSpeaker()) {
           if (wantSpeaker) {
-            const ok = await agoraVoice.promoteToSpeaker();
-            this.audioConnected = ok;
-            if (!ok) this.showToast(t('micStageFailed'), '🔇');
+            if (!this.applyLoopGuard().blockStage) {
+              const ok = await agoraVoice.promoteToSpeaker();
+              this.audioConnected = ok;
+              if (!ok) this.showToast(t('micStageFailed'), '🔇');
+            }
           } else {
             await agoraVoice.demoteToAudience();
             audioEngine.releaseExternal();
@@ -292,6 +294,7 @@ export async function runAgoraRoleSync(this: ClubboxApp) : Promise<void> {
       this.reportApiError(err);
     }
     this.agoraRoleSyncing = false;
+    if (this.loopGuard.blockStage && this.isMeSpeaker() && !agoraVoice.getIsSpeaker()) return;
     if (!this.currentChannel || !agoraVoice.getIsJoined() || clubhouseClient.getConfig().useSandbox) return;
     const decision = roleSyncDecision(this.agoraPromoteFailures, this.isMeSpeaker() === agoraVoice.getIsSpeaker());
     if (decision === 'reset') {
@@ -404,6 +407,10 @@ export async function promoteToStage(
     options: { fromInvite: boolean },
   ): Promise<void> {
     if (!this.currentChannel || !this.me) return;
+    if (this.applyLoopGuard().blockStage) {
+      this.showToast(t('loopBlockStage'), '🔊');
+      return;
+    }
     if (!this.allowAction('become_speaker')) return;
     if (this.isMeSpeaker() && agoraVoice.getIsSpeaker()) return;
     const acceptBtn = document.getElementById('accept-speak-btn') as HTMLButtonElement | null;
@@ -1035,11 +1042,13 @@ export async function connectRoomAudio(this: ClubboxApp, generation: number) : P
     const agoraUid = Number(this.currentChannel.user_profile_id) > 0
       ? Number(this.currentChannel.user_profile_id)
       : this.me.user_id;
+    const speak = this.isMeSpeaker() && !this.applyLoopGuard().blockStage;
+    if (this.isMeSpeaker() && !speak) this.showToast(t('loopBlockStage'), '🔊');
     const ok = await agoraVoice.join(
       this.currentChannel.channel,
       this.currentChannel.token,
       agoraUid,
-      { isSpeaker: this.isMeSpeaker(), quality: audioEngine.getAudioQuality() }
+      { isSpeaker: speak, quality: audioEngine.getAudioQuality() }
     );
     if (this.roomSession.generation !== generation) {
       await agoraVoice.leave();

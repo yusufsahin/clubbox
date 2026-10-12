@@ -370,7 +370,13 @@ export async function fillAudioDevices(this: ClubboxApp) : Promise<void> {
     }
     const selectedMic = devices.find((device) => device.kind === 'audioinput' && device.deviceId === audioEngine.getInputDeviceId());
     if (selectedMic?.label) audioEngine.setInputDeviceLabel(selectedMic.label);
+    const outputId = audioEngine.getOutputDeviceId();
+    const outputMatch = outputId
+      ? devices.find((device) => device.kind === 'audiooutput' && device.deviceId === outputId)
+      : devices.find((device) => device.kind === 'audiooutput' && device.deviceId === 'default');
+    if (outputMatch?.label) audioEngine.setOutputDeviceLabel(outputMatch.label);
     this.promptMixerMicIfKnown();
+    this.refreshLoopGuardUi();
     if (this.currentTab !== 'settings') return;
     this.fillDeviceSelect('cfg-input-device', devices.filter((device) => device.kind === 'audioinput'), audioEngine.getInputDeviceId());
     const output = document.getElementById('cfg-output-device') as HTMLSelectElement | null;

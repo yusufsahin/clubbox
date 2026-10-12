@@ -4,6 +4,7 @@ import type { ClubhouseConfig } from '../../api/client';
 import type { MeSettings, SoundEffectItem } from '../../api/types';
 import { SHORTCUT_ACTIONS, type ShortcutAction, type ShortcutMap } from '../../shortcuts';
 import { html, type SafeHtml } from '../html';
+import type { LoopGuard } from '../../audio/loopGuard';
 
 export interface AccountReadout {
   settings: MeSettings | null;
@@ -85,6 +86,7 @@ export function settingsView(
   editingSoundId: string | null = null,
   connectionStatus: ConnectionStatusReadout | null = null,
   aiNoiseSuppression = false,
+  loopGuard: LoopGuard = { roomLoop: false, voicemeeterAux: false, blockStage: false },
 ): SafeHtml {
   return html`
     <div style="max-width:780px; margin:0 auto;" data-page="settings" data-nav-contains="api-config">
@@ -144,6 +146,11 @@ export function settingsView(
             <option value="">${t('systemDefault')}</option>
           </select>
           <p id="output-device-note" hidden style="font-size:12px; color:var(--text-dim); margin-top:8px;">${t('outputUnsupported')}</p>
+          <div id="loop-guard-notes" data-loop-guard>
+            ${loopGuard.roomLoop ? html`<p class="list-note" data-loop-room>${t('loopRoomAudio')}</p>` : ''}
+            ${loopGuard.voicemeeterAux ? html`<p class="list-note" data-loop-voicemeeter>${t('loopVoicemeeterAux')}</p>` : ''}
+            ${loopGuard.blockStage ? html`<p class="list-note" data-loop-stage>${t('loopBlockStage')}</p>` : ''}
+          </div>
         </div>
         <label style="display:flex; align-items:flex-start; gap:8px; margin-top:12px; cursor:pointer;">
           <input type="checkbox" id="cfg-ai-noise" ${aiNoiseSuppression ? 'checked' : ''} />

@@ -15,6 +15,7 @@ import { audioEngine } from '../audio/audioEngine';
 import { readAudioPrefs, type AudioPrefs } from '../audio/audioPrefs';
 import { SYSTEM_AUDIO_DEVICE_ID } from '../audio/externalConstraints';
 import { externalDoublesMic, shouldPromptMixerMusic } from '../audio/mixerMic';
+import { loopGuard, type LoopGuard } from '../audio/loopGuard';
 import { systemAudioCaptureAllowed } from '../audio/externalDuck';
 import { readAppPrefs, syncSystemThemeListener, zoomFactorFromPercent } from './appPrefs';
 import { popView, pushView, type ViewSnapshot } from './viewStack';
@@ -159,6 +160,8 @@ export class ClubboxApp {
   /** Voice level to restore when the cockpit music button turns music off. */
   voiceQualityBeforeMusic: 'normal' | 'high' = 'normal';
   audioQualityTicket = 0;
+  loopGuard: LoopGuard = { roomLoop: false, voicemeeterAux: false, blockStage: false };
+  loopDemoteStarted = false;
   muteChain: Promise<void> = Promise.resolve();
   eventsBound = false;
 
@@ -781,9 +784,10 @@ export class ClubboxApp {
       externalDuck: audioEngine.getExternalDuckEnabled(),
       externalDuckDb: audioEngine.getExternalDuckDb(),
       externalActive: audioEngine.isExternalActive(),
-      systemAudioAvailable: this.systemAudioAvailable,
-      systemAudioBlockedReason: this.systemAudioBlockedReason,
-    }));
+        systemAudioAvailable: this.systemAudioAvailable,
+        systemAudioBlockedReason: this.systemAudioBlockedReason,
+        ...this.loopDetailFlags(),
+      }));
     if (speaker) void this.refreshExternalAudioOptions();
   }
 
@@ -872,6 +876,7 @@ export class ClubboxApp {
         externalActive: audioEngine.isExternalActive(),
         systemAudioAvailable: this.systemAudioAvailable,
         systemAudioBlockedReason: this.systemAudioBlockedReason,
+        ...this.loopDetailFlags(),
       }));
     }
   }
@@ -943,6 +948,74 @@ export class ClubboxApp {
     await audioEngine.ensureInputDeviceLabel();
     this.promptMixerMicIfKnown();
     this.renderCockpit();
+  }
+
+  currentLoopGuard(): LoopGuard {
+    return loopGuard({
+      mic: audioEngine.getInputDevice(),
+      external: audioEngine.isExternalActive()
+        ? { label: audioEngine.getExternalDeviceLabel(), kind: 'audioinput' }
+        : null,
+      output: audioEngine.getOutputDevice(),
+    });
+  }
+
+  /** Turn monitor off while a loop is possible, and stop sending if VB-Cable would feed itself. */
+  applyLoopGuard(): LoopGuard {
+    const wasBlocked = this.loopGuard.blockStage;
+    const guard = this.currentLoopGuard();
+    this.loopGuard = guard;
+    const monitor = this.audioPrefs.externalMonitor === true && !guard.roomLoop;
+    if (audioEngine.getExternalMonitor() !== monitor) audioEngine.setExternalMonitor(monitor);
+    if (guard.blockStage && agoraVoice.getIsJoined() && agoraVoice.getIsSpeaker() && !this.loopDemoteStarted) {
+      this.loopDemoteStarted = true;
+      this.showToast(t('loopBlockStage'), '🔊');
+      void agoraVoice.demoteToAudience().finally(() => {
+        this.loopDemoteStarted = false;
+      });
+    }
+    if (wasBlocked && !guard.blockStage && this.isMeSpeaker() && agoraVoice.getIsJoined() && !agoraVoice.getIsSpeaker()) {
+      this.syncAgoraRole();
+    }
+    return guard;
+  }
+
+  loopDetailFlags(): {
+    monitorBlocked: boolean;
+    loopRoom: boolean;
+    loopVoicemeeter: boolean;
+    loopBlockStage: boolean;
+  } {
+    const guard = this.applyLoopGuard();
+    return {
+      monitorBlocked: guard.roomLoop,
+      loopRoom: guard.roomLoop,
+      loopVoicemeeter: guard.voicemeeterAux,
+      loopBlockStage: guard.blockStage,
+    };
+  }
+
+  paintLoopNotes(): void {
+    const host = document.getElementById('loop-guard-notes');
+    if (!host) return;
+    const guard = this.loopGuard;
+    const notes: string[] = [];
+    if (guard.roomLoop) notes.push(t('loopRoomAudio'));
+    if (guard.voicemeeterAux) notes.push(t('loopVoicemeeterAux'));
+    if (guard.blockStage) notes.push(t('loopBlockStage'));
+    host.replaceChildren();
+    for (const note of notes) {
+      const line = document.createElement('p');
+      line.className = 'list-note';
+      line.textContent = note;
+      host.appendChild(line);
+    }
+  }
+
+  refreshLoopGuardUi(): void {
+    this.applyLoopGuard();
+    this.paintLoopNotes();
+    if (this.roomDetailsOpen && document.getElementById('room-details-root')) this.renderRoomDetails();
   }
 
   ensureShell(): void {
@@ -1533,6 +1606,7 @@ export class ClubboxApp {
         return;
       }
       if (action === 'toggle-external-monitor' && target instanceof HTMLInputElement) {
+        if (this.loopGuard.roomLoop) return;
         audioEngine.setExternalMonitor(target.checked);
         this.audioPrefs.externalMonitor = target.checked;
         this.saveAudioPrefs();
@@ -1573,10 +1647,13 @@ export class ClubboxApp {
           }
         }
         this.renderCockpit();
-      } else if (target.id === 'cfg-output-device') {
+        this.refreshLoopGuardUi();
+      } else if (target.id === 'cfg-output-device' && target instanceof HTMLSelectElement) {
+        const label = target.value ? (target.selectedOptions[0]?.text ?? '') : '';
         this.audioPrefs.outputDeviceId = target.value;
         this.saveAudioPrefs();
-        audioEngine.setOutputDevice(target.value);
+        audioEngine.setOutputDevice(target.value, label);
+        void this.fillAudioDevices();
       } else if (
         target instanceof HTMLInputElement
         && (target.id === 'sound-name' || target.id === 'sound-icon' || target.id === 'sound-hotkey'
