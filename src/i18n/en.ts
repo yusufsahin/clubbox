@@ -257,6 +257,7 @@ export const en = {
   exploreActive: 'Explore Active Stages',
   link: 'Link',
   leaveQuietly: 'Leave Quietly',
+  leaveStage: 'Leave stage',
   sessionExpired: 'Session expired. Sign in again.',
   signedInAs: 'Signed in as {name}',
   enterFullNumber: 'Enter a full number, for example +90 5xx xxx xx xx',

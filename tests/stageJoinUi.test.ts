@@ -89,7 +89,10 @@ test('moderator without host tools does not fake a presence status on speakers',
     },
   })));
   assert.doesNotMatch(html, /Temporarily unavailable|Geçici olarak kullanılamıyor/);
-  assert.doesNotMatch(html, /data-action="speaker-menu"/);
+  // Other speakers: no host-tool menu. Self may still have Leave quietly.
+  assert.doesNotMatch(html, /data-action="speaker-menu"[^>]*data-user-id="1"/);
+  assert.doesNotMatch(html, /data-mod-action=/);
+  assert.match(html, /data-action="speaker-menu"[^>]*data-user-id="2"/);
 });
 
 test('host mute / move / block stay on speaker menu when make moderator is unavailable', () => {
@@ -117,6 +120,35 @@ test('host mute / move / block stay on speaker menu when make moderator is unava
   assert.match(html, /data-mod-action="audience"/);
   assert.match(html, /data-mod-action="block"/);
   assert.doesNotMatch(html, /data-mod-action="moderator"/);
+  // Self speaker card still offers Leave quietly via roomActionsFor.
+  assert.match(html, /data-action="speaker-menu"[^>]*data-user-id="1"/);
+});
+
+test('speaker menu order is mute, move, make mod, remove', () => {
+  const html = markup(stageColumn(baseState({
+    me: { user_id: 1, name: 'Host' },
+    moderator: true,
+    canMute: true,
+    canMakeModerator: true,
+    canMoveToAudience: true,
+    canBlock: true,
+    canJoinStage: false,
+    openSpeakerMenuId: 3,
+    channel: {
+      channel: 'open-mic',
+      channel_id: 'ch-open',
+      topic: 'Open mic',
+      users: [
+        { user_id: 1, name: 'Host', is_speaker: true, is_moderator: true },
+        { user_id: 3, name: 'Ayse', is_speaker: true, is_moderator: false, is_muted: false },
+      ],
+    },
+  })));
+  const mute = html.indexOf('data-mod-action="mute"');
+  const audience = html.indexOf('data-mod-action="audience"');
+  const moderator = html.indexOf('data-mod-action="moderator"');
+  const block = html.indexOf('data-mod-action="block"');
+  assert.ok(mute >= 0 && audience > mute && moderator > audience && block > moderator);
 });
 
 test('moderator can remove an audience member from the room', () => {

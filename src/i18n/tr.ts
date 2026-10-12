@@ -259,6 +259,7 @@ export const tr: Record<MessageKey, string> = {
   exploreActive: 'Açık sahneler',
   link: 'Bağlantı',
   leaveQuietly: 'Sessizce ayrıl',
+  leaveStage: 'Sahneyi bırak',
   sessionExpired: 'Oturum bitti. Yeniden giriş yap.',
   signedInAs: '{name} olarak giriş yapıldı',
   enterFullNumber: 'Tam numarayı yaz, örneğin +90 5xx xxx xx xx',

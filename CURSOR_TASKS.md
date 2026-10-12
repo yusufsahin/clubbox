@@ -17,7 +17,13 @@ Owner reported: triage noise, new-room participants invisible, moderation action
 
 Idle recheck after 24.7.
 
-### Last autonomous run (2026-10-12 — Phase 28.4.4 headphones banner)
+### Last autonomous run (2026-10-12 — Phase 28.4.1–3 room card actions)
+
+- `roomActionsFor(role, flags, target)` + stage menus driven from it (listener/speaker/self cards). Leave stage stays gated until 28.2 verifies self-uninvite.
+- 28.4.3: server `error_message` already surfaces via `parseLiveResponse` → `reportApiError` toast.
+- Tests: `roomCardActions.test.ts` + stage menu order. **28.0 auth / 28.1 still blocked** (re-sign-in).
+
+### Previous last autonomous run (2026-10-12 — Phase 28.4.4 headphones banner)
 
 - Fixed music-mode banner layout: was a flex-row sibling of the stage column (full-height red block). Now a thin full-width strip above `stage-main-row`, dismissable for the session (`sessionStorage`).
 - Files: `stage.ts`, `style.css`, `clubboxApp.ts`; unit tests in `stageJoinUi.test.ts`.
@@ -72,7 +78,8 @@ Legend: **Uygulandı** = code is in the tree. **Canlı doğrulandı** = exercise
 | 0a | **Phase 23 Live room audio (Agora)** — DNS -105 is a red herring; real join error not yet visible; web vs native SDK decision gate at 23.3 | **Web path** — 23.1–23.5 done on `phase-23-24-agora`; native 23.6+ deferred |
 | 0b | **Phase 24 Agora feature completeness** — broadcast mix, reconnect + quality, token lifecycle, device hot-swap, speaking rings, lifecycle, AI noise suppression | **Closed** — 24.1–24.7 done (AI denoiser + CSP/WASM); e2e green |
 | 0c | **Phase 25 Room exit and mic state** — leave_channel on close/quit/Ctrl+C + crash recovery, mute badge/state sync, AI denoiser init bug, log hygiene | **Closed** — 25.1–25.4 done. 25.5 moved to Phase 26 |
-| 0f | **Phase 28 Room actions per role** — role × action matrix (Clubhouse parity), mobile body discovery, authoritative room state via get_channel, listener/speaker/moderator actions, UI gating, headphones banner fix, Moderator actions panel (Requests + History) | **28.0 tooling + 28.4.4 banner done** — auth body shapes pending re-sign-in; **28.1 blocked** until 28.0 auth |
+| 0g | **Phase 29 Live details + full moderator toolset** — Live details panel, room settings (mute all, chat, queue, replay, web listening), host banner, polls, highlights, full audience list, server-driven flags | **Open** — after Phase 28; 29.0 discovery first |
+| 0f | **Phase 28 Room actions per role** — role × action matrix (Clubhouse parity), mobile body discovery, authoritative room state via get_channel, listener/speaker/moderator actions, UI gating, headphones banner fix, Moderator actions panel (Requests + History) | **28.0 tooling + 28.4 UI (1–4) done** — auth body shapes pending re-sign-in; **28.1 blocked** until 28.0 auth |
 | 0e | **Phase 27 Host tools via mobile API** — end room, invite to stage, mute, move to audience, remove from room; web API has none of these (404 / not in bundle) | **Code + docs done** — 27.1–27.2 + mobile-api.md (SMS skipped); **27.4 owner live matrix** open |
 | 0d | **Phase 26 Studio audio routing** — VB-Cable / Voicemeeter (Clubdeck parity): device classification, working quality levels, mixer-as-mic, loop guard, setup wizard, capture truth, live test matrix | **Code done** — 26.1–26.6 + mid-room `applyMicDevice` harden. **26.7 owner live matrix** still open |
 | 1 | **0.7 Review fixes (2026-10-11 #2)** — navigation guard, packaged recorder, clip worklet path, auto-armed clip buffer, 429/visibility, CORS proxy token leak | Uygulandı |
@@ -1214,10 +1221,11 @@ Tests for each handler; buttons hidden for non-moderators.
    can_edit_pinned_links, can_disable_room_chat, can_disable_replay, can_edit_room_title, can_invite, ...), then
    is_chat_enabled, chat_permission, handraise_permission, is_handraise_enabled, is_pinned_links_available.
    Re-read capabilities on update_user_capabilities (seen as a PubNub message type in the owner's api-log). One pure function roomActionsFor(role, flags, target) → list;
-   unit-tested; stage.ts / room details render from it.
+   unit-tested; stage.ts / room details render from it. **Done** (2026-10-12) — `src/api/roomCardActions.ts`; stage menus wired.
 2. Card menus: listener card (moderator view): Invite to speak, Remove from room, View profile. Speaker card:
    Mute, Move to audience, Make moderator, Remove from room. Self card: Leave stage / Leave room.
-3. Error surface: show error_message from the server in the toast.
+   **Done** for current host tools; Leave stage remains off until 28.2 verifies self-uninvite.
+3. Error surface: show error_message from the server in the toast. **Done** (already via parseLiveResponse → reportApiError).
 4. Banner bug: "Use headphones — echo cancellation is off" must be a thin full-width strip above the stage (one line,
    dismissable for the session), not a full-height block in the left column. **Done** (2026-10-12).
 ```
@@ -1270,4 +1278,176 @@ Do:
    kinds; queue-mode select sends update_handraise_queue_setting with a value from the options list.
 Acceptance: as moderator in the owner's test room, Requests lists the phone account's raised hand and Invite works;
 History shows the mutes / moves / invites done from Clubbox and from the phone app.
+```
+
+## Phase 29 — Live room details and the full moderator toolset
+
+```text
+Owner request 2026-10-12: "clubhouse için room da live details araştır, kapsamlı; moderatör çok fazla işlem
+yapabiliyor, nedir ve nasıl ekleyebiliriz". Run AFTER Phase 28 (reuses its mobile transport, 28.1 room state and
+28.4 roomActionsFor gating).
+
+Sources (Claude Code, 2026-10-12):
+S1 Clubhouse Knowledge Center (public Zendesk API support.clubhouse.com/api/v2/help_center/en-us/articles.json,
+   116 articles). "Creating Live Rooms" (updated 2026-10-09): room setup = title, replays on/off, chat on/off;
+   hand-raise queue for all rooms with options Everyone / Friends of Speakers; Room Moderation = Hand Raise Queue,
+   "Mute All Speakers" (from the room settings), "Turn Off Chat" (room settings); Chat Moderation = chat off or
+   delete single messages (long-press); Replays cannot be turned back on once disabled. "Clips FAQ": clips only in
+   public rooms with replays on; premium (paid) reactions exist. No article mentions "live details", banner, music,
+   polls or highlights → those come from the API only (S2/S3).
+S2 join_channel response (owner api-log, 43 records). user_capabilities (27 keys): can_end_room, can_save,
+   can_disable_replay, can_share, can_invite, can_edit_pinned_links, can_disable_room_chat,
+   can_change_enable_web_listening, can_remove_speakers, can_mute_speakers, can_edit_handraise_queue,
+   can_edit_background_music, can_edit_room_title, can_update_suggested_links, can_post_to_chat, can_speak,
+   can_gif_react, can_send_paid_reacts, can_send_paid_react_thanks, can_view_moderator_actions_history,
+   can_edit_host_banner, stage_removed, can_rejoin_stage_directly, can_update_highlights_settings,
+   can_create_highlights, can_manage_channel_user_poll, can_view_channel_user_poll_votes.
+   Room "live detail" fields Clubbox does NOT read yet (grep src = 0): feature_flags, are_games_available,
+   is_room_chat_available, is_suggested_links_available, show_last_speaker_warning, hide_moderator_indicator,
+   num_shares, num_clips, can_disable_replay, are_highlights_enabled, chat_post_block, emoji_reaction_options,
+   ping_bar, paid_tier, channel_user_poll, is_channel_user_poll_enabled,
+   channel_paid_reactions_active_speaker_limit, welcome_for_user_profile, clips_permission.
+   PubNub message types seen but unhandled: cumulative_count_update (×41), update_speaker_call_status,
+   update_user_capabilities, change_handraise_settings.
+S3 Mobile API name probe (unauthenticated POST {}, 401 = exists, 404 = no such name):
+   401: get_channel_audience, set_channel_banner, get_channel_banner, create_channel_user_poll,
+        get_channel_user_poll, submit_channel_user_poll_vote, remove_channel_user_poll, create_highlight,
+        get_highlight, delete_highlight, set_channel_title, update_channel_flags, get_moderator_action_history,
+        get_handraise_queue, update_handraise_queue_setting (+ the Phase 27/28 sets)
+   503: send_paid_reaction_thanks
+   404 (≈150 guesses): every mute_all* name, every *web_listening* name, every *background_music* / *music* name,
+        every *suggested_link* name, update_channel_settings / *_privacy / *_chat_permission, rejoin_stage,
+        get_live_details / get_channel_details / get_channel_stats.
+   ⇒ "Mute all speakers" has no endpoint: it is mute_speaker for each speaker (the client loops).
+   ⇒ Web listening / chat / similar room toggles most likely go through update_channel_flags (exists; body unknown).
+   ⇒ Background music and suggested links: endpoint not found → discovery only, do not build.
+
+Rules: same as Phase 28 (body discovery before use, allow-list only after a 2xx in the owner's throwaway room,
+log status + keys only, show server error_message). No paid actions: never send paid reactions (money); display only.
+```
+
+### Moderator toolset map (target)
+
+```text
+Capability (user_capabilities)        Feature                               Endpoint                         Task
+------------------------------------  ------------------------------------  -------------------------------  ----
+can_mute_speakers                     Mute one / Mute ALL speakers          mute_speaker (loop for all)      29.2
+can_remove_speakers                   Move to audience / remove             uninvite_speaker / block_from_…  27
+can_end_room                          End room                              end_channel                      27
+can_edit_handraise_queue              Queue mode, Requests                  update_handraise_queue_setting   28.6
+can_view_moderator_actions_history    History                               get_moderator_action_history     28.6
+can_disable_room_chat                 Chat on/off, delete message           enable/disable_channel_messages  28.3
+can_disable_replay                    Replay off (one-way)                  disable_replay                   28.3
+can_edit_pinned_links                 Pinned link                           add/remove/check_channel_link    28.3
+can_edit_room_title                   Title                                 set_channel_title                29.2
+can_change_enable_web_listening       Web listening on/off                  update_channel_flags (verify)    29.2
+can_edit_host_banner                  Host banner                           set/get_channel_banner           29.3
+can_manage_channel_user_poll          Create / remove poll                  create/remove_channel_user_poll  29.4
+can_view_channel_user_poll_votes      See poll votes                        get_channel_user_poll            29.4
+(everyone, if poll enabled)           Vote                                  submit_channel_user_poll_vote    29.4
+can_create_highlights /               Highlights                            create/get/delete_highlight      29.5
+  can_update_highlights_settings
+can_invite                            Ping into room                        invite_to_existing_channel       28.2
+(moderator)                           Full audience list (big rooms)        get_channel_audience             29.6
+can_edit_background_music             Background music                      NOT FOUND (404s)                 —
+can_update_suggested_links            Suggested links                       NOT FOUND (404s)                 —
+can_send_paid_reacts / _thanks        Paid reactions                        out of scope (money)             —
+```
+
+### Task 29.0 — Body discovery for the new endpoints (STOP and report)
+
+```text
+Extend the 28.0 dev probe. Read-only in a room where the owner is moderator: get_channel_audience {channel}
+(note pagination keys), get_channel_banner {channel}, get_channel_user_poll {channel}, get_highlight {channel}.
+Mutations only in the owner's throwaway room, behind the typed confirm: set_channel_banner {channel, <field from
+error_message>}, create_channel_user_poll {channel, question, options[]} → submit_channel_user_poll_vote →
+remove_channel_user_poll, create_highlight → delete_highlight, update_channel_flags (find the flag names for web
+listening / chat / handraise from error_message or by sending the join_channel field names, e.g.
+{channel, is_web_listening_enabled:false}). Max 3 attempts per endpoint. Record bodies + response keys in
+docs/api/mobile-api.md and the PubNub message type each mutation triggers (watch pubnub-unknown in api-log).
+```
+
+### Task 29.1 — "Live details" panel (everyone; read-only)
+
+```text
+A room info sheet opened from the room header ("Live details"), built only from data we already receive:
+- Room: title, privacy / social mode, language, created time (time_created), topics, club / house, NSFW.
+- Live numbers: speakers, listeners (num_all), cumulative listeners (PubNub cumulative_count_update — handle the
+  type and keep the latest value), shares (num_shares), clips (num_clips).
+- Room state: Replay on/off (is_replay_enabled), chat on/off + who can post (is_chat_enabled, chat_permission),
+  hand-raise mode (handraise_queue_setting label from handraise_queue_options, handraise_permission), web listening
+  (is_web_listening_enabled), highlights (are_highlights_enabled), clips permission (clips_permission).
+- "Your permissions" (moderators): the true can_* capabilities as a short list.
+Update live from 28.1 snapshots and PubNub (update_user_capabilities, change_handraise_settings — handle both types).
+Tests: pure buildLiveDetails(join, live) → view model; unknown/missing fields hide their row.
+```
+
+### Task 29.2 — Room settings sheet for moderators (official "room settings")
+
+```text
+Grouped like the Clubhouse app (S1): 
+- Stage: "Mute all speakers" = mute_speaker for every speaker except me (sequential, 150 ms apart, stop on first
+  403; report "Muted N of M"); existing data-action mute-everyone must use this path.
+- Chat: on/off (28.3), who can post (if update_channel_flags supports chat_permission per 29.0).
+- Hand raise: queue mode (28.6).
+- Replay: off (28.3, confirm one-way).
+- Web listening: on/off via update_channel_flags only if 29.0 proved the flag; otherwise hide.
+- Title (set_channel_title on mobile if the web route still fails), NSFW (28.3).
+Every control hidden unless its can_* is true. Tests per control.
+```
+
+### Task 29.3 — Host banner
+
+```text
+Moderators with can_edit_host_banner: edit / clear a short banner text (set_channel_banner); everyone sees it at
+the top of the stage (get_channel_banner on join + refresh with 28.1; PubNub type if 29.0 finds one).
+Tests: render, edit, clear, hidden without capability.
+```
+
+### Task 29.4 — Room polls
+
+```text
+- Show the current poll from join_channel.channel_user_poll / get_channel_user_poll (question, options, my vote,
+  results when can_view_channel_user_poll_votes or after voting).
+- Everyone (is_channel_user_poll_enabled): vote via submit_channel_user_poll_vote.
+- can_manage_channel_user_poll: create (question + 2-4 options) and remove.
+- Live updates via the PubNub type found in 29.0 (else refresh with 28.1).
+Tests: view model, vote body, create validation, permission gating.
+```
+
+### Task 29.5 — Highlights
+
+```text
+Only if are_highlights_enabled and can_create_highlights: "Create highlight" in the room menu (create_highlight),
+list/delete own highlights (get_highlight / delete_highlight). Settings (can_update_highlights_settings): build only
+if 29.0 finds the settings endpoint; otherwise hide. Tests for gating and bodies.
+```
+
+### Task 29.6 — Full audience list for moderators
+
+```text
+Large rooms: the audience list from PubNub/join is partial. Moderators get a paginated list from
+get_channel_audience (search box filters it, infinite scroll), each row with Invite to speak / Remove from room.
+Tests: pagination merge, actions per row.
+```
+
+### Task 29.7 — Server-driven small things
+
+```text
+- Reaction picker uses emoji_reaction_options from join_channel instead of a hard-coded list.
+- show_last_speaker_warning: if I am the last speaker/moderator, warn before leaving the stage or the room.
+- hide_moderator_indicator: when true, do not show crowns to non-moderators.
+- stage_removed / can_rejoin_stage_directly: if I was moved to the audience, show "Rejoin stage" only when
+  can_rejoin_stage_directly is true (become_speaker).
+- welcome_for_user_profile: show the room's welcome line once on join.
+Tests for each flag.
+```
+
+### Task 29.8 — Owner live matrix
+
+```text
+In the owner's room with a phone account: mute all; chat off/on; queue mode; replay off; web listening (if built);
+banner set/clear seen on the phone; poll create → phone votes → results; highlight create/delete; audience list
+shows the phone account and Invite/Remove work; Live details numbers match the phone app.
+Background music, suggested links, paid reactions: n/a (no endpoint / out of scope).
 ```
