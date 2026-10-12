@@ -72,11 +72,10 @@ export function cockpitBar(state: CockpitState): SafeHtml {
         <button
           class="room-bar-title"
           type="button"
-          data-action="nav"
-          data-tab="stage"
+          data-action="open-live-details"
           data-room-title
           data-room-bar-item="title"
-          title="${state.roomTitle}"
+          title="${t('liveDetails')}: ${state.roomTitle}"
         >${state.roomTitle}</button>
       ` : ''}
       ${state.inRoom ? html`

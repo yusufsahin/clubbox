@@ -101,6 +101,15 @@ export interface CHChannel {
   is_web_listening_enabled?: boolean;
   num_speakers: number;
   num_all: number;
+  /** Cumulative listeners from PubNub cumulative_count_update (num_ever). */
+  num_ever?: number;
+  num_shares?: number;
+  num_clips?: number;
+  are_highlights_enabled?: boolean;
+  chat_permission?: number | string;
+  clips_permission?: number | string;
+  language?: string;
+  topics?: Array<{ title?: string; name?: string } | string>;
   has_raised_hands?: boolean;
   users: CHUser[];
   token?: string; // Agora RTC token

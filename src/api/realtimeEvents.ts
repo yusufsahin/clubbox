@@ -171,7 +171,8 @@ export function parseRealtimeMessage(raw: Record<string, unknown>, currentChanne
   if (type === 'cumulative_count_update') {
     const numEver = readFiniteNumber(raw.num_ever);
     if (numEver === undefined) return { kind: 'ignored', reason: 'noop' };
-    return { kind: 'channel_patch', patch: { num_all: numEver } };
+    // Keep cumulative separate from live num_all (Task 29.1).
+    return { kind: 'channel_patch', patch: { num_ever: numEver } };
   }
 
   // No on-call UI yet — acknowledge so API Health is not flooded.

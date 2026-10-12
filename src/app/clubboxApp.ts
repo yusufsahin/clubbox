@@ -45,9 +45,11 @@ import { setLanguage, t, type MessageKey } from '../i18n';
 import { installAvatarFallback } from '../ui/avatar';
 import { cockpitBar } from '../ui/components/cockpitBar';
 import { hostToolsLinkSheet } from '../ui/components/hostToolsLinkSheet';
+import { liveDetailsPanel } from '../ui/components/liveDetailsPanel';
 import { mountCreateModal } from '../ui/components/createModal';
 import { selfProfilePage } from '../ui/components/profileDrawer';
 import { roomDetailsPanel } from '../ui/components/roomDetailsPanel';
+import { buildLiveDetails } from '../api/liveDetails.ts';
 import { audioSetupWizard, draftUsesSameCable, isSetupQuality } from '../ui/components/audioSetupWizard';
 import { showToast } from '../ui/components/toast';
 import { html, markup, safeUrl } from '../ui/html';
@@ -69,6 +71,7 @@ export class ClubboxApp {
   currentTab: 'stage' | 'explore' | 'discover' | 'friends' | 'messages' | 'activity' | 'houses' | 'events' | 'replay' | 'soundboard' | 'settings' | 'login' = 'explore';
   viewStack: ViewSnapshot[] = [];
   roomDetailsOpen = false;
+  liveDetailsOpen = false;
   reactionsOpen = false;
   soundsOpen = false;
   roomBarOverflowOpen = false;
@@ -782,6 +785,7 @@ export class ClubboxApp {
     this.renderGuidelines();
     if (this.isProfileDrawerOpen) this.renderProfileDrawer();
     this.renderRoomDetails();
+    this.renderLiveDetails();
     this.renderAudioSetup();
     // Open the Clubhouse window once; re-running show() on every render stole
     // focus mid-OTP. openOfficialSignIn() resets the flag to reopen it.
@@ -792,6 +796,26 @@ export class ClubboxApp {
       this.signInWindowSynced = false;
       void electronAPI()?.hideEmbeddedSignIn?.();
     }
+  }
+
+  renderLiveDetails(): void {
+    const existing = document.getElementById('live-details-root');
+    if (!this.liveDetailsOpen || !this.currentChannel) {
+      existing?.remove();
+      return;
+    }
+    const model = buildLiveDetails(this.currentChannel);
+    if (!model) {
+      existing?.remove();
+      return;
+    }
+    let root = existing;
+    if (!root) {
+      root = document.createElement('div');
+      root.id = 'live-details-root';
+      document.querySelector('.studio-main')?.appendChild(root);
+    }
+    root.innerHTML = markup(liveDetailsPanel(model));
   }
 
   renderRoomDetails(): void {
@@ -2115,8 +2139,20 @@ export class ClubboxApp {
         break;
       case 'open-room-details':
         this.roomDetailsOpen = true;
+        this.liveDetailsOpen = false;
         this.reactionsOpen = false;
         this.soundsOpen = false;
+        this.render();
+        break;
+      case 'open-live-details':
+        this.liveDetailsOpen = true;
+        this.roomDetailsOpen = false;
+        this.reactionsOpen = false;
+        this.soundsOpen = false;
+        this.render();
+        break;
+      case 'close-live-details':
+        this.liveDetailsOpen = false;
         this.render();
         break;
       case 'toggle-reactions':

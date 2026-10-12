@@ -72,14 +72,14 @@ test('live change_handraise_settings and update_user_capabilities patch the chan
   }
 });
 
-test('live cumulative_count_update sets num_all; call status is a quiet noop', () => {
+test('live cumulative_count_update sets num_ever; call status is a quiet noop', () => {
   const count = parseRealtimeMessage({
     action: 'cumulative_count_update',
     channel: 'PG2LoOww',
     num_ever: 42,
   }, 'PG2LoOww');
   assert.equal(count.kind, 'channel_patch');
-  if (count.kind === 'channel_patch') assert.equal(count.patch.num_all, 42);
+  if (count.kind === 'channel_patch') assert.equal(count.patch.num_ever, 42);
 
   const call = parseRealtimeMessage({
     action: 'update_speaker_call_status',

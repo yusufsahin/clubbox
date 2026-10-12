@@ -251,6 +251,7 @@ export function applyRoomUpdate(this: ClubboxApp, detail: CHChannelDetail) : voi
 
     if (this.isProfileDrawerOpen) this.renderProfileDrawer();
     if (this.roomDetailsOpen) this.renderRoomDetails();
+    if (this.liveDetailsOpen) this.renderLiveDetails();
     this.syncModeratorActionsAfterRoomUpdate();
     if (this.selfProfileOpen || this.currentTab !== 'stage') return;
     this.renderStage();
