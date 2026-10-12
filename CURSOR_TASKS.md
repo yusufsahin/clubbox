@@ -128,7 +128,6 @@ Owner reported: triage noise, new-room participants invisible, moderation action
 
 - **Mobile Token for host tools — ANSWERED 2026-10-12:** **(A)** one-time SMS Token link. **27.5.0 spike STOP:** `start_phone_number_auth` → 400 `login did not pass token validation!` (Clubhouse: unsupported / non-native OS). Electron cannot SMS-link. Follow-up: **(A2)** import Token from phone/Clubdeck (safeStorage), or **(B)** leave host tools dead on mobile host?
 - **ACC-1 wording:** Sign-in is now a visible Clubhouse `/signin` surface embedded in the main window (BrowserView), not a separate BrowserWindow. Should `features/account.feature` ACC-1 say “visible Clubhouse sign-in surface” instead of “visible window”? (Feature file not edited by the agent.)
-- **ACC-1 wording:** Sign-in is now a visible Clubhouse `/signin` surface embedded in the main window (BrowserView), not a separate BrowserWindow. Should `features/account.feature` ACC-1 say “visible Clubhouse sign-in surface” instead of “visible window”? (Feature file not edited by the agent.)
 
 
 ## Status
