@@ -40,6 +40,8 @@ export type ElectronAPI = {
   openAgoraAbRoom?: (channel: string) => Promise<{ ok: boolean; reason?: string; reused?: boolean }>;
   /** Phase 24.6: quit/close/suspend/resume lifecycle for Agora leave/rejoin. */
   onAgoraLifecycle?: (callback: (payload: { reason?: string }) => void | Promise<void>) => () => void;
+  /** Channel id only. `left` clears main's room marker so it does not send a second leave_channel. */
+  reportRoomPresence?: (payload: { channel?: string; left?: boolean }) => void;
   setNativeThemeSource?: (source: 'system' | 'light' | 'dark') => Promise<{ ok: boolean }>;
   appendApiLog?: (record: {
     endpoint: string;

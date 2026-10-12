@@ -19,6 +19,7 @@ const { appendApiLog } = require('./apiLog.cjs');
 const { runStartupTriage } = require('./apiTriage.cjs');
 const { createBundleCrawler } = require('./bundleCrawler.cjs');
 const { createPubNubClient } = require('./pubnubClient.cjs');
+const { writeLastRoom, clearLastRoom, peekStaleRoom } = require('./lastRoom.cjs');
 
 const REQUEST_TIMEOUT_MS = 20000;
 const DEV_SERVER_ORIGIN = 'http://localhost:5173';
@@ -291,14 +292,25 @@ function createWindow() {
   mainWindow.show();
   mainWindow.focus();
 
-  // Phase 24.6: leave Agora before the window tears down (2 s cap).
+  // Phase 25.1: leave Agora and Clubhouse before the window tears down (3 s cap).
   mainWindow.on('close', (event) => {
     if (agoraLifecycleDone) return;
     event.preventDefault();
+    quitInProgress = true;
     void requestRendererAgoraLifecycle('close').finally(() => {
-      agoraLifecycleDone = true;
-      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.destroy();
+      void mainLeaveIfStillInRoom().finally(() => {
+        agoraLifecycleDone = true;
+        if (mainWindow && !mainWindow.isDestroyed()) mainWindow.destroy();
+      });
     });
+  });
+
+  mainWindow.webContents.on('render-process-gone', () => {
+    void mainLeaveIfStillInRoom();
+  });
+  mainWindow.webContents.on('unresponsive', () => {
+    if (!quitInProgress) return;
+    void mainLeaveIfStillInRoom();
   });
 
   mainWindow.on('closed', () => {
@@ -1430,6 +1442,7 @@ async function postWithWebSession(endpoint, body) {
       // ignore
     }
     console.log('[web] me ok; cookies synced to defaultSession:', synced);
+    void recoverStaleRoom();
   }
   try {
     appendApiLog(app.getPath('userData'), {
@@ -1795,8 +1808,14 @@ if (!hasSingleInstanceLock) {
   });
 }
 
-/** Phase 24.6: ask renderer to leave Agora (2 s cap) before quit/close/suspend. */
+/** Phase 25.1: ask renderer to leave (3 s cap) before quit/close/suspend. */
 let agoraLifecycleDone = false;
+let quitInProgress = false;
+let currentRoomChannel = null;
+let rendererReportedLeft = false;
+let mainLeaveSent = false;
+let staleRoomRecoveryStarted = false;
+
 function requestRendererAgoraLifecycle(reason) {
   return new Promise((resolve) => {
     if (!mainWindow || mainWindow.isDestroyed()) {
@@ -1806,7 +1825,7 @@ function requestRendererAgoraLifecycle(reason) {
     const timer = setTimeout(() => {
       ipcMain.removeListener('clubbox:agora-lifecycle-done', onDone);
       resolve({ ok: false, reason: 'timeout' });
-    }, 2000);
+    }, 3000);
     function onDone(_event, payload) {
       clearTimeout(timer);
       resolve(payload && typeof payload === 'object' ? payload : { ok: true });
@@ -1822,12 +1841,103 @@ function requestRendererAgoraLifecycle(reason) {
   });
 }
 
+const ROOM_CHANNEL_ID = /^[A-Za-z0-9_-]{1,80}$/;
+
+ipcMain.on('clubbox:room-presence', (event, payload) => {
+  if (!isTrustedSender(event)) return;
+  if (!payload || typeof payload !== 'object') return;
+  if (payload.left === true) {
+    currentRoomChannel = null;
+    rendererReportedLeft = true;
+    try {
+      clearLastRoom(app.getPath('userData'));
+    } catch {
+      console.warn('[Clubbox] last-room clear failed');
+    }
+    return;
+  }
+  const channel = typeof payload.channel === 'string' ? payload.channel : '';
+  if (!ROOM_CHANNEL_ID.test(channel)) return;
+  currentRoomChannel = channel;
+  rendererReportedLeft = false;
+  try {
+    writeLastRoom(app.getPath('userData'), channel);
+  } catch {
+    console.warn('[Clubbox] last-room write failed');
+  }
+});
+
+async function mainLeaveIfStillInRoom() {
+  if (rendererReportedLeft || mainLeaveSent) return;
+  const channel = currentRoomChannel;
+  if (!channel) return;
+  mainLeaveSent = true;
+  try {
+    await postWithWebSession('leave_channel', { channel });
+  } catch {
+    console.warn('[Clubbox] main leave_channel failed');
+  }
+  currentRoomChannel = null;
+  rendererReportedLeft = true;
+  try {
+    clearLastRoom(app.getPath('userData'));
+  } catch {
+    // The startup stale-leave reads the file again if this delete fails.
+  }
+}
+
+function recoverStaleRoom() {
+  if (staleRoomRecoveryStarted) return;
+  staleRoomRecoveryStarted = true;
+  const userData = app.getPath('userData');
+  let plan;
+  try {
+    plan = peekStaleRoom(userData);
+  } catch {
+    return;
+  }
+  if (!plan || plan.action === 'none') return;
+  if (plan.action === 'drop') {
+    try { clearLastRoom(userData); } catch { /* ignore */ }
+    return;
+  }
+  if (currentRoomChannel) return;
+  void postWithWebSession('leave_channel', { channel: plan.channel })
+    .then(() => {
+      console.log('[Clubbox] stale room leave sent');
+    })
+    .catch(() => {
+      console.warn('[Clubbox] stale room leave failed');
+    })
+    .finally(() => {
+      if (currentRoomChannel) return;
+      try { clearLastRoom(userData); } catch { /* ignore */ }
+    });
+}
+
+for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
+  try {
+    process.on(signal, () => {
+      try {
+        app.quit();
+      } catch {
+        // app may already be quitting
+      }
+    });
+  } catch {
+    // This platform does not support the signal.
+  }
+}
+
 app.on('before-quit', (event) => {
   if (agoraLifecycleDone) return;
   event.preventDefault();
+  quitInProgress = true;
   void requestRendererAgoraLifecycle('quit').finally(() => {
-    agoraLifecycleDone = true;
-    app.quit();
+    void mainLeaveIfStillInRoom().finally(() => {
+      agoraLifecycleDone = true;
+      app.quit();
+    });
   });
 });
 

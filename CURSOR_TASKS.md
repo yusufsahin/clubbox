@@ -37,6 +37,8 @@ Legend: **Uygulandı** = code is in the tree. **Canlı doğrulandı** = exercise
 | --- | --- | --- |
 | 0a | **Phase 23 Live room audio (Agora)** — DNS -105 is a red herring; real join error not yet visible; web vs native SDK decision gate at 23.3 | **Web path** — 23.1–23.5 done on `phase-23-24-agora`; native 23.6+ deferred |
 | 0b | **Phase 24 Agora feature completeness** — broadcast mix, reconnect + quality, token lifecycle, device hot-swap, speaking rings, lifecycle, AI noise suppression | **Closed** — 24.1–24.7 done (AI denoiser + CSP/WASM); e2e green |
+| 0c | **Phase 25 Room exit and mic state** — leave_channel on close/quit/Ctrl+C + crash recovery, mute badge/state sync, AI denoiser init bug, log hygiene | **In progress** — 25.1 done (leave on close/quit, stale-room marker). 25.2–25.4 open |
+| 0d | **Phase 26 Studio audio routing** — VB-Cable / Voicemeeter (Clubdeck parity): device classification, working quality levels, mixer-as-mic, loop guard, setup wizard, capture truth, live test matrix | **Open** — designed 2026-10-12, after Phase 25 |
 | 1 | **0.7 Review fixes (2026-10-11 #2)** — navigation guard, packaged recorder, clip worklet path, auto-armed clip buffer, 429/visibility, CORS proxy token leak | Uygulandı |
 | 1b | **0.8 Followers / following / friends lists** — bundle scan + labeled UI hunt; live UI uses only counts + mutual lists | Uygulandı for counts, mutual names, and chat people. The public web bundle does not contain get_followers, get_following, or get_online_friends. get_friend_zone_match and get_social_club_members are in-bundle and not called. The labeled click-through still needs a signed-in session. |
 | 0 | **Autonomous plan** (see `.cursor/rules/clubbox.mdc`): 10.1 → 11.8 (warn mode) → 10.2 → 10.5 → 11.0 → 11.1 → 11.2 → 11.3 → 11.4 → 10.4 → 11.5 → 11.6 → 11.7 → 11.9 → 11.10 → 11.8 (strict). Acceptance files: account, hallway, room_listener, room_realtime, room_host, room_moderation, audio_studio, studio, social, messages, houses_events_replays, api_health. Requirements: `docs/product/PRD.md`; design + gap list G-01…G-18: `docs/product/DESIGN.md`; acceptance: `features/*.feature` | **Idle** — Phases 12–**24** (incl. 24.7) done. Only ST-9 Restream remains `@deferred`. |
@@ -590,4 +592,321 @@ Acceptance: toggle works live without republish; music mode bypasses it. Commit.
   capture (does clubhouse.com open an RTM connection in the 23.3 A/B window?) — never invent RTM usage.
 - Channel encryption: if the 23.3 capture shows clubhouse.com calling setEncryptionConfig, that becomes a Phase 23.4
   item (join would succeed but audio would be silent without it).
+```
+
+## Phase 25 — Room exit and mic state (owner report 2026-10-12: "uygulama kapandığında odadan düşmüyorum" + "mikrofon açık/kapalı update olmuyor")
+
+```text
+Context: diagnosis by Claude Code on 2026-10-12 from a live `npm run desktop` log (owner joined m7Dd6rbP as speaker,
+toggled the mic, then pressed Ctrl+C) plus a code read. No code was changed; every root cause below names its file.
+Order: 25.1 → 25.2 → 25.3 → 25.4, then Phase 26. Same logging rules as Phase 23 (shapes only, no tokens, no app ids).
+```
+
+### Task 25.1 — Leave the Clubhouse room when the app closes (not only Agora)
+
+```text
+Symptom: after closing the window, quitting, or Ctrl+C in the terminal the owner stays in the room for everyone else.
+Root causes:
+1. src/app/roomCtl.ts handleAgoraLifecycle(): for 'quit' / 'close' it only calls agoraVoice.leave(). The comment says
+   "HTTP leave is separate / best-effort", but nothing sends it: leave_channel lives in handleBeforeUnload(), and
+   electron/main.cjs closes the window with mainWindow.destroy() (close handler, ~line 296), which does NOT fire
+   beforeunload. Result: Agora drops, Clubhouse still lists us until active_ping times out.
+2. Ctrl+C in the terminal (log ends with "Terminate batch job (Y/N)? y") kills Electron with SIGINT; app 'before-quit'
+   never runs. scripts/run-electron.mjs also dies on the same Ctrl+C before the child can clean up.
+3. Hard kill / crash (Task Manager, power loss) can never run cleanup.
+Do:
+1. In handleAgoraLifecycle, for reason 'quit' or 'close' run one shared, idempotent shutdown routine (also used by
+   handleBeforeUnload): finishLeave(roomSession), stopRoomPresence() (so active_ping stops first), stop recording /
+   clip / mic / external, then agoraVoice.leave() AND clubhouseClient.leaveChannel(channelApiId) IN PARALLEL
+   (Promise.all, each .catch'ed). Keep 'suspend' as Agora-only (resume rejoins). Guard with a module-level promise so
+   beforeunload + lifecycle never send leave_channel twice.
+2. electron/main.cjs: process.on('SIGINT' | 'SIGTERM' | 'SIGHUP', () => app.quit()) (try/catch per signal) so a
+   terminal Ctrl+C goes through before-quit → renderer lifecycle. scripts/run-electron.mjs: install no-op
+   SIGINT/SIGTERM handlers so the launcher waits for the child's 'exit' instead of dying first.
+3. Raise the main-process lifecycle cap from 2 s to 3 s (requestRendererAgoraLifecycle): leave_channel goes through
+   the main-process web fetch and must fit inside the cap together with the Agora leave.
+4. Crash recovery: on successful join write userData/last-room.json { channel, joinedAt } (channel id only); delete it
+   on every normal leave/shutdown. At startup, after `me` succeeds, if the file exists and is < 6 h old, send
+   leave_channel for it once (best-effort) and delete the file. Log "[Clubbox] stale room leave sent".
+4b. Make main the owner of the final leave (more robust than renderer-only): the renderer reports the current room
+   to main over IPC on join/leave (channel id only). On before-quit and on webContents 'render-process-gone'
+   / 'unresponsive' at quit time, main sends leave_channel itself through its web session (it already does every
+   [web] fetch). The renderer lifecycle still leaves Agora; main skips its own leave_channel if the renderer reported
+   "left". Reason: web guidance (MDN/web.dev, sources below) is that beforeunload/unload are unreliable; Electron
+   cleanup belongs in the main process.
+5. Tests: unit test that handleAgoraLifecycle('close') calls leaveChannel once even if beforeunload also fires;
+   unit test that 'suspend' does not call leaveChannel; unit test for the last-room marker (write/clear/stale-leave).
+Acceptance: join a room, close the window → console shows "[Clubbox] lifecycle shutdown leave reason=close" then
+"[web] leave_channel 200"; same with Ctrl+C (reason=quit). A second account sees us leave within a few seconds.
+After killing the process in Task Manager and restarting, startup sends the stale leave.
+```
+
+### Task 25.2 — Mic on/off state must update everywhere (own badge, others' badges, phones)
+
+```text
+Symptom: toggling the mic in a room does not update the mute state ("update olmuyor").
+Root causes (code read; 1-3 are certain, 4 is confirmed by the SDK docs and still needs the phone check in step 5):
+1. Own badge never changes. src/app/studioCtl.ts toggleMute() updates audioEngine + the Agora track only. The stage
+   (src/ui/views/stage.ts:121) renders the 🔇 badge from currentChannel.users[me].is_muted, which nothing updates on a
+   self toggle. Agora never fires user-info-updated for the LOCAL user, so the Agora → applyAgoraMute path
+   (src/app/clubboxApp.ts:359 → realtimeRoomCoordinator.applyAgoraMute) cannot fix it either. Our own card keeps the
+   join-time value (should_join_muted=true → always 🔇).
+2. Snapshots overwrite Agora-derived mute flags. applyRoomUpdate (src/app/roomCtl.ts ~176) replaces
+   currentChannel.users wholesale with detail.users; is_muted learnt from Agora (user-published / user-unpublished /
+   user-info-updated) is lost on the next roomSync / PubNub snapshot and badges flip back.
+3. No serialization: toggleMute flips audioEngine synchronously but fires agoraVoice.setMuted() with `void`; fast
+   double clicks or the unmute → ensurePublished() path can apply Agora mute calls out of order (the log shows
+   unmute + mute within ~1 s).
+4. Others may never see us muted. join_channel returns agora_native_mute=true: Clubhouse apps read mute state from
+   Agora's per-user audio mute signal. We publish TWO audio tracks (mic + the Phase 24.1 "extras" custom track) and
+   AgoraVoice.setMuted() mutes only the mic track. The extras track stays published and unmuted (log while muted:
+   "extras stats ... bitrate=7600 sending=true" every 2 s), so remotes may never get a "mute-audio" for us.
+   SDK evidence (node_modules/agora-rtc-sdk-ng/rtc-sdk_en.d.ts): "An AgoraRTCClient object can publish multiple
+   audio tracks. The SDK automatically mixes the audio tracks into one audio track" (~line 2871), and "a successful
+   call of setMuted(true) triggers the user-unpublished event on the remote client" (~line 4011). Muting one of two
+   mixed tracks does not unpublish the mix, so remotes keep seeing us as unmuted.
+   setNativeMuteSignalling() only stores a flag that is logged, never used (src/audio/agoraVoice.ts:91, ~849-866).
+Do:
+1. Single source of truth for self-mute: a pure applySelfMute(users, myId, muted) next to applyRemoteMute in
+   src/api/remoteMute.ts. Call it after the Agora call settles in toggleMute, on join (should_join_muted), and on any
+   forced mute (host mute_speaker on us, voice-effect mute). Re-render stage + cockpit.
+2. Keep a per-room Map<uid, muted> of the latest Agora-observed mute states (plus self) in the coordinator; overlay it
+   onto detail.users in applyRoomUpdate / the coordinator before rendering. Clear it on leave.
+3. Serialize: this.muteChain = this.muteChain.then(() => agoraVoice.setMuted(audioEngine.getIsMuted())) — always apply
+   the LATEST desired state, never a captured one (same pattern as musicModeChain).
+4. Extras and the mute signal: when the user is muted AND the extras mix is idle (no soundboard pad playing, no
+   external input, no voice effect), also mute extrasAudioTrack; unmute it when something starts playing into extras
+   or the user unmutes. Log one line per change: "[AgoraRTC] mute signal mic=<bool> extras=<bool>". Do not invent an
+   HTTP mute endpoint (src/api/client.ts:1489: the web client has none).
+5. Live check (note the result in the PR): owner mutes/unmutes in Clubbox while a phone in the same room watches. The
+   phone's mute icon must follow within ~1 s. If it does not follow even with both tracks muted, capture what
+   clubhouse.com does in the Phase 23.3 A/B window (setMuted, setEnabled or unpublish?) and match it.
+6. Tests: unit tests for applySelfMute and the overlay (a snapshot after an Agora mute keeps the badge); BDD step in
+   features/room_host.feature "my mute badge follows the mic button"; a test that rapid toggles end in the last
+   requested state.
+Acceptance: own 🔇 badge follows the button immediately; remote badges do not flip back after a PubNub/roomSync
+update; a phone in the room shows our mute state correctly.
+```
+
+### Task 25.3 — AI noise suppression never initialises
+
+```text
+Symptom (log): "[Clubbox] AI denoiser init failed: Error: Processor is not be piped, you might call pipe() first".
+Root cause: src/audio/aiDenoiser.ts ensureExtension() calls `await processor.disable()` right after createProcessor(),
+BEFORE the processor is piped to a track. The extension throws for an unpiped processor, the catch returns false, and
+`extensionReady` caches that false for the whole session, so the Settings toggle can never work. It also runs on every
+publish even when the setting is off (loads WASM for nothing). Phase 24.7 tests missed it because the fake SDK does
+not enforce pipe order.
+Do:
+1. Remove the pre-pipe disable(); call enable()/disable() only after track.pipe(processor).pipe(processorDestination).
+2. While the preference is off and nothing is piped, syncAiDenoiserOnTrack returns early (no register, no WASM, no
+   pipe). Load lazily on first enable.
+3. On init failure reset extensionReady = null so a later toggle can retry; show one toast "Noise suppression
+   unavailable" instead of failing silently.
+4. Make the fake processor in tests throw "not piped" when enable/disable is called before pipe; add a regression test.
+Acceptance: with the setting off, no denoiser log lines at join; turning it on in a live room logs
+"AI denoiser enabled" and the toggle works off/on without republish.
+```
+
+### Task 25.4 — Log hygiene (no behaviour change)
+
+```text
+1. "Failed to resolve address for 148-153-93-19.edge.agora.io., errorcode: -105" and "socket destroyed" come from
+   Chromium's P2P socket manager trying one of Agora's hostname candidates (note the trailing dot). The connection
+   still reaches CONNECTED via other candidates (Phase 23: red herring). Document this in docs/api/realtime.md
+   (troubleshooting) so it is not chased again; no DNS workarounds.
+2. AUDIO_INPUT_LEVEL_TOO_LOW (code 2001) while self-muted is expected; log it at debug level when audioEngine is muted.
+3. "[AgoraRTC] extras stats" (already behind agoraDebugEnabled()): log only when a value changes.
+```
+
+### Task 25.5 — moved
+
+```text
+The VB-Cable work is now Phase 26 (full routing design). Do 25.1-25.4 first, then Phase 26.
+Sources used for Phase 25: Agora docs (setMuted vs setEnabled; audio mixing; AI noise suppression release notes
+v2.0.1 "no longer supports calling disable before pipe"), web.dev "disallow synchronous XHR", MDN sendBeacon.
+```
+
+## Phase 26 — Studio audio routing: VB-Cable / Voicemeeter (Clubdeck parity and beyond)
+
+```text
+Owner request 2026-10-12: "clubdeck vb-cable kullanımı araştır, kapsamlı analiz ve tasarım yap". Owner installed
+VB-Cable. Research and code read by Claude Code; no code changed.
+
+A. How Clubdeck does it (clubdeck.app, Clubdeck Reference Manual PDF, vowe.net tutorial linked from clubdeck.app)
+- One input. Clubdeck has NO separate external channel: the user builds the mix OUTSIDE the app and selects the mixer
+  as Clubdeck's microphone. Mac: Loopback / BlackHole / VB-Cable. Windows: Voicemeeter Banana recommended.
+- Voicemeeter recipe (vowe.net): Windows default output → "VoiceMeeter Input" (VAIO). Hardware Input 1 = real mic.
+  Clubdeck Input = "VoiceMeeter Output" (bus B1). Clubdeck Output = "VoiceMeeter Aux" (AUX VAIO). Routing:
+    mic (HW in 1):       B1 on,  A1 optional (self-monitor)
+    VAIO (Windows/music): B1 on,  A1 on
+    AUX (Clubhouse audio): B1 OFF, A1 on   ← the only feedback guard: room audio must never reach B1
+  A1 = headphones. Muting yourself = mute HW input 1 in Voicemeeter.
+- Room "Audio quality": standard / high quality / music mode. Music mode = stereo, 48 kHz, 128 kbps; it disables echo
+  cancellation, so on stage you MUST use headphones (manual: "music mode requires disabling echo cancellation").
+- Input/output pickers are reachable from the hallway top bar AND the room audio pane; the manual warns that some
+  systems reset devices, "this is the place where you need to check first".
+- Release notes worth matching: 1.9.6 "Fixed autogain / loudness issue on some setups"; 1.9.7 ducking button next to
+  the effect volume; Troubleshooting: ASIO soundcards/mixers need the VB-Audio ASIO bridge.
+
+B. What Clubbox already has (better than Clubdeck in one way)
+- Its own mixer: mic track + "extras" custom track (soundboard + external input + voice FX), mixed by the Agora SDK.
+  External input (Phase 20, src/audio/audioEngine.ts startExternal + externalConstraints.ts) opens a second device
+  with AEC/ANS/AGC off and channelCount 2, ducking (externalDuck.ts), monitor off by default, mic mute does not
+  silence it. So VB-Cable alone is enough on Windows; Voicemeeter is optional.
+- Output device selection via AudioContext.setSinkId (audioEngine.setOutputDevice).
+- Settings › virtualCableGuide text (src/i18n/en.ts:334, tr.ts:336).
+
+C. Gaps found (code read)
+1. Room details "Audio quality" offers normal / high / music (src/ui/components/roomDetailsPanel.ts:59-62) but
+   'set-audio-quality' (src/app/clubboxApp.ts:1606) only toggles music mode, and state is rendered as
+   music ? 'music' : 'normal' (clubboxApp.ts:745, 830). Picking "High" does nothing and snaps back to Normal.
+2. Music mode keeps AGC on: createMicrophoneAudioTrack({ AGC: true }) in src/audio/agoraVoice.ts ~642 and ~651.
+   AGC pumps music and fights a mixer's levels (Clubdeck fixed exactly this in 1.9.6). audioEngine.micConstraintBase()
+   already turns AGC off for music; the Agora track does not.
+3. Clubdeck-style setups break silently: if the user selects "VoiceMeeter Output" / "CABLE Output" as the MICROPHONE
+   while not in music mode, the mic track gets speech_standard (32 kHz mono 24 kbps per rtc-sdk_en.d.ts:348) plus
+   AEC + ANS + AGC + optional AI denoiser — music is crushed and gated. Nothing detects or warns.
+4. No loop guard: nothing stops output = the same virtual device the app captures (Voicemeeter VAIO, or VB-Cable
+   input while capturing CABLE Output) → room audio is sent back into the room.
+5. The device list does not tell virtual devices apart. On the owner's PC VB-Cable is installed twice; the playback
+   side is labelled "Speakers (2- VB-Audio Virtual Cable)" (not "CABLE Input") and a broken first instance
+   ("CABLE Output (VB-Audio Virtual Cable)", Status Unknown/Error) can still appear.
+6. Unknown, must be measured: the SDK mixes all published audio tracks into one (rtc-sdk_en.d.ts ~2871) but does not
+   say which encoderConfig the mix uses. If it is the mic track's speech_standard, external music in normal mode is
+   sent as 32 kHz mono.
+7. Only requested constraints are logged (lastExternalConstraints); actual track.getSettings() is never read.
+
+D. Design
+- Two supported setups, chosen in a wizard (Settings › Audio › "Music & external audio setup"; also reachable from
+  Room details next to External input):
+  Setup 1 "Clubbox mix" (recommended, needs only VB-Cable): Microphone = real mic; External input = CABLE Output;
+    player apps output to CABLE Input / "Speakers (N- VB-Audio Virtual Cable)"; Clubbox output = headphones/speakers.
+    Clubbox does ducking, mute keeps music, recording includes it.
+  Setup 2 "External mixer as microphone" (Clubdeck way, Voicemeeter/Loopback/BlackHole): Microphone = "VoiceMeeter
+    Output" (or the mixer's output); External input = off; Clubbox output = "VoiceMeeter Aux Input" (never the main
+    VAIO input that feeds B1). Mic profile switches to "line": AEC/ANS/AGC off, AI denoiser off, music encoder.
+    Mute in Clubbox mutes the whole mix (the mixer IS the mic) — say this in the UI.
+- Three quality levels that actually work (encoder is fixed at publish → change = republish):
+    normal = speech_standard, AEC/ANS/AGC on (voice only)
+    high   = high_quality (48 kHz mono 128 kbps), AEC on, ANS/AGC on (voice, better codec)
+    music  = custom { sampleRate: 48000, stereo: true, bitrate: 128 } (Clubdeck parity, lighter than
+             high_quality_stereo's 192 kbps for listeners on phones), AEC/ANS/AGC off, AI denoiser off,
+             "Use headphones" banner while on stage.
+  The extras track uses the same level. Persist the choice in audioPrefs.
+- Safety rails: loop guard, virtual-device badges, actual capture settings shown, Windows format hints.
+```
+
+### Task 26.1 — Audio device classification (pure, tested)
+
+```text
+1. New src/audio/deviceClassify.ts: classifyAudioDevice({ label, kind }) → { family: 'vbcable' | 'voicemeeter' |
+   'blackhole' | 'loopback' | 'physical', instance: string | null, side: 'capture' | 'render', busHint?: 'main' |
+   'aux' }. Rules (case-insensitive):
+   - VB-Cable: label contains "VB-Audio Virtual Cable"; instance = the "N-" prefix inside the parentheses ("2-") or
+     null. Capture side is "CABLE Output (...)"; render side may be "CABLE Input (...)" OR "Speakers (...VB-Audio
+     Virtual Cable)" OR "CABLE In 16 Ch (...)".
+   - Voicemeeter: "VB-Audio VoiceMeeter" / "VoiceMeeter"; busHint 'aux' if "Aux" or "AUX VAIO" appears, else 'main'.
+     Typical labels (verify on a real install, do not hard-code full strings): render "VoiceMeeter Input (VB-Audio
+     VoiceMeeter VAIO)", "VoiceMeeter Aux Input (VB-Audio VoiceMeeter AUX VAIO)"; capture "VoiceMeeter Output (...)",
+     "VoiceMeeter Aux Output (...)".
+   - BlackHole: "BlackHole"; Loopback: "Loopback Audio".
+2. sameVirtualGroup(a, b): same family + same instance (+ same busHint for Voicemeeter).
+3. Tests with the owner's real labels (from PowerShell, 2026-10-12): "Speakers (2- VB-Audio Virtual Cable)",
+   "CABLE Output (2- VB-Audio Virtual Cable)", "CABLE Output (VB-Audio Virtual Cable)", "CABLE In 16 Ch (2- VB-Audio
+   Virtual Cable)", plus Voicemeeter/BlackHole examples and a few physical devices ("Realtek ...", "USB Audio Device").
+```
+
+### Task 26.2 — Fix the quality selector and the music profile
+
+```text
+1. audioPrefs.audioQuality: 'normal' | 'high' | 'music' (default normal; migrate from the old music toggle).
+   Room details select and the cockpit music button both read/write it; render the real value (fix clubboxApp.ts
+   745/830 and the 'set-audio-quality' case at ~1606).
+2. agoraVoice.publishBroadcast(profile) instead of (isMusicMode): encoder per level as in Design D; AGC follows the
+   level (false in music) — fixes gap C2. AI denoiser forced off in music. Extras track uses the same encoder.
+3. Changing the level while published republishes once (serialize with musicModeChain); mute state survives the
+   republish (Phase 25.2 muteChain).
+4. Music on stage → persistent "Use headphones — echo cancellation is off" banner in the room (Clubdeck rule).
+5. Measure gap C6 live: phone listens to a stereo L/R test file played via external input in each level; note in the
+   PR whether the mix follows the mic track's encoder. If it does, while External input is active and level is normal,
+   show a one-tap suggestion "Switch to Music for better external audio".
+6. Tests: profile → encoder/AEC/ANS/AGC table test; select round-trip test ('high' stays 'high').
+```
+
+### Task 26.3 — Mixer-as-microphone (Clubdeck way) support
+
+```text
+1. When the selected microphone classifies as virtual (26.1), treat it as a line input: open with AEC/ANS/AGC off,
+   channelCount 2, AI denoiser off, and prompt once: "This looks like a mixer/virtual cable. Switch to Music quality?"
+   (Yes → level music; remember per device id).
+2. In that mode label the mic button "Mix" in the cockpit tooltip: muting mutes the whole mix; soundboard still goes
+   through extras.
+3. If External input is ALSO a virtual device of the same group as the microphone → block with an explanation (double
+   signal / phasing).
+4. Tests: virtual mic → constraints/profile; same-group mic + external → blocked.
+```
+
+### Task 26.4 — Loop (feedback) guard
+
+```text
+Rules (use sameVirtualGroup):
+1. Output device in the same group as the captured microphone or external input → warning in Settings › Audio and in
+   Room details: "Room audio would be sent back into the room". "Monitor external" is disabled in that state.
+2. Voicemeeter: microphone = Voicemeeter main Output (B1) and output = Voicemeeter main Input (VAIO) → warning
+   "Set Clubbox output to VoiceMeeter Aux Input" (vowe.net recipe: AUX must not be on B1). Output on AUX → OK.
+3. VB-Cable: output = "CABLE Input"/"Speakers (N- VB-Audio Virtual Cable)" while capturing "CABLE Output (N- ...)"
+   of the same N → block joining the stage with that combo until changed (listening only is fine).
+4. Tests for each rule.
+```
+
+### Task 26.5 — Setup wizard and device pickers
+
+```text
+1. Settings › Audio › "Music & external audio setup" (and a link next to External input in Room details):
+   step 1 detects devices (26.1) and shows what is installed; step 2 lets the owner pick Setup 1 or Setup 2 (Design
+   D, short description each); step 3 applies the device choices (mic / external / output) and the quality level;
+   step 4 live check: mic meter, external meter, "Play test tone into the room mix" (local-only preview first), loop
+   guard status. Every step can be skipped; nothing is changed until "Apply".
+2. Device pickers everywhere: virtual devices sorted first with a badge ("VB-Cable 2", "Voicemeeter AUX"); a device
+   whose getUserMedia fails gets a red "unavailable" mark and a toast (the owner's broken first VB-Cable instance).
+3. Like Clubdeck 1.7.1: an audio-device shortcut in the top bar (hallway) and in the room, opening the same pane.
+   Re-check devices on navigator.mediaDevices 'devicechange' (Phase 24.4) and toast if the chosen one disappeared
+   ("some systems reset devices").
+4. Replace virtualCableGuideBody (en.ts:335, tr.ts:337) with text that covers both setups; add a docs page
+   docs/product/audio-routing.md (TR + EN) with the two recipes, the Voicemeeter bus table from Design A, and the
+   Windows format tip below.
+```
+
+### Task 26.6 — Capture truth and Windows hints
+
+```text
+1. After every mic/external open, read track.getSettings() and store { channelCount, sampleRate, echoCancellation,
+   noiseSuppression, autoGainControl, label family } (no device ids). Show in Connection status (Task 21.2) and log
+   one line "[Clubbox] capture mic|external ch=2 sr=48000 aec=false ns=false agc=false family=vbcable".
+2. If a virtual device opens with channelCount 1 or sampleRate ≠ 48000 → hint: "Windows Sound › Recording ›
+   CABLE Output › Properties › Advanced: set 2 channel, 48000 Hz" (VB-Audio forum: stereo problems come from this
+   default format). Same hint for the render side.
+3. ASIO: Chromium captures through WASAPI, so ASIO-only mixers do not show up. Help text: use the VB-Audio ASIO
+   bridge (Clubdeck troubleshooting step 6). Do not add native ASIO code.
+```
+
+### Task 26.7 — Owner live test matrix (record results in the PR)
+
+```text
+Setup 1 (owner has VB-Cable "2-" instance):
+  a. Windows Volume mixer: player app output → "Speakers (2- VB-Audio Virtual Cable)"; Clubbox output → headphones.
+  b. Room › External input → "CABLE Output (2- VB-Audio Virtual Cable)"; external meter moves.
+  c. Phone in room: hears music + voice; ducking lowers music while talking; quality per level (normal/high/music).
+  d. Mute mic: music continues; note the phone's mute icon (Phase 25.2).
+  e. Choose the broken "CABLE Output (VB-Audio Virtual Cable)": red mark + toast, no silent failure.
+  f. Set Clubbox output to the cable: loop guard warns/blocks (26.4).
+  g. Record the room: recording contains music.
+Setup 2 (needs Voicemeeter Banana; skip if not installed and say so): follow Design A routing; Clubbox mic =
+  VoiceMeeter Output, output = VoiceMeeter Aux Input; line profile prompt appears; phone hears mix; output on main VAIO
+  triggers the Voicemeeter warning.
+Acceptance (Phase 26): all rows pass or are marked n/a with a reason; unit tests for 26.1-26.4 green; npm test green.
+Sources: clubdeck.app (features + release notes), Clubdeck Reference Manual (clubdeck.app/assets/
+Clubdeck_Reference_Manual.pdf, "Audio settings" + "Audio effects"), vowe.net/2022/01/02/mixing-voice-and-music-for-
+clubdeck-in-software/, VB-Audio VB-CABLE reference manual + forum (stereo format), Agora rtc-sdk_en.d.ts presets.
 ```

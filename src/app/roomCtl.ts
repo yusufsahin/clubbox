@@ -30,6 +30,51 @@ import { popView } from './viewStack.ts';
 
 const CHAT_POLL_MS = 15_000;
 
+/** One in-flight quit/close leave. A later beforeunload shares it so leave_channel is sent once. */
+let roomShutdown: Promise<void> | null = null;
+
+export function resetRoomShutdownForTests(): void {
+  roomShutdown = null;
+}
+
+function notifyRoomPresence(payload: { channel?: string; left?: boolean }): void {
+  if (typeof window === 'undefined') return;
+  electronAPI()?.reportRoomPresence?.(payload);
+}
+
+/**
+ * Quit/close/beforeunload: stop presence first, then Agora leave and leave_channel together.
+ * Suspend stays Agora-only so resume can rejoin the same Clubhouse presence.
+ */
+function shutdownRoom(this: ClubboxApp, reason: string): Promise<void> {
+  if (roomShutdown) return roomShutdown;
+  roomShutdown = performRoomShutdown.call(this, reason);
+  return roomShutdown;
+}
+
+async function performRoomShutdown(this: ClubboxApp, reason: string): Promise<void> {
+  const channel = this.currentChannel;
+  const channelId = channel ? this.channelApiId(channel) : '';
+  console.warn(`[Clubbox] lifecycle shutdown leave reason=${reason}`);
+  this.roomSession = finishLeave(this.roomSession);
+  this.joinInFlight = false;
+  this.stopRoomPresence();
+  audioEngine.stopRecording();
+  audioEngine.armClip(false);
+  audioEngine.stopMicrophone();
+  audioEngine.releaseExternal();
+  const leaves: Array<Promise<unknown>> = [
+    agoraVoice.leave().catch(() => undefined),
+  ];
+  if (channelId && clubhouseClient.supports('leave_channel')) {
+    leaves.push(
+      clubhouseClient.leaveChannel(channelId).catch(() => undefined),
+    );
+  }
+  await Promise.all(leaves);
+  notifyRoomPresence({ left: true });
+}
+
 function reportMicFailure(app: ClubboxApp): void {
   if (audioEngine.lastMicError === 'system') {
     app.showToast(t('micPermissionDenied'), '🔇');
@@ -40,7 +85,7 @@ function reportMicFailure(app: ClubboxApp): void {
 }
 
 
-/** Phase 24.6: main-process quit/close/suspend/resume → leave or rejoin Agora. */
+/** Phase 25.1: quit/close leave Agora and Clubhouse together. Suspend is Agora-only. */
 export async function handleAgoraLifecycle(this: ClubboxApp, reason: string): Promise<void> {
   const why = String(reason || '').toLowerCase();
   if (why === 'resume') {
@@ -50,28 +95,20 @@ export async function handleAgoraLifecycle(this: ClubboxApp, reason: string): Pr
     await this.rejoinAgoraAudio();
     return;
   }
-  // quit / close / suspend: leave Agora promptly (HTTP leave is separate / best-effort).
+  if (why === 'quit' || why === 'close') {
+    await shutdownRoom.call(this, why);
+    return;
+  }
+  // suspend (and anything else): drop Agora only. Resume rejoins the same presence.
   if (agoraVoice.getIsJoined()) {
     console.warn(`[Clubbox] Agora lifecycle leave reason=${why || 'unknown'}`);
     await agoraVoice.leave();
   }
 }
 
-export function handleBeforeUnload(this: ClubboxApp) : void {
-    const channel = this.currentChannel;
-    this.roomSession = finishLeave(this.roomSession);
-    this.joinInFlight = false;
-    this.stopRoomPresence();
-    audioEngine.stopRecording();
-    audioEngine.armClip(false);
-    audioEngine.stopMicrophone();
-    audioEngine.releaseExternal();
-    void agoraVoice.leave();
-    if (!channel || !clubhouseClient.supports('leave_channel')) return;
-    void clubhouseClient.leaveChannel(this.channelApiId(channel)).catch(() => {
-      // Page is going away; the leave request is best-effort.
-    });
-  }
+export function handleBeforeUnload(this: ClubboxApp): Promise<void> {
+  return shutdownRoom.call(this, 'beforeunload');
+}
 
 export function startRoomPresence(this: ClubboxApp, channelId: string) : void {
     this.stopRoomPresence();
@@ -788,6 +825,9 @@ export async function joinRoom(this: ClubboxApp, channelId: string, preset?: CHC
         }
       }
       this.currentChannel = joined;
+      roomShutdown = null;
+      const joinedId = this.channelApiId(joined);
+      if (joinedId) notifyRoomPresence({ channel: joinedId });
       this.pubnubSource.setChannel(joined);
       if (joined.agora_native_mute === true) agoraVoice.setNativeMuteSignalling(true);
       if (joined.is_chat_enabled === false) this.chatOpen = false;
@@ -1040,6 +1080,7 @@ export async function releaseRoomLocally(this: ClubboxApp, options: { skipServer
         this.reportApiError(err);
       }
     }
+    notifyRoomPresence({ left: true });
     this.currentChannel = null;
     this.chatMessages = [];
     this.unreadChat = 0;

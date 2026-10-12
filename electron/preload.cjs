@@ -48,6 +48,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   micAccessStatus: () => ipcRenderer.invoke('clubbox:mic-access-status'),
   openMicrophoneSettings: () => ipcRenderer.invoke('clubbox:open-mic-settings'),
   openAgoraAbRoom: (channel) => ipcRenderer.invoke('clubbox:open-agora-ab-room', { channel }),
+  /** Channel id only — main writes last-room.json and owns the quit-time leave. */
+  reportRoomPresence: (payload) => {
+    const left = !!(payload && payload.left === true);
+    const channel = payload && typeof payload.channel === 'string' ? payload.channel : '';
+    ipcRenderer.send('clubbox:room-presence', { left, channel });
+  },
   /** Phase 24.6: main asks renderer to leave/rejoin Agora (quit/close/suspend/resume). */
   onAgoraLifecycle: (callback) => {
     const listener = (_event, payload) => {
