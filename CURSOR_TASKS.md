@@ -4,26 +4,23 @@ Each task below is a self-contained prompt. Paste one task at a time into Cursor
 
 _Last reviewed: 2026-10-11. “Uygulandı” means the code is in the tree. “Canlı doğrulandı” means it was exercised against the official Clubhouse web session. This pass is implemented; the live room, hand, invite, and chat capture is still outstanding._
 
-### Next run (owner instruction, 2026-10-12 #9)
+### Next run (owner instruction, 2026-10-12 #10)
 
-Owner said `evet` → implement deferred **24.7** AI denoiser.
-- [x] Install `agora-extension-ai-denoiser@2.0.2` + CSP `wasm-unsafe-eval` + Vite copy of WASM
-- [x] Settings › Audio toggle (off by default); pipe enable/disable without republish; music mode forces off
-- [x] i18n en/tr, unit tests, `npm test` + e2e (12) + theme settings shots
-- [x] Commit 24.7; Status idle again (ST-9 `@deferred` only)
+Owner said `devam` after 24.7. Autonomous plan is idle — recheck only:
+- [x] Status table: no open Autonomous-plan task (Phases 12–24 closed)
+- [x] `npm run api:triage` → NO NEW FAILURES
+- [x] Do not build ST-9 Restream (`@deferred`; needs Clubhouse App Certificate)
+- [x] Stop; leave ACC-1 question for owner
 
-### Previous run (owner instruction, 2026-10-12 #8)
+### Previous run (owner instruction, 2026-10-12 #9)
 
-Owner added Phase 23 (live room audio / Agora). Run it in order and respect the decision gate:
-- [x] 23.1–23.5 web path; Phase 24.1–24.6; 24.7 deferred then approved via `evet` (#9)
-- [x] 23.6–23.8 native SDK path deferred unless web regresses
-- [x] Phase 24 UI gate: e2e + `reports/theme/`
+Owner said `evet` → **24.7** AI denoiser shipped (`5afb536`).
 
-### Last autonomous run (2026-10-12 #9 — 24.7)
+### Last autonomous run (2026-10-12 #10 — idle)
 
-- **24.7 done:** Agora AI denoiser installed; Settings toggle; music-mode bypass; WASM ~6 MB copied at build.
-- Tests: unit+BDD green; e2e 12 passed; fresh `reports/theme/*-settings.png`.
-- Status table **idle**. Leftover: ST-9 Restream `@deferred`; ACC-1 wording question.
+- No Status-table work left. Triage clean.
+- Leftover: ST-9 Restream `@deferred`; ACC-1 wording question.
+- Stopped per Hard rule — no open Autonomous-plan task.
 
 ### Questions for the owner
 
