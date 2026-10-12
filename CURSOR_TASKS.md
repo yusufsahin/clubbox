@@ -23,13 +23,13 @@ Owner added Phase 22 (HAL-9 room type chips). Continue from there:
 - [x] Phase 22 — hallway room types (HAL-9): chips, sparse load-more, badges, empty state
 - [x] npm test + e2e + light/dark hallway screenshots; PRD HAL-9 Today; commit; stop
 
-### Last autonomous run (2026-10-12 #phase-24-stop)
+### Last autonomous run (2026-10-12 #idle-recheck)
 
-- Status table idle: Phases 12–22 done; Phase 23 web path done; Phase **24.1–24.6** done; **24.7 STOP** (owner decision).
-- Re-ran `npm test` (unit 209 + BDD 200) and `npm run api:triage` (created 1, promoted 0).
-- Nothing left to implement without breaking a Hard rule or owner gate.
-- Blocked: **24.7** AI denoiser; **23.6+** native SDK (unless web regresses); **ST-9** Restream `@deferred`.
-- Questions for the owner: (1) 24.7 yes/no — (2) ACC-1 wording.
+- Next-run checklist already complete; Status table still **idle**.
+- Triage fixture `join_channel-400` already committed; `reportApiError` already surfaces Clubhouse `error_message` (no further fix needed).
+- Stopped: no open Status-table task without owner gate or `@deferred`.
+- Blocked: **24.7** AI denoiser; **23.6+** native; **ST-9** Restream.
+- Waiting on owner: **24.7 yes/no**, ACC-1 wording.
 
 ### Questions for the owner
 
