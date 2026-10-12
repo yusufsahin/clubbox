@@ -1,0 +1,9 @@
+{
+  "endpoint": "join_channel",
+  "status": 400,
+  "bodyKeys": [
+    "channel"
+  ],
+  "error": "That room is no longer available 👋🏼\nTry starting a new one instead?",
+  "evidence": "observed"
+}
