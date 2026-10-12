@@ -134,6 +134,7 @@ test('mobile host allow-list includes Phase 28.2–28.3 room tools', () => {
     'end_channel',
     'get_channel',
     'get_handraise_queue',
+    'get_moderator_action_history',
     'get_suggested_speakers',
     'hide_channel',
     'invite_speaker',
@@ -144,6 +145,7 @@ test('mobile host allow-list includes Phase 28.2–28.3 room tools', () => {
     'remove_channel_link',
     'save_replay',
     'uninvite_speaker',
+    'update_handraise_queue_setting',
     'update_nsfw_status',
   ]);
 });

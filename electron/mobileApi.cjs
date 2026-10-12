@@ -75,6 +75,8 @@ const ALLOWED_MOBILE_ENDPOINTS = Object.freeze([
   'get_handraise_queue',
   'get_suggested_speakers',
   'update_nsfw_status',
+  'get_moderator_action_history',
+  'update_handraise_queue_setting',
 ]);
 
 const ALLOWED_SET = new Set(ALLOWED_MOBILE_ENDPOINTS);

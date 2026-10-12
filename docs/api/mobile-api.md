@@ -67,6 +67,8 @@ until a Token link is allowed or another observed auth path appears.
 | `disable_replay` | `{ channel }` | 28.3 one-way; `enable_replay` 404 |
 | `get_handraise_queue` / `get_suggested_speakers` | `{ channel }` | 28.3 details queue |
 | `update_nsfw_status` | `{ channel, is_nsfw }` | 28.3 NSFW flag |
+| `get_moderator_action_history` | `{ channel, page_size?, cursor? }` | 28.6 History tab |
+| `update_handraise_queue_setting` | `{ channel, handraise_queue_setting }` | 28.6 Requests queue mode |
 
 IPC: `clubbox:mobile-call`. Evidence: `mobile-spike` in `webApiRoutes.json` (transport ready; **auth blocked**).
 

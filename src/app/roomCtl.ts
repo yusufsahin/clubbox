@@ -17,11 +17,24 @@ import {
 import { mergeRoomDetailFields } from '../api/roomDetailMerge.ts';
 import { mergeRoomState } from '../api/roomStateMerge.ts';
 import { roomSync } from '../api/roomSync.ts';
+import {
+  moderatorActionsFlags,
+  parseModeratorActionHistory,
+  readHandraiseQueueOptions,
+} from '../api/moderatorActions.ts';
 import { moderatorSettingsFlags, usersFromQueuePayload } from '../api/moderatorSettings.ts';
 import { audioEngine } from '../audio/audioEngine.ts';
 import { agoraVoice } from '../audio/agoraVoice.ts';
 import type { CHChannelDetail, CHChatMessage } from '../api/types.ts';
 import { t } from '../i18n/index.ts';
+import {
+  closeModeratorActionsPanel,
+  isModeratorActionsPanelOpen,
+  mountModeratorActionsPanel,
+  refreshModeratorActionsPanel as paintModeratorActionsPanel,
+  type ModeratorActionsPanelState,
+  type ModeratorActionsTab,
+} from '../ui/components/moderatorActionsPanel.ts';
 import { closePingPanel, mountPingPanel, refreshPingPanel } from '../ui/components/pingPanel.ts';
 import { mountSpeakerInvite } from '../ui/components/speakerInvite.ts';
 import { safeUrl } from '../ui/html.ts';
@@ -238,6 +251,7 @@ export function applyRoomUpdate(this: ClubboxApp, detail: CHChannelDetail) : voi
 
     if (this.isProfileDrawerOpen) this.renderProfileDrawer();
     if (this.roomDetailsOpen) this.renderRoomDetails();
+    this.syncModeratorActionsAfterRoomUpdate();
     if (this.selfProfileOpen || this.currentTab !== 'stage') return;
     this.renderStage();
     this.renderCockpit();
@@ -1100,6 +1114,12 @@ export async function releaseRoomLocally(this: ClubboxApp, options: { skipServer
     this.privateVoice = false;
     this.privateLines = [];
     this.closeProfileDrawer();
+    this.closeModeratorActions();
+    this.moderatorQueueUsers = [];
+    this.moderatorHistoryItems = [];
+    this.moderatorHistoryCursor = null;
+    this.handraiseQueueUsers = [];
+    this.suggestedSpeakerUsers = [];
     audioEngine.setRoomHeard(true);
     audioEngine.stopVoiceNote();
     this.roomSession = finishLeave(this.roomSession);
@@ -1424,6 +1444,144 @@ export function canDeleteChatMessages(this: ClubboxApp): boolean {
   ).canDeleteChat;
 }
 
+function moderatorPanelFlags(app: ClubboxApp) {
+  return moderatorActionsFlags(
+    readUserCapabilities(app.currentChannel),
+    (endpoint) => clubhouseClient.supports(endpoint),
+  );
+}
+
+function moderatorPanelState(app: ClubboxApp): ModeratorActionsPanelState {
+  const flags = moderatorPanelFlags(app);
+  const channel = app.currentChannel;
+  return {
+    tab: app.moderatorActionsTab,
+    canRequests: flags.canRequests,
+    canHistory: flags.canHistory,
+    canEditQueueMode: flags.canEditQueueMode,
+    queueOptions: readHandraiseQueueOptions(channel?.handraise_queue_options),
+    queueSetting: typeof channel?.handraise_queue_setting === 'number'
+      ? channel.handraise_queue_setting
+      : null,
+    queueUsers: app.moderatorQueueUsers,
+    history: app.moderatorHistoryItems,
+    historyCursor: app.moderatorHistoryCursor,
+    loading: app.moderatorActionsLoading,
+  };
+}
+
+export function canOpenModeratorActions(this: ClubboxApp): boolean {
+  if (!this.currentChannel || !this.isMeModerator()) return false;
+  return moderatorPanelFlags(this).canOpenPanel;
+}
+
+export function openModeratorActions(this: ClubboxApp): void {
+  if (!this.canOpenModeratorActions()) return;
+  const flags = moderatorPanelFlags(this);
+  if (this.moderatorActionsTab === 'requests' && !flags.canRequests) {
+    this.moderatorActionsTab = flags.canHistory ? 'history' : 'requests';
+  }
+  if (this.moderatorActionsTab === 'history' && !flags.canHistory) {
+    this.moderatorActionsTab = flags.canRequests ? 'requests' : 'history';
+  }
+  this.moderatorActionsOpen = true;
+  mountModeratorActionsPanel(moderatorPanelState(this));
+  void this.reloadModeratorActions({ force: true });
+}
+
+export function closeModeratorActions(this: ClubboxApp): void {
+  this.moderatorActionsOpen = false;
+  this.moderatorActionsLoading = false;
+  closeModeratorActionsPanel();
+}
+
+export function setModeratorActionsTab(this: ClubboxApp, tab: string): void {
+  if (tab !== 'requests' && tab !== 'history') return;
+  const flags = moderatorPanelFlags(this);
+  if (tab === 'requests' && !flags.canRequests) return;
+  if (tab === 'history' && !flags.canHistory) return;
+  this.moderatorActionsTab = tab as ModeratorActionsTab;
+  if (this.moderatorActionsOpen) {
+    paintModeratorActionsPanel(moderatorPanelState(this));
+    void this.reloadModeratorActions({ force: true });
+  }
+}
+
+export async function reloadModeratorActions(
+  this: ClubboxApp,
+  opts: { force?: boolean; appendHistory?: boolean } = {},
+): Promise<void> {
+  if (!this.currentChannel || !this.isMeModerator()) return;
+  if (!this.moderatorActionsOpen && !opts.force) return;
+  if (!isModeratorActionsPanelOpen() && !this.moderatorActionsOpen) return;
+  const flags = moderatorPanelFlags(this);
+  if (!flags.canOpenPanel) {
+    this.closeModeratorActions();
+    return;
+  }
+  const channelId = this.channelApiId(this.currentChannel);
+  this.moderatorActionsLoading = true;
+  if (this.moderatorActionsOpen) paintModeratorActionsPanel(moderatorPanelState(this));
+  try {
+    if (flags.canRequests && this.moderatorActionsTab === 'requests') {
+      const queue = await clubhouseClient.getHandraiseQueue(channelId);
+      this.moderatorQueueUsers = usersFromQueuePayload(queue);
+      this.handraiseQueueUsers = this.moderatorQueueUsers;
+    }
+    if (flags.canHistory && (this.moderatorActionsTab === 'history' || opts.appendHistory)) {
+      const cursor = opts.appendHistory ? (this.moderatorHistoryCursor ?? undefined) : undefined;
+      const raw = await clubhouseClient.getModeratorActionHistory(channelId, { cursor });
+      const parsed = parseModeratorActionHistory(raw);
+      this.moderatorHistoryItems = opts.appendHistory
+        ? [...this.moderatorHistoryItems, ...parsed.items]
+        : parsed.items;
+      this.moderatorHistoryCursor = parsed.nextCursor;
+    }
+  } catch {
+    // Token / network — keep prior lists (same as 28.1/28.3).
+  } finally {
+    this.moderatorActionsLoading = false;
+    if (this.moderatorActionsOpen) paintModeratorActionsPanel(moderatorPanelState(this));
+  }
+}
+
+export async function loadMoreModeratorHistory(this: ClubboxApp): Promise<void> {
+  if (!this.moderatorHistoryCursor) return;
+  await this.reloadModeratorActions({ force: true, appendHistory: true });
+}
+
+export async function setHandraiseQueueSetting(this: ClubboxApp, value: string): Promise<void> {
+  if (!this.currentChannel || !this.isMeModerator()) return;
+  const flags = moderatorPanelFlags(this);
+  if (!flags.canEditQueueMode) return;
+  const setting = Number(value);
+  if (!Number.isFinite(setting)) return;
+  const options = readHandraiseQueueOptions(this.currentChannel.handraise_queue_options);
+  if (options.length > 0 && !options.some((opt) => opt.value === setting)) return;
+  if (!this.allowAction('update_handraise_queue_setting')) return;
+  try {
+    await clubhouseClient.updateHandraiseQueueSetting(this.channelApiId(this.currentChannel), setting);
+    this.currentChannel = { ...this.currentChannel, handraise_queue_setting: setting };
+    roomSync.scheduleAfterHostAction?.();
+    if (this.moderatorActionsOpen) paintModeratorActionsPanel(moderatorPanelState(this));
+    this.renderCockpit();
+  } catch (err) {
+    this.reportApiError(err);
+  }
+}
+
+let moderatorActionsRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** Debounced refresh while the panel is open (28.1 pull + PubNub + post-host-action). */
+export function syncModeratorActionsAfterRoomUpdate(this: ClubboxApp): void {
+  if (!this.moderatorActionsOpen) return;
+  if (moderatorActionsRefreshTimer) clearTimeout(moderatorActionsRefreshTimer);
+  moderatorActionsRefreshTimer = setTimeout(() => {
+    moderatorActionsRefreshTimer = null;
+    void this.reloadModeratorActions({ force: true });
+  }, 1000);
+}
+
 export function wireRoomCtl(proto: ClubboxApp): void {
   proto.handleBeforeUnload = handleBeforeUnload;
   proto.handleAgoraLifecycle = handleAgoraLifecycle;
@@ -1488,4 +1646,12 @@ export function wireRoomCtl(proto: ClubboxApp): void {
   proto.refreshHandraiseQueue = refreshHandraiseQueue;
   proto.deleteChatMessage = deleteChatMessage;
   proto.canDeleteChatMessages = canDeleteChatMessages;
+  proto.canOpenModeratorActions = canOpenModeratorActions;
+  proto.openModeratorActions = openModeratorActions;
+  proto.closeModeratorActions = closeModeratorActions;
+  proto.setModeratorActionsTab = setModeratorActionsTab;
+  proto.reloadModeratorActions = reloadModeratorActions;
+  proto.loadMoreModeratorHistory = loadMoreModeratorHistory;
+  proto.setHandraiseQueueSetting = setHandraiseQueueSetting;
+  proto.syncModeratorActionsAfterRoomUpdate = syncModeratorActionsAfterRoomUpdate;
 }

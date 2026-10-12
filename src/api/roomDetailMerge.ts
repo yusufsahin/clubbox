@@ -21,6 +21,9 @@ export function mergeRoomDetailFields(current: CHChannelDetail, detail: CHChanne
   if (typeof detail.handraise_permission === 'number') {
     current.handraise_permission = detail.handraise_permission;
   }
+  if (Array.isArray(detail.handraise_queue_options)) {
+    current.handraise_queue_options = detail.handraise_queue_options;
+  }
   if (typeof detail.is_social_mode === 'boolean') current.is_social_mode = detail.is_social_mode;
   if (typeof detail.is_private === 'boolean') current.is_private = detail.is_private;
   if (detail.user_capabilities && typeof detail.user_capabilities === 'object') {

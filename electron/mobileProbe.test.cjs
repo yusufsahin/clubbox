@@ -22,7 +22,7 @@ test('probe allow-list is separate from production host-tool allow-list', () => 
   assert.equal(isProbeMobileEndpoint('create_channel_user_poll'), true);
   assert.equal(isProbeMobileEndpoint('update_channel_flags'), true);
   assert.equal(isAllowedMobileEndpoint('get_channel'), true);
-  assert.equal(isAllowedMobileEndpoint('get_moderator_action_history'), false);
+  assert.equal(isAllowedMobileEndpoint('get_moderator_action_history'), true);
   assert.equal(isAllowedMobileEndpoint('get_channel_audience'), false);
   assert.equal(isAllowedMobileEndpoint('mute_speaker'), true);
   assert.ok(PROBE_MOBILE_ENDPOINTS.includes('check_channel_link'));

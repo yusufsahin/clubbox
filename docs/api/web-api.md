@@ -2468,6 +2468,18 @@ App endpoint key: `update_nsfw_status`.
 
 Not observed in a capture yet. No request or response example is included, because none was recorded.
 
+## POST /api/get_moderator_action_history
+
+App endpoint key: `get_moderator_action_history`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
+## POST /api/update_handraise_queue_setting
+
+App endpoint key: `update_handraise_queue_setting`.
+
+Not observed in a capture yet. No request or response example is included, because none was recorded.
+
 ## POST /web_api/get_online_friends
 
 App endpoint key: `get_online_friends`.

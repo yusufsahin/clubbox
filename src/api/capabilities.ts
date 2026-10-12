@@ -88,6 +88,8 @@ const SANDBOX_ENDPOINTS = new Set([
   'get_handraise_queue',
   'get_suggested_speakers',
   'update_nsfw_status',
+  'get_moderator_action_history',
+  'update_handraise_queue_setting',
   'get_profile',
   'get_followers',
   'get_following',
@@ -137,6 +139,8 @@ export const MOBILE_HOST_ENDPOINTS = new Set([
   'get_handraise_queue',
   'get_suggested_speakers',
   'update_nsfw_status',
+  'get_moderator_action_history',
+  'update_handraise_queue_setting',
 ]);
 
 /**

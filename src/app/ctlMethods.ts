@@ -146,6 +146,14 @@ export type ClubboxAppCtlMethods = {
   refreshHandraiseQueue: typeof roomCtl.refreshHandraiseQueue;
   deleteChatMessage: typeof roomCtl.deleteChatMessage;
   canDeleteChatMessages: typeof roomCtl.canDeleteChatMessages;
+  canOpenModeratorActions: typeof roomCtl.canOpenModeratorActions;
+  openModeratorActions: typeof roomCtl.openModeratorActions;
+  closeModeratorActions: typeof roomCtl.closeModeratorActions;
+  setModeratorActionsTab: typeof roomCtl.setModeratorActionsTab;
+  reloadModeratorActions: typeof roomCtl.reloadModeratorActions;
+  loadMoreModeratorHistory: typeof roomCtl.loadMoreModeratorHistory;
+  setHandraiseQueueSetting: typeof roomCtl.setHandraiseQueueSetting;
+  syncModeratorActionsAfterRoomUpdate: typeof roomCtl.syncModeratorActionsAfterRoomUpdate;
   sendChatMessage: typeof roomCtl.sendChatMessage;
   confirmCreateRoom: typeof roomCtl.confirmCreateRoom;
   isAuthGated: typeof settingsCtl.isAuthGated;

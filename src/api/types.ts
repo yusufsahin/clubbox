@@ -69,6 +69,13 @@ export interface CHChannel {
    * 0 = open stage (anyone can speak), 2 = request to join, 1 = invite only.
    */
   handraise_queue_setting?: number;
+  /** Stage access options from create/join (label / sub_label for Moderator actions). */
+  handraise_queue_options?: Array<{
+    value: number;
+    label: string;
+    short_label?: string;
+    sub_label?: string;
+  }>;
   /** Community: 1 = everyone, 2 = friends of speakers (when handraise is on). */
   handraise_permission?: number;
   is_chat_enabled?: boolean;

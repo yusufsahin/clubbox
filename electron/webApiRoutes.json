@@ -460,6 +460,31 @@
       "is_nsfw"
     ]
   },
+  "get_moderator_action_history": {
+    "path": "/api/get_moderator_action_history",
+    "mobilePath": "/get_moderator_action_history",
+    "method": "POST",
+    "evidence": "mobile-spike",
+    "transport": "mobile",
+    "mutation": false,
+    "bodyKeys": [
+      "channel",
+      "cursor",
+      "page_size"
+    ]
+  },
+  "update_handraise_queue_setting": {
+    "path": "/api/update_handraise_queue_setting",
+    "mobilePath": "/update_handraise_queue_setting",
+    "method": "POST",
+    "evidence": "mobile-spike",
+    "transport": "mobile",
+    "mutation": true,
+    "bodyKeys": [
+      "channel",
+      "handraise_queue_setting"
+    ]
+  },
   "get_online_friends": {
     "path": "/web_api/get_online_friends",
     "method": "POST",

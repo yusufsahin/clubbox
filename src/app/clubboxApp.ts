@@ -12,7 +12,9 @@ import {
   roomVisibilitySelectMode,
   stageAccessMode,
 } from '../api/roomControls.ts';
+import type { ModeratorActionItem } from '../api/moderatorActions.ts';
 import { moderatorSettingsFlags } from '../api/moderatorSettings.ts';
+import type { ModeratorActionsTab } from '../ui/components/moderatorActionsPanel.ts';
 import { stageControlFlags } from './roomCtl.ts';
 import { wireAppControllers } from './wireControllers.ts';
 
@@ -88,6 +90,12 @@ export class ClubboxApp {
   pingLoading = false;
   handraiseQueueUsers: CHUser[] = [];
   suggestedSpeakerUsers: CHUser[] = [];
+  moderatorActionsOpen = false;
+  moderatorActionsTab: ModeratorActionsTab = 'requests';
+  moderatorActionsLoading = false;
+  moderatorQueueUsers: CHUser[] = [];
+  moderatorHistoryItems: ModeratorActionItem[] = [];
+  moderatorHistoryCursor: string | null = null;
   currentChannel: CHChannelDetail | null = null;
   channelsList: CHChannel[] = [];
   feedTopics: FeedTopic[] = [];
@@ -1686,6 +1694,7 @@ export class ClubboxApp {
       soundsOpen: this.soundsOpen,
       canReact: flags.canReact,
       canGifReact: flags.canGifReact,
+      canModeratorActions: this.canOpenModeratorActions(),
       overflowOpen: this.roomBarOverflowOpen,
       networkQualityTone: this.networkQualityTone,
       networkQualityTitle: t('networkQualityTitle', {
@@ -1836,6 +1845,10 @@ export class ClubboxApp {
       }
       if (action === 'toggle-room-nsfw' && target instanceof HTMLInputElement) {
         void this.toggleRoomNsfw(target.checked);
+        return;
+      }
+      if (action === 'set-handraise-queue-setting' && target instanceof HTMLSelectElement) {
+        void this.setHandraiseQueueSetting(target.value);
         return;
       }
       if (target.id === 'cfg-ai-noise' && target instanceof HTMLInputElement) {
@@ -2137,6 +2150,20 @@ export class ClubboxApp {
         this.closePingInvitePanel();
         break;
       case 'ping-panel-root':
+        break;
+      case 'open-moderator-actions':
+        this.openModeratorActions();
+        break;
+      case 'close-moderator-actions':
+        this.closeModeratorActions();
+        break;
+      case 'moderator-actions-root':
+        break;
+      case 'moderator-actions-tab':
+        this.setModeratorActionsTab(el.dataset.tab || '');
+        break;
+      case 'load-more-moderator-history':
+        void this.loadMoreModeratorHistory();
         break;
       case 'search-ping':
         void this.searchPingCandidates();

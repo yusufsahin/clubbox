@@ -21,6 +21,7 @@ test('mobile allow-list accepts moderation + Phase 28 room tools', () => {
     'end_channel',
     'get_channel',
     'get_handraise_queue',
+    'get_moderator_action_history',
     'get_suggested_speakers',
     'hide_channel',
     'invite_speaker',
@@ -31,10 +32,12 @@ test('mobile allow-list accepts moderation + Phase 28 room tools', () => {
     'remove_channel_link',
     'save_replay',
     'uninvite_speaker',
+    'update_handraise_queue_setting',
     'update_nsfw_status',
   ]);
   assert.equal(isAllowedMobileEndpoint('mute_speaker'), true);
   assert.equal(isAllowedMobileEndpoint('get_channel'), true);
+  assert.equal(isAllowedMobileEndpoint('get_moderator_action_history'), true);
   assert.equal(isAllowedMobileEndpoint('disable_replay'), true);
   assert.equal(isAllowedMobileEndpoint('get_profile'), false);
   assert.equal(isAllowedMobileEndpoint('me'), false);

@@ -1419,6 +1419,27 @@ export class ClubhouseApiClient {
     return this.call('update_nsfw_status', { channel: channelId, is_nsfw: isNsfw });
   }
 
+  public async getModeratorActionHistory(
+    channelId: string,
+    opts: { cursor?: string; pageSize?: number } = {},
+  ): Promise<Record<string, unknown>> {
+    return this.call('get_moderator_action_history', {
+      channel: channelId,
+      cursor: opts.cursor,
+      page_size: opts.pageSize ?? 50,
+    });
+  }
+
+  public async updateHandraiseQueueSetting(
+    channelId: string,
+    handraiseQueueSetting: number,
+  ): Promise<ApiAck> {
+    return this.call('update_handraise_queue_setting', {
+      channel: channelId,
+      handraise_queue_setting: handraiseQueueSetting,
+    });
+  }
+
   public async makeChannelPublic(channelId: string): Promise<ApiAck> {
     return this.call('make_channel_public', { channel: channelId });
   }

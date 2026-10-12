@@ -212,6 +212,18 @@ const REQUEST_BUILDERS: Partial<Record<string, (params: RequestBody) => RequestB
     channel: requireString(params, 'channel'),
     is_nsfw: params.is_nsfw === true,
   }),
+  get_moderator_action_history: (params) => {
+    const body: Record<string, unknown> = {
+      channel: requireString(params, 'channel'),
+      page_size: typeof params.page_size === 'number' ? params.page_size : 50,
+    };
+    if (typeof params.cursor === 'string' && params.cursor) body.cursor = params.cursor;
+    return body;
+  },
+  update_handraise_queue_setting: (params) => ({
+    channel: requireString(params, 'channel'),
+    handraise_queue_setting: requireNumber(params, 'handraise_queue_setting'),
+  }),
   get_online_friends: () => ({}),
   get_notifications: (params) => ({
     page_size: typeof params.page_size === 'number' ? params.page_size : 20,

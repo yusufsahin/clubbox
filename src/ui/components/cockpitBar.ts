@@ -29,6 +29,8 @@ export interface CockpitState {
   soundsOpen: boolean;
   canReact: boolean;
   canGifReact: boolean;
+  /** Phase 28.6 — Moderator actions (Requests + History). */
+  canModeratorActions?: boolean;
   overflowOpen: boolean;
   networkQualityTone?: 'good' | 'ok' | 'poor' | 'unknown';
   networkQualityTitle?: string;
@@ -156,6 +158,13 @@ export function cockpitBar(state: CockpitState): SafeHtml {
         ` : ''}
 
         ${state.inRoom ? barBtn('details', 'open-room-details', t('details'), 'details') : ''}
+
+        ${state.inRoom && state.canModeratorActions ? barBtn(
+          'moderator-actions',
+          'open-moderator-actions',
+          t('moderatorActions'),
+          'hand',
+        ) : ''}
 
         <button
           class="room-bar-btn room-bar-more"

@@ -34,6 +34,7 @@ interface SandboxInput {
   title?: string;
   isEnabled?: boolean;
   handraisePermission?: number;
+  handraiseQueueSetting?: number;
   highlightId?: string;
   id?: string;
   chunk?: string;
@@ -64,11 +65,18 @@ function readRequestBody(body: RequestBody | undefined): SandboxInput {
     talkUserId: typeof record.talk_user_id === 'number' ? record.talk_user_id : talkFromIds,
     talkUserName: typeof record.talk_user_name === 'string' ? record.talk_user_name : undefined,
     talkUserUsername: typeof record.talk_user_username === 'string' ? record.talk_user_username : undefined,
-    cursor: typeof record.next_cursor === 'string' && record.next_cursor.length > 0 ? record.next_cursor : undefined,
+    cursor: (typeof record.cursor === 'string' && record.cursor.length > 0
+      ? record.cursor
+      : typeof record.next_cursor === 'string' && record.next_cursor.length > 0
+        ? record.next_cursor
+        : undefined),
     socialClubSlug: typeof record.social_club_slug === 'string' ? record.social_club_slug : undefined,
     title: typeof record.title === 'string' ? record.title : undefined,
     isEnabled: typeof record.is_enabled === 'boolean' ? record.is_enabled : undefined,
     handraisePermission: typeof record.handraise_permission === 'number' ? record.handraise_permission : undefined,
+    handraiseQueueSetting: typeof record.handraise_queue_setting === 'number'
+      ? record.handraise_queue_setting
+      : undefined,
     highlightId: typeof record.highlight_id === 'string' ? record.highlight_id : undefined,
     id: typeof record.id === 'string' ? record.id : undefined,
     chunk: typeof record.chunk === 'string' || typeof record.chunk === 'number' ? String(record.chunk) : undefined,
@@ -405,7 +413,7 @@ export class SandboxBackend {
           ? input.audience
           : 'public';
         const privacyType = audience === 'friends-of-friends' ? 'friends_of_friends' : audience;
-        const newChan: CHChannel = {
+        const newChan: CHChannelDetail = {
           channel_id: `ch-${Date.now()}`,
           channel: `room-${Date.now()}`,
           topic: input.topic || 'Untitled Community Stage',
@@ -417,6 +425,17 @@ export class SandboxBackend {
           is_replay_enabled: input.replayEnabled,
           is_chat_enabled: input.chatEnabled,
           is_clips_enabled: false,
+          handraise_queue_setting: 2,
+          handraise_queue_options: [
+            { value: 0, label: 'open stage', short_label: 'open stage', sub_label: 'anyone can speak' },
+            { value: 2, label: 'request to join', short_label: 'request to join', sub_label: 'anyone can request, mods approve' },
+            { value: 1, label: 'invite only', short_label: 'invite only', sub_label: 'only mods can invite to stage' },
+          ],
+          user_capabilities: {
+            can_edit_handraise_queue: true,
+            can_view_moderator_actions_history: true,
+            can_invite: true,
+          },
           num_speakers: 1,
           num_all: 1,
           users: [{
@@ -646,6 +665,40 @@ export class SandboxBackend {
           success: true,
           users: this.currentChannel?.users.filter((u) => !u.is_speaker && !u.is_moderator).slice(0, 5) ?? [],
         } as T;
+
+      case 'get_moderator_action_history':
+        return {
+          success: true,
+          history: [
+            {
+              id: 'sandbox-1',
+              action: 'invite_speaker',
+              actor: { name: 'Host', username: 'host', user_id: 1 },
+              target: { name: 'Guest', username: 'guest', user_id: 2 },
+              time_created: '2026-10-12T12:00:00.000Z',
+            },
+            {
+              id: 'sandbox-2',
+              action: 'custom_unknown_kind',
+              actor: { name: 'Host', username: 'host', user_id: 1 },
+              time_created: '2026-10-12T11:00:00.000Z',
+            },
+          ],
+          next_cursor: typeof input.cursor === 'string' && input.cursor ? null : 'sandbox-page-2',
+        } as T;
+
+      case 'update_handraise_queue_setting': {
+        const channel = this.mockChannels.find((entry) => entry.channel === input.channel)
+          ?? this.currentChannel;
+        const setting = input.handraiseQueueSetting;
+        if (channel && setting !== undefined) {
+          channel.handraise_queue_setting = setting;
+        }
+        if (this.currentChannel && setting !== undefined) {
+          this.currentChannel.handraise_queue_setting = setting;
+        }
+        return { success: true } as T;
+      }
 
       case 'change_handraise_settings': {
         const channel = this.mockChannels.find((entry) => entry.channel === input.channel);
