@@ -155,6 +155,9 @@ export class ClubboxApp {
   pollsPaused = false;
   rateLimitNotices = new Set<string>();
   musicModeChain: Promise<void> = Promise.resolve();
+  /** Voice level to restore when the cockpit music button turns music off. */
+  voiceQualityBeforeMusic: 'normal' | 'high' = 'normal';
+  audioQualityTicket = 0;
   muteChain: Promise<void> = Promise.resolve();
   eventsBound = false;
 
@@ -739,14 +742,13 @@ export class ClubboxApp {
       root.id = 'room-details-root';
       document.querySelector('.studio-main')?.appendChild(root);
     }
-    const music = audioEngine.getIsMusicMode();
     const flags = stageControlFlags(this);
     const mod = this.isMeModerator();
     const speaker = this.isMeSpeaker();
     root.innerHTML = markup(roomDetailsPanel({
       topic: this.currentChannel.topic,
       replaysOn: this.currentChannel.is_replay_enabled !== false,
-      audioQuality: music ? 'music' : 'normal',
+      audioQuality: this.audioPrefs.audioQuality,
       monitorEnabled: audioEngine.getMonitorEnabled(),
       voiceEffect: audioEngine.getBroadcastEffect(),
       voiceEffectOptions: [
@@ -823,7 +825,6 @@ export class ClubboxApp {
     if (!this.roomDetailsOpen || !document.querySelector('[data-external-audio]')) return;
     if (optionsChanged) {
       // Re-paint once with the enumerated list (guarded by optionsChanged).
-      const music = audioEngine.getIsMusicMode();
       const flags = stageControlFlags(this);
       const mod = this.isMeModerator();
       const root = document.getElementById('room-details-root');
@@ -831,7 +832,7 @@ export class ClubboxApp {
       root.innerHTML = markup(roomDetailsPanel({
         topic: this.currentChannel.topic,
         replaysOn: this.currentChannel.is_replay_enabled !== false,
-        audioQuality: music ? 'music' : 'normal',
+        audioQuality: this.audioPrefs.audioQuality,
         monitorEnabled: audioEngine.getMonitorEnabled(),
         voiceEffect: audioEngine.getBroadcastEffect(),
         voiceEffectOptions: [
@@ -889,13 +890,6 @@ export class ClubboxApp {
       this.showToast(t('externalCopyrightReminder'), '©️');
       this.audioPrefs.externalCopyrightSeen = true;
       this.saveAudioPrefs();
-    }
-    if (!audioEngine.getIsMusicMode()) {
-      const offer = window.confirm(t('externalOfferMusic'));
-      if (offer) {
-        await audioEngine.toggleMusicMode();
-        this.showToast(t('musicHeadphones'), '🎧');
-      }
     }
     const ok = await audioEngine.startExternal(deviceId);
     if (!ok) {
@@ -1228,7 +1222,13 @@ export class ClubboxApp {
 
   renderStageView(): ReturnType<typeof html> {
     if (!this.currentChannel) return emptyStageView();
-    return stageView(this.stageColumn(), this.chatList(), this.chatOpen && this.currentChannel.is_chat_enabled !== false);
+    const headphones = this.isMeSpeaker() && this.audioPrefs.audioQuality === 'music';
+    return stageView(
+      this.stageColumn(),
+      this.chatList(),
+      this.chatOpen && this.currentChannel.is_chat_enabled !== false,
+      headphones,
+    );
   }
 
   stageColumn(): ReturnType<typeof html> {
@@ -1302,6 +1302,7 @@ export class ClubboxApp {
     const flags = stageControlFlags(this);
     return cockpitBar({
       muted: audioEngine.getIsMuted(),
+      musicMode: this.audioPrefs.audioQuality === 'music',
       recording: audioEngine.getIsRecording(),
       handRaised: clubhouseClient.isHandRaised(),
       handDisabled: !this.currentChannel || this.isMeSpeaker() || stageAccessMode(this.currentChannel) !== 'raise',
@@ -1608,13 +1609,10 @@ export class ClubboxApp {
         this.render();
         break;
       case 'set-audio-quality': {
-        const quality = (el as HTMLSelectElement).value;
-        if (quality === 'music') {
-          if (!audioEngine.getIsMusicMode()) this.toggleMusicMode();
-        } else if (audioEngine.getIsMusicMode()) {
-          this.toggleMusicMode();
+        const quality = el instanceof HTMLSelectElement ? el.value : el.getAttribute('data-quality');
+        if (quality === 'normal' || quality === 'high' || quality === 'music') {
+          this.setAudioQuality(quality);
         }
-        this.render();
         break;
       }
       case 'preview-sound': {

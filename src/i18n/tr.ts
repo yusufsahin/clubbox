@@ -203,6 +203,8 @@ export const tr: Record<MessageKey, string> = {
   audioNormal: 'Normal',
   audioHigh: 'Yüksek',
   audioMusic: 'Müzik',
+  switchToMusicExternal: 'Dış ses için Müzik kalitesine geç',
+  musicHeadphonesBanner: 'Kulaklık kullanın — yankı engelleme kapalı',
   muteAllSpeakers: 'Diğer tüm konuşmacıları sustur',
   learnMore: 'Daha fazla bilgi',
   searchAudience: 'Dinleyici ara',

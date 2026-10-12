@@ -914,7 +914,7 @@ export async function joinRoom(this: ClubboxApp, channelId: string, preset?: CHC
       // Host may have joined while mic was still denied — retry publish once.
       // Do not agoraVoice.setMuted() after publish — that was the regression (enabled=false).
       if (this.isMeSpeaker() && agoraVoice.getIsJoined()) {
-        const published = await agoraVoice.ensurePublished(audioEngine.getIsMusicMode());
+        const published = await agoraVoice.ensurePublished(audioEngine.getAudioQuality());
         if (!published) reportMicFailure(this);
       }
       this.renderCockpit();
@@ -1039,7 +1039,7 @@ export async function connectRoomAudio(this: ClubboxApp, generation: number) : P
       this.currentChannel.channel,
       this.currentChannel.token,
       agoraUid,
-      { isSpeaker: this.isMeSpeaker(), isMusicMode: audioEngine.getIsMusicMode() }
+      { isSpeaker: this.isMeSpeaker(), quality: audioEngine.getAudioQuality() }
     );
     if (this.roomSession.generation !== generation) {
       await agoraVoice.leave();

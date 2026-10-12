@@ -1,5 +1,6 @@
 import { applySelfMute, chainLatestMute } from '../api/remoteMute.ts';
 import { audioEngine } from '../audio/audioEngine.ts';
+import type { AudioQuality } from '../audio/audioQuality.ts';
 import { writeAudioPrefs } from '../audio/audioPrefs.ts';
 import { eventToAccelerator, normalizeShortcuts, writeShortcuts, type ShortcutAction, type ShortcutMap } from '../shortcuts.ts';
 import { adjustZoomPercent, readAppPrefs, writeAppPrefs, zoomFactorFromPercent } from './appPrefs.ts';
@@ -262,7 +263,7 @@ export function queueMuteSync(this: ClubboxApp): Promise<void> {
       async (muted) => {
         await agoraVoice.setMuted(muted);
         if (muted || !agoraVoice.getIsJoined() || !agoraVoice.getIsSpeaker()) return;
-        const ok = await agoraVoice.ensurePublished(audioEngine.getIsMusicMode());
+        const ok = await agoraVoice.ensurePublished(audioEngine.getAudioQuality());
         if (audioEngine.getIsMuted()) return;
         if (!ok) {
           if (audioEngine.lastMicError === 'system') {
@@ -295,24 +296,46 @@ export function syncSelfMuteFromEngine(this: ClubboxApp): void {
   }
 
 export function toggleMusicMode(this: ClubboxApp) : void {
-    this.musicModeChain = this.musicModeChain.then(() => this.applyMusicMode()).catch((err) => {
-      this.reportApiError(err);
-    });
+    const next = this.audioPrefs.audioQuality === 'music' ? this.voiceQualityBeforeMusic : 'music';
+    this.setAudioQuality(next);
   }
 
-export async function applyMusicMode(this: ClubboxApp) : Promise<void> {
-    await audioEngine.toggleMusicMode();
-    if (agoraVoice.getIsJoined() && agoraVoice.getIsSpeaker()) {
-      await agoraVoice.republish(audioEngine.getIsMusicMode());
+export function setAudioQuality(this: ClubboxApp, quality: AudioQuality) : void {
+    if (quality !== 'normal' && quality !== 'high' && quality !== 'music') return;
+    if (quality === this.audioPrefs.audioQuality) return;
+    if (quality === 'music') {
+      const previous = this.audioPrefs.audioQuality;
+      if (previous === 'normal' || previous === 'high') this.voiceQualityBeforeMusic = previous;
     }
-    const isMusic = audioEngine.getIsMusicMode();
-    const btn = document.getElementById('music-mode-btn');
-    if (btn) btn.classList.toggle('active', isMusic);
-    this.showToast(
-      isMusic ? t('musicOn') : t('musicOff'),
-      isMusic ? '🎵' : '🎙️',
-    );
-    if (isMusic) this.showToast(t('musicHeadphones'), '🎧');
+    const enteringMusic = quality === 'music';
+    const leavingMusic = this.audioPrefs.audioQuality === 'music';
+    this.audioPrefs.audioQuality = quality;
+    this.saveAudioPrefs();
+    audioEngine.setAudioQuality(quality);
+    this.applyMusicMode();
+    this.render();
+    if (enteringMusic) this.showToast(t('musicOn'), '🎵');
+    else if (leavingMusic) this.showToast(t('musicOff'), '🎙️');
+  }
+
+/** Republish once for the latest level. A newer change skips an in-flight ticket. */
+export function applyMusicMode(this: ClubboxApp) : void {
+    const ticket = ++this.audioQualityTicket;
+    this.musicModeChain = this.musicModeChain.then(async () => {
+      if (ticket !== this.audioQualityTicket) return;
+      const quality = this.audioPrefs.audioQuality;
+      audioEngine.setAudioQuality(quality);
+      if (agoraVoice.getIsJoined() && agoraVoice.getIsSpeaker()) {
+        await agoraVoice.republish(quality);
+        await this.queueMuteSync();
+      } else {
+        await audioEngine.restartMicrophone();
+      }
+      const btn = document.getElementById('music-mode-btn');
+      if (btn) btn.classList.toggle('is-active', quality === 'music');
+    }).catch((err) => {
+      console.warn('[Clubbox] audio quality apply failed:', err instanceof Error ? err.message : 'failed');
+    });
   }
 
 export function applyAudioPrefs(this: ClubboxApp) : void {
@@ -327,6 +350,7 @@ export function applyAudioPrefs(this: ClubboxApp) : void {
     audioEngine.setExternalMonitor(this.audioPrefs.externalMonitor === true);
     audioEngine.setExternalDuckEnabled(this.audioPrefs.externalDuck !== false);
     audioEngine.setExternalDuckDb(this.audioPrefs.externalDuckDb ?? -12);
+    audioEngine.setAudioQuality(this.audioPrefs.audioQuality);
     void agoraVoice.setAiNoiseSuppression(this.audioPrefs.aiNoiseSuppression === true);
     for (const [uid, volume] of Object.entries(this.audioPrefs.remoteVolumes)) {
       audioEngine.setRemoteVolume(uid, volume);
@@ -454,6 +478,7 @@ export function wireStudioCtl(proto: ClubboxApp): void {
   proto.queueMuteSync = queueMuteSync;
   proto.syncSelfMuteFromEngine = syncSelfMuteFromEngine;
   proto.toggleMusicMode = toggleMusicMode;
+  proto.setAudioQuality = setAudioQuality;
   proto.applyMusicMode = applyMusicMode;
   proto.applyAudioPrefs = applyAudioPrefs;
   proto.saveAudioPrefs = saveAudioPrefs;

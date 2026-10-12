@@ -171,6 +171,7 @@ export type ClubboxAppCtlMethods = {
   queueMuteSync: typeof studioCtl.queueMuteSync;
   syncSelfMuteFromEngine: typeof studioCtl.syncSelfMuteFromEngine;
   toggleMusicMode: typeof studioCtl.toggleMusicMode;
+  setAudioQuality: typeof studioCtl.setAudioQuality;
   applyMusicMode: typeof studioCtl.applyMusicMode;
   applyAudioPrefs: typeof studioCtl.applyAudioPrefs;
   saveAudioPrefs: typeof studioCtl.saveAudioPrefs;

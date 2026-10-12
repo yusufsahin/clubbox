@@ -47,10 +47,18 @@ export function emptyStageView(): SafeHtml {
   `;
 }
 
-export function stageView(column: SafeHtml, messages: SafeHtml, chatOpen: boolean): SafeHtml {
+export function stageView(
+  column: SafeHtml,
+  messages: SafeHtml,
+  chatOpen: boolean,
+  headphonesBanner = false,
+): SafeHtml {
   return html`
     <div class="stage-main-wrapper">
       <div id="realtime-banner" hidden class="rec-banner" style="margin: 0 0 8px;">${t('realtimeReconnecting')}</div>
+      ${headphonesBanner ? html`
+        <div class="rec-banner" data-headphones-banner>${t('musicHeadphonesBanner')}</div>
+      ` : ''}
       <div class="stage-content-col" id="stage-column">
         ${column}
       </div>

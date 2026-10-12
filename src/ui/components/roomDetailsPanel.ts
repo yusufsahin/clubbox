@@ -93,6 +93,11 @@ export function roomDetailsPanel(state: RoomDetailsState): SafeHtml {
                 <option value="${device.id}" ${state.externalDeviceId === device.id ? 'selected' : ''}>${device.label}</option>
               `)}
             </select>
+            ${state.audioQuality === 'normal' && state.externalActive ? html`
+              <button class="btn btn-secondary" type="button" data-action="set-audio-quality" data-quality="music">
+                ${t('switchToMusicExternal')}
+              </button>
+            ` : ''}
             ${!state.systemAudioAvailable && state.systemAudioBlockedReason ? html`
               <p class="list-note" data-external-system-hint>${state.systemAudioBlockedReason}</p>
             ` : ''}

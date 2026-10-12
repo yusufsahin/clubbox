@@ -1,4 +1,5 @@
 import type { SoundEffectItem } from '../api/types';
+import { type AudioQuality } from './audioQuality';
 import { createVoiceEffectChain, panForUid, type EffectChain } from './effectChain';
 import { externalInputConstraints, SYSTEM_AUDIO_DEVICE_ID } from './externalConstraints';
 import {
@@ -76,6 +77,7 @@ export class AudioEngine {
   private remoteVolumes = new Map<string, number>();
   private isMuted: boolean = true;
   private isMusicMode: boolean = false;
+  private audioQuality: AudioQuality = 'normal';
   private monitorEnabled: boolean = false;
   private isRecording: boolean = false;
   private simulateMeterOnFailure = false;
@@ -180,7 +182,7 @@ export class AudioEngine {
   }
 
   private micConstraintBase(): MediaTrackConstraints {
-    return this.isMusicMode
+    return this.audioQuality === 'music'
       ? {
           echoCancellation: false,
           noiseSuppression: false,
@@ -335,14 +337,23 @@ export class AudioEngine {
     return this.isMuted;
   }
 
+  public setAudioQuality(quality: AudioQuality): void {
+    this.audioQuality = quality;
+    this.isMusicMode = quality === 'music';
+  }
+
+  public getAudioQuality(): AudioQuality {
+    return this.audioQuality;
+  }
+
   public async toggleMusicMode(): Promise<boolean> {
-    this.isMusicMode = !this.isMusicMode;
+    this.setAudioQuality(this.audioQuality === 'music' ? 'normal' : 'music');
     await this.restartMicrophone();
     return this.isMusicMode;
   }
 
   public getIsMusicMode(): boolean {
-    return this.isMusicMode;
+    return this.audioQuality === 'music';
   }
 
   public setMonitorEnabled(enabled: boolean): void {

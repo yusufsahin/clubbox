@@ -1,3 +1,5 @@
+import { isAudioQuality, type AudioQuality } from './audioQuality';
+
 const AUDIO_PREFS_KEY = 'clubbox_audio';
 
 export type StoredVoiceEffect = 'none' | 'radio' | 'deep' | 'robot' | 'echo';
@@ -18,6 +20,8 @@ export interface AudioPrefs {
   externalCopyrightSeen: boolean;
   /** Agora AI noise suppression (Phase 24.7); off by default; forced off in music mode. */
   aiNoiseSuppression: boolean;
+  /** Design D level. Replaces the old music-mode boolean. */
+  audioQuality: AudioQuality;
 }
 
 const DEFAULT_PREFS: AudioPrefs = {
@@ -35,7 +39,18 @@ const DEFAULT_PREFS: AudioPrefs = {
   externalDuckDb: -12,
   externalCopyrightSeen: false,
   aiNoiseSuppression: false,
+  audioQuality: 'normal',
 };
+
+function readAudioQuality(parsed: {
+  audioQuality?: unknown;
+  musicMode?: unknown;
+  isMusicMode?: unknown;
+}): AudioQuality {
+  if (isAudioQuality(parsed.audioQuality)) return parsed.audioQuality;
+  if (parsed.musicMode === true || parsed.isMusicMode === true) return 'music';
+  return 'normal';
+}
 
 function readVoiceEffect(value: unknown): StoredVoiceEffect {
   if (value === 'radio' || value === 'deep' || value === 'robot' || value === 'echo' || value === 'none') {
@@ -60,7 +75,10 @@ export function readAudioPrefs(): AudioPrefs {
   try {
     const raw = localStorage.getItem(AUDIO_PREFS_KEY);
     if (!raw) return { ...DEFAULT_PREFS, remoteVolumes: {} };
-    const parsed = JSON.parse(raw) as Partial<AudioPrefs>;
+    const parsed = JSON.parse(raw) as Partial<AudioPrefs> & {
+      musicMode?: unknown;
+      isMusicMode?: unknown;
+    };
     const remoteVolumes: Record<string, number> = {};
     if (parsed.remoteVolumes && typeof parsed.remoteVolumes === 'object') {
       for (const [uid, volume] of Object.entries(parsed.remoteVolumes)) {
@@ -82,6 +100,7 @@ export function readAudioPrefs(): AudioPrefs {
       externalDuckDb: clampDuckDb(parsed.externalDuckDb ?? DEFAULT_PREFS.externalDuckDb),
       externalCopyrightSeen: parsed.externalCopyrightSeen === true,
       aiNoiseSuppression: parsed.aiNoiseSuppression === true,
+      audioQuality: readAudioQuality(parsed),
     };
   } catch {
     return { ...DEFAULT_PREFS, remoteVolumes: {} };

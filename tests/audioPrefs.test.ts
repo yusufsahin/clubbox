@@ -44,6 +44,7 @@ test('audioPrefs round-trips applied voice effect and spatial flag', () => {
     externalDuckDb: -12,
     externalCopyrightSeen: true,
     aiNoiseSuppression: true,
+    audioQuality: 'normal',
   };
   writeAudioPrefs(prefs);
   const next = readAudioPrefs();
@@ -63,4 +64,15 @@ test('audioPrefs defaults aiNoiseSuppression to off', () => {
   localStorage.setItem('clubbox_audio', JSON.stringify({ micVolume: 0.5 }));
   const next = readAudioPrefs();
   assert.equal(next.aiNoiseSuppression, false);
+  assert.equal(next.audioQuality, 'normal');
+});
+
+test('audioPrefs keeps High and migrates the old music toggle', () => {
+  installMemoryStorage();
+  writeAudioPrefs({ ...readAudioPrefs(), audioQuality: 'high' });
+  assert.equal(readAudioPrefs().audioQuality, 'high');
+  localStorage.setItem('clubbox_audio', JSON.stringify({ musicMode: true }));
+  assert.equal(readAudioPrefs().audioQuality, 'music');
+  localStorage.setItem('clubbox_audio', JSON.stringify({ audioQuality: 'ultra' }));
+  assert.equal(readAudioPrefs().audioQuality, 'normal');
 });

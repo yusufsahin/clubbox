@@ -8,6 +8,7 @@ import type {
 } from 'agora-rtc-sdk-ng';
 
 type AgoraSdk = typeof import('agora-rtc-sdk-ng').default;
+import { audioPublishProfile, type AudioQuality } from './audioQuality';
 import { audioEngine } from './audioEngine';
 import { clubhouseClient } from '../api/client';
 import { muteFromAgoraEvent } from '../api/remoteMute';
@@ -36,7 +37,7 @@ import {
 
 export interface AgoraJoinOptions {
   isSpeaker: boolean;
-  isMusicMode: boolean;
+  quality: AudioQuality;
 }
 
 export type RemoteMuteReport = { uid: string | number; muted: boolean };
@@ -513,7 +514,7 @@ export class AgoraVoiceEngine {
 
       if (options.isSpeaker) {
         try {
-          await this.publishBroadcast(options.isMusicMode);
+          await this.publishBroadcast(options.quality);
         } catch (publishErr) {
           console.warn('[AgoraRTC] Host join ok but publish failed:', this.formatAgoraError(publishErr));
           void this.logAgora('agora_publish', false, params.appIdSource, 'MICROPHONE_UNAVAILABLE');
@@ -548,11 +549,11 @@ export class AgoraVoiceEngine {
   }
 
   /** Ensure mic is open and published (unmute / retry). */
-  public async ensurePublished(isMusicMode: boolean): Promise<boolean> {
+  public async ensurePublished(quality: AudioQuality): Promise<boolean> {
     if (!this.client || !this.isJoined || !this.isSpeaker) return false;
     if (this.localAudioTrack) return true;
     try {
-      await this.publishBroadcast(isMusicMode);
+      await this.publishBroadcast(quality);
       return true;
     } catch (err) {
       console.warn('[AgoraRTC] ensurePublished failed:', this.formatAgoraError(err));
@@ -585,7 +586,7 @@ export class AgoraVoiceEngine {
       if (this.isSpeaker) {
         if (!this.localAudioTrack) {
           try {
-            await this.publishBroadcast(audioEngine.getIsMusicMode());
+            await this.publishBroadcast(audioEngine.getAudioQuality());
           } catch (err) {
             console.warn('[AgoraRTC] Promote republish failed:', err);
             return false;
@@ -597,7 +598,7 @@ export class AgoraVoiceEngine {
       try {
         await this.client.setClientRole('host');
         this.isSpeaker = true;
-        await this.publishBroadcast(audioEngine.getIsMusicMode());
+        await this.publishBroadcast(audioEngine.getAudioQuality());
         await this.setMuted(audioEngine.getIsMuted());
         return true;
       } catch (err) {
@@ -615,13 +616,13 @@ export class AgoraVoiceEngine {
     this.isSpeaker = false;
   }
 
-  public async republish(isMusicMode: boolean): Promise<void> {
+  public async republish(quality: AudioQuality): Promise<void> {
     if (!this.client || !this.isJoined || !this.isSpeaker) return;
     await this.unpublishLocal();
-    await this.publishBroadcast(isMusicMode);
+    await this.publishBroadcast(quality);
   }
 
-  private async publishBroadcast(isMusicMode: boolean): Promise<void> {
+  private async publishBroadcast(quality: AudioQuality): Promise<void> {
     if (!this.client) return;
     const AgoraRTC = await this.loadSdk();
 
@@ -637,24 +638,24 @@ export class AgoraVoiceEngine {
     audioEngine.ensureAudioContext();
     audioEngine.refreshBroadcastDestination();
 
-    const encoderConfig = isMusicMode ? 'high_quality_stereo' : 'speech_standard';
+    const profile = audioPublishProfile(quality);
     const micId = audioEngine.getInputDeviceId() || undefined;
     try {
       this.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack({
         microphoneId: micId,
-        encoderConfig,
-        AEC: !isMusicMode,
-        ANS: !isMusicMode,
-        AGC: true,
+        encoderConfig: profile.encoder,
+        AEC: profile.aec,
+        ANS: profile.ans,
+        AGC: profile.agc,
       });
     } catch (firstErr) {
       if (!micId) throw firstErr;
       console.warn('[AgoraRTC] preferred mic failed — retrying default:', firstErr);
       this.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack({
-        encoderConfig,
-        AEC: !isMusicMode,
-        ANS: !isMusicMode,
-        AGC: true,
+        encoderConfig: profile.encoder,
+        AEC: profile.aec,
+        ANS: profile.ans,
+        AGC: profile.agc,
       });
     }
 
@@ -662,7 +663,7 @@ export class AgoraVoiceEngine {
     audioEngine.adoptMicrophoneTrack(this.localAudioTrack.getMediaStreamTrack());
 
     // Phase 24.7: AI denoiser pipe (no republish to toggle; music mode forces off).
-    await syncAiDenoiserOnTrack(AgoraRTC, this.localAudioTrack, isMusicMode);
+    await syncAiDenoiserOnTrack(AgoraRTC, this.localAudioTrack, !profile.aiDenoiserAllowed);
 
     // Phase 24.1: second track = soundboard + external (+ effected voice when FX applied).
     // Voice effects: SDK localAudioTrack.pipe(processor) exists, but Clubbox FX are Web Audio
@@ -675,7 +676,7 @@ export class AgoraVoiceEngine {
       if (!this.publishedExtrasClone.enabled) this.publishedExtrasClone.enabled = true;
       this.extrasAudioTrack = AgoraRTC.createCustomAudioTrack({
         mediaStreamTrack: this.publishedExtrasClone,
-        encoderConfig: isMusicMode ? 'high_quality_stereo' : 'music_standard',
+        encoderConfig: profile.encoder,
       });
       toPublish.push(this.extrasAudioTrack);
     } else {
@@ -686,6 +687,8 @@ export class AgoraVoiceEngine {
     const media = this.localAudioTrack.getMediaStreamTrack();
     console.log(
       '[AgoraRTC] published mic+extras',
+      `quality=${profile.quality}`,
+      `agc=${String(profile.agc)}`,
       `tracks=${toPublish.length}`,
       `mic readyState=${media.readyState}`,
       `enabled=${media.enabled}`,

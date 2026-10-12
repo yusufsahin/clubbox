@@ -200,6 +200,8 @@ export const en = {
   audioNormal: 'Normal',
   audioHigh: 'High',
   audioMusic: 'Music',
+  switchToMusicExternal: 'Switch to Music for better external audio',
+  musicHeadphonesBanner: 'Use headphones — echo cancellation is off',
   muteAllSpeakers: 'Mute all other speakers',
   learnMore: 'Learn more',
   searchAudience: 'Search the audience',
