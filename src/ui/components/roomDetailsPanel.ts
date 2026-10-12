@@ -20,8 +20,9 @@ export type RoomDetailsState = {
   canEnd: boolean;
   canChangeVisibility: boolean;
   canHandraise: boolean;
-  visibilityMode: 'open' | 'social';
+  visibilityMode: 'open' | 'social' | 'other';
   handraiseMode: 'off' | '1' | '2';
+  audienceSearch: string;
   helpUrl: string;
   /** Show External audio controls only while the user is a speaker. */
   showExternalAudio: boolean;
@@ -187,7 +188,13 @@ export function roomDetailsPanel(state: RoomDetailsState): SafeHtml {
 
       <section class="room-details-card" data-details-section="audience">
         <label class="form-label" for="audience-search-details">${t('searchAudience')}</label>
-        <input class="form-input" id="audience-search-details" type="search" placeholder="${t('searchAudience')}" />
+        <input
+          class="form-input"
+          id="audience-search-details"
+          type="search"
+          value="${state.audienceSearch}"
+          placeholder="${t('searchAudience')}"
+        />
       </section>
     </aside>
   `;

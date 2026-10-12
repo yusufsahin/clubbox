@@ -84,4 +84,4 @@ Do not add DNS workarounds, host-resolver rules, or a bare-IP gateway. Those wer
 
 ## Seen live (handled 2026-10-12)
 
-The triage “not handled” list was closed by mapping the live action names above. Re-open a bullet here only for a new unknown `action`.
+The triage “not handled” list was closed by mapping the live action names above. `api:triage` skips actions already handled in `parseRealtimeMessage`. Re-open a bullet under “Seen live, not handled” only for a new unknown `action`.

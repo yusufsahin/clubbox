@@ -100,8 +100,32 @@ export function triage(options = {}) {
   const promoted = [];
   const pubnubNotes = [];
 
+  // Keep in sync with parseRealtimeMessage in src/api/realtimeEvents.ts.
+  const HANDLED_PUBNUB = new Set([
+    'join_channel',
+    'leave_channel',
+    'remove_from_channel',
+    'raise_hands',
+    'unraise_hands',
+    'add_speaker',
+    'remove_speaker',
+    'make_moderator',
+    'invite_speaker',
+    'end_channel',
+    'channel_message',
+    'new_channel_message',
+    'channel_reaction',
+    'new_channel_reaction',
+    'change_handraise_settings',
+    'update_user_capabilities',
+    'cumulative_count_update',
+    'update_speaker_call_status',
+  ]);
+
   for (const [, record] of failures) {
     if (record.kind === 'pubnub-unknown') {
+      const action = String(record.endpoint || record.type || 'unknown').trim().toLowerCase();
+      if (HANDLED_PUBNUB.has(action)) continue;
       const line = `- \`${record.endpoint || record.type || 'unknown'}\` keys: ${(record.bodyKeys || []).join(', ')}`;
       const current = existsSync(realtimePath) ? readFileSync(realtimePath, 'utf8') : '';
       if (!current.includes('## Seen live, not handled')) {

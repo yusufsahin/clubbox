@@ -86,3 +86,21 @@ export function stageAccessMode(channel: {
   if (channel.is_handraise_enabled === true) return 'raise';
   return 'open';
 }
+
+/** Room details / stage moderation selects — keep both surfaces on the same values. */
+export function roomHandraiseSelectMode(channel: {
+  is_handraise_enabled?: boolean;
+  handraise_permission?: number;
+} | null | undefined): 'off' | '1' | '2' {
+  if (!channel || channel.is_handraise_enabled === false) return 'off';
+  return channel.handraise_permission === 2 ? '2' : '1';
+}
+
+export function roomVisibilitySelectMode(channel: {
+  is_private?: boolean;
+  is_social_mode?: boolean;
+} | null | undefined): 'open' | 'social' | 'other' {
+  if (!channel) return 'open';
+  if (channel.is_private) return 'other';
+  return channel.is_social_mode ? 'social' : 'open';
+}

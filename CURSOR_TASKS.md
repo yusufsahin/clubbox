@@ -17,10 +17,10 @@ Owner reported: triage noise, new-room participants invisible, moderation action
 
 Idle recheck after 24.7.
 
-### Last autonomous run (2026-10-12 — PubNub live actions)
+### Last autonomous run (2026-10-12 — room update merge + details UX)
 
-- Idle recheck: triage `NO NEW FAILURES`. Closed realtime.md “Seen live, not handled” by mapping `new_channel_message` / `new_channel_reaction`, `change_handraise_settings`, `update_user_capabilities`, `cumulative_count_update`; `update_speaker_call_status` quiet noop.
-- Prior: audio UX harden (`applyMicDevice`) + triage promotions.
+- PubNub `channel_patch` now lands in app state (`mergeRoomDetailFields`: handraise, capabilities, counts); Details re-renders; handraise/visibility selects share stage helpers; Details audience search syncs with stage.
+- Triage skips already-handled PubNub actions; cleared stale “not handled” list in `realtime.md`.
 - **Blocked / owner:** Phase 26.7 live matrix. ST-9 `@deferred`. ACC-1 wording open.
 
 ### Previous last autonomous run (2026-10-12 — host mute/move/block)

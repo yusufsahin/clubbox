@@ -5,7 +5,7 @@ import { conversationKind } from '../api/roomActions';
 import { talkPartners, type PeopleListKind } from '../api/relationship';
 import type { ClubboxAppCtlMethods } from './ctlMethods.ts';
 import { electronAPI } from './electronApi.ts';
-import { stageAccessMode } from '../api/roomControls.ts';
+import { roomHandraiseSelectMode, roomVisibilitySelectMode, stageAccessMode } from '../api/roomControls.ts';
 import { stageControlFlags } from './roomCtl.ts';
 import { wireAppControllers } from './wireControllers.ts';
 
@@ -792,8 +792,9 @@ export class ClubboxApp {
       canEnd: mod && flags.canEnd,
       canChangeVisibility: mod && flags.canChangeVisibility,
       canHandraise: mod && flags.canHandraise,
-      visibilityMode: 'open',
-      handraiseMode: this.currentChannel.is_handraise_enabled === false ? 'off' : '1',
+      visibilityMode: roomVisibilitySelectMode(this.currentChannel),
+      handraiseMode: roomHandraiseSelectMode(this.currentChannel),
+      audienceSearch: this.audienceSearchQuery,
       helpUrl: 'https://support.clubhouse.com/hc/en-us/articles/360059385913',
       showExternalAudio: speaker,
       externalDevices: this.externalInputOptions,
@@ -888,8 +889,9 @@ export class ClubboxApp {
         canEnd: mod && flags.canEnd,
         canChangeVisibility: mod && flags.canChangeVisibility,
         canHandraise: mod && flags.canHandraise,
-        visibilityMode: 'open',
-        handraiseMode: this.currentChannel.is_handraise_enabled === false ? 'off' : '1',
+        visibilityMode: roomVisibilitySelectMode(this.currentChannel),
+        handraiseMode: roomHandraiseSelectMode(this.currentChannel),
+        audienceSearch: this.audienceSearchQuery,
         helpUrl: 'https://support.clubhouse.com/hc/en-us/articles/360059385913',
         showExternalAudio: true,
         externalDevices: this.externalInputOptions,
@@ -1537,14 +1539,8 @@ export class ClubboxApp {
   stageColumn(): ReturnType<typeof html> {
     if (!this.currentChannel) return html``;
     const controls = stageControlFlags(this);
-    const handraiseOn = this.currentChannel.is_handraise_enabled !== false;
-    const permission = this.currentChannel.handraise_permission;
-    const handraiseMode: 'off' | '1' | '2' = !handraiseOn
-      ? 'off'
-      : (permission === 2 ? '2' : '1');
-    const visibilityMode: 'open' | 'social' | 'other' = this.currentChannel.is_private
-      ? 'other'
-      : (this.currentChannel.is_social_mode ? 'social' : 'open');
+    const handraiseMode = roomHandraiseSelectMode(this.currentChannel);
+    const visibilityMode = roomVisibilitySelectMode(this.currentChannel);
     const access = stageAccessMode(this.currentChannel);
     return stageColumn({
       channel: this.currentChannel,
@@ -1694,8 +1690,11 @@ export class ClubboxApp {
         this.scheduleDiscoverSearch();
         return;
       }
-      if (target.id === 'audience-search') {
+      if (target.id === 'audience-search' || target.id === 'audience-search-details') {
         this.audienceSearchQuery = target.value;
+        const peerId = target.id === 'audience-search' ? 'audience-search-details' : 'audience-search';
+        const peer = document.getElementById(peerId);
+        if (peer instanceof HTMLInputElement && peer.value !== target.value) peer.value = target.value;
         this.renderStage();
         return;
       }

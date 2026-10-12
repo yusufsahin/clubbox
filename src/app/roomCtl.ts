@@ -14,6 +14,7 @@ import {
   roomControlFlags,
   stageAccessMode,
 } from '../api/roomControls.ts';
+import { mergeRoomDetailFields } from '../api/roomDetailMerge.ts';
 import { roomSync } from '../api/roomSync.ts';
 import { audioEngine } from '../audio/audioEngine.ts';
 import { agoraVoice } from '../audio/agoraVoice.ts';
@@ -215,23 +216,21 @@ export function applyRoomUpdate(this: ClubboxApp, detail: CHChannelDetail) : voi
     const sameRoom =
       String(detail.channel_id) === String(this.currentChannel.channel_id) ||
       detail.channel === this.currentChannel.channel;
-    if (!sameRoom || !detail.users) return;
+    if (!sameRoom) return;
 
-    this.currentChannel.users = this.pubnubSource.overlayMutes(detail.users);
-    this.currentChannel.num_all = detail.num_all;
-    this.currentChannel.num_speakers = detail.num_speakers;
-    this.currentChannel.has_raised_hands = detail.has_raised_hands;
-    if (typeof detail.is_replay_enabled === 'boolean') this.currentChannel.is_replay_enabled = detail.is_replay_enabled;
-    if (typeof detail.is_clips_enabled === 'boolean') this.currentChannel.is_clips_enabled = detail.is_clips_enabled;
-    if (detail.privacy_settings) this.currentChannel.privacy_settings = detail.privacy_settings;
+    mergeRoomDetailFields(this.currentChannel, {
+      ...detail,
+      users: detail.users ? this.pubnubSource.overlayMutes(detail.users) : this.currentChannel.users,
+    });
     this.syncClipArm();
     this.syncSelectedProfileFromRoom();
     this.maybeShowSpeakerInvite();
     this.syncAgoraRole();
-    const mine = detail.users.find((user) => user.user_id === this.me?.user_id);
+    const mine = this.currentChannel.users.find((user) => user.user_id === this.me?.user_id);
     if (typeof mine?.is_hand_raised === 'boolean') clubhouseClient.setHandRaised(mine.is_hand_raised);
 
     if (this.isProfileDrawerOpen) this.renderProfileDrawer();
+    if (this.roomDetailsOpen) this.renderRoomDetails();
     if (this.selfProfileOpen || this.currentTab !== 'stage') return;
     this.renderStage();
     this.renderCockpit();
