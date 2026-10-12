@@ -52,6 +52,25 @@ test('set_channel_title patches topic', () => {
   assert.equal(next.users.length, 1);
 });
 
+test('add_speaker / make_moderator / uninvite request profile refresh for that user', () => {
+  const start = baseChannel([{ ...ayse, is_speaker: false }]);
+  const add = applyRoomEvent(
+    start,
+    parseRealtimeMessage({ action: 'add_speaker', channel: ROOM, user_id: 501 }, ROOM),
+  );
+  assert.equal(add.effects.profileRefreshUserId, 501);
+  const mod = applyRoomEvent(
+    add.channel,
+    parseRealtimeMessage({ action: 'make_moderator', channel: ROOM, user_id: 501 }, ROOM),
+  );
+  assert.equal(mod.effects.profileRefreshUserId, 501);
+  const uninvite = applyRoomEvent(
+    mod.channel,
+    parseRealtimeMessage({ action: 'uninvite_speaker', channel: ROOM, user_id: 501 }, ROOM),
+  );
+  assert.equal(uninvite.effects.profileRefreshUserId, 501);
+});
+
 test('update_speaker_call_status stores is_on_call and audio_profile', () => {
   const start = baseChannel([{ ...ayse, is_speaker: true }]);
   const next = reduce(start, {

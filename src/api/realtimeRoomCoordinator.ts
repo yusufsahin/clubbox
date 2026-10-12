@@ -27,6 +27,8 @@ export type RealtimeRoomCallbacks = {
   onUnknown?: (type: string, keys: string[]) => void;
   onStatus?: (reconnecting: boolean) => void;
   onUiMessage?: (message: string) => void;
+  /** Re-fetch get_profile for this user after a role event (30.4). */
+  onProfileRefresh?: (userId: number) => void;
 };
 
 export type RealtimeRoomCoordinatorDeps = {
@@ -331,6 +333,9 @@ export class RealtimeRoomCoordinator {
       this.syncAgoraPresenceTick();
     }
     if (effects.invite) this.callbacks.onInvite?.();
+    if (effects.profileRefreshUserId != null) {
+      this.callbacks.onProfileRefresh?.(effects.profileRefreshUserId);
+    }
     if (channelChanged || effects.invite || this.channel !== channel) {
       this.callbacks.onChannelUpdate?.(this.channel);
     }

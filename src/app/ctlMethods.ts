@@ -72,6 +72,7 @@ export type ClubboxAppCtlMethods = {
   reactToThreadSegment: typeof messagesCtl.reactToThreadSegment;
   inspectProfile: typeof profileCtl.inspectProfile;
   loadFullProfile: typeof profileCtl.loadFullProfile;
+  refreshRoomProfile: typeof profileCtl.refreshRoomProfile;
   clearPeopleList: typeof profileCtl.clearPeopleList;
   openPeopleList: typeof profileCtl.openPeopleList;
   paintPeopleList: typeof profileCtl.paintPeopleList;

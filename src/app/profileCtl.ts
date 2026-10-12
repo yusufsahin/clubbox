@@ -33,11 +33,33 @@ export function inspectProfile(this: ClubboxApp, user: CHUser) {
   void this.loadFullProfile(user.user_id);
 }
 
-export async function loadFullProfile(this: ClubboxApp, userId: number): Promise<void> {
+export async function loadFullProfile(
+  this: ClubboxApp,
+  userId: number,
+  opts: { force?: boolean } = {},
+): Promise<void> {
+  const force = opts.force === true;
+  if (!force) {
+    const cached = this.roomProfileCache.get(userId);
+    if (cached) {
+      const current = this.selectedProfile;
+      if (current?.user_id === userId) {
+        this.selectedProfile = mergeProfile(current, cached);
+        this.profileLoading = false;
+        if (this.selfProfileOpen && userId === this.me?.user_id) this.renderView();
+        else if (this.isProfileDrawerOpen) this.renderProfileDrawer();
+      }
+      return;
+    }
+  }
   try {
     const res = await clubhouseClient.getProfile(userId);
     const current = this.selectedProfile;
-    if (!current || current.user_id !== userId) return;
+    if (!current || current.user_id !== userId) {
+      // Still cache for later open in this room session.
+      this.roomProfileCache.set(userId, res.user_profile);
+      return;
+    }
     let next = mergeProfile(current, res.user_profile);
     if (userId === this.me?.user_id && clubhouseClient.supports('get_user_social_clubs')) {
       try {
@@ -68,6 +90,7 @@ export async function loadFullProfile(this: ClubboxApp, userId: number): Promise
       }
     }
     this.selectedProfile = next;
+    this.roomProfileCache.set(userId, next);
   } catch (err) {
     this.reportApiError(err);
   } finally {
@@ -77,6 +100,22 @@ export async function loadFullProfile(this: ClubboxApp, userId: number): Promise
       else if (this.isProfileDrawerOpen) this.renderProfileDrawer();
     }
   }
+}
+
+/**
+ * Role event (add_speaker / uninvite / make_moderator): re-fetch get_profile when the
+ * drawer is open for that user; otherwise invalidate the room-session cache.
+ */
+export function refreshRoomProfile(this: ClubboxApp, userId: number): void {
+  if (!Number.isFinite(userId) || userId <= 0) return;
+  const openForUser = this.selectedProfile?.user_id === userId
+    && (this.isProfileDrawerOpen || this.selfProfileOpen);
+  if (openForUser) {
+    this.profileLoading = true;
+    void this.loadFullProfile(userId, { force: true });
+    return;
+  }
+  this.roomProfileCache.invalidate(userId);
 }
 
 export function clearPeopleList(this: ClubboxApp): void {
@@ -443,6 +482,7 @@ export function findKnownUser(this: ClubboxApp, uid: string): CHUser | undefined
 export function wireProfileCtl(proto: ClubboxApp): void {
   proto.inspectProfile = inspectProfile;
   proto.loadFullProfile = loadFullProfile;
+  proto.refreshRoomProfile = refreshRoomProfile;
   proto.clearPeopleList = clearPeopleList;
   proto.openPeopleList = openPeopleList;
   proto.paintPeopleList = paintPeopleList;

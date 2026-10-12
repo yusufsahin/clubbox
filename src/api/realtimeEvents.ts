@@ -1,3 +1,4 @@
+import { profileRefreshUserId } from './roomProfileCache.ts';
 import type { CHChannelDetail, CHChatMessage, CHUser } from './types.ts';
 
 export type RealtimeStageEvent =
@@ -85,6 +86,8 @@ export type ApplyRoomEventResult = {
     reaction?: RealtimeReactionEvent;
     unknown?: { type: string; keys: string[] };
     ignored?: boolean;
+    /** Re-fetch get_profile for this user (add_speaker / uninvite / make_moderator). */
+    profileRefreshUserId?: number;
   };
 };
 
@@ -140,9 +143,13 @@ export function applyRoomEvent(
           ? { ...event, userId: opts.myUserId, profile: null }
           : event;
       const users = applyStageEvent(channel.users, stageEvent);
+      const refreshId = profileRefreshUserId(event);
       return {
         channel: mergeChannelUsers(channel, overlay(users)),
-        effects: event.type === 'invite_to_speak' ? { invite: true } : {},
+        effects: {
+          ...(event.type === 'invite_to_speak' ? { invite: true } : {}),
+          ...(refreshId != null ? { profileRefreshUserId: refreshId } : {}),
+        },
       };
     }
     default: {

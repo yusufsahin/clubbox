@@ -19,6 +19,7 @@ export type PubNubRoomSourceOptions = {
   onReaction?: (emoji: string, targetName: string) => void;
   onReconnecting?: (reconnecting: boolean) => void;
   onRoomEnded?: () => void;
+  onProfileRefresh?: (userId: number) => void;
 };
 
 function electronHub(): RealtimeHub | null {
@@ -62,6 +63,7 @@ export class PubNubRoomSource implements RoomUpdateSource {
         onReaction: (emoji, target) => options.onReaction?.(emoji, target),
         onStatus: (reconnecting) => options.onReconnecting?.(reconnecting),
         onRoomEnded: () => options.onRoomEnded?.(),
+        onProfileRefresh: (userId) => options.onProfileRefresh?.(userId),
       },
     });
   }

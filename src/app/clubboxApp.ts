@@ -19,6 +19,7 @@ import { stageControlFlags } from './roomCtl.ts';
 import { wireAppControllers } from './wireControllers.ts';
 
 import { PubNubRoomSource } from '../api/pubnubRoomSource';
+import { RoomProfileCache } from '../api/roomProfileCache.ts';
 import { roomSync } from '../api/roomSync';
 import { audioEngine } from '../audio/audioEngine';
 import { readAudioPrefs, type AudioPrefs } from '../audio/audioPrefs';
@@ -141,6 +142,8 @@ export class ClubboxApp {
   unreadNotifications = false;
   unreadConversations = 0;
   selectedProfile: CHUser | null = null;
+  /** get_profile cache for the current room only (30.4); cleared on leave. */
+  roomProfileCache = new RoomProfileCache();
   loginBusy = false;
   loginNotice = '';
   adoptRetryTimer: number | null = null;
@@ -246,6 +249,9 @@ export class ClubboxApp {
         this.afterRoomExit(true, false, true);
         this.showToast(t('roomEndedByHost'), '🚪');
       });
+    },
+    onProfileRefresh: (userId) => {
+      this.refreshRoomProfile(userId);
     },
   });
   audioPrefs: AudioPrefs = readAudioPrefs();

@@ -1161,6 +1161,7 @@ export async function releaseRoomLocally(this: ClubboxApp, options: { skipServer
     this.privateVoice = false;
     this.privateLines = [];
     this.closeProfileDrawer();
+    this.roomProfileCache.clear();
     this.closeModeratorActions();
     this.moderatorQueueUsers = [];
     this.moderatorHistoryItems = [];
