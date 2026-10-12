@@ -500,6 +500,15 @@ export class ClubboxApp {
       if (!this.currentChannel?.users) return;
       this.pubnubSource.applyAgoraMute(uid, muted);
     });
+    // Speakers missing from Agora ≥10s → not-connected style (30.4); clears when they appear.
+    agoraVoice.onAgoraJoined((joined) => {
+      this.pubnubSource.setAgoraJoined(joined);
+      if (joined) this.pubnubSource.syncAgoraRemotes(agoraVoice.getRemoteUids());
+    });
+    agoraVoice.onRemotePresence((uids) => {
+      if (!this.currentChannel) return;
+      this.pubnubSource.syncAgoraRemotes(uids);
+    });
     audioEngine.setExtrasActivityListener(() => {
       void agoraVoice.syncMuteSignal();
     });

@@ -81,6 +81,8 @@ export class AgoraVoiceEngine {
   private onSpeakerVolumeCallbacks: ((speakers: { uid: string | number; level: number }[]) => void)[] = [];
   private onSpeakingRingCallbacks: ((changes: { uid: string; speaking: boolean }[]) => void)[] = [];
   private onRemoteMuteCallbacks: ((report: RemoteMuteReport) => void)[] = [];
+  private onRemotePresenceCallbacks: ((uids: number[]) => void)[] = [];
+  private onAgoraJoinedCallbacks: ((joined: boolean) => void)[] = [];
   private speakingHold: SpeakingHoldState = new Map();
   private speakingSampleTimer: ReturnType<typeof setInterval> | null = null;
   private speakingSamplePaused = false;
@@ -324,12 +326,14 @@ export class AgoraVoiceEngine {
       this.client.on('user-joined', () => {
         this.remoteUserCount += 1;
         console.log(`[AgoraRTC] user-joined count=${this.remoteUserCount}`);
+        this.emitRemotePresence();
       });
 
       this.client.on('user-left', (user: IAgoraRTCRemoteUser) => {
         this.remoteUserCount = Math.max(0, this.remoteUserCount - 1);
         console.log(`[AgoraRTC] user-left count=${this.remoteUserCount}`);
         audioEngine.removeRemoteTrack(user.uid);
+        this.emitRemotePresence();
       });
 
       this.client.on('connection-state-change', (cur, prev, reason) => {
@@ -520,6 +524,8 @@ export class AgoraVoiceEngine {
       void audioEngine.ensureAudioContext();
       await this.syncRemoteUsers();
       this.startSpeakingSampler();
+      this.emitAgoraJoined(true);
+      this.emitRemotePresence();
 
       if (options.isSpeaker) {
         try {
@@ -875,6 +881,7 @@ export class AgoraVoiceEngine {
         console.warn('[AgoraRTC] Channel leave failed:', err);
       }
     }
+    const wasJoined = this.isJoined;
     this.isJoined = false;
     this.isSpeaker = false;
     this.currentChannel = null;
@@ -892,6 +899,10 @@ export class AgoraVoiceEngine {
     this.speakingHold = new Map();
     if (clear.length) this.onSpeakingRingCallbacks.forEach((cb) => cb(clear));
     this.onReconnectUiCallbacks.forEach((cb) => cb(false));
+    if (wasJoined) {
+      this.emitAgoraJoined(false);
+      this.emitRemotePresence();
+    }
   }
 
   public setNativeMuteSignalling(enabled: boolean): void {
@@ -932,6 +943,26 @@ export class AgoraVoiceEngine {
       this.lastMuteSignal = { mic: micMuted, extras: extrasMuted };
       console.log(`[AgoraRTC] mute signal mic=${micMuted} extras=${extrasMuted}`);
     }
+  }
+
+  /** Clubhouse user_ids currently in the Agora channel as remotes. */
+  public getRemoteUids(): number[] {
+    if (!this.client) return [];
+    const out: number[] = [];
+    for (const user of this.client.remoteUsers) {
+      const uid = Number(user.uid);
+      if (Number.isFinite(uid) && uid > 0) out.push(uid);
+    }
+    return out;
+  }
+
+  private emitRemotePresence(): void {
+    const uids = this.getRemoteUids();
+    this.onRemotePresenceCallbacks.forEach((cb) => cb(uids));
+  }
+
+  private emitAgoraJoined(joined: boolean): void {
+    this.onAgoraJoinedCallbacks.forEach((cb) => cb(joined));
   }
 
   private emitRemoteMute(uid: string | number, muted: boolean | null): void {
@@ -1013,6 +1044,22 @@ export class AgoraVoiceEngine {
     this.onRemoteMuteCallbacks.push(cb);
     return () => {
       this.onRemoteMuteCallbacks = this.onRemoteMuteCallbacks.filter((c) => c !== cb);
+    };
+  }
+
+  /** Agora remote uid set changed (join/leave/sync). uids are Clubhouse user_ids. */
+  public onRemotePresence(cb: (uids: number[]) => void): () => void {
+    this.onRemotePresenceCallbacks.push(cb);
+    return () => {
+      this.onRemotePresenceCallbacks = this.onRemotePresenceCallbacks.filter((c) => c !== cb);
+    };
+  }
+
+  /** Local Agora channel joined/left — starts the 10s not-connected overlay clock. */
+  public onAgoraJoined(cb: (joined: boolean) => void): () => void {
+    this.onAgoraJoinedCallbacks.push(cb);
+    return () => {
+      this.onAgoraJoinedCallbacks = this.onAgoraJoinedCallbacks.filter((c) => c !== cb);
     };
   }
 

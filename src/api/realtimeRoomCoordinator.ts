@@ -1,5 +1,13 @@
 import type { ClubhouseApiClient } from './client.ts';
 import {
+  createAgoraPresenceState,
+  overlayAgoraPresence,
+  presenceSetJoined,
+  presenceSetLeft,
+  presenceSyncPresent,
+  type AgoraPresenceState,
+} from './agoraPresence.ts';
+import {
   applyRoomEvent,
   mergeChannelUsers,
   parseRealtimeMessage,
@@ -28,9 +36,11 @@ export type RealtimeRoomCoordinatorDeps = {
   callbacks?: RealtimeRoomCallbacks;
   setInterval?: (fn: () => void, ms: number) => number;
   clearInterval?: (id: number) => void;
+  now?: () => number;
 };
 
 const CHAT_POLL_MS = 15_000;
+const AGORA_PRESENCE_TICK_MS = 1_000;
 
 export class RealtimeRoomCoordinator {
   channel: CHChannelDetail | null = null;
@@ -44,12 +54,15 @@ export class RealtimeRoomCoordinator {
   private readonly callbacks: RealtimeRoomCallbacks;
   private readonly setIntervalFn: (fn: () => void, ms: number) => number;
   private readonly clearIntervalFn: (id: number) => void;
+  private readonly nowFn: () => number;
   private chatTimer: number | null = null;
   private pingTimer: number | null = null;
+  private agoraPresenceTimer: number | null = null;
   private unsubMessage: (() => void) | null = null;
   private unsubStatus: (() => void) | null = null;
   /** Agora-observed mute flags plus our own mic button. Snapshots must not wipe these. */
   private muteStates = new Map<number, boolean>();
+  private agoraPresence: AgoraPresenceState = createAgoraPresenceState();
 
   constructor(deps: RealtimeRoomCoordinatorDeps) {
     this.client = deps.client;
@@ -64,6 +77,7 @@ export class RealtimeRoomCoordinator {
       if (typeof window === 'undefined') return;
       window.clearInterval(id);
     });
+    this.nowFn = deps.now ?? (() => Date.now());
     this.unsubMessage = this.hub.onMessage((message) => this.handleRaw(message));
     this.unsubStatus = this.hub.onStatus((status) => {
       this.reconnecting = status.reconnecting;
@@ -101,10 +115,12 @@ export class RealtimeRoomCoordinator {
   stop(): void {
     this.stopPresence();
     this.stopChatPolling();
+    this.stopAgoraPresenceTick();
     this.hub.unsubscribe();
     this.channel = null;
     this.chatMessages = [];
     this.muteStates.clear();
+    this.agoraPresence = createAgoraPresenceState();
   }
 
   /** Record a mute the next snapshot must keep. uid is the Clubhouse user_id. */
@@ -115,7 +131,33 @@ export class RealtimeRoomCoordinator {
   }
 
   overlayUsers(users: CHUser[]): CHUser[] {
-    return overlayMuteStates(users, this.muteStates);
+    const muted = overlayMuteStates(users, this.muteStates);
+    return overlayAgoraPresence(muted, this.agoraPresence, this.nowFn(), {
+      myUserId: this.myUserId,
+    });
+  }
+
+  /** Agora channel join/leave — starts the 10s not-connected clock for speakers. */
+  setAgoraJoined(joined: boolean): void {
+    this.agoraPresence = joined
+      ? presenceSetJoined(this.agoraPresence, this.nowFn())
+      : presenceSetLeft(this.agoraPresence);
+    this.syncAgoraPresenceTick();
+    this.reemitOverlays();
+  }
+
+  /** Sync remote Agora uids (Clubhouse user_id). */
+  syncAgoraRemotes(uids: Iterable<number>): void {
+    const speakers = (this.channel?.users ?? [])
+      .filter((user) => user.is_speaker)
+      .map((user) => user.user_id);
+    this.agoraPresence = presenceSyncPresent(
+      this.agoraPresence,
+      uids,
+      speakers,
+      this.nowFn(),
+    );
+    this.reemitOverlays();
   }
 
   setChatOpen(open: boolean): void {
@@ -132,11 +174,50 @@ export class RealtimeRoomCoordinator {
   /** Agora uid = Clubhouse user_id. Mute is not on PubNub (docs/api/realtime.md). */
   applyAgoraMute(uid: number | string, muted: boolean): void {
     this.noteMute(uid, muted);
+    this.reemitOverlays();
+  }
+
+  private reemitOverlays(): void {
     if (!this.channel) return;
     const users = this.overlayUsers(this.channel.users);
     if (users === this.channel.users) return;
     this.channel = mergeChannelUsers(this.channel, users);
     this.callbacks.onChannelUpdate?.(this.channel);
+  }
+
+  private syncAgoraPresenceTick(): void {
+    if (!this.agoraPresence.agoraJoined || !this.channel) {
+      this.stopAgoraPresenceTick();
+      return;
+    }
+    if (this.agoraPresenceTimer != null) return;
+    this.agoraPresenceTimer = this.setIntervalFn(() => {
+      this.tickAgoraPresence();
+    }, AGORA_PRESENCE_TICK_MS);
+  }
+
+  private stopAgoraPresenceTick(): void {
+    if (this.agoraPresenceTimer == null) return;
+    this.clearIntervalFn(this.agoraPresenceTimer);
+    this.agoraPresenceTimer = null;
+  }
+
+  /** Re-evaluate 10s absence after speaker roster changes. */
+  private tickAgoraPresence(): void {
+    if (!this.channel || !this.agoraPresence.agoraJoined) {
+      this.stopAgoraPresenceTick();
+      return;
+    }
+    const speakers = this.channel.users
+      .filter((user) => user.is_speaker)
+      .map((user) => user.user_id);
+    this.agoraPresence = presenceSyncPresent(
+      this.agoraPresence,
+      this.agoraPresence.present,
+      speakers,
+      this.nowFn(),
+    );
+    this.reemitOverlays();
   }
 
   handleChat(fromName: string, text: string): void {
@@ -228,8 +309,26 @@ export class RealtimeRoomCoordinator {
 
     const channelChanged = channel !== this.channel;
     this.channel = channel;
+    if (this.agoraPresence.agoraJoined) {
+      const speakers = this.channel.users
+        .filter((user) => user.is_speaker)
+        .map((user) => user.user_id);
+      this.agoraPresence = presenceSyncPresent(
+        this.agoraPresence,
+        this.agoraPresence.present,
+        speakers,
+        this.nowFn(),
+      );
+      const overlaid = this.overlayUsers(this.channel.users);
+      if (overlaid !== this.channel.users) {
+        this.channel = mergeChannelUsers(this.channel, overlaid);
+      }
+      this.syncAgoraPresenceTick();
+    }
     if (effects.invite) this.callbacks.onInvite?.();
-    if (channelChanged || effects.invite) this.callbacks.onChannelUpdate?.(this.channel);
+    if (channelChanged || effects.invite || this.channel !== channel) {
+      this.callbacks.onChannelUpdate?.(this.channel);
+    }
   }
 
   private startPresence(channelId: string): void {

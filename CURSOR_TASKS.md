@@ -4,7 +4,17 @@ Each task below is a self-contained prompt. Paste one task at a time into Cursor
 
 _Last reviewed: 2026-10-11. “Uygulandı” means the code is in the tree. “Canlı doğrulandı” means it was exercised against the official Clubhouse web session. This pass is implemented; the live room, hand, invite, and chat capture is still outstanding._
 
-### Last autonomous run (2026-10-12 — Phase 30 step 5 / phone QR)
+### Last autonomous run (2026-10-12 — Phase 30.4 Agora 10s presence)
+
+- Speakers without an Agora remote ≥10s get `is_on_call: false` (not-connected style); clears when
+  Agora sees them. Mute overlay unchanged. Tick 1s while Agora joined; self always present.
+- Wire: `agoraPresence` + coordinator overlay chain; Agora join/leave + remote uid sync via
+  `agoraVoice` → `PubNubRoomSource` → stage updates.
+- Tests: `agoraPresence.test.ts`, `agoraPresenceCoordinator.test.ts`.
+- Still open in 30.4: PubNub reconnect history, profile refresh on role events.
+- `npm run test:unit` (357) + `tsc --noEmit` green.
+
+### Previous last autonomous run (2026-10-12 — Phase 30 step 5 / phone QR)
 
 - 30.3: room header **Open on phone** (link + Copy + lazy `qrcode@1.5.4` QR); Settings › Help +
   Details **Learn more** co-host card; disabled host-tool tooltips point to Learn more.
@@ -187,7 +197,7 @@ Legend: **Uygulandı** = code is in the tree. **Canlı doğrulandı** = exercise
 | 0a | **Phase 23 Live room audio (Agora)** — DNS -105 is a red herring; real join error not yet visible; web vs native SDK decision gate at 23.3 | **Web path** — 23.1–23.5 done on `phase-23-24-agora`; native 23.6+ deferred |
 | 0b | **Phase 24 Agora feature completeness** — broadcast mix, reconnect + quality, token lifecycle, device hot-swap, speaking rings, lifecycle, AI noise suppression | **Closed** — 24.1–24.7 done (AI denoiser + CSP/WASM); e2e green |
 | 0c | **Phase 25 Room exit and mic state** — leave_channel on close/quit/Ctrl+C + crash recovery, mute badge/state sync, AI denoiser init bug, log hygiene | **Closed** — 25.1–25.4 done. 25.5 moved to Phase 26 |
-| 0h | **Phase 30 Web-first** — honest host tools, crawl watch-list, accurate PubNub room state, phone QR, Live details audit, audio quality, VB-Cable check | **In progress** — investigation §4 steps 1–5 done (30.1–30.3 + 30.4 handlers/reducer + Token removed). Remaining: 30.4 Agora/PubNub history/profile, 30.5–30.7. |
+| 0h | **Phase 30 Web-first** — honest host tools, crawl watch-list, accurate PubNub room state, phone QR, Live details audit, audio quality, VB-Cable check | **In progress** — 30.1–30.3 + 30.4 handlers/reducer + Agora 10s presence done. Remaining: 30.4 PubNub history/profile, 30.5–30.7. |
 | 0g | **Phase 29 Live details + full moderator toolset** — Live details panel, room settings (mute all, chat, queue, replay, web listening), host banner, polls, highlights, full audience list, server-driven flags | **29.1 done** (web join/PubNub Live details). Mute-all / mobile settings **blocked app-only**. 29.3+ (banner/polls/highlights) blocked (29.0 bodies + mobile). |
 | 0f | **Phase 28 Room actions per role** — role × action matrix (Clubhouse parity), mobile body discovery, authoritative room state via get_channel, listener/speaker/moderator actions, UI gating, headphones banner fix, Moderator actions panel (Requests + History) | **UI/matrix code done**; live mobile actions **blocked app-only** (28.5). Leave stage still off. Room chat / web-session pieces OK. |
 | 0e | **Phase 27 Host tools via mobile API** — end room, invite to stage, mute, move to audience, remove from room; web API has none of these (404 / not in bundle) | **Blocked app-only 2026-10-12** — Clubhouse device-check blocks third-party SMS; no Token import. Code dormant; disabled UI + toast. |

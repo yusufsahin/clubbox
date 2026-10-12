@@ -147,6 +147,16 @@ export class PubNubRoomSource implements RoomUpdateSource {
     this.coordinator?.noteMute(uid, muted);
   }
 
+  /** Local Agora channel join/leave — starts/stops the 10s not-connected clock. */
+  setAgoraJoined(joined: boolean): void {
+    this.coordinator?.setAgoraJoined(joined);
+  }
+
+  /** Sync Agora remote uids (Clubhouse user_id) for the presence overlay. */
+  syncAgoraRemotes(uids: Iterable<number>): void {
+    this.coordinator?.syncAgoraRemotes(uids);
+  }
+
   overlayMutes(users: CHUser[]): CHUser[] {
     return this.coordinator?.overlayUsers(users) ?? users;
   }
