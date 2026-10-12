@@ -11,7 +11,9 @@ import { clubhouseClient } from '../api/client';
 import { muteFromAgoraEvent } from '../api/remoteMute';
 import {
   AGORA_JOIN_MS,
+  agoraConnectionPolicy,
   formatVoiceFailureReason,
+  networkQualityTone,
   shouldTryCloudProxy,
 } from './agoraErrors';
 import { buildAgoraJoinParams } from './agoraJoinParams';
@@ -59,6 +61,10 @@ export class AgoraVoiceEngine {
   private onSpeakerVolumeCallbacks: ((speakers: { uid: string | number; level: number }[]) => void)[] = [];
   private onRemoteMuteCallbacks: ((report: RemoteMuteReport) => void)[] = [];
   private onConnectionProblemCallbacks: ((reason: string) => void)[] = [];
+  private onReconnectUiCallbacks: ((reconnecting: boolean) => void)[] = [];
+  private onBannedCallbacks: ((reason: string) => void)[] = [];
+  private onNeedRejoinCallbacks: ((delayMs: number, attempt: number) => void)[] = [];
+  private onNetworkQualityCallbacks: ((tone: 'good' | 'ok' | 'poor' | 'unknown', uplink: number, downlink: number) => void)[] = [];
   private sdkPromise: Promise<AgoraSdk> | null = null;
   private nativeMuteSignalling = false;
   private lastConnectionReason = '';
@@ -69,6 +75,19 @@ export class AgoraVoiceEngine {
   /** Connection status: extras track sending audio (bitrate/volume > 0). */
   private extrasSending: boolean | null = null;
   private extrasStatsTimer: ReturnType<typeof setInterval> | null = null;
+  private rejoinAttempt = 0;
+  private networkQuality: { uplink: number; downlink: number; tone: 'good' | 'ok' | 'poor' | 'unknown' } = {
+    uplink: 0,
+    downlink: 0,
+    tone: 'unknown',
+  };
+  private rtcStatsSnapshot: {
+    rtt: number;
+    sendBitrate: number;
+    recvBitrate: number;
+    duration: number;
+    remotes: { uid: string; packetLoss: number; e2eDelay: number }[];
+  } | null = null;
 
   // Same default as ClubhouseConfig.agoraAppId. See docs/api/realtime.md.
   public appId: string = '938de3e8055e42b281bb8c6f69c21f78';
@@ -108,6 +127,19 @@ export class AgoraVoiceEngine {
   /** Settings › Connection status: Broadcast extras sending ✓/✗ (null = not publishing). */
   public getExtrasSending(): boolean | null {
     return this.extrasSending;
+  }
+
+  public getNetworkQualityTone(): 'good' | 'ok' | 'poor' | 'unknown' {
+    return this.networkQuality.tone;
+  }
+
+  public getRtcStatsSnapshot(): typeof this.rtcStatsSnapshot {
+    return this.rtcStatsSnapshot;
+  }
+
+  /** Call after a successful rejoin so backoff resets. */
+  public resetRejoinAttempts(): void {
+    this.rejoinAttempt = 0;
   }
 
   private routeRemoteAudio(user: IAgoraRTCRemoteUser): void {
@@ -198,15 +230,15 @@ export class AgoraVoiceEngine {
           'conn',
           `${String(prev)}->${String(cur)}${reason ? `:${String(reason)}` : ''}`,
         );
-        if (!this.isJoined) return;
-        const why = String(reason || '');
-        if (
-          (cur === 'DISCONNECTED' || String(cur) === 'FAILED')
-          && why
-          && !/LEAVE|UID_BANNED|CHANNEL_BANNED/i.test(why)
-        ) {
-          this.onConnectionProblemCallbacks.forEach((cb) => cb(why || String(cur)));
-        }
+        this.applyConnectionPolicy(String(cur), String(reason || ''));
+      });
+
+      this.client.on('network-quality', (stats: { uplinkNetworkQuality?: number; downlinkNetworkQuality?: number }) => {
+        const uplink = Number(stats?.uplinkNetworkQuality ?? 0);
+        const downlink = Number(stats?.downlinkNetworkQuality ?? 0);
+        const tone = networkQualityTone(uplink, downlink);
+        this.networkQuality = { uplink, downlink, tone };
+        this.onNetworkQualityCallbacks.forEach((cb) => cb(tone, uplink, downlink));
       });
 
       this.client.on('exception', (e: { code?: number; msg?: string; uid?: string | number }) => {
@@ -344,6 +376,7 @@ export class AgoraVoiceEngine {
 
       this.isJoined = true;
       this.currentChannel = params.channel;
+      this.rejoinAttempt = 0;
       void audioEngine.ensureAudioContext();
       await this.syncRemoteUsers();
 
@@ -643,6 +676,10 @@ export class AgoraVoiceEngine {
     this.isSpeaker = false;
     this.currentChannel = null;
     this.nativeMuteSignalling = false;
+    this.rejoinAttempt = 0;
+    this.networkQuality = { uplink: 0, downlink: 0, tone: 'unknown' };
+    this.rtcStatsSnapshot = null;
+    this.onReconnectUiCallbacks.forEach((cb) => cb(false));
   }
 
   public setNativeMuteSignalling(enabled: boolean): void {
@@ -693,6 +730,109 @@ export class AgoraVoiceEngine {
     return () => {
       this.onConnectionProblemCallbacks = this.onConnectionProblemCallbacks.filter((c) => c !== cb);
     };
+  }
+
+  public onReconnectUi(cb: (reconnecting: boolean) => void): () => void {
+    this.onReconnectUiCallbacks.push(cb);
+    return () => {
+      this.onReconnectUiCallbacks = this.onReconnectUiCallbacks.filter((c) => c !== cb);
+    };
+  }
+
+  public onBanned(cb: (reason: string) => void): () => void {
+    this.onBannedCallbacks.push(cb);
+    return () => {
+      this.onBannedCallbacks = this.onBannedCallbacks.filter((c) => c !== cb);
+    };
+  }
+
+  public onNeedRejoin(cb: (delayMs: number, attempt: number) => void): () => void {
+    this.onNeedRejoinCallbacks.push(cb);
+    return () => {
+      this.onNeedRejoinCallbacks = this.onNeedRejoinCallbacks.filter((c) => c !== cb);
+    };
+  }
+
+  public onNetworkQuality(cb: (tone: 'good' | 'ok' | 'poor' | 'unknown', uplink: number, downlink: number) => void): () => void {
+    this.onNetworkQualityCallbacks.push(cb);
+    return () => {
+      this.onNetworkQualityCallbacks = this.onNetworkQualityCallbacks.filter((c) => c !== cb);
+    };
+  }
+
+  private applyConnectionPolicy(state: string, reason: string): void {
+    if (!this.isJoined && state !== 'CONNECTED') {
+      // Pre-join failures still surface via join() catch; mid-join RECONNECTING is fine to ignore.
+      if (state !== 'RECONNECTING') return;
+    }
+    const action = agoraConnectionPolicy({
+      state,
+      reason,
+      rejoinAttempt: this.rejoinAttempt,
+    });
+    switch (action.type) {
+      case 'show-reconnecting':
+        this.onReconnectUiCallbacks.forEach((cb) => cb(true));
+        break;
+      case 'clear-reconnecting':
+        this.rejoinAttempt = 0;
+        this.onReconnectUiCallbacks.forEach((cb) => cb(false));
+        break;
+      case 'leave-banned':
+        this.onBannedCallbacks.forEach((cb) => cb(action.reason));
+        this.onConnectionProblemCallbacks.forEach((cb) => cb(action.reason));
+        break;
+      case 'schedule-rejoin':
+        this.rejoinAttempt = action.attempt;
+        this.onReconnectUiCallbacks.forEach((cb) => cb(true));
+        this.onNeedRejoinCallbacks.forEach((cb) => cb(action.delayMs, action.attempt));
+        break;
+      case 'none':
+        if (
+          (state === 'DISCONNECTED' || state === 'FAILED')
+          && reason
+          && !/LEAVE|UID_BANNED|CHANNEL_BANNED/i.test(reason)
+          && this.rejoinAttempt >= 3
+        ) {
+          this.onConnectionProblemCallbacks.forEach((cb) => cb(reason || state));
+        }
+        break;
+    }
+  }
+
+  /** Refresh RTC stats for Settings › Connection status (caller enforces poll cadence). */
+  public refreshRtcStats(): void {
+    if (!this.client || !this.isJoined) {
+      this.rtcStatsSnapshot = null;
+      return;
+    }
+    try {
+      const rtc = this.client.getRTCStats() as {
+        RTT?: number;
+        OutgoingAvailableBandwidth?: number;
+        Duration?: number;
+        RecvBitrate?: number;
+        SendBitrate?: number;
+      };
+      const remote = this.client.getRemoteAudioStats() as Record<
+        string,
+        { receivePacketsLost?: number; end2EndDelay?: number; packetLossRate?: number }
+      >;
+      const remotes = Object.entries(remote || {}).map(([uid, row]) => ({
+        uid,
+        packetLoss: Number(row?.packetLossRate ?? row?.receivePacketsLost ?? 0),
+        e2eDelay: Number(row?.end2EndDelay ?? 0),
+      }));
+      this.rtcStatsSnapshot = {
+        rtt: Number(rtc?.RTT ?? 0),
+        sendBitrate: Number(rtc?.SendBitrate ?? 0),
+        recvBitrate: Number(rtc?.RecvBitrate ?? 0),
+        duration: Number(rtc?.Duration ?? 0),
+        remotes,
+      };
+    } catch {
+      // Stats unavailable until fully connected.
+    }
   }
 
   public getIsJoined(): boolean {

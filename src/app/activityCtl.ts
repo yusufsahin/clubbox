@@ -305,6 +305,7 @@ export function stopActivityRefresh(this: ClubboxApp) : void {
 
 export function onVisibilityChange(this: ClubboxApp) : void {
     if (document.visibilityState === 'hidden') {
+      this.stopRtcStatsPolling();
       this.schedulePollPause();
       return;
     }
@@ -313,6 +314,7 @@ export function onVisibilityChange(this: ClubboxApp) : void {
       this.hiddenPauseTimer = null;
     }
     if (this.pollsPaused) this.resumePolls();
+    if (this.currentTab === 'settings') this.startRtcStatsPolling();
   }
 
 export function schedulePollPause(this: ClubboxApp) : void {

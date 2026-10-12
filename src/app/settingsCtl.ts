@@ -430,6 +430,7 @@ export function closeCreateModal(this: ClubboxApp) {
 
 export function renderSettingsView(this: ClubboxApp) {
   void this.refreshConnectionStatus();
+  this.startRtcStatsPolling();
   return settingsView(
     clubhouseClient.getConfig(),
     this.shortcuts,
@@ -451,21 +452,48 @@ export function renderSettingsView(this: ClubboxApp) {
   );
 }
 
+export function stopRtcStatsPolling(this: ClubboxApp): void {
+  if (this.rtcStatsTimer) {
+    clearInterval(this.rtcStatsTimer);
+    this.rtcStatsTimer = null;
+  }
+}
+
+/** Poll RTC stats every 2s only while Settings is open and the window is visible. */
+export function startRtcStatsPolling(this: ClubboxApp): void {
+  this.stopRtcStatsPolling();
+  if (this.currentTab !== 'settings') return;
+  if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+  this.rtcStatsTimer = setInterval(() => {
+    if (this.currentTab !== 'settings' || document.visibilityState === 'hidden') {
+      this.stopRtcStatsPolling();
+      return;
+    }
+    void this.refreshConnectionStatus();
+  }, 2000);
+}
+
 export async function refreshConnectionStatus(this: ClubboxApp): Promise<void> {
   const api = electronAPI();
   const agoraJoined = agoraVoice.getIsJoined();
   const agoraResult = agoraVoice.getLastJoinResult();
   const broadcastExtras = agoraVoice.getExtrasSending();
   const verboseVoiceLog = agoraVoice.getVerboseLog();
+  if (agoraJoined) agoraVoice.refreshRtcStats();
+  const rtc = agoraVoice.getRtcStatsSnapshot();
+  const base = {
+    agoraJoined,
+    agoraResult,
+    broadcastExtras,
+    verboseVoiceLog,
+    rtc,
+  };
   if (!api?.connectionStatus) {
     this.connectionStatus = {
       webSession: !!clubhouseClient.getConfig().webSession,
       realtimeKeys: false,
       pubnubConnected: this.pubnubSource.isConnected(),
-      agoraJoined,
-      agoraResult,
-      broadcastExtras,
-      verboseVoiceLog,
+      ...base,
     };
     return;
   }
@@ -475,10 +503,7 @@ export async function refreshConnectionStatus(this: ClubboxApp): Promise<void> {
       webSession: !!status.webSession || !!clubhouseClient.getConfig().webSession,
       realtimeKeys: !!status.realtimeKeys,
       pubnubConnected: !!status.pubnubConnected || this.pubnubSource.isConnected(),
-      agoraJoined,
-      agoraResult,
-      broadcastExtras,
-      verboseVoiceLog,
+      ...base,
     };
     const prev = this.connectionStatus;
     if (
@@ -490,6 +515,7 @@ export async function refreshConnectionStatus(this: ClubboxApp): Promise<void> {
       && prev.agoraResult === next.agoraResult
       && prev.broadcastExtras === next.broadcastExtras
       && prev.verboseVoiceLog === next.verboseVoiceLog
+      && JSON.stringify(prev.rtc) === JSON.stringify(next.rtc)
     ) {
       return;
     }
@@ -500,10 +526,7 @@ export async function refreshConnectionStatus(this: ClubboxApp): Promise<void> {
       webSession: !!clubhouseClient.getConfig().webSession,
       realtimeKeys: false,
       pubnubConnected: this.pubnubSource.isConnected(),
-      agoraJoined,
-      agoraResult,
-      broadcastExtras,
-      verboseVoiceLog,
+      ...base,
     };
   }
 }
@@ -533,4 +556,6 @@ export function wireSettingsCtl(proto: ClubboxApp): void {
   proto.closeCreateModal = closeCreateModal;
   proto.renderSettingsView = renderSettingsView;
   proto.refreshConnectionStatus = refreshConnectionStatus;
+  proto.startRtcStatsPolling = startRtcStatsPolling;
+  proto.stopRtcStatsPolling = stopRtcStatsPolling;
 }

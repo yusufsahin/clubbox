@@ -64,6 +64,13 @@ export type ConnectionStatusReadout = {
   /** null = extras not published; true/false = sendBitrate/volume probe. */
   broadcastExtras: boolean | null;
   verboseVoiceLog: boolean;
+  rtc?: {
+    rtt: number;
+    sendBitrate: number;
+    recvBitrate: number;
+    duration: number;
+    remotes: { uid: string; packetLoss: number; e2eDelay: number }[];
+  } | null;
 };
 
 export function settingsView(
@@ -263,6 +270,17 @@ export function settingsView(
                 ? t('connectionStatusOk')
                 : t('connectionStatusBad')
           }</span></div>
+          ${connectionStatus.rtc ? html`
+            <div class="profile-setting-row"><span>${t('connectionStatusRtcRtt')}</span><span>${connectionStatus.rtc.rtt} ms</span></div>
+            <div class="profile-setting-row"><span>${t('connectionStatusRtcBitrate')}</span><span>${connectionStatus.rtc.sendBitrate} / ${connectionStatus.rtc.recvBitrate}</span></div>
+            <div class="profile-setting-row"><span>${t('connectionStatusRtcDuration')}</span><span>${connectionStatus.rtc.duration} s</span></div>
+            ${connectionStatus.rtc.remotes.length ? html`
+              <div class="profile-setting-row" style="align-items:flex-start;">
+                <span>${t('connectionStatusRemoteAudio')}</span>
+                <span style="text-align:right;">${connectionStatus.rtc.remotes.map((r) => html`${r.uid}: loss ${r.packetLoss} · e2e ${r.e2eDelay}ms<br />`)}</span>
+              </div>
+            ` : ''}
+          ` : ''}
         </div>
       </div>
       ` : ''}

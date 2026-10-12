@@ -105,3 +105,12 @@ Feature: Be a listener in a live room
     And the chat panel is closed
     When 60 seconds pass
     Then no "get_channel_messages" request is sent
+
+  @bundle @RL-1
+  Scenario: Network drop reconnects Agora with backoff
+    Given I am in the room "abc123"
+    When Agora disconnects with reason "NETWORK_ERROR"
+    Then the stage shows "Reconnecting…"
+    And Agora schedules rejoins after 2, 5, 15 seconds up to 3 attempts
+    When Agora reconnects
+    Then the reconnecting banner clears

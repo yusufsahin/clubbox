@@ -26,6 +26,8 @@ export interface CockpitState {
   canReact: boolean;
   canGifReact: boolean;
   overflowOpen: boolean;
+  networkQualityTone?: 'good' | 'ok' | 'poor' | 'unknown';
+  networkQualityTitle?: string;
 }
 
 function barBtn(
@@ -67,6 +69,15 @@ export function cockpitBar(state: CockpitState): SafeHtml {
           data-room-bar-item="title"
           title="${state.roomTitle}"
         >${state.roomTitle}</button>
+      ` : ''}
+      ${state.inRoom ? html`
+        <span
+          class="network-quality-dot"
+          data-network-quality
+          data-tone="${state.networkQualityTone || 'unknown'}"
+          title="${state.networkQualityTitle || ''}"
+          aria-hidden="true"
+        ></span>
       ` : ''}
       ${state.showAudioRetry ? html`
         <button class="btn btn-secondary audio-retry-btn" data-action="retry-audio" type="button">${t('retryAudio')}</button>

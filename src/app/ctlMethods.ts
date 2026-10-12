@@ -124,6 +124,7 @@ export type ClubboxAppCtlMethods = {
   allowAction: typeof roomCtl.allowAction;
   joinRoom: typeof roomCtl.joinRoom;
   connectRoomAudio: typeof roomCtl.connectRoomAudio;
+  rejoinAgoraAudio: typeof roomCtl.rejoinAgoraAudio;
   releaseRoomLocally: typeof roomCtl.releaseRoomLocally;
   leaveRoom: typeof roomCtl.leaveRoom;
   afterRoomExit: typeof roomCtl.afterRoomExit;
@@ -151,6 +152,8 @@ export type ClubboxAppCtlMethods = {
   openSettingsModal: typeof settingsCtl.openSettingsModal;
   renderSettingsView: typeof settingsCtl.renderSettingsView;
   refreshConnectionStatus: typeof settingsCtl.refreshConnectionStatus;
+  startRtcStatsPolling: typeof settingsCtl.startRtcStatsPolling;
+  stopRtcStatsPolling: typeof settingsCtl.stopRtcStatsPolling;
   closeSettingsModal: typeof settingsCtl.closeSettingsModal;
   openCreateModal: typeof settingsCtl.openCreateModal;
   closeCreateModal: typeof settingsCtl.closeCreateModal;

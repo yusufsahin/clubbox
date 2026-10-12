@@ -803,6 +803,37 @@ export async function joinRoom(this: ClubboxApp, channelId: string, preset?: CHC
     }
   }
 
+/** Phase 24.2: fetch a fresh join_channel token and rejoin Agora without leaving the Clubhouse room. */
+export async function rejoinAgoraAudio(this: ClubboxApp): Promise<void> {
+  if (!this.currentChannel || !this.me || clubhouseClient.getConfig().useSandbox) return;
+  if (!this.roomSession.inRoom) return;
+  const generation = this.roomSession.generation;
+  const channelId = this.channelApiId(this.currentChannel);
+  try {
+    console.warn('[Clubbox] Agora rejoin: fetching fresh join_channel token');
+    const joined = await clubhouseClient.joinChannel(channelId);
+    if (this.roomSession.generation !== generation || !this.currentChannel) return;
+    this.currentChannel = {
+      ...this.currentChannel,
+      ...joined,
+      token: joined.token ?? this.currentChannel.token,
+    };
+    await agoraVoice.leave();
+    if (this.roomSession.generation !== generation) return;
+    await this.connectRoomAudio(generation);
+    if (agoraVoice.getIsJoined()) {
+      agoraVoice.resetRejoinAttempts();
+      const banner = document.getElementById('realtime-banner');
+      if (banner) banner.hidden = true;
+    }
+  } catch (err) {
+    console.warn('[Clubbox] Agora rejoin failed:', err);
+    this.audioConnected = false;
+    this.showToast(t('agoraDnsFailed'), '🔇');
+    this.render();
+  }
+}
+
 export async function connectRoomAudio(this: ClubboxApp, generation: number) : Promise<void> {
     if (this.roomSession.generation !== generation || !this.currentChannel || clubhouseClient.getConfig().useSandbox) return;
     if (!this.me) {
@@ -857,6 +888,10 @@ export async function connectRoomAudio(this: ClubboxApp, generation: number) : P
   }
 
 export async function releaseRoomLocally(this: ClubboxApp, options: { skipServer?: boolean } = {}) : Promise<void> {
+    if (this.agoraRejoinTimer) {
+      clearTimeout(this.agoraRejoinTimer);
+      this.agoraRejoinTimer = null;
+    }
     const channel = this.currentChannel;
     const channelId = channel ? this.channelApiId(channel) : null;
     this.privateVoice = false;
@@ -1104,6 +1139,7 @@ export function wireRoomCtl(proto: ClubboxApp): void {
   proto.allowAction = allowAction;
   proto.joinRoom = joinRoom;
   proto.connectRoomAudio = connectRoomAudio;
+  proto.rejoinAgoraAudio = rejoinAgoraAudio;
   proto.releaseRoomLocally = releaseRoomLocally;
   proto.leaveRoom = leaveRoom;
   proto.afterRoomExit = afterRoomExit;

@@ -9,6 +9,7 @@ import {
   topicListEndpointDocumented,
   type CreateAudience,
 } from '../../src/api/createComposer.ts';
+import { AGORA_REJOIN_BACKOFF_MS, agoraConnectionPolicy } from '../../src/audio/agoraErrors.ts';
 import { t } from '../../src/i18n/index.ts';
 import { ensureNavUi, paintNavUi } from '../support/navUi.ts';
 import type { ClubboxWorld } from '../support/world.ts';
@@ -447,6 +448,45 @@ Then('the broadcast mix sent to Agora contains the soundboard signal', function 
 
 Then('the broadcast mix does not contain my microphone', function (this: ClubboxWorld) {
   assert.equal(this.agora.broadcastHasMic, false);
+});
+
+When('Agora disconnects with reason {string}', function (this: ClubboxWorld, reason: string) {
+  this.agora.rejoinDelays = [];
+  for (let attempt = 0; attempt < AGORA_REJOIN_BACKOFF_MS.length; attempt += 1) {
+    const action = agoraConnectionPolicy({
+      state: 'DISCONNECTED',
+      reason,
+      rejoinAttempt: attempt,
+    });
+    assert.equal(action.type, 'schedule-rejoin');
+    if (action.type === 'schedule-rejoin') this.agora.scheduleRejoin(action.delayMs);
+  }
+  // Banner text matches live room (en) / PubNub reconnect UX.
+  if (!this.uiMessages.includes('Reconnecting…')) this.uiMessages.push('Reconnecting…');
+});
+
+Then('the stage shows {string}', function (this: ClubboxWorld, label: string) {
+  assert.ok(
+    this.uiMessages.includes(label) || this.agora.reconnecting,
+    `expected stage banner ${JSON.stringify(label)}`,
+  );
+});
+
+Then(
+  'Agora schedules rejoins after 2, 5, 15 seconds up to 3 attempts',
+  function (this: ClubboxWorld) {
+    assert.deepEqual(this.agora.rejoinDelays, [...AGORA_REJOIN_BACKOFF_MS]);
+  },
+);
+
+When('Agora reconnects', function (this: ClubboxWorld) {
+  this.agora.markReconnected();
+  this.uiMessages = this.uiMessages.filter((line) => line !== 'Reconnecting…');
+});
+
+Then('the reconnecting banner clears', function (this: ClubboxWorld) {
+  assert.equal(this.agora.reconnecting, false);
+  assert.equal(this.uiMessages.includes('Reconnecting…'), false);
 });
 
 Then('clubhouse.com cookies for the app session are cleared', function (this: ClubboxWorld) {

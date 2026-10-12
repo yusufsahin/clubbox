@@ -209,6 +209,13 @@ export class ClubboxApp {
     agoraResult: string | null;
     broadcastExtras: boolean | null;
     verboseVoiceLog: boolean;
+    rtc?: {
+      rtt: number;
+      sendBitrate: number;
+      recvBitrate: number;
+      duration: number;
+      remotes: { uid: string; packetLoss: number; e2eDelay: number }[];
+    } | null;
   } | null = null;
   hallwayPrefs: HallwayPrefs = readHallwayPrefs();
   feedNextCursor: string | null = null;
@@ -218,6 +225,11 @@ export class ClubboxApp {
   conversationsLoadingMore = false;
   audienceSearchQuery = '';
   recordingChapters: RecordingChapter[] = [];
+  networkQualityTone: 'good' | 'ok' | 'poor' | 'unknown' = 'unknown';
+  networkQualityUp = 0;
+  networkQualityDown = 0;
+  agoraRejoinTimer: ReturnType<typeof setTimeout> | null = null;
+  rtcStatsTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor() {
     installAvatarFallback();
@@ -348,10 +360,38 @@ export class ClubboxApp {
       if (!this.currentChannel?.users) return;
       this.pubnubSource.applyAgoraMute(uid, muted);
     });
+    agoraVoice.onReconnectUi((reconnecting) => {
+      const banner = document.getElementById('realtime-banner');
+      if (banner) banner.hidden = !reconnecting;
+    });
+    agoraVoice.onBanned((reason) => {
+      if (!this.currentChannel || clubhouseClient.getConfig().useSandbox) return;
+      this.showToast(t('agoraBannedFromRoom', { reason }), '🔇');
+      void this.releaseRoomLocally().then(() => this.afterRoomExit(true, false, true));
+    });
+    agoraVoice.onNeedRejoin((delayMs, attempt) => {
+      if (!this.currentChannel || clubhouseClient.getConfig().useSandbox) return;
+      if (this.agoraRejoinTimer) clearTimeout(this.agoraRejoinTimer);
+      console.warn(`[Clubbox] Agora rejoin scheduled attempt=${attempt} in ${delayMs}ms`);
+      this.agoraRejoinTimer = setTimeout(() => {
+        this.agoraRejoinTimer = null;
+        void this.rejoinAgoraAudio();
+      }, delayMs);
+    });
+    agoraVoice.onNetworkQuality((tone, uplink, downlink) => {
+      this.networkQualityTone = tone;
+      this.networkQualityUp = uplink;
+      this.networkQualityDown = downlink;
+      const dot = document.querySelector('[data-network-quality]') as HTMLElement | null;
+      if (dot) {
+        dot.dataset.tone = tone;
+        dot.title = t('networkQualityTitle', { up: String(uplink), down: String(downlink) });
+      }
+    });
     agoraVoice.onConnectionProblem((reason) => {
       if (!this.currentChannel || clubhouseClient.getConfig().useSandbox) return;
       this.audioConnected = false;
-      console.warn('[Clubbox] Agora connection problem:', reason);
+      console.warn('[Clubbox] Agora connection problem (retries exhausted):', reason);
       this.showToast(t('agoraDnsFailed'), '🔇');
       this.render();
     });
@@ -1269,6 +1309,11 @@ export class ClubboxApp {
       canReact: flags.canReact,
       canGifReact: flags.canGifReact,
       overflowOpen: this.roomBarOverflowOpen,
+      networkQualityTone: this.networkQualityTone,
+      networkQualityTitle: t('networkQualityTitle', {
+        up: String(this.networkQualityUp),
+        down: String(this.networkQualityDown),
+      }),
     });
   }
 
@@ -1467,6 +1512,7 @@ export class ClubboxApp {
     if (action === 'nav' && (tab === 'stage' || tab === 'explore' || tab === 'discover' || tab === 'friends' || tab === 'messages' || tab === 'activity' || tab === 'houses' || tab === 'events' || tab === 'soundboard' || tab === 'settings' || tab === 'login')) {
       this.selfProfileOpen = false;
       this.closeProfileDrawer();
+      if (tab !== 'settings') this.stopRtcStatsPolling();
       if (tab === 'explore') {
         this.currentTab = 'explore';
         this.render();

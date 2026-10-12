@@ -2162,6 +2162,19 @@ body {
   display: none;
 }
 
+.network-quality-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--text-dim);
+  margin-right: 4px;
+}
+.network-quality-dot[data-tone='good'] { background: var(--accent-emerald); }
+.network-quality-dot[data-tone='ok'] { background: var(--accent-amber); }
+.network-quality-dot[data-tone='poor'] { background: var(--accent-rose); }
+.network-quality-dot[data-tone='unknown'] { background: var(--text-dim); }
+
 .rec-banner {
   background: var(--accent-rose);
   color: var(--text-on-accent);

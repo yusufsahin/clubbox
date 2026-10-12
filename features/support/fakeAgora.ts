@@ -19,7 +19,11 @@ export class FakeAgora {
   /** When set, the next join throws with this Agora-style code (BDD voice failure). */
   failJoinCode: string | null = null;
   lastError: string | null = null;
+  /** Phase 24.2 reconnect simulation. */
+  reconnecting = false;
+  rejoinDelays: number[] = [];
   private muteListeners: ((report: RemoteMuteReport) => void)[] = [];
+  private reconnectUiListeners: ((reconnecting: boolean) => void)[] = [];
 
   join(role: 'audience' | 'host', token: string): void {
     if (this.failJoinCode) {
@@ -85,5 +89,27 @@ export class FakeAgora {
 
   reportAudioUnpublished(uid: number | string): void {
     this.reportMute(uid, true);
+  }
+
+  onReconnectUi(cb: (reconnecting: boolean) => void): () => void {
+    this.reconnectUiListeners.push(cb);
+    return () => {
+      this.reconnectUiListeners = this.reconnectUiListeners.filter((listener) => listener !== cb);
+    };
+  }
+
+  setReconnecting(on: boolean): void {
+    this.reconnecting = on;
+    for (const listener of this.reconnectUiListeners) listener(on);
+  }
+
+  scheduleRejoin(delayMs: number): void {
+    this.rejoinDelays.push(delayMs);
+    this.setReconnecting(true);
+  }
+
+  markReconnected(): void {
+    this.setReconnecting(false);
+    this.join('audience', this.lastJoin()?.token || 'rejoin-token');
   }
 }

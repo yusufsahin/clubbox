@@ -66,3 +66,60 @@ export function formatVoiceFailureReason(err: unknown): string {
 }
 
 export const AGORA_JOIN_MS = 20_000;
+
+/** Phase 24.2: auto-rejoin backoff after unexpected disconnect (max 3). */
+export const AGORA_REJOIN_BACKOFF_MS = [2_000, 5_000, 15_000] as const;
+
+export type AgoraConnectionAction =
+  | { type: 'show-reconnecting' }
+  | { type: 'clear-reconnecting' }
+  | { type: 'schedule-rejoin'; delayMs: number; attempt: number }
+  | { type: 'leave-banned'; reason: string }
+  | { type: 'none' };
+
+/**
+ * Pure reconnect policy for Agora connection-state-change.
+ * `rejoinAttempt` is how many rejoins have already been scheduled (0…3).
+ */
+export function agoraConnectionPolicy(input: {
+  state: string;
+  reason?: string;
+  rejoinAttempt: number;
+}): AgoraConnectionAction {
+  const state = String(input.state || '').toUpperCase();
+  const reason = String(input.reason || '').toUpperCase();
+
+  if (state === 'RECONNECTING') {
+    return { type: 'show-reconnecting' };
+  }
+  if (state === 'CONNECTED') {
+    return { type: 'clear-reconnecting' };
+  }
+  if (state !== 'DISCONNECTED' && state !== 'FAILED') {
+    return { type: 'none' };
+  }
+  if (/UID_BANNED|CHANNEL_BANNED/.test(reason)) {
+    const banned = reason.includes('CHANNEL') ? 'CHANNEL_BANNED' : 'UID_BANNED';
+    return { type: 'leave-banned', reason: banned };
+  }
+  if (/LEAVE/.test(reason) || !reason) {
+    return { type: 'none' };
+  }
+  if (input.rejoinAttempt >= AGORA_REJOIN_BACKOFF_MS.length) {
+    return { type: 'none' };
+  }
+  const delayMs = AGORA_REJOIN_BACKOFF_MS[input.rejoinAttempt] ?? 15_000;
+  return { type: 'schedule-rejoin', delayMs, attempt: input.rejoinAttempt + 1 };
+}
+
+/** Uplink/downlink 0–6 → CSS token class for the room-bar quality dot. */
+export function networkQualityTone(uplink: number, downlink: number): 'good' | 'ok' | 'poor' | 'unknown' {
+  const worst = Math.max(
+    Number.isFinite(uplink) ? uplink : 0,
+    Number.isFinite(downlink) ? downlink : 0,
+  );
+  if (worst <= 0) return 'unknown';
+  if (worst <= 2) return 'good';
+  if (worst <= 4) return 'ok';
+  return 'poor';
+}
