@@ -31,8 +31,9 @@
     "test:redact": "npm run test:unit",
     "lint": "eslint . && npm run api:check",
     "icons": "node scripts/make-icons.mjs",
-    "dist": "npm run build && node scripts/run-electron-builder.mjs",
+    "dist": "npm run build && node scripts/run-electron-builder.mjs && node scripts/make-win-setup.mjs",
     "dist:dir": "npm run build && node scripts/run-electron-builder.mjs --dir",
+    "dist:setup": "node scripts/make-win-setup.mjs",
     "dist:signed": "npm run build && node scripts/run-electron-builder.mjs --signed",
     "dist:store": "npm run icons && npm run build && node scripts/run-electron-builder.mjs --store",
     "dist:verify": "node scripts/verify-win-signatures.mjs"
@@ -63,7 +64,6 @@
         "rfc3161TimeStampServer": "http://timestamp.digicert.com"
       },
       "target": [
-        "nsis",
         "portable"
       ]
     },
