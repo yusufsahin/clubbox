@@ -62,7 +62,10 @@ if (store) {
     )
   }
 } else if (!signed) {
+  // Skip Authenticode/signtool entirely — CSC_IDENTITY_AUTO_DISCOVERY alone still
+  // tries signtool when win.signtoolOptions is present and can fail with spawn UNKNOWN.
   env.CSC_IDENTITY_AUTO_DISCOVERY = 'false'
+  args.push('--config.win.signAndEditExecutable=false')
 } else {
   args.push('--config.forceCodeSigning=true')
 
