@@ -1,0 +1,9 @@
+{
+  "appx": {
+    "identityName": "YourPublisher.Clubbox",
+    "publisher": "CN=XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX",
+    "publisherDisplayName": "Your Name",
+    "applicationId": "Clubbox",
+    "displayName": "Clubbox"
+  }
+}

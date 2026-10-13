@@ -611,6 +611,8 @@ export const en = {
   sentFollowRequests: 'Sent requests',
   socialRoom: 'Social room',
   chatOff: 'Chat is off in this room',
+  chatPostBlockedTitle: 'Follow to chat in this room',
+  chatPostBlockFollow: 'Follow',
   handOff: 'Hand raise is off in this room',
   handRaisePermission: 'Hand raise',
   handRaiseOff: 'Off',

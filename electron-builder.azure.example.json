@@ -1,0 +1,12 @@
+{
+  "win": {
+    "sign": {
+      "type": "azure",
+      "publisherName": "CN=Your Verified Name",
+      "endpoint": "https://weu.codesigning.azure.net/",
+      "codeSigningAccountName": "your-artifact-signing-account",
+      "certificateProfileName": "your-public-trust-profile"
+    },
+    "signingHashAlgorithms": ["sha256"]
+  }
+}

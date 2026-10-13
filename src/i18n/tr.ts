@@ -613,6 +613,8 @@ export const tr: Record<MessageKey, string> = {
   sentFollowRequests: 'Gönderilen istekler',
   socialRoom: 'Sosyal oda',
   chatOff: 'Bu odada sohbet kapalı',
+  chatPostBlockedTitle: 'Bu odada yazmak için takip et',
+  chatPostBlockFollow: 'Takip et',
   handOff: 'Bu odada el kaldırma kapalı',
   handRaisePermission: 'El kaldırma',
   handRaiseOff: 'Kapalı',

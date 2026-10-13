@@ -18,6 +18,7 @@ export function mergeRoomDetailFields(current: CHChannelDetail, detail: CHChanne
     current.is_web_listening_enabled = detail.is_web_listening_enabled;
   }
   if (typeof detail.is_chat_enabled === 'boolean') current.is_chat_enabled = detail.is_chat_enabled;
+  if (detail.chat_post_block !== undefined) current.chat_post_block = detail.chat_post_block;
   if (detail.chat_permission != null) current.chat_permission = detail.chat_permission;
   if (detail.clips_permission != null) current.clips_permission = detail.clips_permission;
   if (typeof detail.has_raised_hands === 'boolean') current.has_raised_hands = detail.has_raised_hands;

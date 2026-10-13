@@ -39,6 +39,14 @@ test-results/
 !.env.example
 *.local
 
+# Windows code signing (Smart App Control / Authenticode) — never commit
+*.pfx
+*.p12
+electron-builder.azure.json
+electron-builder.store.json
+codesign*.pem
+codesign*.key
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

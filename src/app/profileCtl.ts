@@ -252,6 +252,24 @@ export async function followUser(this: ClubboxApp, userId: number): Promise<void
     if (after !== rel && after !== 'unknown') {
       this.showToast(t('nowFollowing', { username: user.username }), '🤝');
     }
+    // Clubhouse follow-to-chat: clear local gate so the composer can open after Follow.
+    const channel = this.currentChannel;
+    const block = channel?.chat_post_block;
+    if (
+      channel
+      && block?.cta?.type === 'follow_user'
+      && block.cta.target_user_id === userId
+      && (after === 'following' || after === 'friends' || after === 'requested')
+    ) {
+      channel.chat_post_block = null;
+      if (channel.user_capabilities) {
+        channel.user_capabilities = {
+          ...channel.user_capabilities,
+          can_post_to_chat: true,
+        };
+      }
+      this.renderStage();
+    }
   } catch (err) {
     this.reportApiError(err);
   }

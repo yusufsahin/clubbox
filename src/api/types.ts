@@ -83,6 +83,11 @@ export interface CHChannel {
   /** Community: 1 = everyone, 2 = friends of speakers (when handraise is on). */
   handraise_permission?: number;
   is_chat_enabled?: boolean;
+  /**
+   * Clubhouse gate when the room chat is on but this user cannot post yet
+   * (e.g. follow the host). Present on join / send_channel_message 400.
+   */
+  chat_post_block?: ChatPostBlock | null;
   /** Pinned URL when the room has one (join / get_channel). */
   channel_link?: string | null;
   is_pinned_links_available?: boolean;
@@ -140,6 +145,21 @@ export interface CHChannel {
 }
 
 export type UserCapabilities = Record<string, boolean | undefined>;
+
+/** Server block explaining why can_post_to_chat is false (follow-to-chat, etc.). */
+export interface ChatPostBlock {
+  reason?: string;
+  title?: string;
+  body?: string;
+  summary?: string;
+  name?: string;
+  avatar_url?: string | null;
+  cta?: {
+    type: string;
+    target_user_id: number;
+    current_state?: string;
+  };
+}
 
 export interface CHChannelDetail extends CHChannel {
   description?: string;

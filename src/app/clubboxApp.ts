@@ -15,6 +15,7 @@ import {
 import type { ModeratorActionItem } from '../api/moderatorActions.ts';
 import { moderatorSettingsFlags } from '../api/moderatorSettings.ts';
 import type { ModeratorActionsTab } from '../ui/components/moderatorActionsPanel.ts';
+import { roomChatComposerState } from '../api/chatPostBlock.ts';
 import { stageControlFlags } from './roomCtl.ts';
 import { wireAppControllers } from './wireControllers.ts';
 
@@ -1820,11 +1821,14 @@ export class ClubboxApp {
     const headphones = this.isMeSpeaker()
       && this.audioPrefs.audioQuality === 'music'
       && !this.headphonesBannerDismissed;
+    const chatComposer = roomChatComposerState(this.currentChannel);
     return stageView(
       this.stageColumn(),
       this.chatList(),
       this.chatOpen && this.currentChannel.is_chat_enabled !== false,
       headphones,
+      chatComposer.block,
+      chatComposer.canPost,
     );
   }
 

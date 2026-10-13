@@ -7,11 +7,11 @@ import {
 } from '../../api/roomCardActions';
 import { relationshipFromStatus } from '../../api/relationship';
 import { isMusicAudioProfile } from '../../api/realtimeEvents';
-import type { CHChannelDetail, CHChatMessage, CHUser } from '../../api/types';
+import type { ChatPostBlock, CHChannelDetail, CHChatMessage, CHUser } from '../../api/types';
 import { audienceMatchesQuery } from '../../studio/audienceSearch';
 import { avatarHtml } from '../avatar';
 import { linkifyChatMessage } from '../chatText';
-import { html, type SafeHtml } from '../html';
+import { html, safeUrl, type SafeHtml } from '../html';
 
 export interface StageState {
   channel: CHChannelDetail;
@@ -62,7 +62,16 @@ export function stageView(
   messages: SafeHtml,
   chatOpen: boolean,
   headphonesBanner = false,
+  chatPostBlock: ChatPostBlock | null = null,
+  canPostChat = true,
 ): SafeHtml {
+  const followId = chatPostBlock?.cta?.type === 'follow_user'
+    ? chatPostBlock.cta.target_user_id
+    : null;
+  const blockTitle = chatPostBlock?.title?.trim() || t('chatPostBlockedTitle');
+  const blockBody = (chatPostBlock?.body || chatPostBlock?.summary || '').trim();
+  const blockName = chatPostBlock?.name?.trim() || '';
+  const avatar = safeUrl(chatPostBlock?.avatar_url || '');
   return html`
     <div class="stage-main-wrapper">
       <div id="realtime-banner" hidden class="rec-banner stage-strip-banner">${t('realtimeReconnecting')}</div>
@@ -92,10 +101,29 @@ export function stageView(
             <div class="chat-messages-scroll" id="chat-scroll">
               ${messages}
             </div>
-            <div class="chat-input-bar">
-              <input class="form-input" id="chat-input" placeholder="${t('chatPlaceholder')}" style="padding: 8px 12px; font-size: 13px;" />
-              <button class="btn btn-primary" data-action="send-chat" style="padding: 8px 12px;">${t('send')}</button>
-            </div>
+            ${chatPostBlock || !canPostChat ? html`
+              <div class="chat-post-block" data-chat-post-block role="status">
+                ${avatar ? html`<img class="chat-post-block-avatar" src="${avatar}" alt="" />` : ''}
+                <div class="chat-post-block-copy">
+                  <strong>${blockTitle}</strong>
+                  ${blockBody ? html`<p>${blockBody}</p>` : ''}
+                  ${blockName ? html`<span class="chat-post-block-name">${blockName}</span>` : ''}
+                </div>
+                ${followId != null ? html`
+                  <button
+                    class="btn btn-primary"
+                    type="button"
+                    data-action="follow-user"
+                    data-user-id="${followId}"
+                  >${t('chatPostBlockFollow')}</button>
+                ` : ''}
+              </div>
+            ` : html`
+              <div class="chat-input-bar">
+                <input class="form-input" id="chat-input" placeholder="${t('chatPlaceholder')}" style="padding: 8px 12px; font-size: 13px;" />
+                <button class="btn btn-primary" data-action="send-chat" style="padding: 8px 12px;">${t('send')}</button>
+              </div>
+            `}
           </aside>
         ` : ''}
       </div>

@@ -20,7 +20,20 @@ import { getEndpoint } from './registry';
 import { permissionOn } from './roomActions';
 import { SandboxBackend, SandboxTransport } from './sandboxTransport';
 import { MOCK_ME, sandboxUserIds } from './sandboxData';
-import type { CHAuthResponse, CHChannel, CHChannelDetail, CHChatMessage, CHConversation, CHUser, FeedTopic, MeSettings, SearchHit, SearchObjectType } from './types';
+import { parseChatPostBlock } from './chatPostBlock.ts';
+import type {
+  CHAuthResponse,
+  CHChannel,
+  CHChannelDetail,
+  CHChatMessage,
+  ChatPostBlock,
+  CHConversation,
+  CHUser,
+  FeedTopic,
+  MeSettings,
+  SearchHit,
+  SearchObjectType,
+} from './types';
 
 const REQUEST_TIMEOUT_MS = 20000;
 const OFFICIAL_WEB_API = 'https://www.clubhouse.com/web_api';
@@ -72,6 +85,8 @@ export class ClubhouseApiError extends Error {
   status: number;
   endpoint: string;
   kind: ApiErrorKind;
+  /** Present when send_channel_message (etc.) returns Clubhouse’s follow-to-chat gate. */
+  chatPostBlock?: ChatPostBlock;
 
   constructor(status: number, endpoint: string, message: string, kind: ApiErrorKind = 'unknown') {
     super(message);
@@ -1011,9 +1026,12 @@ export class ClubhouseApiClient {
   ): T {
     if (!ok) {
       let message = text || `HTTP ${status}`;
+      let chatPostBlock: ChatPostBlock | undefined;
       try {
-        const parsed = JSON.parse(text) as { error_message?: string };
+        const parsed = JSON.parse(text) as { error_message?: string; chat_post_block?: unknown };
         if (parsed.error_message) message = parsed.error_message;
+        const block = parseChatPostBlock(parsed.chat_post_block);
+        if (block) chatPostBlock = block;
       } catch {
         // The body is not JSON.
       }
@@ -1023,7 +1041,9 @@ export class ClubhouseApiClient {
       if (failure.expireSession && !this.suppressAuthExpired) {
         this.emitAuthExpired();
       }
-      throw new ClubhouseApiError(status, endpoint, failure.message, failure.kind);
+      const err = new ClubhouseApiError(status, endpoint, failure.message, failure.kind);
+      if (chatPostBlock) err.chatPostBlock = chatPostBlock;
+      throw err;
     }
 
     let data: T & {

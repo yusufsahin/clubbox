@@ -4,7 +4,7 @@
   "description": "Unofficial desktop studio for Clubhouse",
   "author": "Clubbox",
   "private": true,
-  "version": "2.2.0",
+  "version": "2.3.0",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -31,8 +31,11 @@
     "test:redact": "npm run test:unit",
     "lint": "eslint . && npm run api:check",
     "icons": "node scripts/make-icons.mjs",
-    "dist": "npm run build && electron-builder",
-    "dist:dir": "npm run build && electron-builder --dir"
+    "dist": "npm run build && node scripts/run-electron-builder.mjs",
+    "dist:dir": "npm run build && node scripts/run-electron-builder.mjs --dir",
+    "dist:signed": "npm run build && node scripts/run-electron-builder.mjs --signed",
+    "dist:store": "npm run icons && npm run build && node scripts/run-electron-builder.mjs --store",
+    "dist:verify": "node scripts/verify-win-signatures.mjs"
   },
   "build": {
     "appId": "app.clubbox.desktop",
@@ -53,11 +56,35 @@
     "electronDist": "node_modules/electron/dist",
     "win": {
       "icon": "build/icon.ico",
-      "signAndEditExecutable": false,
+      "signtoolOptions": {
+        "signingHashAlgorithms": [
+          "sha256"
+        ],
+        "rfc3161TimeStampServer": "http://timestamp.digicert.com"
+      },
       "target": [
         "nsis",
         "portable"
       ]
+    },
+    "appx": {
+      "identityName": "Clubbox.Desktop",
+      "publisherDisplayName": "Clubbox",
+      "publisher": "CN=Clubbox",
+      "applicationId": "Clubbox",
+      "displayName": "Clubbox",
+      "languages": [
+        "en-US",
+        "tr-TR"
+      ],
+      "capabilities": [
+        "runFullTrust",
+        "internetClient",
+        "microphone"
+      ],
+      "backgroundColor": "#080a0f",
+      "showNameOnTiles": true,
+      "artifactName": "Clubbox-${version}.${ext}"
     },
     "nsis": {
       "oneClick": false,

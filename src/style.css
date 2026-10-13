@@ -3507,6 +3507,53 @@ button.mutual-line:hover {
   gap: 8px;
 }
 
+.chat-post-block {
+  padding: 12px;
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-start;
+  background: var(--bg-inset);
+}
+
+.chat-post-block-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.chat-post-block-copy {
+  flex: 1 1 140px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.chat-post-block-copy strong {
+  font-weight: 650;
+}
+
+.chat-post-block-copy p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.chat-post-block-name {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.chat-post-block .btn {
+  flex: 0 0 auto;
+  align-self: center;
+}
+
 .messages-page {
   max-width: 1120px;
   margin: 0 auto;

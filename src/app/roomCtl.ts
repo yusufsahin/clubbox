@@ -1,4 +1,5 @@
 export { RoomEffectRunner, type RoomEffectDeps } from './roomEffectRunner.ts';
+import { parseChatPostBlock, roomChatComposerState } from '../api/chatPostBlock.ts';
 import { ClubhouseApiError, clubhouseClient } from '../api/client.ts';
 import { isMobileHostEndpoint } from '../api/capabilities.ts';
 import {
@@ -923,6 +924,7 @@ export async function joinRoom(this: ClubboxApp, channelId: string, preset?: CHC
           joined.is_active_trending_topic_channel = listed.is_active_trending_topic_channel;
         }
       }
+      joined.chat_post_block = parseChatPostBlock(joined.chat_post_block);
       this.currentChannel = joined;
       roomShutdown = null;
       const joinedId = this.channelApiId(joined);
@@ -1269,12 +1271,26 @@ export async function sendChatMessage(this: ClubboxApp) {
       return;
     }
 
+    const composer = roomChatComposerState(this.currentChannel);
+    if (!composer.canPost) {
+      const title = composer.block?.title?.trim() || t('chatPostBlockedTitle');
+      this.showToast(title, '💬');
+      this.renderStage();
+      return;
+    }
+
     const text = input.value.trim();
     if (!clubhouseClient.getConfig().useSandbox) {
       if (!this.allowAction('send_channel_message')) return;
       try {
         await clubhouseClient.sendChannelMessage(this.channelApiId(this.currentChannel), text);
       } catch (err) {
+        if (err instanceof ClubhouseApiError && err.chatPostBlock && this.currentChannel) {
+          this.currentChannel.chat_post_block = err.chatPostBlock;
+          this.showToast(err.chatPostBlock.title?.trim() || err.message || t('chatPostBlockedTitle'), '💬');
+          this.renderStage();
+          return;
+        }
         this.reportApiError(err);
         return;
       }

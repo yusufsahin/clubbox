@@ -37,4 +37,57 @@ mkdirSync(path.join(root, 'build'), { recursive: true });
 writeFileSync(path.join(root, 'build', 'icon.png'), render(1024));
 const ico = toIco([16, 32, 48, 256].map((size) => ({ size, png: render(size) })));
 writeFileSync(path.join(root, 'build', 'icon.ico'), ico);
-console.log('[Clubbox] wrote build/icon.png and build/icon.ico');
+
+/** Microsoft Store / AppX tile assets (build/appx/). */
+const appxDir = path.join(root, 'build', 'appx');
+mkdirSync(appxDir, { recursive: true });
+
+function writePng(name, size) {
+  writeFileSync(path.join(appxDir, name), render(size));
+}
+
+function writeWideLogo() {
+  // 310×150: brand mark centered on the product accent (favicon fill).
+  const svgWide = Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="310" height="150" viewBox="0 0 310 150">
+      <rect width="310" height="150" fill="#7952f5"/>
+      <g transform="translate(123,43) scale(1)">
+        <rect x="26" y="12" width="12" height="22" rx="6" fill="#ffffff"/>
+        <path d="M20 28a12 12 0 0 0 24 0" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>
+        <path d="M32 40v8" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>
+        <path d="M24 48h16" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>
+      </g>
+    </svg>`,
+  );
+  const png = new Resvg(svgWide, { fitTo: { mode: 'width', value: 310 } }).render().asPng();
+  writeFileSync(path.join(appxDir, 'Wide310x150Logo.png'), Buffer.from(png));
+}
+
+function writeSplash() {
+  const svgSplash = Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="620" height="300" viewBox="0 0 620 300">
+      <rect width="620" height="300" fill="#080a0f"/>
+      <g transform="translate(278,118)">
+        <rect width="64" height="64" rx="16" fill="#7952f5"/>
+        <rect x="26" y="12" width="12" height="22" rx="6" fill="#ffffff"/>
+        <path d="M20 28a12 12 0 0 0 24 0" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>
+        <path d="M32 40v8" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>
+        <path d="M24 48h16" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>
+      </g>
+    </svg>`,
+  );
+  const png = new Resvg(svgSplash, { fitTo: { mode: 'width', value: 620 } }).render().asPng();
+  writeFileSync(path.join(appxDir, 'SplashScreen.png'), Buffer.from(png));
+}
+
+writePng('StoreLogo.png', 50);
+writePng('Square44x44Logo.png', 44);
+writePng('Square150x150Logo.png', 150);
+writePng('Square71x71Logo.png', 71);
+writePng('LargeTile.png', 310);
+writePng('BadgeLogo.png', 24);
+writeFileSync(path.join(appxDir, 'SmallTile.png'), render(71));
+writeWideLogo();
+writeSplash();
+
+console.log('[Clubbox] wrote build/icon.png, build/icon.ico, and build/appx/*');

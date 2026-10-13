@@ -242,6 +242,7 @@ Owner reported: triage noise, new-room participants invisible, moderation action
 
 - **Phase 30 live checks (post-release, personal use):** still recommended in a real room — 30.4 overlay/history/profile, 30.6 encoder measure, 30.7 phone music/duck/stereo. Dual publish kept until 30.6 is measured.
 - **30.8 Clubhouse feedback (optional):** Knowledge Center → Share feedback — paste from `docs/tasks/phase-30-web-first.md` §30.8.
+- **Windows distribution (2026-10-13):** Primary path = **Microsoft Store AppX** (`npm run dist:store`, `docs/product/microsoft-store.md`). Owner: free Partner Center account → reserve Clubbox → paste identity into `electron-builder.store.json` → upload `.appx`. SAC On blocks unsigned NSIS; personal fallback remains `Clubbox-dev.cmd`. Store certification may reject unofficial Clubhouse clients — if so, paid Authenticode fallback.
 
 
 ## Status

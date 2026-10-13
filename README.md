@@ -92,6 +92,32 @@ npm run dev
 npm run build
 ```
 
+### 4. Windows — run without installer (Smart App Control)
+
+If packaged `Clubbox.exe` / setup is blocked by Smart App Control, use the free personal path (runs via Electron’s known binary):
+
+```bat
+Clubbox-dev.cmd
+```
+
+or `npm run desktop` after `npm install`. Details: [`docs/product/windows-smart-app-control.md`](docs/product/windows-smart-app-control.md).
+
+### 5. Windows for other users — Microsoft Store (AppX)
+
+```bash
+npm run dist:store    # builds .appx (Store re-signs; no paid Authenticode cert)
+```
+
+Reserve the app in Partner Center, paste identity into `electron-builder.store.json`, upload the `.appx`. Guide: [`docs/product/microsoft-store.md`](docs/product/microsoft-store.md).
+
+### 6. Windows installers outside the Store (paid cert)
+
+```bash
+npm run dist          # local unsigned NSIS + portable (often blocked by SAC)
+npm run dist:signed   # Authenticode release — requires paid code-signing cert
+npm run dist:verify   # check signatures on ../clubdeck-app/release artifacts
+```
+
 ---
 
 ## How live failures are fixed
