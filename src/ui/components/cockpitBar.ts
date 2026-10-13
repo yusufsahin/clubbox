@@ -7,6 +7,10 @@ export interface CockpitState {
   muted: boolean;
   /** Virtual cable or mixer selected as the microphone. */
   mixerMic: boolean;
+  /** Speaker with live external audio — show Music mute next to mic. */
+  showMusicMute: boolean;
+  /** External audio muted (VB-Cable / system audio). Independent of mic mute. */
+  musicMuted: boolean;
   recording: boolean;
   handRaised: boolean;
   handDisabled: boolean;
@@ -120,6 +124,18 @@ export function cockpitBar(state: CockpitState): SafeHtml {
           ${icon(state.muted ? 'micOff' : 'mic')}
           <span class="room-bar-label">${state.mixerMic ? t('mixMic') : t('mic')}</span>
         </button>
+
+        ${state.showMusicMute ? html`
+          <button
+            class="room-bar-btn room-bar-music ${!state.musicMuted ? 'is-active' : ''}"
+            type="button"
+            data-action="toggle-music-mute"
+            data-room-bar-item="music"
+            id="music-mute-btn"
+            aria-label="${t('toggleMusic')}"
+            title="${t('toggleMusic')}"
+          >${icon(state.musicMuted ? 'musicOff' : 'music')}<span class="room-bar-label">${t('music')}</span></button>
+        ` : ''}
 
         ${showJoinStage ? html`
           <button

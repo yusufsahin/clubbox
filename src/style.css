@@ -3541,7 +3541,7 @@ button.mutual-line:hover {
 
 .chat-post-block-copy p {
   margin: 0;
-  color: var(--text-secondary);
+  color: var(--text-muted);
 }
 
 .chat-post-block-name {

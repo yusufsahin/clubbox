@@ -120,6 +120,8 @@ test('cockpit bar hides Moderator actions without capability', () => {
   const base = {
     muted: true,
     mixerMic: false,
+    showMusicMute: false,
+    musicMuted: false,
     recording: false,
     handRaised: false,
     handDisabled: true,

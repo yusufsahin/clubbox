@@ -119,6 +119,32 @@ Then('the room still hears the external audio', function (this: ExternalWorld) {
   assert.equal(this.externalRoute.openGain > 0, true);
 });
 
+function syncExternalRoute(world: ExternalWorld): void {
+  world.externalRoute = planExternalRouting({
+    active: !!world.externalActive,
+    muted: !!world.externalMuted,
+    monitor: !!world.externalMonitor,
+    volume: world.externalVolume ?? 0.8,
+  });
+}
+
+When('I mute music from the cockpit', function (this: ExternalWorld) {
+  this.externalMuted = true;
+  syncExternalRoute(this);
+});
+
+When('I unmute music from the cockpit', function (this: ExternalWorld) {
+  this.externalMuted = false;
+  syncExternalRoute(this);
+});
+
+Then('the room no longer hears the external audio', function (this: ExternalWorld) {
+  assert.ok(this.externalRoute);
+  assert.equal(this.externalMuted, true);
+  assert.equal(this.externalRoute.openGain, 0);
+  assert.equal(this.externalRoute.toBroadcast, true);
+});
+
 Given('External audio is playing and {string} is on', function (this: ExternalWorld, label: string) {
   activateExternal(this, 'VB-Audio Cable');
   assert.equal(label, 'Duck under voice');

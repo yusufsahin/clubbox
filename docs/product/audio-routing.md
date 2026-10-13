@@ -15,7 +15,7 @@ Public install + VB-Cable guide (distribution repo):
 - Harici giriş = CABLE Output (aynı `N-` kablo)
 - Diğer uygulamaların çıkışı = CABLE Input veya `Speakers (N- VB-Audio Virtual Cable)`
 - Clubbox çıkışı = kulaklık veya hoparlör
-- Clubbox ducking yapar. Mikrofonu kapatmak müziği kesmez. Kayıt mikse dahildir.
+- Clubbox ducking yapar. Mikrofonu kapatmak müziği kesmez. Müziği kesmek için cockpit’teki **Müzik** düğmesi (veya Live details › Harici sesi sustur). Soundboard ayrı kalır (Sesler › Durdur). Kayıt mikse dahildir.
 
 ### Kurulum 2 — Mikser mikrofon (Voicemeeter / Loopback / BlackHole)
 
@@ -66,7 +66,7 @@ Two setups. Settings › Audio › **Music & external audio setup** is the same 
 - External input = CABLE Output of that cable
 - Other apps’ output = CABLE Input or `Speakers (N- VB-Audio Virtual Cable)`
 - Clubbox output = headphones or speakers
-- Clubbox ducks the music under your voice. Muting the mic does not stop the music. A recording includes the mix.
+- Clubbox ducks the music under your voice. Muting the mic does not stop the music. Cut music with the cockpit **Music** button (or Live details › Mute external). Soundboard stays separate (Sounds › Stop). A recording includes the mix.
 
 ### Setup 2 — Mixer as microphone (Voicemeeter / Loopback / BlackHole)
 

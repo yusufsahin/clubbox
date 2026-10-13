@@ -1921,6 +1921,8 @@ export class ClubboxApp {
     return cockpitBar({
       muted: audioEngine.getIsMuted(),
       mixerMic: audioEngine.isMixerMic(),
+      showMusicMute: this.isMeSpeaker() && audioEngine.isExternalActive(),
+      musicMuted: audioEngine.getExternalMuted(),
       recording: audioEngine.getIsRecording(),
       handRaised: clubhouseClient.isHandRaised(),
       handDisabled: !this.currentChannel || this.isMeSpeaker() || stageAccessMode(this.currentChannel) !== 'raise',
@@ -2136,7 +2138,7 @@ export class ClubboxApp {
         return;
       }
       if (action === 'toggle-external-mute' && target instanceof HTMLInputElement) {
-        audioEngine.setExternalMuted(target.checked);
+        this.toggleMusicMute(target.checked);
         return;
       }
       if (action === 'toggle-external-monitor' && target instanceof HTMLInputElement) {
@@ -2761,6 +2763,9 @@ export class ClubboxApp {
         break;
       case 'toggle-mic':
         this.toggleMute();
+        break;
+      case 'toggle-music-mute':
+        this.toggleMusicMute();
         break;
       case 'toggle-monitor': {
         const enabled = el instanceof HTMLInputElement

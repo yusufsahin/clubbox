@@ -274,6 +274,18 @@ export function toggleMute(this: ClubboxApp) {
     }
   }
 
+/** Mute/unmute external audio (VB-Cable / system). Independent of mic mute. */
+export function toggleMusicMute(this: ClubboxApp, muted?: boolean): void {
+  if (!audioEngine.isExternalActive()) return;
+  const next = muted ?? !audioEngine.getExternalMuted();
+  audioEngine.setExternalMuted(next);
+  void agoraVoice.syncMuteSignal();
+  this.showToast(next ? t('musicMuted') : t('musicLive'), next ? '🎵' : '🎶');
+  this.renderCockpit();
+  if (this.roomDetailsOpen) this.renderRoomDetails();
+  if (this.liveDetailsOpen) this.renderLiveDetails();
+}
+
 /** Apply the latest mic mute to Agora, then refresh the badge once that settles. */
 export function queueMuteSync(this: ClubboxApp): Promise<void> {
     this.muteChain = chainLatestMute(
@@ -650,6 +662,7 @@ export function wireStudioCtl(proto: ClubboxApp): void {
   proto.updateVuMeter = updateVuMeter;
   proto.handleRecordingStateChange = handleRecordingStateChange;
   proto.toggleMute = toggleMute;
+  proto.toggleMusicMute = toggleMusicMute;
   proto.queueMuteSync = queueMuteSync;
   proto.syncSelfMuteFromEngine = syncSelfMuteFromEngine;
   proto.toggleMusicMode = toggleMusicMode;

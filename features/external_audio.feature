@@ -23,6 +23,15 @@ Feature: External audio into the room
     Then the room still hears the external audio
 
   @local @ST-11
+  Scenario: Cockpit Music mute stops external audio
+    Given External audio is playing
+    When I mute music from the cockpit
+    Then the room no longer hears the external audio
+    When I unmute music from the cockpit
+    And I mute my microphone
+    Then the room still hears the external audio
+
+  @local @ST-11
   Scenario: Auto-duck music under my voice
     Given External audio is playing and "Duck under voice" is on
     When I speak

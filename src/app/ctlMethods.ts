@@ -190,6 +190,7 @@ export type ClubboxAppCtlMethods = {
   updateVuMeter: typeof studioCtl.updateVuMeter;
   handleRecordingStateChange: typeof studioCtl.handleRecordingStateChange;
   toggleMute: typeof studioCtl.toggleMute;
+  toggleMusicMute: typeof studioCtl.toggleMusicMute;
   queueMuteSync: typeof studioCtl.queueMuteSync;
   syncSelfMuteFromEngine: typeof studioCtl.syncSelfMuteFromEngine;
   toggleMusicMode: typeof studioCtl.toggleMusicMode;
