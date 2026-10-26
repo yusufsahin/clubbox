@@ -2055,8 +2055,9 @@ body {
   padding: 8px 12px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex-wrap: nowrap;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
   box-shadow: var(--shadow-md);
   z-index: 20;
   overflow: visible;
@@ -2459,6 +2460,13 @@ body {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.toggle-state-btn svg,
+.mic-toggle-btn svg,
+.btn-danger svg {
+  display: block;
+  flex-shrink: 0;
 }
 
 .toggle-state-btn {

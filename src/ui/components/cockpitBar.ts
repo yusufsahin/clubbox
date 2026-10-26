@@ -5,6 +5,7 @@ import { icon } from '../icons';
 
 export interface CockpitState {
   muted: boolean;
+  musicMode: boolean;
   recording: boolean;
   handRaised: boolean;
   handDisabled: boolean;
@@ -21,6 +22,8 @@ export interface CockpitState {
   canClip: boolean;
   canRecord: boolean;
   recordHint: string;
+  micVolume: number;
+  monitorEnabled: boolean;
   reactionsOpen: boolean;
   soundsOpen: boolean;
   canReact: boolean;
@@ -31,28 +34,35 @@ export interface CockpitState {
   soundpadVolume: number;
 }
 
-function barBtn(
-  item: string,
+function toggleBtn(
   action: string,
   label: string,
   iconName: Parameters<typeof icon>[0],
-  opts: { active?: boolean; disabled?: boolean; title?: string; extra?: string; foldable?: boolean; badge?: number } = {},
+  opts: {
+    item?: string;
+    active?: boolean;
+    disabled?: boolean;
+    title?: string;
+    extraClass?: string;
+    extra?: string;
+    badge?: number;
+  } = {},
 ): SafeHtml {
-  const title = opts.title ?? label;
+  const item = opts.item ? html`data-room-bar-item="${opts.item}"` : '';
+  const active = opts.active ? 'active' : '';
   const disabled = opts.disabled ? 'disabled' : '';
-  const active = opts.active ? 'is-active' : '';
-  const foldable = opts.foldable ? 'room-bar-foldable' : '';
+  const extraClass = opts.extraClass ?? '';
   const badge = opts.badge && opts.badge > 0
     ? html`<span class="room-bar-badge">${String(opts.badge)}</span>`
     : '';
   return html`
     <button
-      class="room-bar-btn ${active} ${foldable}"
+      class="toggle-state-btn ${active} ${extraClass}"
       type="button"
       data-action="${action}"
-      data-room-bar-item="${item}"
+      ${item}
       aria-label="${label}"
-      title="${title}"
+      title="${opts.title ?? label}"
       ${disabled}
       ${opts.extra ?? ''}
     >${icon(iconName)}<span class="room-bar-label">${label}</span>${badge}</button>
@@ -62,123 +72,125 @@ function barBtn(
 export function cockpitBar(state: CockpitState): SafeHtml {
   const showHand = state.canRaiseHand && !state.isSpeaker;
   const showRecord = state.canRecord || state.recording || state.canClip;
+  const micLabel = state.isSpeaker ? (!state.muted ? t('liveBadge') : t('mutedLabel')) : t('micLabel');
   return html`
     <div class="cockpit-bar" data-cockpit="room">
       ${state.inRoom && state.roomTitle ? html`
         <button
           class="room-bar-title"
           type="button"
-          data-action="nav"
-          data-tab="stage"
+          data-action="open-room-details"
           data-room-title
           data-room-bar-item="title"
           title="${state.roomTitle}"
         >${state.roomTitle}</button>
       ` : ''}
+      ${state.latestChat ? html`
+        <button class="chat-ticker" type="button" data-action="nav" data-tab="stage" title="${state.latestChat}">${state.latestChat}</button>
+      ` : ''}
       ${state.showAudioRetry ? html`
         <button class="btn btn-secondary audio-retry-btn" data-action="retry-audio" type="button">${t('retryAudio')}</button>
       ` : ''}
 
-      <div class="room-bar-tools" data-room-bar-tools>
-        <button
-          class="room-bar-btn room-bar-mic ${!state.muted ? 'is-active' : ''}"
-          type="button"
-          data-action="toggle-mic"
-          data-room-bar-item="mic"
-          id="mic-toggle-btn"
-          aria-label="${t('toggleMic')}"
-          title="${t('toggleMic')}"
-        >
-          <span class="mic-ring" id="vu-meter-fill" aria-hidden="true"></span>
-          ${icon(state.muted ? 'micOff' : 'mic')}
-          <span class="room-bar-label">${t('mic')}</span>
-        </button>
+      <div class="cockpit-left">
+        <div class="mic-control-cluster">
+          <button
+            class="mic-toggle-btn ${!state.muted ? 'unmuted' : ''}"
+            id="mic-toggle-btn"
+            type="button"
+            data-action="toggle-mic"
+            data-room-bar-item="mic"
+            aria-label="${t('mic')}"
+            title="${t('toggleMic')}"
+          >${icon(state.muted ? 'micOff' : 'mic', 22)}</button>
+          <div class="mic-meter-box">
+            <span class="mic-meter-label">${micLabel}</span>
+            <div class="meter-bar-track">
+              <div class="meter-bar-fill" id="vu-meter-fill"></div>
+            </div>
+            <input type="range" id="mic-vol-slider" min="0" max="1" step="0.05" value="${String(state.micVolume)}" title="${t('micLevel')}" />
+          </div>
+        </div>
 
-        ${showHand ? barBtn('hand', 'toggle-hand', t('hand'), 'hand', {
+        ${toggleBtn('toggle-monitor', t('hearMyself'), 'headphones', {
+          active: state.monitorEnabled,
+          title: t('hearMyself'),
+        })}
+        ${toggleBtn('toggle-music', t('musicMode'), 'music', {
+          active: state.musicMode,
+          extra: 'id="music-mode-btn"',
+          title: t('musicModeTitle'),
+        })}
+        ${state.showMusicMute ? toggleBtn('toggle-music-mute', t('cockpitMusic'), 'speaker', {
+          active: !state.musicMuted,
+          title: t('cockpitMusicTitle'),
+        }) : ''}
+      </div>
+
+      <div class="cockpit-center">
+        ${state.effects.slice(0, 5).map((fx) => html`
+          <button class="soundpad-quick-btn" type="button" data-action="play-sound" data-fx-id="${fx.id}">
+            <span class="soundpad-icon">${fx.icon}</span>
+            <span>${fx.name}</span>
+            <span class="key-tag">${fx.hotkey || t('noHotkey')}</span>
+          </button>
+        `)}
+      </div>
+
+      <div class="cockpit-right">
+        ${showHand ? toggleBtn('toggle-hand', t('hand'), 'hand', {
+          item: 'hand',
           active: state.handRaised,
           disabled: state.handDisabled,
           title: t('raiseHandTitle'),
           extra: 'id="hand-btn"',
         }) : ''}
 
-        ${state.inRoom ? barBtn('reactions', 'toggle-reactions', t('reactions'), 'smile', {
+        ${state.inRoom ? toggleBtn('toggle-reactions', t('reactions'), 'smile', {
+          item: 'reactions',
           active: state.reactionsOpen,
           disabled: !state.canReact,
         }) : ''}
 
-        ${state.inRoom ? barBtn('sounds', 'toggle-sounds', t('sounds'), 'speaker', {
+        ${state.inRoom ? toggleBtn('toggle-sounds', t('sounds'), 'speaker', {
+          item: 'sounds',
           active: state.soundsOpen,
         }) : ''}
 
-        ${state.showMusicMute ? barBtn('music', 'toggle-music-mute', t('cockpitMusic'), 'music', {
-          active: !state.musicMuted,
-          title: t('cockpitMusicTitle'),
+        ${state.inRoom ? toggleBtn('save-clip', t('clip'), 'clip', {
+          disabled: !state.canClip,
+          title: state.canClip ? t('clipTitle') : t('clipUnavailable'),
         }) : ''}
 
         ${state.inRoom && showRecord ? html`
           <button
-            class="room-bar-btn ${state.recording ? 'is-active record-active' : 'room-bar-foldable'}"
+            class="toggle-state-btn ${state.recording ? 'record-active' : ''}"
             type="button"
-            data-action="${state.canClip && !state.canRecord ? 'save-clip' : 'toggle-record'}"
+            data-action="toggle-record"
             data-room-bar-item="record"
             id="record-btn"
             aria-label="${t('record')}"
             title="${state.recordHint}"
-            ${state.canRecord || state.recording || state.canClip ? '' : 'disabled'}
+            ${state.canRecord || state.recording ? '' : 'disabled'}
           >${icon('record')}<span class="room-bar-label">${t('record')}</span><span class="room-bar-timer" id="record-timer" ${state.recording ? '' : 'hidden'}>${state.recording ? '00:00' : ''}</span></button>
         ` : ''}
 
-        ${state.inRoom ? barBtn('chat', 'toggle-chat', t('chat'), 'chat', {
+        ${state.inRoom ? toggleBtn('toggle-chat', t('chat'), 'chat', {
+          item: 'chat',
           active: state.chatOpen,
           disabled: !state.canChat,
           title: state.unreadChat > 0 ? t('unreadChat', { count: state.unreadChat }) : (state.canChat ? t('chat') : t('chatOff')),
-          foldable: true,
           badge: state.unreadChat,
         }) : ''}
 
-        ${state.latestChat ? html`
-          <button class="chat-ticker room-bar-foldable" type="button" data-action="nav" data-tab="stage" title="${state.latestChat}">${state.latestChat}</button>
-        ` : ''}
-
-        ${state.inRoom ? barBtn('details', 'open-room-details', t('details'), 'details') : ''}
-
-        <button
-          class="room-bar-btn room-bar-more"
-          type="button"
-          data-action="toggle-room-bar-more"
-          data-room-bar-item="more"
-          aria-label="${t('moreOptions')}"
-          title="${t('moreOptions')}"
-          ${state.overflowOpen ? 'aria-expanded="true"' : 'aria-expanded="false"'}
-        >${icon('more')}<span class="room-bar-label">${t('moreOptions')}</span></button>
+        ${state.inRoom ? toggleBtn('open-room-details', t('details'), 'details', { item: 'details' }) : ''}
 
         ${state.inRoom ? html`
-          <button
-            class="room-bar-btn room-bar-leave"
-            type="button"
-            data-action="leave-room"
-            data-room-bar-item="leave"
-            aria-label="${t('leave')}"
-            title="${t('leave')}"
-          >${icon('leave')}<span class="room-bar-label">${t('leave')}</span></button>
+          <button class="btn btn-danger" type="button" data-action="leave-room" data-room-bar-item="leave" style="padding: 9px 16px;">
+            ${icon('leave')}<span class="room-bar-label">${t('leave')}</span>
+          </button>
         ` : ''}
       </div>
-
-      ${state.overflowOpen ? html`
-        <div class="room-bar-popover" data-room-bar-overflow role="menu">
-          ${state.inRoom && showRecord ? html`
-            <button class="room-bar-overflow-item" type="button" data-action="${state.canClip && !state.canRecord ? 'save-clip' : 'toggle-record'}" ${state.canRecord || state.recording || state.canClip ? '' : 'disabled'}>
-              ${icon('record')}<span>${t('record')}</span>
-            </button>
-          ` : ''}
-          ${state.inRoom ? html`
-            <button class="room-bar-overflow-item" type="button" data-action="toggle-chat" ${state.canChat ? '' : 'disabled'}>
-              ${icon('chat')}<span>${state.canChat ? t('chat') : t('chatOff')}</span>
-              ${state.unreadChat > 0 ? html`<span class="room-bar-badge">${String(state.unreadChat)}</span>` : ''}
-            </button>
-          ` : ''}
-        </div>
-      ` : ''}
 
       ${state.reactionsOpen ? html`
         <div class="room-bar-popover" data-reactions-popover>

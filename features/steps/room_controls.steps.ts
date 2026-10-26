@@ -33,11 +33,11 @@ Then(
   },
 );
 
-Then('the room bar has no {string} or {string} button', function (this: ClubboxWorld, a: string, b: string) {
+Then('the room bar has a {string} button and a {string} button', function (this: ClubboxWorld, a: string, b: string) {
   const ui = paintNavUi(this);
   const text = ui.root.querySelector('[data-cockpit="room"]')?.textContent ?? '';
-  assert.equal(text.includes(a), false, `room bar should not include ${a}`);
-  assert.equal(text.includes(b), false, `room bar should not include ${b}`);
+  assert.ok(text.includes(a), `room bar should include ${a}`);
+  assert.ok(text.includes(b), `room bar should include ${b}`);
 });
 
 When('I click {string} in the room bar', function (this: ClubboxWorld, label: string) {

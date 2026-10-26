@@ -11,7 +11,7 @@ Feature: Room-centred controls
   Scenario: The room bar holds the in-room tools
     Given I am in the room "Tech Talk"
     Then the room bar shows, in order, the room title, "Mic", "Hand", "Reactions", "Sounds", "Record", "Chat", "Details" and "Leave"
-    And the room bar has no "Music Mode" or "Hear myself" button
+    And the room bar has a "Music Mode" button and a "Hear myself" button
 
   @ST-3
   Scenario: Sounds panel in the room

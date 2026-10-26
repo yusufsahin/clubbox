@@ -1383,6 +1383,7 @@ export class ClubboxApp {
     const flags = stageControlFlags(this);
     return cockpitBar({
       muted: audioEngine.getIsMuted(),
+      musicMode: audioEngine.getIsMusicMode(),
       recording: audioEngine.getIsRecording(),
       handRaised: clubhouseClient.isHandRaised(),
       handDisabled: !this.currentChannel || this.isMeSpeaker() || this.currentChannel.is_handraise_enabled === false,
@@ -1403,6 +1404,8 @@ export class ClubboxApp {
         : clubhouseClient.getConfig().allowLocalRecording === true
           ? t('recordingNeedsReplay')
           : t('recordingNeedsConsent'),
+      micVolume: audioEngine.getMicVolume(),
+      monitorEnabled: audioEngine.getMonitorEnabled(),
       reactionsOpen: this.reactionsOpen,
       soundsOpen: this.soundsOpen,
       canReact: flags.canReact,

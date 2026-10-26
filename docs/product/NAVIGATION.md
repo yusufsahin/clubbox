@@ -68,11 +68,11 @@ Owner review: the soundboard and several in-room settings live in global places 
 | --- | --- | --- |
 | Soundboard is a sidebar place | Pads go to the room's broadcast mix; outside a room playing them is only a local preview. While in a room you must leave the room page to reach all pads. | **Remove Soundboard from the sidebar.** In a room: a **Sounds** button in the room bar opens the pad panel (all pads, volume, stop all, duck). Managing pads (upload, rename, hotkey, volume, delete, local preview) moves to **Settings › Sounds**. Hotkeys 1–9 keep working in a room. |
 | In-room audio settings in Settings | Voice effect and spatial audio are in Settings. | Move to **Room details › Audio** (with audio quality / music mode and "hear myself"). Settings keeps only devices and defaults. |
-| Duplicates | Music mode in the room bar **and** audio quality in Room details; "Mute everyone" on the stage **and** in Room details; chat toggle in the room bar **and** on the stage. | One place each: audio quality (incl. Music) and "hear myself" only in Room details › Audio; mute everyone only in Room details › Moderation; chat toggle only in the room bar. |
+| Duplicates | Music mode in the room bar **and** audio quality in Room details; "Mute everyone" on the stage **and** in Room details; chat toggle in the room bar **and** on the stage. | Studio bar keeps **Hear myself** and **Music Mode** for one-click use (owner, 2026-10-26). Details › Audio still shows the same settings. Mute everyone only in Room details › Moderation; chat toggle only in the room bar. |
 | Moderator toolbar on the stage | Refresh, Rename, Invite people, Mute everyone, End room, Visibility, Hand raise, reactions row and GIF field above the speakers. | Stage shows only speakers, audience and chat. Moderator tools go to **Room details › Moderation**; reactions and GIF go to a **Reactions** button in the room bar (like the app's heart button). Refresh stage stays as Ctrl+P only. |
 
 Room bar (bottom, every page while in a room), left → right:
-`● Room title` · 🎙 Mic · ✋ Hand · 😀 Reactions · 🎛 Sounds · ⏺ Record/Clip · 💬 Chat · ⓘ Details · Leave
+`● Room title` · 🎙 Mic + VU/gain · 🎧 Hear myself · 🎵 Music Mode · pads · ✋ Hand · 😀 Reactions · 🎛 Sounds · ⏺ Record/Clip · 💬 Chat · ⓘ Details · Leave
 
 Room details panel sections: **About** (replay status, share) · **Audio** (quality Normal/High/Music, hear myself, voice effect, spatial audio) · **Moderation** — moderators only (rename, visibility, hand raise, invite people, mute all, end room) · **Audience search**.
 

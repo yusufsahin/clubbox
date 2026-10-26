@@ -132,7 +132,7 @@ Legend — Today: ✅ works live · ✅* wired (live verification pending) · �
 | RH-12 | Pinned link | ✓ | ✓ | ✅ | B (create_channel.link) | P2 |
 | RH-13 | Room details panel (mobile "live details"): replay status + note, audio quality, audience search, mute all other speakers (mod), share | ✓ | ✓ | ✅ | B/C | P1 |
 | RH-14 | Simple composer like the mobile app: title → room type list (public, friends of friends, my friends, each of my houses with photo and access label) → go live; replays ON by default with "disable replay" under More options | ✓ | ✓ | ✅ | O | P1 |
-| RH-15 | Room-centred controls: room bar (Mic, Hand, Reactions, Sounds, Record, Chat, Details, Leave); moderator tools and audio settings in Room details; each control exactly once | ✓ | ✓ | ✅ | — | P1 |
+| RH-15 | Room-centred controls: studio bar (title, Mic + VU/gain, Hear myself, Music Mode, pads, Hand, Reactions, Sounds, Record, Chat, Details, Leave); moderator tools stay in Room details; Chat / Mute everyone / Share once | ✓ | ✓ | ✅ | — | P1 |
 
 ### 4.5 Studio (Clubbox's reason to exist)
 

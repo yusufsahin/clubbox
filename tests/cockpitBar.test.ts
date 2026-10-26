@@ -5,6 +5,7 @@ import { icon } from '../src/ui/icons.ts';
 
 const base = {
   muted: false,
+  musicMode: false,
   recording: false,
   handRaised: false,
   handDisabled: false,
@@ -13,7 +14,9 @@ const base = {
   isSpeaker: true,
   inRoom: true,
   roomTitle: 'Morning show',
-  effects: [] as { id: string; name: string; icon: string; hotkey: string; type: 'synth'; synthType: 'applause'; volume: number }[],
+  effects: [
+    { id: 'applause', name: 'Applause', icon: '👏', hotkey: '1', type: 'synth' as const, synthType: 'applause' as const, volume: 1 },
+  ],
   latestChat: '',
   unreadChat: 0,
   chatOpen: false,
@@ -21,6 +24,8 @@ const base = {
   canClip: false,
   canRecord: true,
   recordHint: '',
+  micVolume: 0.6,
+  monitorEnabled: false,
   reactionsOpen: false,
   soundsOpen: false,
   canReact: true,
@@ -31,23 +36,23 @@ const base = {
   soundpadVolume: 0.8,
 };
 
-test('music and sounds use different icons', () => {
+test('studio cockpit keeps mic meter, hear myself, music mode and pads', () => {
   const html = String(cockpitBar(base));
-  assert.match(html, /data-room-bar-item="sounds"/);
-  assert.match(html, /data-room-bar-item="music"/);
-  assert.notEqual(String(icon('music')), String(icon('speaker')));
-  assert.ok(html.includes('M9 18V5l12-2v13'));
-  assert.ok(html.includes('M11 5L6 9H3v6h3l5 4V5z'));
+  assert.match(html, /id="mic-vol-slider"[^>]*value="0\.6"/);
+  assert.match(html, /id="vu-meter-fill"/);
+  assert.match(html, /data-action="toggle-monitor"/);
+  assert.match(html, /data-action="toggle-music"/);
+  assert.match(html, /data-action="play-sound" data-fx-id="applause"/);
+  assert.match(html, /data-action="toggle-music-mute"/);
+  assert.notEqual(String(icon('music')), String(icon('headphones')));
 });
 
-test('more menu lists folded room actions', () => {
-  const html = String(cockpitBar({ ...base, overflowOpen: true }));
-  assert.match(html, /data-room-bar-overflow/);
-  assert.match(html, /data-action="toggle-chat"/);
-  assert.match(html, /data-action="toggle-record"/);
-  const overflow = html.slice(html.indexOf('data-room-bar-overflow'));
-  assert.equal(overflow.includes('data-action="open-room-details"'), false);
-  assert.match(html, /class="[^"]*room-bar-foldable[^"]*"[\s\S]*?data-room-bar-item="chat"/);
+test('room title opens details and RH-15 items stay labeled', () => {
+  const html = String(cockpitBar({ ...base, canRaiseHand: true, isSpeaker: false }));
+  assert.match(html, /data-room-bar-item="title"[^>]*data-action="open-room-details"|data-action="open-room-details"[^>]*data-room-bar-item="title"/);
+  for (const item of ['mic', 'hand', 'reactions', 'sounds', 'record', 'chat', 'details', 'leave']) {
+    assert.match(html, new RegExp(`data-room-bar-item="${item}"`));
+  }
 });
 
 test('chat shows unread badge and sounds slider uses engine volume', () => {
@@ -59,13 +64,4 @@ test('chat shows unread badge and sounds slider uses engine volume', () => {
   }));
   assert.match(html, /class="room-bar-badge">3</);
   assert.match(html, /id="soundpad-vol-slider"[^>]*value="0\.4"/);
-  assert.match(html, /id="soundpad-vol-label">40%/);
-});
-
-test('recording keeps the timer off the hidden label', () => {
-  const html = String(cockpitBar({ ...base, recording: true }));
-  assert.match(html, /id="record-timer"/);
-  assert.equal(/class="room-bar-label"[^>]*id="record-timer"/.test(html), false);
-  assert.match(html, /class="room-bar-btn is-active record-active"/);
-  assert.match(html, /id="record-timer"[^>]*>00:00/);
 });

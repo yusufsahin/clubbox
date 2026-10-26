@@ -17,6 +17,8 @@ export function icon(name: IconName, size = 18): SafeHtml {
     leave: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/>',
     plus: '<path d="M12 5v14"/><path d="M5 12h14"/>',
     more: '<circle cx="5" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.5" fill="currentColor" stroke="none"/>',
+    headphones: '<path d="M3 14v3a2 2 0 0 0 2 2h1v-7H5a2 2 0 0 0-2 2z"/><path d="M21 14v3a2 2 0 0 1-2 2h-1v-7h1a2 2 0 0 1 2 2z"/><path d="M3 13a9 9 0 0 1 18 0"/>',
+    clip: '<path d="M14 7l-8.5 8.5a3 3 0 0 0 4.2 4.2L19 10.9a2.5 2.5 0 0 0-3.5-3.5L8 15"/>',
   };
   return raw(`${open}${paths[name]}</svg>`);
 }
@@ -33,4 +35,6 @@ export type IconName =
   | 'details'
   | 'leave'
   | 'plus'
-  | 'more';
+  | 'more'
+  | 'headphones'
+  | 'clip';

@@ -170,9 +170,8 @@ export function handleGlobalShortcut(this: ClubboxApp, action: string) : void {
 export function updateVuMeter(this: ClubboxApp, vol: number) {
     const fill = document.getElementById('vu-meter-fill');
     if (fill) {
-      const level = Math.max(0, Math.min(1, vol));
-      fill.style.opacity = audioEngine.getIsMuted() || level < 0.08 ? '0' : String(0.35 + level * 0.65);
-      fill.style.borderColor = level < 0.08 || audioEngine.getIsMuted() ? 'transparent' : 'var(--accent-emerald)';
+      const level = audioEngine.getIsMuted() ? 0 : Math.max(0, Math.min(1, vol));
+      fill.style.width = `${Math.round(level * 100)}%`;
     }
 
     const mySpeakerCard = document.querySelector('.speaker-card.me-speaker');
@@ -290,6 +289,8 @@ export async function applyMusicMode(this: ClubboxApp) : Promise<void> {
       isMusic ? '🎵' : '🎙️',
     );
     if (isMusic) this.showToast(t('musicHeadphones'), '🎧');
+    this.renderCockpit();
+    this.renderRoomDetails();
   }
 
 export function applyAudioPrefs(this: ClubboxApp) : void {

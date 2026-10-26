@@ -141,6 +141,7 @@ export function paintNavUi(world: ClubboxWorld): NavUi {
   const cockpit = ui.roomTopic
     ? markup(cockpitBar({
       muted: true,
+      musicMode: false,
       recording: false,
       handRaised: false,
       handDisabled: false,
@@ -157,6 +158,8 @@ export function paintNavUi(world: ClubboxWorld): NavUi {
       canClip: true,
       canRecord: true,
       recordHint: '',
+      micVolume: 0.8,
+      monitorEnabled: false,
       reactionsOpen: false,
       soundsOpen: false,
       canReact: true,
