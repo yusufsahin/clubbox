@@ -14,7 +14,9 @@ const { outputHasLeak } = require('../electron/redact.cjs');
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const captureDir = path.join(root, 'api-captures');
-const fixturesDir = path.join(root, 'features', 'fixtures');
+const fixturesDir = process.env.CLUBBOX_FIXTURES_DIR
+  ? path.resolve(process.env.CLUBBOX_FIXTURES_DIR)
+  : path.join(root, 'features', 'fixtures');
 
 /** Fixture file name → capture path segment (under /web_api/). */
 const FIXTURE_CAPTURE = {
@@ -73,6 +75,16 @@ function latestCapture(segment) {
 
 /** Hand-tuned synthetic bodies when no capture exists (still marked synthetic). */
 const SYNTHETIC_TEMPLATES = {
+  get_feed_v3: {
+    success: true,
+    items: [],
+    channels: [],
+    available_topics: [
+      { key: 'tech', display_name: 'Tech' },
+      { key: 'music', display_name: 'Music' },
+    ],
+    next_cursor: null,
+  },
   join_channel: {
     success: true,
     channel: 'abc123',
@@ -164,6 +176,12 @@ function keyShape(value, depth = 0) {
   return typeof value;
 }
 
+function writeAtomic(file, text) {
+  const tmp = `${file}.${process.pid}.tmp`;
+  fs.writeFileSync(tmp, text);
+  fs.renameSync(tmp, file);
+}
+
 fs.mkdirSync(fixturesDir, { recursive: true });
 const manifest = {};
 
@@ -192,7 +210,7 @@ for (const [fixtureName, captureName] of Object.entries(FIXTURE_CAPTURE)) {
     console.error(`[make-fixtures] leak in ${fixtureName}; refusing to write`);
     process.exit(1);
   }
-  fs.writeFileSync(path.join(fixturesDir, `${fixtureName}.json`), text);
+  writeAtomic(path.join(fixturesDir, `${fixtureName}.json`), text);
   manifest[fixtureName] = {
     captureEndpoint: captureName,
     synthetic,
@@ -202,7 +220,7 @@ for (const [fixtureName, captureName] of Object.entries(FIXTURE_CAPTURE)) {
   console.log(`${fixtureName}: ${synthetic ? 'synthetic' : `from ${sourceFile}`}`);
 }
 
-fs.writeFileSync(
+writeAtomic(
   path.join(fixturesDir, 'manifest.json'),
   `${JSON.stringify(manifest, null, 2)}\n`,
 );

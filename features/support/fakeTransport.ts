@@ -21,7 +21,18 @@ function loadFixtures(): Map<string, unknown> {
   for (const name of readdirSync(fixturesDir)) {
     if (!name.endsWith('.json')) continue;
     const endpoint = name.replace(/\.json$/, '');
-    map.set(endpoint, JSON.parse(readFileSync(join(fixturesDir, name), 'utf8')));
+    const file = join(fixturesDir, name);
+    let parsed: unknown | undefined;
+    for (let attempt = 0; attempt < 5 && parsed === undefined; attempt += 1) {
+      const text = readFileSync(file, 'utf8');
+      if (!text.trim()) continue;
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        // Parallel writers can expose a torn file for one tick.
+      }
+    }
+    if (parsed !== undefined) map.set(endpoint, parsed);
   }
   return map;
 }

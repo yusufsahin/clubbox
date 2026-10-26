@@ -608,6 +608,10 @@ const bundlePath = path.join(docsDir, 'web-bundle-endpoints.md');
 const callsitePath = path.join(docsDir, 'bundle-callsites.md');
 
 if (process.argv.includes('--check')) {
+  if (records.length === 0) {
+    console.log('[Clubbox] API docs check skipped: no local capture lines');
+    process.exit(0);
+  }
   const stale = [];
   if (!sameText(fs.readFileSync(routesPath, 'utf8'), routesText)) stale.push(routesPath);
   if (!sameText(fs.readFileSync(webPath, 'utf8'), webApi)) stale.push(webPath);
@@ -620,6 +624,10 @@ if (process.argv.includes('--check')) {
   }
   console.log(`[Clubbox] API docs match ${records.length} capture lines`);
 } else {
+  if (records.length === 0) {
+    console.error('[Clubbox] No local capture lines; refusing to rewrite API docs');
+    process.exit(1);
+  }
   if (outputHasLeak(routesText)) {
     console.error('[Clubbox] Refusing to write route evidence: redaction check failed');
     process.exit(1);

@@ -483,7 +483,9 @@ body {
   top: 64px;
   right: 16px;
   width: min(360px, calc(100% - 32px));
+  max-height: calc(100vh - 80px);
   z-index: 40;
+  overflow: hidden;
 }
 
 .room-details-panel {
@@ -495,6 +497,9 @@ body {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  max-height: calc(100vh - 80px);
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .room-details-header {
@@ -675,6 +680,8 @@ body {
 /* Main Studio Layout */
 .studio-main {
   flex: 1;
+  min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   position: relative;
@@ -815,6 +822,8 @@ body {
 /* Center Content & Stage View */
 .content-area {
   flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
   padding: 24px;
   padding-bottom: 120px; /* Space for bottom cockpit bar */
@@ -822,6 +831,10 @@ body {
 
 .content-area.no-cockpit {
   padding-bottom: 24px;
+}
+
+[data-page="settings"] {
+  padding-bottom: 32px;
 }
 
 .section-placeholder {

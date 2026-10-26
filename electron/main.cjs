@@ -901,12 +901,6 @@ function notifyWebSessionMaybe(reason, options = {}) {
   scheduleBundleCrawl();
 }
 
-function maybeNotifyWebSession(target) {
-  if (!isClubhouseHttps(target) || !mainWindow || mainWindow.isDestroyed()) return;
-  if (!urlLooksSignedIn(target)) return;
-  notifyWebSessionMaybe(String(target));
-}
-
 let cookieNotifyTimer = null;
 let cookieWatchArmed = false;
 let signInNetworkWatchArmed = false;

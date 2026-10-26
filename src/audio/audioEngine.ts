@@ -37,6 +37,8 @@ export class AudioEngine {
   private masterGain: GainNode | null = null;
   private analyser: AnalyserNode | null = null;
   private broadcastDest: MediaStreamAudioDestinationNode | null = null;
+  /** Soundpad + external only — published as the second Agora track (not the mic). */
+  private extrasDest: MediaStreamAudioDestinationNode | null = null;
   private recorderDest: MediaStreamAudioDestinationNode | null = null;
   private recordMix: GainNode | null = null;
   private externalStream: MediaStream | null = null;
@@ -105,7 +107,11 @@ export class AudioEngine {
   private initContextIfNeeded(): AudioContext {
     if (!this.ctx) {
       const AudioCtx = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-      this.ctx = new AudioCtx({ latencyHint: 'interactive' });
+      try {
+        this.ctx = new AudioCtx({ latencyHint: 'interactive', sampleRate: 48000 });
+      } catch {
+        this.ctx = new AudioCtx({ latencyHint: 'interactive' });
+      }
 
       this.masterGain = this.ctx.createGain();
       this.masterGain.gain.value = 1.0;
@@ -118,6 +124,7 @@ export class AudioEngine {
       this.analyser.smoothingTimeConstant = 0.4;
 
       this.broadcastDest = this.ctx.createMediaStreamDestination();
+      this.extrasDest = this.ctx.createMediaStreamDestination();
       this.recorderDest = this.ctx.createMediaStreamDestination();
       this.recordMix = this.ctx.createGain();
       this.recordMix.gain.value = 1;
@@ -126,6 +133,7 @@ export class AudioEngine {
       // Local speakers hear the soundpad. The send bus is what Agora publishes.
       this.soundpadGain.connect(this.masterGain);
       this.soundpadGain.connect(this.broadcastDest);
+      this.soundpadGain.connect(this.extrasDest);
       this.soundpadGain.connect(this.recordMix);
       this.masterGain.connect(this.ctx.destination);
       this.startClipBuffer();
@@ -364,6 +372,18 @@ export class AudioEngine {
     return track;
   }
 
+  /**
+   * Soundboard + VB-Cable / system audio, without the mic. Agora keeps
+   * createMicrophoneAudioTrack for voice and publishes this as a second track.
+   */
+  public getBroadcastExtrasTrack(): MediaStreamTrack | null {
+    this.initContextIfNeeded();
+    this.refreshExtrasDestination();
+    const track = this.extrasDest?.stream.getAudioTracks()[0] ?? null;
+    if (track && !track.enabled) track.enabled = true;
+    return track;
+  }
+
   /** Raw getUserMedia mic track for Agora publish (clone before handing to SDK). */
   public getMicrophoneMediaTrack(): MediaStreamTrack | null {
     const track = this.micStream?.getAudioTracks().find((t) => t.readyState === 'live') ?? null;
@@ -389,9 +409,24 @@ export class AudioEngine {
     if (this.soundpadGain) {
       this.soundpadGain.connect(this.broadcastDest);
     }
+    this.refreshExtrasDestination(true);
     if (this.micGain) this.wireMicEffects();
     if (this.externalSource) this.wireExternalGraph();
     console.log('[Clubbox] broadcast destination refreshed');
+  }
+
+  public refreshExtrasDestination(force = false): void {
+    if (!this.ctx) return;
+    const ended = !this.extrasDest?.stream.getAudioTracks().some((t) => t.readyState === 'live');
+    if (!force && !ended && this.extrasDest) return;
+    try {
+      this.soundpadGain?.disconnect(this.extrasDest!);
+    } catch {
+      // not connected
+    }
+    this.extrasDest = this.ctx.createMediaStreamDestination();
+    this.soundpadGain?.connect(this.extrasDest);
+    if (this.externalSource && !force) this.wireExternalGraph();
   }
 
   public addRemoteTrack(uid: string | number, track: MediaStreamTrack): void {
@@ -787,7 +822,10 @@ export class AudioEngine {
       monitor: this.externalMonitor,
       volume: this.externalVolume,
     });
-    if (plan.toBroadcast) this.externalGain.connect(this.broadcastDest);
+    if (plan.toBroadcast) {
+      this.externalGain.connect(this.broadcastDest);
+      if (this.extrasDest) this.externalGain.connect(this.extrasDest);
+    }
     if (plan.toRecord) this.externalGain.connect(this.recordMix);
     if (plan.toMonitor) this.externalGain.connect(this.masterGain);
     this.externalDuckState = initialDuckState(performance.now());

@@ -851,6 +851,7 @@ export class ClubboxApp {
     }
     this.audioPrefs.externalDeviceId = deviceId;
     this.saveAudioPrefs();
+    void agoraVoice.ensureExtrasPublished();
     this.renderRoomDetails();
   }
 

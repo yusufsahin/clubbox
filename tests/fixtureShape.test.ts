@@ -67,10 +67,23 @@ test('non-synthetic fixtures match capture key shapes and have no leaks', () => 
 });
 
 test('make-fixtures regenerates without leaks', () => {
-  execFileSync(process.execPath, [path.join(root, 'scripts', 'make-fixtures.mjs')], {
-    cwd: root,
-    stdio: 'pipe',
-  });
-  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as Record<string, unknown>;
-  assert.ok(Object.keys(manifest).length >= 8);
+  const tmp = fs.mkdtempSync(path.join(root, 'tmp-fixtures-'));
+  try {
+    execFileSync(process.execPath, [path.join(root, 'scripts', 'make-fixtures.mjs')], {
+      cwd: root,
+      stdio: 'pipe',
+      env: { ...process.env, CLUBBOX_FIXTURES_DIR: tmp },
+    });
+    const manifest = JSON.parse(fs.readFileSync(path.join(tmp, 'manifest.json'), 'utf8')) as Record<
+      string,
+      unknown
+    >;
+    assert.ok(Object.keys(manifest).length >= 8);
+    for (const name of Object.keys(manifest)) {
+      const text = fs.readFileSync(path.join(tmp, `${name}.json`), 'utf8');
+      assert.equal(outputHasLeak(text), false, `${name} leaked after regenerate`);
+    }
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
 });

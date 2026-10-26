@@ -7,6 +7,7 @@ import type {
 
 type AgoraSdk = typeof import('agora-rtc-sdk-ng').default;
 import { audioEngine } from './audioEngine';
+import { agoraPublishTracks } from './agoraPublishPlan';
 import { clubhouseClient } from '../api/client';
 import { muteFromAgoraEvent } from '../api/remoteMute';
 
@@ -26,6 +27,8 @@ export type RemoteMuteReport = { uid: string | number; muted: boolean };
 export class AgoraVoiceEngine {
   private client: IAgoraRTCClient | null = null;
   private localAudioTrack: ILocalAudioTrack | null = null;
+  /** Soundboard + VB-Cable / system audio (no mic). */
+  private extrasAudioTrack: ILocalAudioTrack | null = null;
   /** Only used when falling back to createCustomAudioTrack. */
   private publishedClone: MediaStreamTrack | null = null;
   private isJoined: boolean = false;
@@ -318,17 +321,73 @@ export class AgoraVoiceEngine {
     // Feed Agora's live track into the local graph for VU / monitor (no second capture).
     audioEngine.adoptMicrophoneTrack(this.localAudioTrack.getMediaStreamTrack());
     const media = this.localAudioTrack.getMediaStreamTrack();
+    await this.publishExtrasTrack(AgoraRTC, isMusicMode);
+    if (this.extrasAudioTrack) {
+      try {
+        await this.client.publish([this.extrasAudioTrack]);
+      } catch (err) {
+        console.warn('[AgoraRTC] extras publish failed:', this.formatAgoraError(err));
+        this.closeExtrasTrack();
+      }
+    }
     console.log(
       '[AgoraRTC] published createMicrophoneAudioTrack',
       `readyState=${media.readyState}`,
       `enabled=${media.enabled}`,
+      `extras=${this.extrasAudioTrack ? 'yes' : 'no'}`,
     );
   }
 
-  private async unpublishLocal(): Promise<void> {
-    if (this.client && this.localAudioTrack) {
+  /** Publish VB-Cable / soundboard as a second track. Mic mute must not cut this. */
+  public async ensureExtrasPublished(): Promise<void> {
+    if (!this.client || !this.isJoined || !this.isSpeaker) return;
+    if (this.extrasAudioTrack) return;
+    const AgoraRTC = await this.loadSdk();
+    await this.publishExtrasTrack(AgoraRTC, audioEngine.getIsMusicMode());
+    if (this.extrasAudioTrack) {
       try {
-        await this.client.unpublish([this.localAudioTrack]);
+        await this.client.publish([this.extrasAudioTrack]);
+        console.log('[AgoraRTC] published extras track after external start');
+      } catch (err) {
+        console.warn('[AgoraRTC] extras publish failed:', this.formatAgoraError(err));
+        this.closeExtrasTrack();
+      }
+    }
+  }
+
+  private async publishExtrasTrack(AgoraRTC: AgoraSdk, isMusicMode: boolean): Promise<void> {
+    void audioEngine.ensureAudioContext();
+    audioEngine.refreshExtrasDestination();
+    const extras = audioEngine.getBroadcastExtrasTrack();
+    if (!extras || extras.readyState !== 'live') return;
+    try {
+      this.extrasAudioTrack = AgoraRTC.createCustomAudioTrack({
+        mediaStreamTrack: extras,
+        encoderConfig: isMusicMode ? 'high_quality_stereo' : 'music_standard',
+      });
+    } catch (err) {
+      console.warn('[AgoraRTC] createCustomAudioTrack (extras) failed:', this.formatAgoraError(err));
+      this.extrasAudioTrack = null;
+    }
+  }
+
+  private closeExtrasTrack(): void {
+    if (this.extrasAudioTrack) {
+      try {
+        this.extrasAudioTrack.stop();
+        this.extrasAudioTrack.close();
+      } catch {
+        // ignore
+      }
+      this.extrasAudioTrack = null;
+    }
+  }
+
+  private async unpublishLocal(): Promise<void> {
+    const tracks = agoraPublishTracks(this.localAudioTrack, this.extrasAudioTrack);
+    if (this.client && tracks.length > 0) {
+      try {
+        await this.client.unpublish(tracks);
       } catch {
         // Track was never published.
       }
@@ -338,6 +397,7 @@ export class AgoraVoiceEngine {
       this.localAudioTrack.close();
       this.localAudioTrack = null;
     }
+    this.closeExtrasTrack();
     if (this.publishedClone) {
       this.publishedClone.stop();
       this.publishedClone = null;
