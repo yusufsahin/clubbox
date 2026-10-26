@@ -37,15 +37,20 @@ const base = {
   onStage: true,
 };
 
-test('studio cockpit keeps mic meter, hear myself, music mode and pads', () => {
+test('studio cockpit keeps mic meter, hear myself and music mode', () => {
   const html = String(cockpitBar(base));
   assert.match(html, /id="mic-vol-slider"[^>]*value="0\.6"/);
   assert.match(html, /id="vu-meter-fill"/);
   assert.match(html, /data-action="toggle-monitor"/);
   assert.match(html, /data-action="toggle-music"/);
-  assert.match(html, /data-action="play-sound" data-fx-id="applause"/);
+  assert.match(html, /data-action="toggle-sounds"/);
+  assert.doesNotMatch(html, /data-action="play-sound"/);
   assert.match(html, /data-action="toggle-music-mute"/);
   assert.notEqual(String(icon('music')), String(icon('headphones')));
+  assert.notEqual(String(icon('pads')), String(icon('speaker')));
+  assert.notEqual(String(icon('speakerOff')), String(icon('speaker')));
+  const mutedMusic = String(cockpitBar({ ...base, musicMuted: true }));
+  assert.match(mutedMusic, /toggle-music-mute[\s\S]*is-muted|class="toggle-state-btn[\s\S]*is-muted[\s\S]*toggle-music-mute/);
 });
 
 test('room title returns to the stage and RH-15 items stay labeled', () => {
@@ -75,4 +80,5 @@ test('chat shows unread badge and sounds slider uses engine volume', () => {
   }));
   assert.match(html, /class="room-bar-badge">3</);
   assert.match(html, /id="soundpad-vol-slider"[^>]*value="0\.4"/);
+  assert.match(html, /data-action="play-sound" data-fx-id="applause"/);
 });

@@ -10,6 +10,8 @@ export function icon(name: IconName, size = 18): SafeHtml {
     hand: '<path d="M8 13V6a1 1 0 0 1 2 0v4"/><path d="M12 11V3a1 1 0 0 1 2 0v8"/><path d="M16 11V5a1 1 0 0 1 2 0v9a5 5 0 0 1-5 5H9.5a4.5 4.5 0 0 1-3.2-7.7L9 8"/>',
     smile: '<circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><path d="M9 9h.01"/><path d="M15 9h.01"/>',
     speaker: '<path d="M11 5L6 9H3v6h3l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/>',
+    speakerOff: '<path d="M11 5L6 9H3v6h3l5 4V5z"/><path d="M2 2l20 20"/><path d="M15.5 8.5a5 5 0 0 1 1.8 3.6"/>',
+    pads: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
     music: '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
     record: '<circle cx="12" cy="12" r="6" fill="currentColor" stroke="none"/>',
     chat: '<path d="M21 15a3 3 0 0 1-3 3H8l-5 3V6a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3z"/>',
@@ -29,6 +31,8 @@ export type IconName =
   | 'hand'
   | 'smile'
   | 'speaker'
+  | 'speakerOff'
+  | 'pads'
   | 'music'
   | 'record'
   | 'chat'

@@ -30,6 +30,7 @@ Owner added Phase 22 (HAL-9 room type chips). Continue from there:
 
 - **ACC-1 wording:** Sign-in is now a visible Clubhouse `/signin` surface embedded in the main window (BrowserView), not a separate BrowserWindow. Should `features/account.feature` ACC-1 say “visible Clubhouse sign-in surface” instead of “visible window”? (Feature file not edited by the agent.)
 - **RH-15 vs studio cockpit (2026-10-26):** Answered — restore the pre–Phase 18 studio bar. Feature + PRD + NAVIGATION updated so Hear myself and Music Mode are on the bar.
+- **In-room Sounds / pads (2026-10-26):** Pads play only on this computer. Agora publishes mic + VB-Cable; custom Web Audio dest tracks stay silent, so Clubhouse mobile never hears Applause/Airhorn/etc. Owner said they can go if they do not work. RH-15 still requires a Sounds button — feature file not edited. Drop Sounds from the room bar?
 
 
 ## Status

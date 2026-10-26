@@ -32,6 +32,11 @@ export function agoraExtrasProfile(isMusicMode: boolean): AgoraCaptureProfile {
   };
 }
 
+/** First join may unmute so the new track is live. Music-mode republish must keep the user's mute. */
+export function keepMicMuteOnRepublish(alreadyLive: boolean, userMuted: boolean): boolean {
+  return alreadyLive && userMuted;
+}
+
 export function extrasNeedRepublish(input: {
   haveTrack: boolean;
   deviceId: string;

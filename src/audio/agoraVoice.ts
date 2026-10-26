@@ -7,7 +7,7 @@ import type {
 
 type AgoraSdk = typeof import('agora-rtc-sdk-ng').default;
 import { audioEngine } from './audioEngine';
-import { agoraExtrasProfile, agoraMicProfile, agoraPublishTracks, extrasNeedRepublish } from './agoraPublishPlan';
+import { agoraExtrasProfile, agoraMicProfile, agoraPublishTracks, extrasNeedRepublish, keepMicMuteOnRepublish } from './agoraPublishPlan';
 import { extrasCaptureMode } from './audioSetupWizard';
 import { SYSTEM_AUDIO_DEVICE_ID } from './externalConstraints';
 import { clubhouseClient } from '../api/client';
@@ -281,15 +281,16 @@ export class AgoraVoiceEngine {
   public async republish(isMusicMode: boolean): Promise<void> {
     if (!this.client || !this.isJoined || !this.isSpeaker) return;
     await this.unpublishLocal();
-    await this.publishBroadcast(isMusicMode);
+    await this.publishBroadcast(isMusicMode, { alreadyLive: true });
   }
 
-  private async publishBroadcast(isMusicMode: boolean): Promise<void> {
+  private async publishBroadcast(isMusicMode: boolean, opts: { alreadyLive?: boolean } = {}): Promise<void> {
     if (!this.client) return;
     const AgoraRTC = await this.loadSdk();
 
-    // Always publish live; connect-time mute left silence on the wire.
-    if (audioEngine.getIsMuted()) {
+    const keepMuted = keepMicMuteOnRepublish(opts.alreadyLive === true, audioEngine.getIsMuted());
+    // First join while muted left silence on the wire. Republish must keep mute.
+    if (audioEngine.getIsMuted() && !keepMuted) {
       audioEngine.setMuted(false);
       console.warn('[AgoraRTC] cleared mute before publish (was muted while connecting)');
     }
@@ -328,6 +329,9 @@ export class AgoraVoiceEngine {
     audioEngine.onExternalSendLevel = (gain) => {
       this.setExtrasSendVolume(gain);
     };
+    if (keepMuted) {
+      await this.setMuted(true);
+    }
     if (audioEngine.getExternalDeviceId()) {
       await this.ensureExtrasPublished();
     }

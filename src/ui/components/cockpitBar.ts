@@ -123,19 +123,11 @@ export function cockpitBar(state: CockpitState): SafeHtml {
           extra: 'id="music-mode-btn"',
           title: t('musicModeTitle'),
         })}
-        ${state.showMusicMute ? toggleBtn('toggle-music-mute', t('cockpitMusic'), 'speaker', {
+        ${state.showMusicMute ? toggleBtn('toggle-music-mute', t('cockpitMusic'), state.musicMuted ? 'speakerOff' : 'speaker', {
           active: !state.musicMuted,
+          extraClass: state.musicMuted ? 'is-muted' : '',
           title: t('cockpitMusicTitle'),
         }) : ''}
-      </div>
-
-      <div class="cockpit-center">
-        ${state.effects.slice(0, 4).map((fx) => html`
-          <button class="soundpad-quick-btn" type="button" data-action="play-sound" data-fx-id="${fx.id}" title="${fx.name}">
-            <span class="soundpad-icon">${fx.icon}</span>
-            <span class="key-tag">${fx.hotkey || t('noHotkey')}</span>
-          </button>
-        `)}
       </div>
 
       <div class="cockpit-right">
@@ -153,7 +145,7 @@ export function cockpitBar(state: CockpitState): SafeHtml {
           disabled: !state.canReact,
         }) : ''}
 
-        ${state.inRoom ? toggleBtn('toggle-sounds', t('sounds'), 'speaker', {
+        ${state.inRoom ? toggleBtn('toggle-sounds', t('sounds'), 'pads', {
           item: 'sounds',
           active: state.soundsOpen,
         }) : ''}
@@ -211,6 +203,7 @@ export function cockpitBar(state: CockpitState): SafeHtml {
 
       ${state.soundsOpen ? html`
         <div class="room-bar-popover room-sounds-panel" data-sounds-panel>
+          <p class="room-sounds-note">${t('soundboardLocalOnly')}</p>
           <div class="soundboard-grid">
             ${state.effects.map((fx) => html`
               <button class="soundpad-play" type="button" data-action="play-sound" data-fx-id="${fx.id}">

@@ -5,6 +5,7 @@ import {
   agoraMicProfile,
   agoraPublishTracks,
   extrasNeedRepublish,
+  keepMicMuteOnRepublish,
 } from '../src/audio/agoraPublishPlan.ts';
 
 test('Agora publish list is mic plus extras, extras optional', () => {
@@ -29,6 +30,12 @@ test('music mode drops voice processing and uses stereo encoder', () => {
   assert.equal(agoraExtrasProfile(false).encoderConfig, 'music_standard');
   assert.equal(agoraExtrasProfile(true).encoderConfig, 'high_quality_stereo');
   assert.equal(agoraExtrasProfile(true).AEC, false);
+});
+
+test('music-mode republish keeps a user mute; first join may clear it', () => {
+  assert.equal(keepMicMuteOnRepublish(true, true), true);
+  assert.equal(keepMicMuteOnRepublish(true, false), false);
+  assert.equal(keepMicMuteOnRepublish(false, true), false);
 });
 
 test('extras republish when music mode changes on the same cable', () => {

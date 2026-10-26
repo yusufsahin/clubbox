@@ -4,7 +4,7 @@
   "description": "Unofficial desktop studio for Clubhouse",
   "author": "Clubbox",
   "private": true,
-  "version": "2.4.8",
+  "version": "2.4.9",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {

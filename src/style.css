@@ -2215,12 +2215,50 @@ body {
   z-index: 30;
 }
 
+.room-sounds-panel {
+  width: min(280px, calc(100% - 24px));
+}
+
+.room-sounds-note {
+  margin: 0 0 8px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--text-muted);
+}
+
+.room-sounds-panel .soundboard-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 0;
+}
+
+.room-sounds-panel .soundpad-play {
+  padding: 8px 4px 6px;
+  gap: 2px;
+}
+
+.room-sounds-panel .soundpad-icon {
+  font-size: 16px;
+}
+
+.room-sounds-panel .soundpad-name {
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.room-sounds-panel .soundpad-hotkey {
+  top: 4px;
+  right: 4px;
+  font-size: 9px;
+  padding: 0 4px;
+}
+
 .room-sounds-controls {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
-  margin-top: 12px;
+  margin-top: 8px;
 }
 
 .btn-primary svg {
@@ -2446,55 +2484,12 @@ body {
   transition: width 0.05s ease;
 }
 
-/* Soundpad Trigger Quick Bar */
-.cockpit-center {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-  flex: 1;
-}
-
-.soundpad-quick-btn {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 5px 7px;
-  background: var(--surface-2);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  color: var(--text-muted);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.soundpad-quick-btn:hover {
-  background: var(--surface-hover);
-  color: var(--text-main);
-  transform: translateY(-1px);
-}
-
-.soundpad-quick-btn:active {
-  transform: scale(0.95);
-  background: color-mix(in srgb, var(--accent-purple) 30%, transparent);
-}
-
-.soundpad-quick-btn .key-tag {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  padding: 1px 5px;
-  border-radius: 4px;
-  background: var(--bg-inset);
-  color: var(--text-dim);
-}
-
 .cockpit-right {
   display: flex;
   align-items: center;
   gap: 4px;
   flex-shrink: 0;
+  margin-left: auto;
 }
 
 .toggle-state-btn svg,
@@ -2531,6 +2526,11 @@ body {
   cursor: not-allowed;
 }
 
+.toggle-state-btn.is-muted {
+  color: var(--accent-rose-text);
+  border-color: color-mix(in srgb, var(--accent-rose) 40%, transparent);
+}
+
 .toggle-state-btn.active {
   background: color-mix(in srgb, var(--accent-purple) 22%, transparent);
   border-color: color-mix(in srgb, var(--accent-purple) 50%, transparent);
@@ -2546,8 +2546,8 @@ body {
 /* Full Soundboard Rack Panel */
 .soundboard-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 8px;
   margin-top: 16px;
 }
 
@@ -2572,12 +2572,12 @@ body {
   color: inherit;
   font: inherit;
   width: 100%;
-  padding: 28px 16px 40px;
+  padding: 14px 8px 28px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 6px;
   cursor: pointer;
 }
 
@@ -2657,7 +2657,7 @@ body {
 }
 
 .soundpad-icon {
-  font-size: 36px;
+  font-size: 20px;
 }
 
 .soundpad-name {
@@ -3143,7 +3143,6 @@ button.mutual-line:hover {
   .brand { margin-bottom: 18px; }
   .cockpit-bar { left: 96px; }
   .audio-retry-btn { right: 8px; }
-  .cockpit-center { display: none; }
   .stage-chat-panel { display: none; }
 }
 
