@@ -507,6 +507,22 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bg-elevated);
+  padding-bottom: 8px;
+}
+
+.room-details-card h4 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+
+.room-details-card h4 svg {
+  flex-shrink: 0;
 }
 
 .room-details-card {
@@ -2097,6 +2113,30 @@ body {
   white-space: nowrap;
 }
 
+.room-bar-badge {
+  min-width: 16px;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: var(--radius-full);
+  background: var(--accent-rose);
+  color: var(--text-on-accent);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}
+
+.room-bar-timer {
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-rose-text);
+}
+
+.room-bar-timer[hidden] {
+  display: none;
+}
+
 .room-bar-btn.is-active {
   background: var(--surface-active);
   border-color: var(--border-focus);
@@ -2157,13 +2197,10 @@ body {
   color: var(--text-on-accent);
 }
 
-@media (max-width: 1599px) {
+@media (max-width: 1199px) {
   .room-bar-btn .room-bar-label {
     display: none;
   }
-}
-
-@media (max-width: 1199px) {
   .room-bar-foldable,
   .chat-ticker.room-bar-foldable {
     display: none;
@@ -2171,6 +2208,31 @@ body {
   .room-bar-more {
     display: inline-flex;
   }
+}
+
+.room-bar-overflow-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-main);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: var(--radius-md);
+  text-align: left;
+}
+
+.room-bar-overflow-item:hover {
+  background: var(--surface-hover);
+}
+
+.room-bar-overflow-item:disabled {
+  color: var(--text-dim);
+  cursor: not-allowed;
 }
 
 .audio-retry-btn {

@@ -1,5 +1,6 @@
 import { t } from '../../i18n';
 import { html, type SafeHtml } from '../html';
+import { icon } from '../icons';
 
 export type ExternalAudioDeviceOption = { id: string; label: string };
 
@@ -19,7 +20,7 @@ export type RoomDetailsState = {
   canEnd: boolean;
   canChangeVisibility: boolean;
   canHandraise: boolean;
-  visibilityMode: 'open' | 'social';
+  visibilityMode: 'open' | 'social' | 'other';
   handraiseMode: 'off' | '1' | '2';
   helpUrl: string;
   /** Show External audio controls only while the user is a speaker. */
@@ -34,6 +35,8 @@ export type RoomDetailsState = {
   externalActive: boolean;
   systemAudioAvailable: boolean;
   systemAudioBlockedReason: string;
+  micVolume: number;
+  audienceSearch: string;
 };
 
 export function roomDetailsPanel(state: RoomDetailsState): SafeHtml {
@@ -45,7 +48,7 @@ export function roomDetailsPanel(state: RoomDetailsState): SafeHtml {
       </header>
 
       <section class="room-details-card" data-details-section="about">
-        <h4>${t('aboutSection')}</h4>
+        <h4>${icon('details', 16)} ${t('aboutSection')}</h4>
         <strong>${state.replaysOn ? t('replaysOnNote') : t('replaysOffNote')}</strong>
         <p class="list-note"><a href="${state.helpUrl}" target="_blank" rel="noreferrer">${t('learnMore')}</a></p>
         ${state.canShare ? html`
@@ -54,7 +57,7 @@ export function roomDetailsPanel(state: RoomDetailsState): SafeHtml {
       </section>
 
       <section class="room-details-card" data-details-section="audio">
-        <h4>${t('audioSection')}</h4>
+        <h4>${icon('music', 16)} ${t('audioSection')}</h4>
         <label class="form-label" for="room-audio-quality">${t('audioQuality')}</label>
         <select class="form-input" id="room-audio-quality" data-action="set-audio-quality">
           <option value="normal" ${state.audioQuality === 'normal' ? 'selected' : ''}>${t('audioNormal')}</option>
@@ -76,7 +79,7 @@ export function roomDetailsPanel(state: RoomDetailsState): SafeHtml {
           ${t('spatialAudio')}
         </label>
         <label class="form-label" for="room-mic-gain">${t('micLevel')}</label>
-        <input type="range" id="room-mic-gain" data-action="set-mic-gain" min="0" max="1" step="0.05" />
+        <input type="range" id="room-mic-gain" min="0" max="1" step="0.05" value="${String(state.micVolume)}" />
 
         ${state.showExternalAudio ? html`
           <div class="external-audio-block" data-external-audio>
@@ -140,7 +143,7 @@ export function roomDetailsPanel(state: RoomDetailsState): SafeHtml {
 
       ${state.canModerate ? html`
         <section class="room-details-card" data-details-section="moderation">
-          <h4>${t('moderationSection')}</h4>
+          <h4>${icon('more', 16)} ${t('moderationSection')}</h4>
           ${state.canRename ? html`<button class="btn btn-secondary" type="button" data-action="rename-room">${t('renameRoom')}</button>` : ''}
           ${state.canChangeVisibility ? html`
             <label class="form-label" for="room-visibility">${t('roomVisibility')}</label>
@@ -165,7 +168,7 @@ export function roomDetailsPanel(state: RoomDetailsState): SafeHtml {
 
       <section class="room-details-card" data-details-section="audience">
         <label class="form-label" for="audience-search-details">${t('searchAudience')}</label>
-        <input class="form-input" id="audience-search-details" type="search" placeholder="${t('searchAudience')}" />
+        <input class="form-input" id="audience-search-details" type="search" placeholder="${t('searchAudience')}" value="${state.audienceSearch}" />
       </section>
     </aside>
   `;

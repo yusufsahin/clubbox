@@ -729,8 +729,12 @@ export class ClubboxApp {
       canEnd: mod && flags.canEnd,
       canChangeVisibility: mod && flags.canChangeVisibility,
       canHandraise: mod && flags.canHandraise,
-      visibilityMode: 'open',
-      handraiseMode: this.currentChannel.is_handraise_enabled === false ? 'off' : '1',
+      visibilityMode: this.currentChannel.is_private
+        ? 'other'
+        : (this.currentChannel.is_social_mode ? 'social' : 'open'),
+      handraiseMode: this.currentChannel.is_handraise_enabled === false
+        ? 'off'
+        : (this.currentChannel.handraise_permission === 2 ? '2' : '1'),
       helpUrl: 'https://support.clubhouse.com/hc/en-us/articles/360059385913',
       showExternalAudio: speaker,
       externalDevices: this.externalInputOptions,
@@ -743,6 +747,8 @@ export class ClubboxApp {
       externalActive: audioEngine.isExternalActive(),
       systemAudioAvailable: this.systemAudioAvailable,
       systemAudioBlockedReason: this.systemAudioBlockedReason,
+      micVolume: audioEngine.getMicVolume(),
+      audienceSearch: this.audienceSearchQuery,
     }));
     if (speaker) void this.refreshExternalAudioOptions();
   }
@@ -814,8 +820,12 @@ export class ClubboxApp {
         canEnd: mod && flags.canEnd,
         canChangeVisibility: mod && flags.canChangeVisibility,
         canHandraise: mod && flags.canHandraise,
-        visibilityMode: 'open',
-        handraiseMode: this.currentChannel.is_handraise_enabled === false ? 'off' : '1',
+        visibilityMode: this.currentChannel.is_private
+          ? 'other'
+          : (this.currentChannel.is_social_mode ? 'social' : 'open'),
+        handraiseMode: this.currentChannel.is_handraise_enabled === false
+          ? 'off'
+          : (this.currentChannel.handraise_permission === 2 ? '2' : '1'),
         helpUrl: 'https://support.clubhouse.com/hc/en-us/articles/360059385913',
         showExternalAudio: true,
         externalDevices: this.externalInputOptions,
@@ -828,6 +838,8 @@ export class ClubboxApp {
         externalActive: audioEngine.isExternalActive(),
         systemAudioAvailable: this.systemAudioAvailable,
         systemAudioBlockedReason: this.systemAudioBlockedReason,
+        micVolume: audioEngine.getMicVolume(),
+        audienceSearch: this.audienceSearchQuery,
       }));
     }
   }
@@ -1180,9 +1192,12 @@ export class ClubboxApp {
     view?.classList.remove('no-cockpit');
     const timer = document.getElementById('record-timer')?.textContent;
     el.innerHTML = markup(this.renderCockpitBar());
-    if (timer && timer !== t('recLabel')) {
+    if (timer && audioEngine.getIsRecording()) {
       const next = document.getElementById('record-timer');
-      if (next) next.textContent = timer;
+      if (next) {
+        next.hidden = false;
+        next.textContent = timer;
+      }
     }
   }
 
@@ -1395,6 +1410,7 @@ export class ClubboxApp {
       overflowOpen: this.roomBarOverflowOpen,
       showMusicMute: this.isMeSpeaker() && (!!audioEngine.getExternalDeviceId() || audioEngine.isExternalActive()),
       musicMuted: audioEngine.getExternalMuted(),
+      soundpadVolume: audioEngine.getSoundpadVolume(),
     });
   }
 
@@ -1426,9 +1442,23 @@ export class ClubboxApp {
     document.addEventListener('click', (event) => {
       const target = event.target as HTMLElement | null;
       const actionEl = target?.closest('[data-action]') as HTMLElement | null;
+      const action = actionEl?.dataset.action || '';
+      const barToggle = action === 'toggle-reactions'
+        || action === 'toggle-sounds'
+        || action === 'toggle-room-bar-more';
+      if (
+        (this.reactionsOpen || this.soundsOpen || this.roomBarOverflowOpen)
+        && !barToggle
+        && !target?.closest('[data-reactions-popover], [data-sounds-panel], [data-room-bar-overflow]')
+      ) {
+        this.reactionsOpen = false;
+        this.soundsOpen = false;
+        this.roomBarOverflowOpen = false;
+        this.renderCockpit();
+      }
       if (!actionEl || (actionEl instanceof HTMLButtonElement && actionEl.disabled)) return;
-      if (actionEl.dataset.action === 'duck-sounds') return;
-      this.handleAction(actionEl.dataset.action || '', actionEl);
+      if (action === 'duck-sounds') return;
+      this.handleAction(action, actionEl);
     });
     document.addEventListener('pointerdown', (event) => {
       const target = event.target as HTMLElement | null;
@@ -1447,8 +1477,11 @@ export class ClubboxApp {
         this.scheduleDiscoverSearch();
         return;
       }
-      if (target.id === 'audience-search') {
+      if (target.id === 'audience-search' || target.id === 'audience-search-details') {
         this.audienceSearchQuery = target.value;
+        const otherId = target.id === 'audience-search' ? 'audience-search-details' : 'audience-search';
+        const other = document.getElementById(otherId) as HTMLInputElement | null;
+        if (other && other.value !== target.value) other.value = target.value;
         this.renderStage();
         return;
       }
@@ -1472,7 +1505,7 @@ export class ClubboxApp {
         this.audioPrefs.externalDuckDb = val;
         this.saveAudioPrefs();
       }
-      if (target.id === 'mic-vol-slider') {
+      if (target.id === 'room-mic-gain' || target.id === 'mic-vol-slider') {
         const val = parseFloat(target.value);
         if (!Number.isFinite(val)) return;
         audioEngine.setMicVolume(val);
@@ -1505,11 +1538,25 @@ export class ClubboxApp {
         void this.setRoomVisibility(target.value);
         return;
       }
+      if (action === 'set-audio-quality' && target instanceof HTMLSelectElement) {
+        const quality = target.value;
+        if (quality === 'music') {
+          if (!audioEngine.getIsMusicMode()) audioEngine.toggleMusicMode();
+        } else if (audioEngine.getIsMusicMode()) {
+          audioEngine.toggleMusicMode();
+        }
+        this.renderCockpit();
+        this.renderRoomDetails();
+        return;
+      }
       if (action === 'toggle-ping-select' && target instanceof HTMLInputElement) {
         this.togglePingSelect(target.dataset.userId);
         return;
       }
-      if (target.id === 'cfg-spatial-audio' && target instanceof HTMLInputElement) {
+      if (
+        target instanceof HTMLInputElement
+        && (target.id === 'cfg-spatial-audio' || target.id === 'room-spatial-audio' || action === 'toggle-spatial-audio')
+      ) {
         this.audioPrefs.spatialAudioEnabled = target.checked === true;
         audioEngine.setSpatialAudioEnabled(this.audioPrefs.spatialAudioEnabled);
         this.saveAudioPrefs();
@@ -1517,6 +1564,13 @@ export class ClubboxApp {
           this.audioPrefs.spatialAudioEnabled ? t('spatialAudioOn') : t('spatialAudioOff'),
           '✨',
         );
+        return;
+      }
+      if (action === 'toggle-monitor' && target instanceof HTMLInputElement) {
+        this.audioPrefs.monitorEnabled = target.checked === true;
+        audioEngine.setMonitorEnabled(this.audioPrefs.monitorEnabled);
+        this.saveAudioPrefs();
+        this.renderCockpit();
         return;
       }
       if (action === 'pick-voice-effect' && target instanceof HTMLSelectElement) {
@@ -1547,6 +1601,7 @@ export class ClubboxApp {
       }
       if (action === 'toggle-external-mute' && target instanceof HTMLInputElement) {
         audioEngine.setExternalMuted(target.checked);
+        this.renderCockpit();
         return;
       }
       if (action === 'toggle-external-monitor' && target instanceof HTMLInputElement) {
@@ -1646,32 +1701,27 @@ export class ClubboxApp {
         this.roomDetailsOpen = true;
         this.reactionsOpen = false;
         this.soundsOpen = false;
+        this.roomBarOverflowOpen = false;
         this.render();
         break;
       case 'toggle-reactions':
         this.reactionsOpen = !this.reactionsOpen;
         this.soundsOpen = false;
-        this.render();
+        this.roomBarOverflowOpen = false;
+        this.renderCockpit();
         break;
       case 'toggle-sounds':
         this.soundsOpen = !this.soundsOpen;
         this.reactionsOpen = false;
-        this.render();
+        this.roomBarOverflowOpen = false;
+        this.renderCockpit();
         break;
       case 'toggle-room-bar-more':
         this.roomBarOverflowOpen = !this.roomBarOverflowOpen;
-        this.render();
+        this.reactionsOpen = false;
+        this.soundsOpen = false;
+        this.renderCockpit();
         break;
-      case 'set-audio-quality': {
-        const quality = (el as HTMLSelectElement).value;
-        if (quality === 'music') {
-          if (!audioEngine.getIsMusicMode()) audioEngine.toggleMusicMode();
-        } else if (audioEngine.getIsMusicMode()) {
-          audioEngine.toggleMusicMode();
-        }
-        this.render();
-        break;
-      }
       case 'preview-sound': {
         const fxId = el.getAttribute('data-fx-id');
         if (fxId) audioEngine.playSoundEffect(fxId, { localOnly: true });
@@ -2077,6 +2127,7 @@ export class ClubboxApp {
         audioEngine.setMonitorEnabled(this.audioPrefs.monitorEnabled);
         this.saveAudioPrefs();
         this.renderCockpit();
+        this.renderRoomDetails();
         break;
       case 'pick-voice-effect': {
         const select = el as HTMLSelectElement;
@@ -2116,9 +2167,11 @@ export class ClubboxApp {
         void this.toggleHandRaise();
         break;
       case 'toggle-record':
+        this.roomBarOverflowOpen = false;
         this.toggleRecording();
         break;
       case 'save-clip':
+        this.roomBarOverflowOpen = false;
         void this.saveClip();
         break;
       case 'minimize-room': {
@@ -2133,6 +2186,7 @@ export class ClubboxApp {
       }
       case 'toggle-chat':
         if (!this.currentChannel) return;
+        this.roomBarOverflowOpen = false;
         if (this.currentChannel.is_chat_enabled === false) {
           this.showToast(t('chatOff'), '💬');
           return;

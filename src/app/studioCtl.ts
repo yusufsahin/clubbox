@@ -170,7 +170,9 @@ export function handleGlobalShortcut(this: ClubboxApp, action: string) : void {
 export function updateVuMeter(this: ClubboxApp, vol: number) {
     const fill = document.getElementById('vu-meter-fill');
     if (fill) {
-      fill.style.width = `${Math.min(100, Math.round(vol * 100))}%`;
+      const level = Math.max(0, Math.min(1, vol));
+      fill.style.opacity = audioEngine.getIsMuted() || level < 0.08 ? '0' : String(0.35 + level * 0.65);
+      fill.style.borderColor = level < 0.08 || audioEngine.getIsMuted() ? 'transparent' : 'var(--accent-emerald)';
     }
 
     const mySpeakerCard = document.querySelector('.speaker-card.me-speaker');
@@ -184,31 +186,31 @@ export function updateVuMeter(this: ClubboxApp, vol: number) {
   }
 
 export function handleRecordingStateChange(this: ClubboxApp, isRecording: boolean, blobUrl?: string) {
-    const recBtn = document.getElementById('record-btn');
-    const recTimerEl = document.getElementById('record-timer');
-
     if (isRecording) {
-      recBtn?.classList.add('record-active');
       this.recordingChapters = [];
       this.recordDurationSec = 0;
       this.recordTimerInterval = window.setInterval(() => {
         this.recordDurationSec++;
         const mins = Math.floor(this.recordDurationSec / 60).toString().padStart(2, '0');
         const secs = (this.recordDurationSec % 60).toString().padStart(2, '0');
-        if (recTimerEl) recTimerEl.textContent = `${mins}:${secs}`;
+        const live = document.getElementById('record-timer');
+        if (live) {
+          live.hidden = false;
+          live.textContent = `${mins}:${secs}`;
+        }
       }, 1000);
       this.showToast(t('recordingStarted'), '🔴');
       document.getElementById('recording-badge')?.removeAttribute('hidden');
       this.syncRecBanner();
+      this.renderCockpit();
     } else {
-      recBtn?.classList.remove('record-active');
       if (this.recordTimerInterval) {
         clearInterval(this.recordTimerInterval);
         this.recordTimerInterval = null;
       }
-      if (recTimerEl) recTimerEl.textContent = 'REC';
       document.getElementById('recording-badge')?.setAttribute('hidden', '');
       this.syncRecBanner();
+      this.renderCockpit();
 
       if (blobUrl) {
         this.showToast(t('recordingReady'), '💾');

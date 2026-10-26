@@ -28,6 +28,7 @@ export interface CockpitState {
   overflowOpen: boolean;
   showMusicMute: boolean;
   musicMuted: boolean;
+  soundpadVolume: number;
 }
 
 function barBtn(
@@ -35,14 +36,18 @@ function barBtn(
   action: string,
   label: string,
   iconName: Parameters<typeof icon>[0],
-  opts: { active?: boolean; disabled?: boolean; title?: string; extra?: string } = {},
+  opts: { active?: boolean; disabled?: boolean; title?: string; extra?: string; foldable?: boolean; badge?: number } = {},
 ): SafeHtml {
   const title = opts.title ?? label;
   const disabled = opts.disabled ? 'disabled' : '';
   const active = opts.active ? 'is-active' : '';
+  const foldable = opts.foldable ? 'room-bar-foldable' : '';
+  const badge = opts.badge && opts.badge > 0
+    ? html`<span class="room-bar-badge">${String(opts.badge)}</span>`
+    : '';
   return html`
     <button
-      class="room-bar-btn ${active}"
+      class="room-bar-btn ${active} ${foldable}"
       type="button"
       data-action="${action}"
       data-room-bar-item="${item}"
@@ -50,7 +55,7 @@ function barBtn(
       title="${title}"
       ${disabled}
       ${opts.extra ?? ''}
-    >${icon(iconName)}<span class="room-bar-label">${label}</span></button>
+    >${icon(iconName)}<span class="room-bar-label">${label}</span>${badge}</button>
   `;
 }
 
@@ -105,14 +110,14 @@ export function cockpitBar(state: CockpitState): SafeHtml {
           active: state.soundsOpen,
         }) : ''}
 
-        ${state.showMusicMute ? barBtn('music', 'toggle-music-mute', t('cockpitMusic'), 'speaker', {
+        ${state.showMusicMute ? barBtn('music', 'toggle-music-mute', t('cockpitMusic'), 'music', {
           active: !state.musicMuted,
           title: t('cockpitMusicTitle'),
         }) : ''}
 
         ${state.inRoom && showRecord ? html`
           <button
-            class="room-bar-btn room-bar-foldable ${state.recording ? 'is-active record-active' : ''}"
+            class="room-bar-btn ${state.recording ? 'is-active record-active' : 'room-bar-foldable'}"
             type="button"
             data-action="${state.canClip && !state.canRecord ? 'save-clip' : 'toggle-record'}"
             data-room-bar-item="record"
@@ -120,14 +125,15 @@ export function cockpitBar(state: CockpitState): SafeHtml {
             aria-label="${t('record')}"
             title="${state.recordHint}"
             ${state.canRecord || state.recording || state.canClip ? '' : 'disabled'}
-          >${icon('record')}<span class="room-bar-label" id="record-timer">${t('record')}</span></button>
+          >${icon('record')}<span class="room-bar-label">${t('record')}</span><span class="room-bar-timer" id="record-timer" ${state.recording ? '' : 'hidden'}>${state.recording ? '00:00' : ''}</span></button>
         ` : ''}
 
         ${state.inRoom ? barBtn('chat', 'toggle-chat', t('chat'), 'chat', {
           active: state.chatOpen,
           disabled: !state.canChat,
-          title: state.canChat ? t('chat') : t('chatOff'),
-          extra: 'data-room-bar-foldable="1"',
+          title: state.unreadChat > 0 ? t('unreadChat', { count: state.unreadChat }) : (state.canChat ? t('chat') : t('chatOff')),
+          foldable: true,
+          badge: state.unreadChat,
         }) : ''}
 
         ${state.latestChat ? html`
@@ -158,6 +164,22 @@ export function cockpitBar(state: CockpitState): SafeHtml {
         ` : ''}
       </div>
 
+      ${state.overflowOpen ? html`
+        <div class="room-bar-popover" data-room-bar-overflow role="menu">
+          ${state.inRoom && showRecord ? html`
+            <button class="room-bar-overflow-item" type="button" data-action="${state.canClip && !state.canRecord ? 'save-clip' : 'toggle-record'}" ${state.canRecord || state.recording || state.canClip ? '' : 'disabled'}>
+              ${icon('record')}<span>${t('record')}</span>
+            </button>
+          ` : ''}
+          ${state.inRoom ? html`
+            <button class="room-bar-overflow-item" type="button" data-action="toggle-chat" ${state.canChat ? '' : 'disabled'}>
+              ${icon('chat')}<span>${state.canChat ? t('chat') : t('chatOff')}</span>
+              ${state.unreadChat > 0 ? html`<span class="room-bar-badge">${String(state.unreadChat)}</span>` : ''}
+            </button>
+          ` : ''}
+        </div>
+      ` : ''}
+
       ${state.reactionsOpen ? html`
         <div class="room-bar-popover" data-reactions-popover>
           <div class="reaction-pad" role="group" aria-label="${t('sendReaction')}">
@@ -187,7 +209,8 @@ export function cockpitBar(state: CockpitState): SafeHtml {
           </div>
           <div class="room-sounds-controls">
             <label class="form-label" for="soundpad-vol-slider">${t('soundpadVolume')}</label>
-            <input type="range" id="soundpad-vol-slider" min="0" max="1" step="0.05" value="1" />
+            <input type="range" id="soundpad-vol-slider" min="0" max="1" step="0.05" value="${String(state.soundpadVolume)}" />
+            <span id="soundpad-vol-label">${String(Math.round(state.soundpadVolume * 100))}%</span>
             <button class="btn btn-secondary" type="button" data-action="stop-sounds">${t('stopSounds')}</button>
             <button class="btn btn-secondary" type="button" data-action="duck-sounds" title="${t('duckSounds')}">${t('duckSounds')}</button>
           </div>
