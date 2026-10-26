@@ -271,6 +271,9 @@ export class ClubboxApp {
       if (step === 'otp') {
         this.loginNotice = t('officialSignInOtpWaiting');
         this.render();
+      } else if (step === 'home') {
+        this.loginNotice = t('officialSignInHomeOpened');
+        this.render();
       } else if (step === 'phone') {
         this.loginNotice = t('officialSignInWaiting');
         this.render();

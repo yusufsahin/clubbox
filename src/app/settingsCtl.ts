@@ -183,7 +183,11 @@ export async function tryAdoptOfficialSession(this: ClubboxApp, options?: { from
             this.stopAdoptRetry();
             this.loginNotice = t('signInAdoptFailed');
             this.render();
-          } else if (this.loginNotice !== t('officialSignInWaiting')) {
+          } else if (
+            this.loginNotice !== t('officialSignInWaiting')
+            && this.loginNotice !== t('officialSignInHomeOpened')
+            && this.loginNotice !== t('officialSignInOtpWaiting')
+          ) {
             this.loginNotice = t('officialSignInWaiting');
           }
         } else if (this.adoptRetryCount >= ADOPT_RETRY_MAX) {

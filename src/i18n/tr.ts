@@ -2,12 +2,13 @@ import type { MessageKey } from './en';
 
 export const tr: Record<MessageKey, string> = {
   signInTitle: 'Clubhouse girişi',
-  signInHelp: 'Clubhouse ayrı bir pencerede açılır. Ülke kodunu doğru seç (Türkiye +90), numarayı başında 0 olmadan yaz (5xx…), sonra SMS kodunu gir (Next yok — kod bitince kendi gönderir). Clubhouse ana sayfa / feed açılana kadar bekle. Web girişi yalnızca mevcut Clubhouse hesabı için çalışır.',
+  signInHelp: 'Clubhouse ayrı bir pencerede açılır. Ülke kodunu doğru seç (Türkiye +90), numarayı başında 0 olmadan yaz (5xx…), Next’e bas, sonra SMS kodunu gir. Clubhouse ana sayfa / feed açılınca o pencereyi kapatma — Clubbox oturumu alır ve pencereyi kapatır. O Clubhouse web sayfasını uygulama diye kullanma. Web girişi yalnızca mevcut Clubhouse hesabı için çalışır.',
   phoneNumber: 'Telefon numarası',
   sendCode: 'Kod gönder',
   openWebSignIn: 'Clubhouse girişini aç',
-  officialSignInWaiting: 'Clubhouse penceresinde: ülke kodu (TR +90) → numara (başında 0 yok) → SMS kodu (kendiliğinden gönderilir). Ana sayfa / feed açılınca buraya dön.',
-  officialSignInOtpWaiting: 'Kod ekranı açıldı. SMS çoğu zaman yalnızca mevcut Clubhouse hesabına gider; gelmezse ülke kodunun +90 olduğundan emin ol, Click to resend dene veya önce mobil uygulamadan hesabını doğrula. 6 hane gelince pencereye yaz (Next yok).',
+  officialSignInWaiting: 'Clubhouse penceresinde: ülke kodu (TR +90) → numara (başında 0 yok) → Next → SMS kodu. Ana sayfa / feed açılınca bekle — Clubbox oturumu alır.',
+  officialSignInOtpWaiting: 'Kod ekranı açıldı. SMS çoğu zaman yalnızca mevcut Clubhouse hesabına gider; gelmezse ülke kodunun +90 olduğundan emin ol, Click to resend dene veya önce mobil uygulamadan hesabını doğrula. 6 hane gelince pencereye yaz.',
+  officialSignInHomeOpened: 'Clubhouse ana sayfa açıldı. Clubbox oturumu alıyor — pencere kapanana kadar kapatma.',
   continueInSandbox: 'Sandbox ile devam et',
   continueInSandboxHelp: 'Canlı oturum olmadan örnek odaları dene.',
   signInAdoptFailed: 'Oturum hâlâ yok. Clubhouse penceresinin girişten çıktığını kontrol et, sonra Yeniden dene.',

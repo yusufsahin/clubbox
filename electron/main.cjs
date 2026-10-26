@@ -18,6 +18,7 @@ const { appendApiLog } = require('./apiLog.cjs');
 const { runStartupTriage } = require('./apiTriage.cjs');
 const { createBundleCrawler } = require('./bundleCrawler.cjs');
 const { createPubNubClient } = require('./pubnubClient.cjs');
+const { cookieLooksLikeSession, pathLooksSignedIn, urlLooksSignedIn } = require('./webSessionSignals.cjs');
 
 const REQUEST_TIMEOUT_MS = 20000;
 const DEV_SERVER_ORIGIN = 'http://localhost:5173';
@@ -520,6 +521,7 @@ let signInWindow = null;
 let signInAuthReady = false;
 let lastSignInNotice = '';
 let signInOpenInFlight = false;
+let signInUrlPoll = null;
 let bundleCrawlInFlight = null;
 let bundleCrawlAttempt = 0;
 let pubnubClient = null;
@@ -544,8 +546,43 @@ function markSignInAuthReady(reason) {
   notifyWebSessionMaybe(`ready:${reason}:${Date.now()}`, { force: true });
 }
 
+function stopSignInUrlPoll() {
+  if (signInUrlPoll) {
+    clearInterval(signInUrlPoll);
+    signInUrlPoll = null;
+  }
+}
+
+function signInWindowPath() {
+  if (!signInWindow || signInWindow.isDestroyed()) return '';
+  try {
+    return new URL(signInWindow.webContents.getURL()).pathname;
+  } catch {
+    return '';
+  }
+}
+
+function inspectSignInLocation(url, reason) {
+  const target = url || (signInWindow && !signInWindow.isDestroyed() ? signInWindow.webContents.getURL() : '');
+  if (!urlLooksSignedIn(target) || signInAuthReady) return;
+  markSignInAuthReady(`${reason}:${signInWindowPath() || 'home'}`);
+  notifySignInProgress('home');
+}
+
+function startSignInUrlPoll() {
+  if (signInUrlPoll) return;
+  signInUrlPoll = setInterval(() => {
+    if (!signInWindow || signInWindow.isDestroyed()) {
+      stopSignInUrlPoll();
+      return;
+    }
+    inspectSignInLocation(signInWindow.webContents.getURL(), 'poll');
+  }, 1000);
+}
+
 function hideEmbeddedSignIn() {
   signInOpenInFlight = false;
+  stopSignInUrlPoll();
   if (signInWindow && !signInWindow.isDestroyed()) {
     try {
       signInWindow.close();
@@ -674,15 +711,7 @@ async function showEmbeddedSignIn() {
     console.warn('[web] signin fail-load', errorCode, errorDescription, String(validatedURL || '').slice(0, 120));
   });
   const notice = (_event, url) => {
-    maybeNotifyWebSession(url);
-    try {
-      const pathName = new URL(url).pathname.toLowerCase();
-      if (pathName && pathName !== '/signin' && !pathName.startsWith('/signin/') && pathName !== '/login' && !pathName.startsWith('/login/')) {
-        markSignInAuthReady(`navigate:${pathName}`);
-      }
-    } catch {
-      // ignore
-    }
+    inspectSignInLocation(url, 'navigate');
   };
   signInWindow.webContents.on('did-navigate', notice);
   signInWindow.webContents.on('did-redirect-navigation', notice);
@@ -692,16 +721,15 @@ async function showEmbeddedSignIn() {
   // complete_phone was never sent. Network logging below is passive.
   signInWindow.webContents.on('did-finish-load', () => {
     void extractAgoraAppIdFromSignIn(signInWindow);
-    const url = signInWindow.webContents.getURL();
-    if (url && !/\/signin|\/login/i.test(url)) {
-      markSignInAuthReady('load-off-signin');
-    }
+    inspectSignInLocation(signInWindow.webContents.getURL(), 'load');
   });
   signInWindow.on('closed', () => {
+    stopSignInUrlPoll();
     signInWindow = null;
     signInOpenInFlight = false;
     lastSignInNotice = '';
   });
+  startSignInUrlPoll();
   armSignInNetworkWatch();
   attachSignInAuthDebugger(signInWindow);
   console.log('[web] sign-in window open (independent)');
@@ -875,17 +903,8 @@ function notifyWebSessionMaybe(reason, options = {}) {
 
 function maybeNotifyWebSession(target) {
   if (!isClubhouseHttps(target) || !mainWindow || mainWindow.isDestroyed()) return;
-  let url;
-  try {
-    url = new URL(target);
-  } catch {
-    return;
-  }
-  const path = url.pathname.toLowerCase();
-  // Still notify after leaving the phone/code steps. Cookie watcher covers
-  // SPA sign-in that never changes the path.
-  if (path === '/signin' || path.startsWith('/signin/') || path === '/login' || path.startsWith('/login/')) return;
-  notifyWebSessionMaybe(url.href);
+  if (!urlLooksSignedIn(target)) return;
+  notifyWebSessionMaybe(String(target));
 }
 
 let cookieNotifyTimer = null;
@@ -900,7 +919,7 @@ function armWebSessionCookieWatch() {
     if (!domain.includes('clubhouse.com')) return;
     const name = String(cookie.name || '');
     console.log('[web] cookie set:', name);
-    if (cookieLooksLikeSession(name)) {
+    if (cookieLooksLikeSession(cookie)) {
       markSignInAuthReady(`cookie:${name}`);
     }
     if (cookieNotifyTimer) clearTimeout(cookieNotifyTimer);
@@ -1243,16 +1262,9 @@ async function listClubhouseCookies(sess) {
   return [...map.values()];
 }
 
-function cookieLooksLikeSession(name) {
-  const n = String(name || '');
-  if (/csrf/i.test(n)) return false;
-  if (/^(__stripe|_ga|_gid|_gat|__cf|_fbp|_gcl)/i.test(n)) return false;
-  return /sessionid|^session$|auth|jwt|refresh|sid|logged/i.test(n);
-}
-
 async function hasClubhouseSessionCookie(sess = session.defaultSession) {
   const cookies = await listClubhouseCookies(sess);
-  return cookies.some((cookie) => cookieLooksLikeSession(cookie.name));
+  return cookies.some((cookie) => cookieLooksLikeSession(cookie));
 }
 
 async function syncClubhouseCookiesToDefault(sourceSession) {
@@ -1322,9 +1334,11 @@ async function postWithWebSession(endpoint, body) {
   }
   const sess = authSession();
   const allCookies = await listClubhouseCookies(sess);
-  const hasSession = allCookies.some((cookie) => cookieLooksLikeSession(cookie.name));
-  // Never call /me until we have a real session cookie or an auth-ready signal.
-  if (endpoint === 'me' && !hasSession && !signInAuthReady) {
+  const hasSession = allCookies.some((cookie) => cookieLooksLikeSession(cookie));
+  const signedInSurface = pathLooksSignedIn(signInWindowPath());
+  // Never call /me until we have a real session cookie, an auth-ready signal,
+  // or the official window is already on Clubhouse /home (SPA may skip nav events).
+  if (endpoint === 'me' && !hasSession && !signInAuthReady && !signedInSurface) {
     return {
       ok: false,
       status: 0,
@@ -1366,7 +1380,7 @@ async function postWithWebSession(endpoint, body) {
 
   // Prefer an in-page fetch while the sign-in window is open — it sends
   // HttpOnly cookies the same way the Clubhouse SPA does.
-  if (endpoint === 'me' && signInWindow && !signInWindow.isDestroyed() && signInAuthReady) {
+  if (endpoint === 'me' && signInWindow && !signInWindow.isDestroyed() && (signInAuthReady || signedInSurface)) {
     const probed = await probeMeInSignInPage();
     if (probed && typeof probed.status === 'number') {
       status = probed.status;
