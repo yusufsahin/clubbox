@@ -854,6 +854,10 @@ body {
   border-color: color-mix(in srgb, var(--accent-rose) 40%, transparent);
 }
 
+.cockpit-bar .btn-danger {
+  padding: 6px 8px;
+}
+
 .btn-danger:hover {
   background: var(--accent-rose);
   color: var(--text-on-accent);
@@ -866,7 +870,7 @@ body {
   overflow-x: hidden;
   overflow-y: auto;
   padding: 24px;
-  padding-bottom: 120px; /* Space for bottom cockpit bar */
+  padding-bottom: 72px; /* Space for compact cockpit bar */
 }
 
 .content-area.no-cockpit {
@@ -1917,7 +1921,7 @@ body {
 }
 
 #view-root:not(.no-cockpit) .host-room-fab {
-  bottom: 112px;
+  bottom: 72px;
 }
 
 @media (max-width: 900px) {
@@ -2040,43 +2044,70 @@ body {
   text-overflow: ellipsis;
 }
 
-/* Bottom Cockpit (Studio Control Bar) — Phase 18 compact room bar */
+/* Bottom Cockpit (Studio Control Bar) — compact single row */
 .cockpit-bar {
   position: absolute;
-  bottom: 18px;
+  bottom: 10px;
   left: 284px;
-  right: 24px;
-  min-height: 56px;
-  height: auto;
+  right: 16px;
+  min-height: 48px;
   background: var(--bg-cockpit);
   backdrop-filter: blur(20px);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
-  padding: 8px 12px;
+  padding: 4px 8px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
+  gap: 8px;
+  flex-wrap: nowrap;
   box-shadow: var(--shadow-md);
   z-index: 20;
   overflow: visible;
 }
 
 .room-bar-title {
-  min-width: 120px;
-  max-width: 260px;
+  min-width: 72px;
+  max-width: 160px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   flex-shrink: 0;
   font-weight: 700;
-  font-size: 13px;
+  font-size: 12px;
   background: none;
   border: none;
   color: var(--text-main);
   cursor: pointer;
   text-align: left;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.room-bar-title.is-away {
+  color: var(--accent-purple-text);
+}
+
+.room-bar-back {
+  flex-shrink: 0;
+}
+
+.room-bar-title-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .room-bar-tools {
@@ -2343,23 +2374,24 @@ body {
 .cockpit-left {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 /* Master Mic Button & VU Meter */
 .mic-control-cluster {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   background: var(--surface-2);
-  padding: 6px 14px 6px 6px;
+  padding: 3px 10px 3px 3px;
   border-radius: var(--radius-full);
   border: 1px solid var(--border-subtle);
 }
 
 .mic-toggle-btn {
-  width: 48px;
-  height: 48px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   border: none;
   background: var(--accent-rose);
@@ -2381,8 +2413,8 @@ body {
 .mic-meter-box {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  width: 92px;
+  gap: 2px;
+  width: 68px;
 }
 
 #mic-vol-slider,
@@ -2418,14 +2450,16 @@ body {
 .cockpit-center {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
 }
 
 .soundpad-quick-btn {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
+  gap: 4px;
+  padding: 5px 7px;
   background: var(--surface-2);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
@@ -2459,7 +2493,8 @@ body {
 .cockpit-right {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
 .toggle-state-btn svg,
@@ -2470,10 +2505,12 @@ body {
 }
 
 .toggle-state-btn {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 9px 14px;
+  justify-content: center;
+  gap: 0;
+  padding: 6px;
   border-radius: var(--radius-md);
   font-size: 13px;
   font-weight: 600;

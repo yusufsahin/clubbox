@@ -208,6 +208,7 @@ export const en = {
   studioTagline: 'Desktop Audio Studio',
   navigation: 'Navigation',
   liveStage: 'Live Stage',
+  backToRoom: 'Back to the room',
   exploreNav: 'Explore Rooms',
   soundboardRack: 'Soundboard Rack',
   studioTools: 'Studio Tools',

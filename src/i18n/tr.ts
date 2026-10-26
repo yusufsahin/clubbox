@@ -210,6 +210,7 @@ export const tr: Record<MessageKey, string> = {
   studioTagline: 'Masaüstü ses stüdyosu',
   navigation: 'Gezinme',
   liveStage: 'Canlı sahne',
+  backToRoom: 'Odaya dön',
   exploreNav: 'Odaları keşfet',
   soundboardRack: 'Ses panosu',
   studioTools: 'Stüdyo',

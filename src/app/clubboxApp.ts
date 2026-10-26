@@ -1417,6 +1417,7 @@ export class ClubboxApp {
       showMusicMute: this.isMeSpeaker() && (!!audioEngine.getExternalDeviceId() || audioEngine.isExternalActive()),
       musicMuted: audioEngine.getExternalMuted(),
       soundpadVolume: audioEngine.getSoundpadVolume(),
+      onStage: this.currentTab === 'stage' && !this.selfProfileOpen && !this.roomDetailsOpen,
     });
   }
 
@@ -1662,6 +1663,7 @@ export class ClubboxApp {
     if (action === 'nav' && (tab === 'stage' || tab === 'explore' || tab === 'discover' || tab === 'friends' || tab === 'messages' || tab === 'activity' || tab === 'houses' || tab === 'events' || tab === 'soundboard' || tab === 'settings' || tab === 'login')) {
       this.selfProfileOpen = false;
       this.closeProfileDrawer();
+      if (tab === 'stage') this.roomDetailsOpen = false;
       if (tab === 'explore') {
         this.currentTab = 'explore';
         this.render();

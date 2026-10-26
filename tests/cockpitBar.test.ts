@@ -34,6 +34,7 @@ const base = {
   showMusicMute: true,
   musicMuted: false,
   soundpadVolume: 0.8,
+  onStage: true,
 };
 
 test('studio cockpit keeps mic meter, hear myself, music mode and pads', () => {
@@ -47,12 +48,22 @@ test('studio cockpit keeps mic meter, hear myself, music mode and pads', () => {
   assert.notEqual(String(icon('music')), String(icon('headphones')));
 });
 
-test('room title opens details and RH-15 items stay labeled', () => {
+test('room title returns to the stage and RH-15 items stay labeled', () => {
   const html = String(cockpitBar({ ...base, canRaiseHand: true, isSpeaker: false }));
-  assert.match(html, /data-room-bar-item="title"[^>]*data-action="open-room-details"|data-action="open-room-details"[^>]*data-room-bar-item="title"/);
+  assert.match(html, /data-room-bar-item="title"[^>]*data-action="nav"|data-action="nav"[^>]*data-room-bar-item="title"/);
+  assert.match(html, /data-tab="stage"/);
+  assert.doesNotMatch(html, /class="room-bar-back"/);
   for (const item of ['mic', 'hand', 'reactions', 'sounds', 'record', 'chat', 'details', 'leave']) {
     assert.match(html, new RegExp(`data-room-bar-item="${item}"`));
   }
+});
+
+test('title shows a back-to-room affordance when not on stage', () => {
+  const html = String(cockpitBar({ ...base, onStage: false }));
+  assert.match(html, /room-bar-title is-away|is-away/);
+  assert.match(html, /class="room-bar-back"/);
+  assert.match(html, /data-action="nav"/);
+  assert.match(html, /data-tab="stage"/);
 });
 
 test('chat shows unread badge and sounds slider uses engine volume', () => {

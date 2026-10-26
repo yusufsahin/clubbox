@@ -168,6 +168,7 @@ export function paintNavUi(world: ClubboxWorld): NavUi {
       showMusicMute: false,
       musicMuted: false,
       soundpadVolume: 0.8,
+      onStage: true,
     }))
     : '';
   ui.root.innerHTML = `${sidebar}${topBar}<div id="view-root">${page}</div>${cockpit}`;

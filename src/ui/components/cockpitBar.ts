@@ -32,6 +32,7 @@ export interface CockpitState {
   showMusicMute: boolean;
   musicMuted: boolean;
   soundpadVolume: number;
+  onStage: boolean;
 }
 
 function toggleBtn(
@@ -65,7 +66,7 @@ function toggleBtn(
       title="${opts.title ?? label}"
       ${disabled}
       ${opts.extra ?? ''}
-    >${icon(iconName)}<span class="room-bar-label">${label}</span>${badge}</button>
+    >${icon(iconName)}<span class="room-bar-label visually-hidden">${label}</span>${badge}</button>
   `;
 }
 
@@ -77,13 +78,14 @@ export function cockpitBar(state: CockpitState): SafeHtml {
     <div class="cockpit-bar" data-cockpit="room">
       ${state.inRoom && state.roomTitle ? html`
         <button
-          class="room-bar-title"
+          class="room-bar-title ${state.onStage ? '' : 'is-away'}"
           type="button"
-          data-action="open-room-details"
+          data-action="nav"
+          data-tab="stage"
           data-room-title
           data-room-bar-item="title"
-          title="${state.roomTitle}"
-        >${state.roomTitle}</button>
+          title="${state.onStage ? state.roomTitle : t('backToRoom')}"
+        >${!state.onStage ? html`<span class="room-bar-back" aria-hidden="true">←</span>` : ''}<span class="room-bar-title-text">${state.roomTitle}</span></button>
       ` : ''}
       ${state.latestChat ? html`
         <button class="chat-ticker" type="button" data-action="nav" data-tab="stage" title="${state.latestChat}">${state.latestChat}</button>
@@ -128,10 +130,9 @@ export function cockpitBar(state: CockpitState): SafeHtml {
       </div>
 
       <div class="cockpit-center">
-        ${state.effects.slice(0, 5).map((fx) => html`
-          <button class="soundpad-quick-btn" type="button" data-action="play-sound" data-fx-id="${fx.id}">
+        ${state.effects.slice(0, 4).map((fx) => html`
+          <button class="soundpad-quick-btn" type="button" data-action="play-sound" data-fx-id="${fx.id}" title="${fx.name}">
             <span class="soundpad-icon">${fx.icon}</span>
-            <span>${fx.name}</span>
             <span class="key-tag">${fx.hotkey || t('noHotkey')}</span>
           </button>
         `)}
@@ -172,7 +173,7 @@ export function cockpitBar(state: CockpitState): SafeHtml {
             aria-label="${t('record')}"
             title="${state.recordHint}"
             ${state.canRecord || state.recording ? '' : 'disabled'}
-          >${icon('record')}<span class="room-bar-label">${t('record')}</span><span class="room-bar-timer" id="record-timer" ${state.recording ? '' : 'hidden'}>${state.recording ? '00:00' : ''}</span></button>
+          >${icon('record')}<span class="room-bar-label visually-hidden">${t('record')}</span><span class="room-bar-timer" id="record-timer" ${state.recording ? '' : 'hidden'}>${state.recording ? '00:00' : ''}</span></button>
         ` : ''}
 
         ${state.inRoom ? toggleBtn('toggle-chat', t('chat'), 'chat', {
@@ -186,8 +187,8 @@ export function cockpitBar(state: CockpitState): SafeHtml {
         ${state.inRoom ? toggleBtn('open-room-details', t('details'), 'details', { item: 'details' }) : ''}
 
         ${state.inRoom ? html`
-          <button class="btn btn-danger" type="button" data-action="leave-room" data-room-bar-item="leave" style="padding: 9px 16px;">
-            ${icon('leave')}<span class="room-bar-label">${t('leave')}</span>
+          <button class="btn btn-danger room-bar-leave" type="button" data-action="leave-room" data-room-bar-item="leave" aria-label="${t('leave')}" title="${t('leave')}">
+            ${icon('leave')}<span class="room-bar-label visually-hidden">${t('leave')}</span>
           </button>
         ` : ''}
       </div>
