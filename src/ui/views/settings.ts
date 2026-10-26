@@ -137,6 +137,7 @@ export function settingsView(
         <div class="virtual-cable-guide" data-virtual-cable-guide style="margin-top:16px; padding-top:12px; border-top:1px solid var(--border-subtle);">
           <h4 style="font-size:14px; font-weight:700; margin-bottom:6px;">${t('virtualCableGuideTitle')}</h4>
           <p class="list-note">${t('virtualCableGuideBody')}</p>
+          <button class="btn btn-primary" type="button" data-action="open-audio-setup" style="margin-top:12px;">${t('audioSetupOpen')}</button>
         </div>
       </div>
 

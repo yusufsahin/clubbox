@@ -26,6 +26,8 @@ export interface CockpitState {
   canReact: boolean;
   canGifReact: boolean;
   overflowOpen: boolean;
+  showMusicMute: boolean;
+  musicMuted: boolean;
 }
 
 function barBtn(
@@ -101,6 +103,11 @@ export function cockpitBar(state: CockpitState): SafeHtml {
 
         ${state.inRoom ? barBtn('sounds', 'toggle-sounds', t('sounds'), 'speaker', {
           active: state.soundsOpen,
+        }) : ''}
+
+        ${state.showMusicMute ? barBtn('music', 'toggle-music-mute', t('cockpitMusic'), 'speaker', {
+          active: !state.musicMuted,
+          title: t('cockpitMusicTitle'),
         }) : ''}
 
         ${state.inRoom && showRecord ? html`

@@ -53,6 +53,9 @@ export class AudioEngine {
   private externalDuckDb = DEFAULT_DUCK_DB;
   private externalDuckState: DuckEnvelopeState = initialDuckState();
   private externalLevel = 0;
+  private externalOwnedExternally = false;
+  /** Agora extras send (0–1). Set by AgoraVoiceEngine. */
+  public onExternalSendLevel: ((gain: number) => void) | null = null;
   /** Last constraints / capture mode used for the external channel (tests / diagnostics). */
   public lastExternalConstraints: MediaTrackConstraints | null = null;
   public lastExternalCapture: 'device' | 'system' | null = null;
@@ -780,7 +783,7 @@ export class AudioEngine {
   }
 
   private tickExternalDuck(micLevel: number): void {
-    if (!this.externalGain || !this.ctx) return;
+    if (!this.externalStream && !this.externalSource) return;
     const speaking = this.externalDuckEnabled && !this.isMuted && micLevel >= VOICE_DUCK_THRESHOLD;
     this.externalDuckState = stepDuckEnvelope(
       this.externalDuckState,
@@ -792,18 +795,20 @@ export class AudioEngine {
   }
 
   private applyExternalGain(): void {
-    if (!this.externalGain || !this.ctx) return;
     const plan = planExternalRouting({
-      active: !!this.externalStream,
+      active: !!this.externalStream || !!this.externalSource,
       muted: this.externalMuted,
       monitor: this.externalMonitor,
       volume: this.externalVolume,
     });
     const gain = plan.openGain * this.externalDuckState.multiplier;
-    const now = this.ctx.currentTime;
-    this.externalGain.gain.cancelScheduledValues(now);
-    this.externalGain.gain.setValueAtTime(this.externalGain.gain.value, now);
-    this.externalGain.gain.setTargetAtTime(gain, now, 0.01);
+    if (this.externalGain && this.ctx) {
+      const now = this.ctx.currentTime;
+      this.externalGain.gain.cancelScheduledValues(now);
+      this.externalGain.gain.setValueAtTime(this.externalGain.gain.value, now);
+      this.externalGain.gain.setTargetAtTime(gain, now, 0.01);
+    }
+    this.onExternalSendLevel?.(gain);
   }
 
   private wireExternalGraph(): void {
@@ -833,11 +838,28 @@ export class AudioEngine {
     if (!this.animationFrameId) this.startMeterLoop();
   }
 
+  /**
+   * Wire an Agora-owned VB-Cable track into the local meter / record graph
+   * without a second getUserMedia (Windows exclusive mode would steal the device).
+   */
+  public adoptExternalTrack(track: MediaStreamTrack): void {
+    const ctx = this.initContextIfNeeded();
+    this.releaseExternal();
+    this.externalOwnedExternally = true;
+    this.externalStream = new MediaStream([track]);
+    this.externalSource = ctx.createMediaStreamSource(this.externalStream);
+    this.lastExternalCapture = 'device';
+    this.wireExternalGraph();
+  }
+
   public releaseExternal(): void {
     if (this.externalStream) {
-      this.externalStream.getTracks().forEach((track) => track.stop());
+      if (!this.externalOwnedExternally) {
+        this.externalStream.getTracks().forEach((track) => track.stop());
+      }
       this.externalStream = null;
     }
+    this.externalOwnedExternally = false;
     this.safeDisconnect(this.externalSource);
     this.safeDisconnect(this.externalGain);
     this.safeDisconnect(this.externalAnalyser);

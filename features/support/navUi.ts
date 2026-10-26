@@ -162,6 +162,8 @@ export function paintNavUi(world: ClubboxWorld): NavUi {
       canReact: true,
       canGifReact: true,
       overflowOpen: false,
+      showMusicMute: false,
+      musicMuted: false,
     }))
     : '';
   ui.root.innerHTML = `${sidebar}${topBar}<div id="view-root">${page}</div>${cockpit}`;

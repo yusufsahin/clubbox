@@ -546,6 +546,30 @@ body {
   transition: width 80ms linear;
 }
 
+.audio-setup-modal {
+  max-width: 560px;
+}
+
+.audio-setup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.audio-setup-checks {
+  margin: 12px 0 0;
+  padding-left: 18px;
+}
+
+.audio-setup-check.is-ok {
+  color: var(--accent-emerald);
+}
+
+.audio-setup-check.is-fail {
+  color: var(--text-muted);
+}
+
 .sidebar-user {
   margin-top: 0;
   display: flex;

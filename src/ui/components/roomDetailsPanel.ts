@@ -81,6 +81,7 @@ export function roomDetailsPanel(state: RoomDetailsState): SafeHtml {
         ${state.showExternalAudio ? html`
           <div class="external-audio-block" data-external-audio>
             <h5 class="external-audio-title">${t('externalAudio')}</h5>
+            <button class="btn btn-secondary" type="button" data-action="open-audio-setup">${t('audioSetupOpen')}</button>
             <label class="form-label" for="room-external-device">${t('externalAudioSource')}</label>
             <select class="form-input" id="room-external-device" data-action="set-external-device">
               <option value="">${t('externalAudioOff')}</option>

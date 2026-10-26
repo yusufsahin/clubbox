@@ -111,7 +111,10 @@ export function exploreView(
           <h2 style="font-size:22px; font-weight:700;">${t('liveRooms')}</h2>
           <p style="color:var(--text-muted); font-size:13px; margin-top:4px;">${t('liveRoomsHelp')}</p>
         </div>
-        <button class="btn btn-secondary" data-action="refresh-explore">${t('refresh')}</button>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn btn-secondary" type="button" data-action="open-audio-setup">${t('audioSetupOpen')}</button>
+          <button class="btn btn-secondary" data-action="refresh-explore">${t('refresh')}</button>
+        </div>
       </div>
       <div class="hallway-filters">
         <label style="font-size:13px; color:var(--text-muted);">${t('hallwayKeywords')}</label>

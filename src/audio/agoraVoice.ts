@@ -8,6 +8,8 @@ import type {
 type AgoraSdk = typeof import('agora-rtc-sdk-ng').default;
 import { audioEngine } from './audioEngine';
 import { agoraPublishTracks } from './agoraPublishPlan';
+import { extrasCaptureMode } from './audioSetupWizard';
+import { SYSTEM_AUDIO_DEVICE_ID } from './externalConstraints';
 import { clubhouseClient } from '../api/client';
 import { muteFromAgoraEvent } from '../api/remoteMute';
 
@@ -29,6 +31,7 @@ export class AgoraVoiceEngine {
   private localAudioTrack: ILocalAudioTrack | null = null;
   /** Soundboard + VB-Cable / system audio (no mic). */
   private extrasAudioTrack: ILocalAudioTrack | null = null;
+  private extrasDeviceId = '';
   /** Only used when falling back to createCustomAudioTrack. */
   private publishedClone: MediaStreamTrack | null = null;
   private isJoined: boolean = false;
@@ -321,14 +324,11 @@ export class AgoraVoiceEngine {
     // Feed Agora's live track into the local graph for VU / monitor (no second capture).
     audioEngine.adoptMicrophoneTrack(this.localAudioTrack.getMediaStreamTrack());
     const media = this.localAudioTrack.getMediaStreamTrack();
-    await this.publishExtrasTrack(AgoraRTC, isMusicMode);
-    if (this.extrasAudioTrack) {
-      try {
-        await this.client.publish([this.extrasAudioTrack]);
-      } catch (err) {
-        console.warn('[AgoraRTC] extras publish failed:', this.formatAgoraError(err));
-        this.closeExtrasTrack();
-      }
+    audioEngine.onExternalSendLevel = (gain) => {
+      this.setExtrasSendVolume(gain);
+    };
+    if (audioEngine.getExternalDeviceId()) {
+      await this.ensureExtrasPublished();
     }
     console.log(
       '[AgoraRTC] published createMicrophoneAudioTrack',
@@ -338,37 +338,84 @@ export class AgoraVoiceEngine {
     );
   }
 
-  /** Publish VB-Cable / soundboard as a second track. Mic mute must not cut this. */
+  /** Publish VB-Cable via Agora createMicrophoneAudioTrack (custom dest tracks stay silent). */
   public async ensureExtrasPublished(): Promise<void> {
     if (!this.client || !this.isJoined || !this.isSpeaker) return;
-    if (this.extrasAudioTrack) return;
+    const deviceId = audioEngine.getExternalDeviceId();
+    const mode = extrasCaptureMode(deviceId, SYSTEM_AUDIO_DEVICE_ID);
+    if (mode === 'none') {
+      await this.unpublishExtrasOnly();
+      return;
+    }
+    if (this.extrasAudioTrack && this.extrasDeviceId === deviceId) {
+      this.setExtrasSendVolume(audioEngine.getExternalMuted() ? 0 : audioEngine.getExternalVolume());
+      return;
+    }
+    await this.unpublishExtrasOnly();
     const AgoraRTC = await this.loadSdk();
-    await this.publishExtrasTrack(AgoraRTC, audioEngine.getIsMusicMode());
-    if (this.extrasAudioTrack) {
-      try {
-        await this.client.publish([this.extrasAudioTrack]);
-        console.log('[AgoraRTC] published extras track after external start');
-      } catch (err) {
-        console.warn('[AgoraRTC] extras publish failed:', this.formatAgoraError(err));
-        this.closeExtrasTrack();
+    const isMusicMode = audioEngine.getIsMusicMode();
+    try {
+      if (mode === 'agora-mic') {
+        audioEngine.releaseExternal();
+        this.extrasAudioTrack = await AgoraRTC.createMicrophoneAudioTrack({
+          microphoneId: deviceId,
+          encoderConfig: isMusicMode ? 'high_quality_stereo' : 'music_standard',
+          AEC: false,
+          ANS: false,
+          AGC: false,
+        });
+        audioEngine.adoptExternalTrack(this.extrasAudioTrack.getMediaStreamTrack());
+      } else {
+        void audioEngine.ensureAudioContext();
+        audioEngine.refreshExtrasDestination();
+        const extras = audioEngine.getBroadcastExtrasTrack();
+        if (!extras || extras.readyState !== 'live') return;
+        this.extrasAudioTrack = AgoraRTC.createCustomAudioTrack({
+          mediaStreamTrack: extras,
+          encoderConfig: isMusicMode ? 'high_quality_stereo' : 'music_standard',
+        });
+      }
+      await this.client.publish([this.extrasAudioTrack]);
+      this.extrasDeviceId = deviceId;
+      this.setExtrasSendVolume(audioEngine.getExternalMuted() ? 0 : audioEngine.getExternalVolume());
+      console.log('[AgoraRTC] published extras', mode, deviceId);
+    } catch (err) {
+      console.warn('[AgoraRTC] extras publish failed:', this.formatAgoraError(err));
+      this.closeExtrasTrack();
+      if (mode === 'agora-mic' && deviceId) {
+        await audioEngine.startExternal(deviceId);
       }
     }
   }
 
-  private async publishExtrasTrack(AgoraRTC: AgoraSdk, isMusicMode: boolean): Promise<void> {
-    void audioEngine.ensureAudioContext();
-    audioEngine.refreshExtrasDestination();
-    const extras = audioEngine.getBroadcastExtrasTrack();
-    if (!extras || extras.readyState !== 'live') return;
+  public extrasIsLive(): boolean {
+    return !!this.extrasAudioTrack;
+  }
+
+  public setExtrasSendVolume(gain: number): void {
+    if (!this.extrasAudioTrack) return;
+    const volume = Math.max(0, Math.min(100, Math.round(gain * 100)));
     try {
-      this.extrasAudioTrack = AgoraRTC.createCustomAudioTrack({
-        mediaStreamTrack: extras,
-        encoderConfig: isMusicMode ? 'high_quality_stereo' : 'music_standard',
-      });
-    } catch (err) {
-      console.warn('[AgoraRTC] createCustomAudioTrack (extras) failed:', this.formatAgoraError(err));
-      this.extrasAudioTrack = null;
+      this.extrasAudioTrack.setVolume(volume);
+    } catch {
+      // older SDK
     }
+    try {
+      void this.extrasAudioTrack.setMuted(volume <= 0);
+    } catch {
+      // ignore
+    }
+  }
+
+  private async unpublishExtrasOnly(): Promise<void> {
+    if (this.client && this.extrasAudioTrack) {
+      try {
+        await this.client.unpublish([this.extrasAudioTrack]);
+      } catch {
+        // never published
+      }
+    }
+    this.closeExtrasTrack();
   }
 
   private closeExtrasTrack(): void {
@@ -381,6 +428,7 @@ export class AgoraVoiceEngine {
       }
       this.extrasAudioTrack = null;
     }
+    this.extrasDeviceId = '';
   }
 
   private async unpublishLocal(): Promise<void> {
@@ -425,6 +473,11 @@ export class AgoraVoiceEngine {
     this.isSpeaker = false;
     this.currentChannel = null;
     this.nativeMuteSignalling = false;
+    audioEngine.onExternalSendLevel = null;
+  }
+
+  public isInChannel(): boolean {
+    return this.isJoined && this.isSpeaker;
   }
 
   public setNativeMuteSignalling(enabled: boolean): void {
