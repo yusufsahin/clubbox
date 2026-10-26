@@ -871,7 +871,10 @@ export class ClubboxApp {
     if (!audioEngine.getIsMusicMode()) {
       const offer = window.confirm(t('externalOfferMusic'));
       if (offer) {
-        await audioEngine.toggleMusicMode();
+        await audioEngine.setMusicMode(true);
+        if (agoraVoice.getIsJoined() && agoraVoice.getIsSpeaker()) {
+          await agoraVoice.republish(true);
+        }
         this.showToast(t('musicHeadphones'), '🎧');
       }
     }
@@ -1542,14 +1545,7 @@ export class ClubboxApp {
         return;
       }
       if (action === 'set-audio-quality' && target instanceof HTMLSelectElement) {
-        const quality = target.value;
-        if (quality === 'music') {
-          if (!audioEngine.getIsMusicMode()) audioEngine.toggleMusicMode();
-        } else if (audioEngine.getIsMusicMode()) {
-          audioEngine.toggleMusicMode();
-        }
-        this.renderCockpit();
-        this.renderRoomDetails();
+        this.queueMusicMode(target.value === 'music');
         return;
       }
       if (action === 'toggle-ping-select' && target instanceof HTMLInputElement) {

@@ -7,7 +7,7 @@ import type {
 
 type AgoraSdk = typeof import('agora-rtc-sdk-ng').default;
 import { audioEngine } from './audioEngine';
-import { agoraPublishTracks } from './agoraPublishPlan';
+import { agoraExtrasProfile, agoraMicProfile, agoraPublishTracks, extrasNeedRepublish } from './agoraPublishPlan';
 import { extrasCaptureMode } from './audioSetupWizard';
 import { SYSTEM_AUDIO_DEVICE_ID } from './externalConstraints';
 import { clubhouseClient } from '../api/client';
@@ -32,6 +32,7 @@ export class AgoraVoiceEngine {
   /** Soundboard + VB-Cable / system audio (no mic). */
   private extrasAudioTrack: ILocalAudioTrack | null = null;
   private extrasDeviceId = '';
+  private extrasMusicMode = false;
   /** Only used when falling back to createCustomAudioTrack. */
   private publishedClone: MediaStreamTrack | null = null;
   private isJoined: boolean = false;
@@ -299,24 +300,24 @@ export class AgoraVoiceEngine {
     // is the SDK path native Clubhouse clients expect.
     audioEngine.stopMicrophone();
 
-    const encoderConfig = isMusicMode ? 'high_quality_stereo' : 'speech_standard';
+    const micProfile = agoraMicProfile(isMusicMode);
     const micId = audioEngine.getInputDeviceId() || undefined;
     try {
       this.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack({
         microphoneId: micId,
-        encoderConfig,
-        AEC: !isMusicMode,
-        ANS: !isMusicMode,
-        AGC: true,
+        encoderConfig: micProfile.encoderConfig,
+        AEC: micProfile.AEC,
+        ANS: micProfile.ANS,
+        AGC: micProfile.AGC,
       });
     } catch (firstErr) {
       if (!micId) throw firstErr;
       console.warn('[AgoraRTC] preferred mic failed — retrying default:', firstErr);
       this.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack({
-        encoderConfig,
-        AEC: !isMusicMode,
-        ANS: !isMusicMode,
-        AGC: true,
+        encoderConfig: micProfile.encoderConfig,
+        AEC: micProfile.AEC,
+        ANS: micProfile.ANS,
+        AGC: micProfile.AGC,
       });
     }
 
@@ -334,6 +335,9 @@ export class AgoraVoiceEngine {
       '[AgoraRTC] published createMicrophoneAudioTrack',
       `readyState=${media.readyState}`,
       `enabled=${media.enabled}`,
+      `music=${isMusicMode ? 'on' : 'off'}`,
+      `encoder=${micProfile.encoderConfig}`,
+      `AEC=${micProfile.AEC}`,
       `extras=${this.extrasAudioTrack ? 'yes' : 'no'}`,
     );
   }
@@ -347,22 +351,29 @@ export class AgoraVoiceEngine {
       await this.unpublishExtrasOnly();
       return;
     }
-    if (this.extrasAudioTrack && this.extrasDeviceId === deviceId) {
+    const isMusicMode = audioEngine.getIsMusicMode();
+    if (!extrasNeedRepublish({
+      haveTrack: !!this.extrasAudioTrack,
+      deviceId,
+      publishedDeviceId: this.extrasDeviceId,
+      musicMode: isMusicMode,
+      publishedMusicMode: this.extrasMusicMode,
+    })) {
       this.setExtrasSendVolume(audioEngine.getExternalMuted() ? 0 : audioEngine.getExternalVolume());
       return;
     }
     await this.unpublishExtrasOnly();
     const AgoraRTC = await this.loadSdk();
-    const isMusicMode = audioEngine.getIsMusicMode();
+    const extrasProfile = agoraExtrasProfile(isMusicMode);
     try {
       if (mode === 'agora-mic') {
         audioEngine.releaseExternal();
         this.extrasAudioTrack = await AgoraRTC.createMicrophoneAudioTrack({
           microphoneId: deviceId,
-          encoderConfig: isMusicMode ? 'high_quality_stereo' : 'music_standard',
-          AEC: false,
-          ANS: false,
-          AGC: false,
+          encoderConfig: extrasProfile.encoderConfig,
+          AEC: extrasProfile.AEC,
+          ANS: extrasProfile.ANS,
+          AGC: extrasProfile.AGC,
         });
         audioEngine.adoptExternalTrack(this.extrasAudioTrack.getMediaStreamTrack());
       } else {
@@ -372,13 +383,14 @@ export class AgoraVoiceEngine {
         if (!extras || extras.readyState !== 'live') return;
         this.extrasAudioTrack = AgoraRTC.createCustomAudioTrack({
           mediaStreamTrack: extras,
-          encoderConfig: isMusicMode ? 'high_quality_stereo' : 'music_standard',
+          encoderConfig: extrasProfile.encoderConfig,
         });
       }
       await this.client.publish([this.extrasAudioTrack]);
       this.extrasDeviceId = deviceId;
+      this.extrasMusicMode = isMusicMode;
       this.setExtrasSendVolume(audioEngine.getExternalMuted() ? 0 : audioEngine.getExternalVolume());
-      console.log('[AgoraRTC] published extras', mode, deviceId);
+      console.log('[AgoraRTC] published extras', mode, extrasProfile.encoderConfig, deviceId);
     } catch (err) {
       console.warn('[AgoraRTC] extras publish failed:', this.formatAgoraError(err));
       this.closeExtrasTrack();
@@ -429,6 +441,7 @@ export class AgoraVoiceEngine {
       this.extrasAudioTrack = null;
     }
     this.extrasDeviceId = '';
+    this.extrasMusicMode = false;
   }
 
   private async unpublishLocal(): Promise<void> {

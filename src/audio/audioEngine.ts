@@ -337,10 +337,19 @@ export class AudioEngine {
     return this.isMuted;
   }
 
-  public async toggleMusicMode(): Promise<boolean> {
-    this.isMusicMode = !this.isMusicMode;
-    await this.restartMicrophone();
+  public async setMusicMode(enabled: boolean): Promise<boolean> {
+    if (this.isMusicMode === enabled) return this.isMusicMode;
+    this.isMusicMode = enabled;
+    // Agora owns the live mic — republish applies the new encoder/AEC. A second
+    // getUserMedia here steals the device and leaves speech processing on the wire.
+    if (!this.micOwnedExternally) {
+      await this.restartMicrophone();
+    }
     return this.isMusicMode;
+  }
+
+  public async toggleMusicMode(): Promise<boolean> {
+    return this.setMusicMode(!this.isMusicMode);
   }
 
   public getIsMusicMode(): boolean {

@@ -160,6 +160,7 @@ export type ClubboxAppCtlMethods = {
   handleRecordingStateChange: typeof studioCtl.handleRecordingStateChange;
   toggleMute: typeof studioCtl.toggleMute;
   toggleMusicMode: typeof studioCtl.toggleMusicMode;
+  queueMusicMode: typeof studioCtl.queueMusicMode;
   applyMusicMode: typeof studioCtl.applyMusicMode;
   applyAudioPrefs: typeof studioCtl.applyAudioPrefs;
   saveAudioPrefs: typeof studioCtl.saveAudioPrefs;

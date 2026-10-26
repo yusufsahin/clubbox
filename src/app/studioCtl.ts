@@ -271,7 +271,18 @@ export function toggleMute(this: ClubboxApp) {
   }
 
 export function toggleMusicMode(this: ClubboxApp) : void {
-    this.musicModeChain = this.musicModeChain.then(() => this.applyMusicMode()).catch((err) => {
+    this.queueMusicMode(!audioEngine.getIsMusicMode());
+  }
+
+export function queueMusicMode(this: ClubboxApp, enabled: boolean): void {
+    this.musicModeChain = this.musicModeChain.then(async () => {
+      if (audioEngine.getIsMusicMode() === enabled) {
+        this.renderCockpit();
+        this.renderRoomDetails();
+        return;
+      }
+      await this.applyMusicMode();
+    }).catch((err) => {
       this.reportApiError(err);
     });
   }
@@ -429,6 +440,7 @@ export function wireStudioCtl(proto: ClubboxApp): void {
   proto.handleRecordingStateChange = handleRecordingStateChange;
   proto.toggleMute = toggleMute;
   proto.toggleMusicMode = toggleMusicMode;
+  proto.queueMusicMode = queueMusicMode;
   proto.applyMusicMode = applyMusicMode;
   proto.applyAudioPrefs = applyAudioPrefs;
   proto.saveAudioPrefs = saveAudioPrefs;
